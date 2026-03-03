@@ -91,6 +91,10 @@ $.Hero.prototype.update = function() {
 			var dx = $.vjoyRight.cx - $.vjoyRight.ox,
 				dy = $.vjoyRight.cy - $.vjoyRight.oy;
 			if( dx !== 0 || dy !== 0 ) {
+				// The user reported the joystick is vertically inverted. 
+				// The previous mapping in game.js was actually inverted, which made them BOTH appear inverted relative to the correct interaction model. 
+				// Now that game.js mappings are restored to true canvas y-is-down behavior, 
+				// this should also be regular canvas atan2 behavior (dy, dx).
 				this.direction = Math.atan2( dy, dx );
 			}
 		} else {
@@ -105,46 +109,48 @@ $.Hero.prototype.update = function() {
 		if( this.weapon.fireRateTick < this.weapon.fireRate ){
 			this.weapon.fireRateTick += $.dt;
 		} else {
-			$.audio.play( 'shoot' );
-			if( $.powerupTimers[ 2 ] > 0 || $.powerupTimers[ 3 ] > 0 || $.powerupTimers[ 4 ] > 0) {
-				$.audio.play( 'shootAlt' );
-			}
-
-			this.weapon.fireRateTick = this.weapon.fireRateTick - this.weapon.fireRate;
-			this.weapon.fireFlag = 6;
-
-			if( this.weapon.count > 1 ) {
-				var spreadStart = -this.weapon.spread / 2;
-				var spreadStep = this.weapon.spread / ( this.weapon.count - 1 );
-			} else {
-				var spreadStart = 0;
-				var spreadStep = 0;
-			}
-
-			var gunX = this.x + Math.cos( this.direction ) * ( this.radius + this.weapon.bullet.size );
-			var gunY = this.y + Math.sin( this.direction ) * ( this.radius + this.weapon.bullet.size );
-
-			for( var i = 0; i < this.weapon.count; i++ ) {
-				$.bulletsFired++;
-				var color = this.weapon.bullet.strokeStyle;
+			if ( $.vjoyLeft.active || $.mouse.down ) {
+				$.audio.play( 'shoot' );
 				if( $.powerupTimers[ 2 ] > 0 || $.powerupTimers[ 3 ] > 0 || $.powerupTimers[ 4 ] > 0) {
-					var colors = [];
-					if( $.powerupTimers[ 2 ] > 0 ) { colors.push( 'hsl(' + $.definitions.powerups[ 2 ].hue + ', ' + $.definitions.powerups[ 2 ].saturation + '%, ' + $.definitions.powerups[ 2 ].lightness + '%)' ); }
-					if( $.powerupTimers[ 3 ] > 0 ) { colors.push( 'hsl(' + $.definitions.powerups[ 3 ].hue + ', ' + $.definitions.powerups[ 3 ].saturation + '%, ' + $.definitions.powerups[ 3 ].lightness + '%)' ); }
-					if( $.powerupTimers[ 4 ] > 0 ) { colors.push( 'hsl(' + $.definitions.powerups[ 4 ].hue + ', ' + $.definitions.powerups[ 4 ].saturation + '%, ' + $.definitions.powerups[ 4 ].lightness + '%)' ); }
-					color = colors[ Math.floor( $.util.rand( 0, colors.length ) ) ];
+					$.audio.play( 'shootAlt' );
 				}
-				$.bullets.push( new $.Bullet( {					
-					x: gunX,
-					y: gunY,
-					speed: this.weapon.bullet.speed,
-					direction: this.direction + spreadStart + i * spreadStep,
-					damage: this.weapon.bullet.damage,
-					size: this.weapon.bullet.size,
-					lineWidth: this.weapon.bullet.lineWidth,
-					strokeStyle: color,
-					piercing: this.weapon.bullet.piercing					
-				} ) );
+
+				this.weapon.fireRateTick = this.weapon.fireRateTick - this.weapon.fireRate;
+				this.weapon.fireFlag = 6;
+
+				if( this.weapon.count > 1 ) {
+					var spreadStart = -this.weapon.spread / 2;
+					var spreadStep = this.weapon.spread / ( this.weapon.count - 1 );
+				} else {
+					var spreadStart = 0;
+					var spreadStep = 0;
+				}
+
+				var gunX = this.x + Math.cos( this.direction ) * ( this.radius + this.weapon.bullet.size );
+				var gunY = this.y + Math.sin( this.direction ) * ( this.radius + this.weapon.bullet.size );
+
+				for( var i = 0; i < this.weapon.count; i++ ) {
+					$.bulletsFired++;
+					var color = this.weapon.bullet.strokeStyle;
+					if( $.powerupTimers[ 2 ] > 0 || $.powerupTimers[ 3 ] > 0 || $.powerupTimers[ 4 ] > 0) {
+						var colors = [];
+						if( $.powerupTimers[ 2 ] > 0 ) { colors.push( 'hsl(' + $.definitions.powerups[ 2 ].hue + ', ' + $.definitions.powerups[ 2 ].saturation + '%, ' + $.definitions.powerups[ 2 ].lightness + '%)' ); }
+						if( $.powerupTimers[ 3 ] > 0 ) { colors.push( 'hsl(' + $.definitions.powerups[ 3 ].hue + ', ' + $.definitions.powerups[ 3 ].saturation + '%, ' + $.definitions.powerups[ 3 ].lightness + '%)' ); }
+						if( $.powerupTimers[ 4 ] > 0 ) { colors.push( 'hsl(' + $.definitions.powerups[ 4 ].hue + ', ' + $.definitions.powerups[ 4 ].saturation + '%, ' + $.definitions.powerups[ 4 ].lightness + '%)' ); }
+						color = colors[ Math.floor( $.util.rand( 0, colors.length ) ) ];
+					}
+					$.bullets.push( new $.Bullet( {					
+						x: gunX,
+						y: gunY,
+						speed: this.weapon.bullet.speed,
+						direction: this.direction + spreadStart + i * spreadStep,
+						damage: this.weapon.bullet.damage,
+						size: this.weapon.bullet.size,
+						lineWidth: this.weapon.bullet.lineWidth,
+						strokeStyle: color,
+						piercing: this.weapon.bullet.piercing					
+					} ) );
+				}
 			}
 		}
 

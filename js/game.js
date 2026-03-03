@@ -731,8 +731,8 @@ $.mousemovecb = function( e ) {
 			if (degree < 0) degree += 360;
 
 			if (dist > 10) {
-				$.keys.state.down = 200 <= degree && degree < 340 ? 1 : 0;
-				$.keys.state.up = 20 <= degree && degree < 160 ? 1 : 0;
+				$.keys.state.up = 200 <= degree && degree < 340 ? 1 : 0;
+				$.keys.state.down = 20 <= degree && degree < 160 ? 1 : 0;
 				$.keys.state.left = 110 <= degree && degree < 250 ? 1 : 0;
 				$.keys.state.right = (0 <= degree && degree < 70) || (290 <= degree && degree <= 360) ? 1 : 0;
 			} else {
