@@ -2,8 +2,7 @@
 Init
 ==============================================================================*/
 $.init = function() {
-	$.leftJoystick = document.getElementById( 'left-joystick' );
-	$.rightJoystick = document.getElementById( 'right-joystick' );
+
 
 	$.setupStorage();
 	$.wrap = document.getElementById( 'wrap' );
@@ -20,12 +19,12 @@ $.init = function() {
 	$.ctxbg4 = $.cbg4.getContext( '2d' );
 	$.ctxmg = $.cmg.getContext( '2d' );
 	$.ctxfg = $.cfg.getContext( '2d' );
-	$.cw = $.cmg.width = $.cfg.width = 800;
-	$.ch = $.cmg.height = $.cfg.height = 600;
+	$.cw = $.cmg.width = $.cfg.width = window.innerWidth;
+	$.ch = $.cmg.height = $.cfg.height = window.innerHeight;
 	$.wrap.style.width = $.wrapInner.style.width = $.cw + 'px';
 	$.wrap.style.height = $.wrapInner.style.height = $.ch + 'px';
-	$.wrap.style.marginLeft = ( -$.cw / 2 ) - 10 + 'px';
-	$.wrap.style.marginTop = ( -$.ch / 2 ) - 10 + 'px';
+	$.wrap.style.marginLeft = '0px';
+	$.wrap.style.marginTop = '0px';
 	$.ww = Math.floor( $.cw * 2 );
 	$.wh = Math.floor( $.ch * 2 );
 	$.cbg1.width = Math.floor( $.cw * 1.1 );
@@ -45,6 +44,25 @@ $.init = function() {
 	$.mute = $.storage['mute'];
 	$.autofire = $.storage['autofire'];
 	$.slowEnemyDivider = 3;
+
+	$.vjoyLeft = {
+		active: 0,
+		ox: 0,
+		oy: 0,
+		cx: 0,
+		cy: 0,
+		radius: 60,
+		id: null
+	};
+	$.vjoyRight = {
+		active: 0,
+		ox: 0,
+		oy: 0,
+		cx: 0,
+		cy: 0,
+		radius: 60,
+		id: null
+	};
 
 	$.keys = {
 		state: {
@@ -684,12 +702,65 @@ $.spawnEnemies = function() {
 Events
 ==============================================================================*/
 $.mousemovecb = function( e ) {
-  if (!$.mouse.left_joystick && !$.mouse.right_joystick) {
-    e.preventDefault();
-    $.mouse.ax = e.pageX;
-    $.mouse.ay = e.pageY;
-    $.mousescreen();
-  }
+	e.preventDefault();
+
+	var touches = e.changedTouches ? e.changedTouches : [e];
+
+	for( var i = 0; i < touches.length; i++ ) {
+		var tx = touches[i].pageX;
+		var ty = touches[i].pageY;
+		var tid = e.changedTouches ? touches[i].identifier : 0;
+
+		// Move Left Joystick (Movement)
+		if( $.vjoyLeft.active && $.vjoyLeft.id === tid ) {
+			var dx = tx - $.vjoyLeft.ox;
+			var dy = ty - $.vjoyLeft.oy;
+			var dist = Math.sqrt( dx * dx + dy * dy );
+			var angle = Math.atan2( dy, dx );
+
+			if( dist > $.vjoyLeft.radius ) {
+				$.vjoyLeft.cx = $.vjoyLeft.ox + Math.cos( angle ) * $.vjoyLeft.radius;
+				$.vjoyLeft.cy = $.vjoyLeft.oy + Math.sin( angle ) * $.vjoyLeft.radius;
+			} else {
+				$.vjoyLeft.cx = tx;
+				$.vjoyLeft.cy = ty;
+			}
+
+			// Update Keys for Movement
+			var degree = angle * 180 / Math.PI;
+			if (degree < 0) degree += 360;
+
+			if (dist > 10) {
+				$.keys.state.down = 200 <= degree && degree < 340 ? 1 : 0;
+				$.keys.state.up = 20 <= degree && degree < 160 ? 1 : 0;
+				$.keys.state.left = 110 <= degree && degree < 250 ? 1 : 0;
+				$.keys.state.right = (0 <= degree && degree < 70) || (290 <= degree && degree <= 360) ? 1 : 0;
+			} else {
+				$.keys.state.down = $.keys.state.up = $.keys.state.left = $.keys.state.right = 0;
+			}
+		}
+
+		// Move Right Joystick (Aiming)
+		if( $.vjoyRight.active && $.vjoyRight.id === tid ) {
+			var dx = tx - $.vjoyRight.ox;
+			var dy = ty - $.vjoyRight.oy;
+			var dist = Math.sqrt( dx * dx + dy * dy );
+			var angle = Math.atan2( dy, dx );
+
+			if( dist > $.vjoyRight.radius ) {
+				$.vjoyRight.cx = $.vjoyRight.ox + Math.cos( angle ) * $.vjoyRight.radius;
+				$.vjoyRight.cy = $.vjoyRight.oy + Math.sin( angle ) * $.vjoyRight.radius;
+			} else {
+				$.vjoyRight.cx = tx;
+				$.vjoyRight.cy = ty;
+			}
+		}
+
+		// Keep global mouse updated for aiming/UI
+		$.mouse.ax = tx;
+		$.mouse.ay = ty;
+		$.mousescreen();
+	}
 };
 
 $.mousescreen = function() {
@@ -700,17 +771,71 @@ $.mousescreen = function() {
 };
 
 $.mousedowncb = function( e ) {
-  if (!$.mouse.left_joystick && !$.mouse.right_joystick) {
-    e.preventDefault();
-    $.mouse.down = 1;
-  }
+	e.preventDefault();
+	$.mouse.down = 1;
+
+	var touches = e.changedTouches ? e.changedTouches : [e];
+
+	for( var i = 0; i < touches.length; i++ ) {
+		var tx = touches[i].pageX;
+		var ty = touches[i].pageY;
+		var tid = e.changedTouches ? touches[i].identifier : 0;
+
+		$.mouse.ax = tx;
+		$.mouse.ay = ty;
+		$.mousescreen();
+
+		// Check if touching UI Button
+		var buttonHovered = false;
+		for( var j = 0; j < $.buttons.length; j++ ) {
+			var b = $.buttons[j];
+			if( $.util.pointInRect( $.mouse.sx, $.mouse.sy, b.sx, b.sy, b.width, b.height ) ) {
+				buttonHovered = true;
+				break;
+			}
+		}
+
+		if( !buttonHovered ) {
+			if( tx < $.cw / 2 && !$.vjoyLeft.active ) {
+				$.vjoyLeft.active = 1;
+				$.vjoyLeft.ox = tx;
+				$.vjoyLeft.oy = ty;
+				$.vjoyLeft.cx = tx;
+				$.vjoyLeft.cy = ty;
+				$.vjoyLeft.id = tid;
+			} else if( tx >= $.cw / 2 && !$.vjoyRight.active ) {
+				$.vjoyRight.active = 1;
+				$.vjoyRight.ox = tx;
+				$.vjoyRight.oy = ty;
+				$.vjoyRight.cx = tx;
+				$.vjoyRight.cy = ty;
+				$.vjoyRight.id = tid;
+			}
+		}
+	}
 };
 
 $.mouseupcb = function( e ) {
-  if (!$.mouse.left_joystick && !$.mouse.right_joystick) {
-    e.preventDefault();
-    $.mouse.down = 0;
-  }
+	e.preventDefault();
+	$.mouse.down = 0;
+
+	var touches = e.changedTouches ? e.changedTouches : [{ identifier: 0 }];
+
+	for( var i = 0; i < touches.length; i++ ) {
+		var tid = e.changedTouches ? touches[i].identifier : 0;
+
+		if( $.vjoyLeft.active && $.vjoyLeft.id === tid ) {
+			$.vjoyLeft.active = 0;
+			$.keys.state.down = 0;
+			$.keys.state.up = 0;
+			$.keys.state.left = 0;
+			$.keys.state.right = 0;
+		}
+
+		if( $.vjoyRight.active && $.vjoyRight.id === tid ) {
+			$.vjoyRight.active = 0;
+		}
+	}
 };
 
 $.keydowncb = function( e ) {
@@ -752,52 +877,12 @@ $.blurcb = function() {
 }
 
 $.bindEvents = function() {
-  TouchCompat.init();
-  TouchCompat.joystick({
-    zone: $.leftJoystick,
-    position: { top: '50%', left: '50%' },
-    mode: 'static'
-  }).on('move', function (e, data) {
-    var angle = data.angle.degree;
-    $.keys.state.down = 200 <= angle && angle < 340;
-    $.keys.state.up = 20 <= angle && angle < 160;
-    $.keys.state.left = 110 <= angle && angle < 250;
-    $.keys.state.right = (0 <= angle && angle < 70) || (290 <= angle && angle <= 360);
-  }).on('start', function () {
-    $.mouse.left_joystick = 1;
-  }).on('end', function () {
-    $.mouse.left_joystick = 0;
-    $.keys.state.down = 0;
-    $.keys.state.up = 0;
-    $.keys.state.left = 0;
-    $.keys.state.right = 0;
-  })
-  TouchCompat.joystick({
-    zone: $.rightJoystick,
-    position: { top: '50%', left: '50%' },
-    mode: 'static'
-  }).on('move', function (e, data) {
-    var radius = 300;
-    var center = {
-        x: $.cOffset.left + $.cOffset.width/2,
-        y: $.cOffset.top + $.cOffset.height/2
-    };
-    var angle = data.angle.radian;
-    $.mouse.ax = center.x + radius * Math.cos(angle);
-    $.mouse.ay = center.y - radius * Math.sin(angle);
-    $.mousescreen();
-    $.mouse.down = 1;
-  }).on('start', function () {
-    $.mouse.down = 0;
-    $.mouse.right_joystick = 1;
-  }).on('end', function () {
-    $.mouse.down = 0;
-    $.mouse.right_joystick = 0;
-  });
-
-	window.addEventListener( 'mousemove', $.mousemovecb );
-	window.addEventListener( 'mousedown', $.mousedowncb );
-	window.addEventListener( 'mouseup', $.mouseupcb );
+	window.addEventListener( 'mousemove', $.mousemovecb, { passive: false } );
+	window.addEventListener( 'mousedown', $.mousedowncb, { passive: false } );
+	window.addEventListener( 'mouseup', $.mouseupcb, { passive: false } );
+	window.addEventListener( 'touchstart', $.mousedowncb, { passive: false } );
+	window.addEventListener( 'touchmove', $.mousemovecb, { passive: false } );
+	window.addEventListener( 'touchend', $.mouseupcb, { passive: false } );
 	window.addEventListener( 'keydown', $.keydowncb );
 	window.addEventListener( 'keyup', $.keyupcb );
 	window.addEventListener( 'resize', $.resizecb );
@@ -1194,7 +1279,7 @@ $.setState = function( state ) {
 
 $.setupStates = function() {
 	$.states['menu'] = function() {
-		$.leftJoystick.style.visibility = $.rightJoystick.style.visibility = 'hidden';
+
 
 		$.clearScreen();
 		$.updateScreen();
@@ -1242,7 +1327,7 @@ $.setupStates = function() {
 	};
 
 	$.states['stats'] = function() {
-		$.leftJoystick.style.visibility = $.rightJoystick.style.visibility = 'hidden';
+
 
 		$.clearScreen();
 
@@ -1313,7 +1398,7 @@ $.setupStates = function() {
 	};
 
 	$.states['credits'] = function() {
-		$.leftJoystick.style.visibility = $.rightJoystick.style.visibility = 'hidden';
+
 
 		$.clearScreen();
 
@@ -1376,8 +1461,6 @@ $.setupStates = function() {
 	};
 
 	$.states['play'] = function() {
-		$.leftJoystick.style.visibility = $.rightJoystick.style.visibility = TouchCompat.supported ? 'visible' : 'hidden';
-
 		$.updateDelta();
 		$.updateScreen();
 		$.updateLevel();
@@ -1408,6 +1491,38 @@ $.setupStates = function() {
 		$.hero.render();
 		$.ctxmg.restore();
 		i = $.levelPops.length; while( i-- ){ $.levelPops[ i ].render( i ) }
+
+		// render virtual joystick left (movement)
+		if( $.vjoyLeft.active ) {
+			$.ctxmg.beginPath();
+			$.ctxmg.arc( $.vjoyLeft.ox, $.vjoyLeft.oy, $.vjoyLeft.radius, 0, Math.PI * 2 );
+			$.ctxmg.fillStyle = 'rgba(255, 255, 255, 0.15)';
+			$.ctxmg.fill();
+			$.ctxmg.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+			$.ctxmg.lineWidth = 2;
+			$.ctxmg.stroke();
+
+			$.ctxmg.beginPath();
+			$.ctxmg.arc( $.vjoyLeft.cx, $.vjoyLeft.cy, 20, 0, Math.PI * 2 );
+			$.ctxmg.fillStyle = 'rgba(255, 255, 255, 0.5)';
+			$.ctxmg.fill();
+		}
+
+		// render virtual joystick right (aiming)
+		if( $.vjoyRight.active ) {
+			$.ctxmg.beginPath();
+			$.ctxmg.arc( $.vjoyRight.ox, $.vjoyRight.oy, $.vjoyRight.radius, 0, Math.PI * 2 );
+			$.ctxmg.fillStyle = 'rgba(255, 255, 255, 0.15)';
+			$.ctxmg.fill();
+			$.ctxmg.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+			$.ctxmg.lineWidth = 2;
+			$.ctxmg.stroke();
+
+			$.ctxmg.beginPath();
+			$.ctxmg.arc( $.vjoyRight.cx, $.vjoyRight.cy, 20, 0, Math.PI * 2 );
+			$.ctxmg.fillStyle = 'rgba(255, 255, 255, 0.5)';
+			$.ctxmg.fill();
+		}
 		$.renderInterface();
 		$.renderMinimap();
 
@@ -1470,7 +1585,7 @@ $.setupStates = function() {
 	};
 
 	$.states['pause'] = function() {
-		$.leftJoystick.style.visibility = $.rightJoystick.style.visibility = 'hidden';
+
 
 		$.clearScreen();
 		$.ctxmg.putImageData( $.screenshot, 0, 0 );
@@ -1507,7 +1622,7 @@ $.setupStates = function() {
 	};
 
 	$.states['gameover'] = function() {
-		$.leftJoystick.style.visibility = $.rightJoystick.style.visibility = 'hidden';
+
 
 		$.clearScreen();
 		$.ctxmg.putImageData( $.screenshot, 0, 0 );

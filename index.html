@@ -20,12 +20,13 @@
 			#wrap {
 				background: #222;
 				box-shadow: inset 0 0 0 1px #404040, 0 0 0 1px #000;
-				left: 50%;
+				left: 0;
 				opacity: 0;
-				padding: 10px;
 				position: absolute;
-				top: 50%;
+				top: 0;
 				transition: opacity 1.5s;
+				width: 100%;
+				height: 100%;
 			}
 
 			.loaded #wrap {
@@ -36,6 +37,8 @@
 				background: #000;
 				overflow: hidden;
 				position: relative;
+				width: 100%;
+				height: 100%;
 			}
 
 			canvas {
@@ -45,26 +48,9 @@
 				position: absolute;
 				top: 0;
 			}
-
-			.joystick {
-				width: 120px;
-				height: 120px;
-				position: absolute;
-				top: calc(60% - 60px);
-			}
-
-			#left-joystick.joystick {
-				left: 90px;
-			}
-
-			#right-joystick.joystick {
-				right: 90px;
-			}
 		</style>
 	</head>
 	<body>
-		<div id="left-joystick" class="joystick"></div>
-		<div id="right-joystick" class="joystick"></div>
 		<div id="wrap">
 			<div id="wrap-inner">
 				<canvas id="cbg1"></canvas>
