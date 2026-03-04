@@ -84,10 +84,10 @@ $.definitions.audio = {
 Enemies
 ==============================================================================*/
 $.definitions.enemies = [	
-	{ // Enemy 0 - horizontal / vertical	
+	{ // Enemy 0 - horizontal / vertical
 		value: 5,
-		speed: 1.5,
-		life: 1,
+		speed: 2.2,
+		life: 2,
 		radius: 15,
 		hue: 180,
 		lockBounds: 1,
@@ -112,10 +112,10 @@ $.definitions.enemies = [
 			this.vy = Math.sin( this.direction ) * speed;
 		}
 	},	
-	{ // Enemy 1 - diagonal	
+	{ // Enemy 1 - diagonal
 		value: 10,
-		speed: 1.5,
-		life: 2,
+		speed: 2.2,
+		life: 3,
 		radius: 15,
 		hue: 120,
 		lockBounds: 1,
@@ -143,8 +143,8 @@ $.definitions.enemies = [
 	},
 	{ // Enemy 2 - move directly hero
 		value: 15,
-		speed: 1.5,
-		life: 2,
+		speed: 2.5,
+		life: 3,
 		radius: 20,
 		hue: 330,
 		behavior: function() {
@@ -162,8 +162,8 @@ $.definitions.enemies = [
 	},
 	{ // Enemy 3 - splitter
 		value: 20,
-		speed: 0.5,
-		life: 3,
+		speed: 0.9,
+		life: 5,
 		radius: 50,
 		hue: 210,
 		canSpawn: 1,
@@ -206,8 +206,8 @@ $.definitions.enemies = [
 	},
 	{ // Enemy 4 - wanderer
 		value: 25,
-		speed: 2,
-		life: 4,
+		speed: 3,
+		life: 6,
 		radius: 20,
 		hue: 30,
 		lockBounds: 1,
@@ -235,8 +235,8 @@ $.definitions.enemies = [
 	},
 	{ // Enemy 5 - stealth, hard to see - move directly hero
 		value: 30,
-		speed: 1,
-		life: 3,
+		speed: 2,
+		life: 5,
 		radius: 20,
 		hue: 0,
 		saturation: 0,
@@ -256,8 +256,8 @@ $.definitions.enemies = [
 	},
 	{ // Enemy 6 - big strong slow fatty
 		value: 35,
-		speed: 0.25,
-		life: 8,
+		speed: 0.5,
+		life: 14,
 		radius: 80,
 		hue: 150,
 		behavior: function() {
@@ -275,8 +275,8 @@ $.definitions.enemies = [
 	},
 	{ // Enemy 7 - small weak speedy
 		value: 40,
-		speed: 2.5,
-		life: 1,
+		speed: 4,
+		life: 2,
 		radius: 15,
 		hue: 300,
 		behavior: function() {
@@ -295,9 +295,9 @@ $.definitions.enemies = [
 	},
 	{ // Enemy 8 - strong grower, move to hero
 		value: 45,
-		speed: 1.5,
-		growth: 0.1,
-		life: 6,
+		speed: 2.2,
+		growth: 0.18,
+		life: 9,
 		radius: 20,
 		hue: 0,
 		saturation: 0,
@@ -332,9 +332,9 @@ $.definitions.enemies = [
 	},
 	{ // Enemy 9 - circle around hero
 		value: 50,
-		speed: 0.5,
-		angleSpeed: 0.015,
-		life: 2,
+		speed: 1.0,
+		angleSpeed: 0.025,
+		life: 3,
 		radius: 20,
 		hue: 60,
 		setup: function() {
@@ -363,13 +363,13 @@ $.definitions.enemies = [
 	},
 	{ // Enemy 10 - spawner
 		value: 55,
-		speed: 1,
-		life: 3,
+		speed: 1.8,
+		life: 5,
 		radius: 45,
 		hue: 0,
 		canSpawn: 1,
 		spawnTick: 0,
-		spawnMax: 250,
+		spawnMax: 160,
 		behavior: function() {
 			var speed = this.speed;
 			if( $.slow ) {
@@ -403,8 +403,8 @@ $.definitions.enemies = [
 	},
 	{ // Enemy 11 - random location strong tower
 		value: 60,
-		speed: 1.5,
-		life: 10,
+		speed: 2.2,
+		life: 16,
 		radius: 30,
 		hue: 90,		
 		setup: function(){
@@ -430,14 +430,14 @@ $.definitions.enemies = [
 	},
 	{ // Enemy 12 - speedy random direction, no homing
 		value: 65,
-		speed: 6,
-		life: 1,
+		speed: 8,
+		life: 2,
 		radius: 5,
 		hue: 0,
 		lockBounds: 1,
 		setup: function() {
 			this.radius = $.util.rand( 15, 35 );
-			this.speed = $.util.rand( 3, 8 );
+			this.speed = $.util.rand( 5, 11 );
 			if( Math.random() > 0.5 ){
 				if( this.start == 'top' ){
 					this.direction = $.pi / 2;
@@ -480,7 +480,7 @@ $.definitions.enemies = [
 Levels
 ==============================================================================*/
 $.definitions.levels = [];
-var base = 25;
+var base = 17;
 for( var i = 0; i < $.definitions.enemies.length; i++ ){
 	var distribution = [];
 	for( var di = 0; di < i + 1; di++ ) {
@@ -489,7 +489,7 @@ for( var i = 0; i < $.definitions.enemies.length; i++ ){
 		distribution.push( value );
 	}
 	$.definitions.levels.push( {
-		killsToLevel: 10 + ( i + 1 ) * 7,
+		killsToLevel: 8 + ( i + 1 ) * 5,
 		distribution: distribution
 	} );
 }

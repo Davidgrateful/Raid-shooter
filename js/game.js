@@ -690,7 +690,7 @@ $.spawnEnemies = function() {
 	for( var i = 0; i < $.level.distributionCount; i++ ) {
 		var timeCheck = $.level.distribution[ i ];
 		if( $.levelDiffOffset > 0 ){
-			timeCheck = Math.max( 1, timeCheck - ( $.levelDiffOffset * 2) );
+			timeCheck = Math.max( 1, timeCheck - ( $.levelDiffOffset * 3) );
 		}
 		if( floorTick % timeCheck === 0 ) {
 			$.enemies.push( $.spawnEnemy( i ) );
@@ -1064,7 +1064,7 @@ $.updatePowerupTimers = function() {
 };
 
 $.spawnPowerup = function( x, y ) {
-	if( Math.random() < 0.1 ) {
+	if( Math.random() < 0.065 ) {
 		var min = ( $.hero.life < 0.9 ) ? 0 : 1,
 			type = Math.floor( $.util.rand( min, $.definitions.powerups.length ) ),
 			params = $.definitions.powerups[ type ];

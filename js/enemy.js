@@ -28,9 +28,9 @@ $.Enemy = function( opt ) {
 	Adjust Level Offset Difficulties
 	==============================================================================*/
 	if( $.levelDiffOffset > 0 ){
-		this.life += $.levelDiffOffset * 0.25;
+		this.life += $.levelDiffOffset * 0.6;
 		this.lifeMax = this.life;
-		this.speed += Math.min( $.hero.vmax, $.levelDiffOffset * 0.25 );
+		this.speed += Math.min( $.hero.vmax, $.levelDiffOffset * 0.5 );
 		this.value += $.levelDiffOffset * 5;
 	}
 };
