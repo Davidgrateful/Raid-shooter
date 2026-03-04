@@ -1,8 +1,8 @@
-# Raid-shooter #
+# Onyix Raider #
 
  <img width="200px" src="received_661686108319509.jpeg" align="center" alt="Elisha David" />
 
-Raid Shooter is a space themed shoot 'em up where you must blast away unrelenting enemies before they destroy you. The game features 13 enemy types, 5 powerups, parallax backgrounds, retro sound effects, and locally stored stats.
+Onyix Raider is a space themed shoot 'em up where you must blast away unrelenting enemies before they destroy you. The game features 13 enemy types, 5 powerups, parallax backgrounds, retro sound effects, and locally stored stats.
 
 **Final Size:** 13,278 bytes
 

@@ -12,7 +12,7 @@ export const viewport: Viewport = {
 export async function generateMetadata(): Promise<Metadata> {
   const URL = process.env.NEXT_PUBLIC_URL;
   return {
-    title: "Raid Shooter",
+    title: "Onyix Raider",
     description:
       "A fast-paced space shooter game with retro graphics and enemy waves - Built with MiniKit for Farcaster",
     other: {
@@ -20,10 +20,10 @@ export async function generateMetadata(): Promise<Metadata> {
         version: "next",
         imageUrl: process.env.NEXT_PUBLIC_APP_HERO_IMAGE,
         button: {
-          title: "Launch Raid Shooter",
+          title: "Launch Onyix Raider",
           action: {
             type: "launch_frame",
-            name: "Raid Shooter",
+            name: "Onyix Raider",
             url: URL,
             splashImageUrl: process.env.NEXT_PUBLIC_SPLASH_IMAGE,
             splashBackgroundColor: "#000000",

@@ -559,7 +559,7 @@ export default function RaidShooterGame({
   if (gameState === 'menu') {
     return (
       <div className="flex flex-col items-center justify-center h-screen bg-black text-white">
-        <h1 className="text-4xl font-bold mb-4">RAID SHOOTER</h1>
+        <h1 className="text-4xl font-bold mb-4">ONYIX RAIDER</h1>
         <p className="text-lg mb-8">Survive the enemy waves!</p>
         <div className="text-center space-y-2">
           <p>Best Score: {gameStats.bestScore.toLocaleString()}</p>

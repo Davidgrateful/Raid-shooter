@@ -72,7 +72,7 @@ export default function App() {
     if (frameAdded) {
       setFrameAdded(true);
       await sendNotification({
-        title: 'Raid Shooter Added! 🚀',
+        title: 'Onyix Raider Added! 🚀',
         body: 'You can now play anytime from your saved frames!'
       });
     }
