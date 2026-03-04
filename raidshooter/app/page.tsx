@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import RaidShooterGame from "./components/RaidShooterGame";
 
 export default function App() {
@@ -13,9 +13,19 @@ export default function App() {
     bestScore: 0,
   });
 
+  // Load best score from localStorage on mount
+  useEffect(() => {
+    const saved = parseInt(localStorage.getItem('onyix_best') ?? '0', 10);
+    if (saved > 0) setGameStats(prev => ({ ...prev, bestScore: saved }));
+  }, []);
+
   const handleGameOver = useCallback((finalStats: typeof gameStats) => {
     setGameState('gameover');
-    setGameStats(finalStats);
+    setGameStats(prev => {
+      const best = Math.max(prev.bestScore, finalStats.score);
+      localStorage.setItem('onyix_best', String(best));
+      return { ...finalStats, bestScore: best };
+    });
   }, []);
 
   return (

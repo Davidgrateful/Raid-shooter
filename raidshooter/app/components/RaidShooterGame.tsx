@@ -1,9 +1,11 @@
 'use client';
 
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import useAudio from '../hooks/useAudio';
 import useVirtualControls from '../hooks/useVirtualControls';
 import VirtualJoystick from './VirtualJoystick';
+
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 interface GameStats {
   score: number;
@@ -21,553 +23,847 @@ interface RaidShooterGameProps {
   onGameOver: (finalStats: GameStats) => void;
 }
 
-interface Entity {
+interface Hero {
+  x: number; y: number; vx: number; vy: number;
+  radius: number; life: number; direction: number;
+  damageFlash: number;
+}
+
+interface Enemy {
   id: string;
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  radius: number;
-  color: string;
+  x: number; y: number; vx: number; vy: number;
+  radius: number; type: number; hp: number; maxHp: number;
+  value: number; hue: number; sat: number; lit: number;
+  hitFlash: number;
+  angle?: number; orbitDist?: number; orbitDir?: number;
+  targetX?: number; targetY?: number; reached?: boolean;
+  spawnTimer?: number; sinePhase?: number; wanderAngle?: number;
 }
 
-interface Hero extends Entity {
-  life: number;
-  direction: number;
+interface Bullet {
+  id: string;
+  x: number; y: number; vx: number; vy: number;
+  radius: number; damage: number; pierced: number;
 }
 
-interface Enemy extends Entity {
-  value: number;
-  hue: number;
+interface Powerup {
+  id: string; x: number; y: number; type: number; radius: number; age: number;
 }
 
-interface Bullet extends Entity {
-  damage: number;
+interface Particle {
+  id: string;
+  x: number; y: number; vx: number; vy: number;
+  radius: number; hue: number; alpha: number;
 }
+
+interface Floater {
+  id: string; x: number; y: number; text: string; age: number; color: string;
+}
+
+interface ActivePowerup { type: number; expiresAt: number; }
+
+interface GS {
+  hero: Hero;
+  enemies: Enemy[];
+  bullets: Bullet[];
+  particles: Particle[];
+  powerups: Powerup[];
+  floaters: Floater[];
+  activePowerups: ActivePowerup[];
+  gameTime: number;
+  lastFire: number;
+  lastEnemySpawn: number;
+  lastLevel: number;
+  screenShake: number;
+  score: number;
+  kills: number;
+  level: number;
+}
+
+// ── Definitions ───────────────────────────────────────────────────────────────
+
+const ENEMY_DEFS = [
+  { speed: 1.5, hp: 1,  radius: 15, hue: 180, sat: 100, lit: 50,  value: 5  }, // 0 cardinal
+  { speed: 1.5, hp: 2,  radius: 15, hue: 120, sat: 100, lit: 50,  value: 10 }, // 1 diagonal
+  { speed: 1.5, hp: 2,  radius: 20, hue: 330, sat: 100, lit: 50,  value: 15 }, // 2 chaser
+  { speed: 0.5, hp: 3,  radius: 50, hue: 210, sat: 100, lit: 50,  value: 20 }, // 3 splitter
+  { speed: 2.0, hp: 4,  radius: 20, hue: 30,  sat: 100, lit: 50,  value: 25 }, // 4 wanderer
+  { speed: 1.0, hp: 3,  radius: 20, hue: 0,   sat: 0,   lit: 30,  value: 30 }, // 5 stealth
+  { speed: 0.25,hp: 8,  radius: 80, hue: 150, sat: 100, lit: 50,  value: 35 }, // 6 tank
+  { speed: 2.5, hp: 1,  radius: 15, hue: 300, sat: 100, lit: 50,  value: 40 }, // 7 speedster
+  { speed: 1.5, hp: 6,  radius: 20, hue: 0,   sat: 100, lit: 100, value: 45 }, // 8 grower
+  { speed: 0.5, hp: 2,  radius: 20, hue: 60,  sat: 100, lit: 50,  value: 50 }, // 9 orbiter
+  { speed: 1.0, hp: 3,  radius: 45, hue: 0,   sat: 100, lit: 50,  value: 55 }, // 10 spawner
+  { speed: 1.5, hp: 10, radius: 30, hue: 90,  sat: 100, lit: 50,  value: 60 }, // 11 tower
+  { speed: 0,   hp: 1,  radius: 0,  hue: 0,   sat: 100, lit: 60,  value: 65 }, // 12 chaos
+];
+
+// kills needed to enter each level (index = level-1, so index 0 = reach level 2)
+const LEVEL_KILLS = [17, 24, 31, 38, 45, 52, 59, 66, 73, 80, 87, 94, 101];
+
+const POWERUP_COLORS = ['#ffffff', '#aaddff', '#88ff44', '#44ddff', '#ff5566'];
+const POWERUP_NAMES  = ['HEALTH', 'SLOW', 'FAST SHOT', 'TRIPLE', 'PIERCE'];
+const POWERUP_DUR    = 7000; // ms for timed powerups
+
+const CW = 400, CH = 600;
+const HERO_SPEED = 4;
+const BULLET_SPEED = 8;
+const BASE_FIRE_RATE = 200;
+const FAST_FIRE_RATE = 80;
+
+// ── Pure helpers ──────────────────────────────────────────────────────────────
+
+const uid = () => Math.random().toString(36).substr(2, 9);
+
+const dist2d = (ax: number, ay: number, bx: number, by: number) => {
+  const dx = ax - bx, dy = ay - by;
+  return Math.sqrt(dx * dx + dy * dy);
+};
+
+const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
+
+function getLevelFromKills(kills: number): number {
+  for (let i = 0; i < LEVEL_KILLS.length; i++) {
+    if (kills < LEVEL_KILLS[i]) return i + 1;
+  }
+  return 13;
+}
+
+function pickEnemyType(level: number): number {
+  const maxType = Math.min(level - 1, 12);
+  // Higher-index types have lower spawn weight
+  const weights = Array.from({ length: maxType + 1 }, (_, i) =>
+    i === maxType ? Math.floor((maxType + 1) * 25 * 0.75) : (maxType + 1) * 25
+  );
+  const total = weights.reduce((a, b) => a + b, 0);
+  let r = Math.random() * total;
+  for (let i = 0; i < weights.length; i++) {
+    r -= weights[i];
+    if (r <= 0) return i;
+  }
+  return maxType;
+}
+
+function spawnEnemy(type: number, heroX: number, heroY: number): Enemy {
+  const def = ENEMY_DEFS[type];
+  const side = Math.floor(Math.random() * 4);
+  let x = 0, y = 0;
+  switch (side) {
+    case 0: x = Math.random() * CW; y = -def.radius - 5; break;
+    case 1: x = CW + def.radius + 5; y = Math.random() * CH; break;
+    case 2: x = Math.random() * CW; y = CH + def.radius + 5; break;
+    default: x = -def.radius - 5; y = Math.random() * CH; break;
+  }
+
+  let vx = 0, vy = 0;
+  let speed = def.speed;
+  let radius = def.radius;
+  let hue = def.hue;
+
+  if (type === 0) {
+    // Cardinal: move inward from whichever edge
+    switch (side) {
+      case 0: vy = speed; break;
+      case 1: vx = -speed; break;
+      case 2: vy = -speed; break;
+      default: vx = speed; break;
+    }
+  } else if (type === 1) {
+    // Diagonal
+    const sx = (side === 1 || side === 2) ? -1 : 1;
+    const sy = (side === 2 || side === 3) ? -1 : 1;
+    vx = sx * speed * 0.707;
+    vy = sy * speed * 0.707;
+  } else if (type === 12) {
+    // Chaos: random speed, size, hue, direction
+    speed = 3 + Math.random() * 5;
+    radius = 15 + Math.floor(Math.random() * 21);
+    hue = Math.random() * 360;
+    if (Math.random() < 0.5) {
+      vx = (Math.random() < 0.5 ? 1 : -1) * speed * 0.707;
+      vy = (Math.random() < 0.5 ? 1 : -1) * speed * 0.707;
+    } else {
+      const c = Math.floor(Math.random() * 4);
+      vx = [0, speed, 0, -speed][c];
+      vy = [speed, 0, -speed, 0][c];
+    }
+  }
+
+  const e: Enemy = {
+    id: uid(), x, y, vx, vy, radius,
+    type, hp: def.hp, maxHp: def.hp,
+    value: def.value, hue, sat: def.sat, lit: def.lit,
+    hitFlash: 0,
+  };
+
+  // Type-specific init
+  if (type === 9) {
+    e.angle = Math.atan2(y - heroY, x - heroX);
+    e.orbitDist = 80 + Math.random() * 60;
+    e.orbitDir = Math.random() < 0.5 ? 1 : -1;
+  } else if (type === 11) {
+    e.targetX = 30 + Math.random() * (CW - 60);
+    e.targetY = 30 + Math.random() * (CH - 60);
+    e.reached = false;
+  } else if (type === 7) {
+    e.sinePhase = Math.random() * Math.PI * 2;
+  } else if (type === 4) {
+    e.wanderAngle = Math.random() * Math.PI * 2;
+  } else if (type === 10) {
+    e.spawnTimer = 0;
+    e.sinePhase = Math.random() * Math.PI * 2;
+  }
+
+  return e;
+}
+
+function stepEnemy(e: Enemy, heroX: number, heroY: number, slow: boolean): Enemy {
+  const def = ENEMY_DEFS[e.type];
+  const sf = slow ? 0.3 : 1;
+  const dx = heroX - e.x, dy = heroY - e.y;
+  const d = Math.sqrt(dx * dx + dy * dy) || 1;
+  const nx = dx / d, ny = dy / d;
+
+  const n: Enemy = { ...e };
+  n.hitFlash = Math.max(0, e.hitFlash - 1);
+
+  switch (e.type) {
+    case 0:
+    case 1:
+    case 12:
+      n.x += e.vx * sf;
+      n.y += e.vy * sf;
+      if (e.type === 12) n.hue = (e.hue + 3) % 360;
+      break;
+
+    case 2:
+    case 3:
+    case 5:
+    case 6: {
+      const s = def.speed * sf;
+      n.vx = nx * s; n.vy = ny * s;
+      n.x += n.vx; n.y += n.vy;
+      break;
+    }
+
+    case 4: {
+      let wa = e.wanderAngle ?? 0;
+      wa += (Math.random() - 0.5) * 0.3;
+      n.wanderAngle = wa;
+      const s = def.speed * sf;
+      n.vx = Math.cos(wa) * s; n.vy = Math.sin(wa) * s;
+      n.x += n.vx; n.y += n.vy;
+      break;
+    }
+
+    case 7: {
+      const phase = (e.sinePhase ?? 0) + 0.15;
+      const perp = Math.sin(phase) * 2.5 * sf;
+      const s = def.speed * sf;
+      n.vx = nx * s + (-ny) * perp;
+      n.vy = ny * s + nx * perp;
+      n.x += n.vx; n.y += n.vy;
+      n.sinePhase = phase;
+      break;
+    }
+
+    case 8: {
+      const s = def.speed * sf;
+      n.vx = nx * s; n.vy = ny * s;
+      n.x += n.vx; n.y += n.vy;
+      if (d < 200) {
+        n.radius = Math.min(60, e.radius + 0.3);
+        n.hue = (e.hue + 10) % 360;
+        n.lit = 60;
+      }
+      break;
+    }
+
+    case 9: {
+      const angle = (e.angle ?? 0) + (e.orbitDir ?? 1) * 0.025 * sf;
+      const od = Math.max(30, (e.orbitDist ?? 100) - 0.1);
+      n.x = heroX + Math.cos(angle) * od;
+      n.y = heroY + Math.sin(angle) * od;
+      n.vx = n.x - e.x; n.vy = n.y - e.y;
+      n.angle = angle; n.orbitDist = od;
+      break;
+    }
+
+    case 10: {
+      const phase = (e.sinePhase ?? 0) + 0.1;
+      const perp = Math.sin(phase) * 1.5 * sf;
+      const s = def.speed * sf;
+      n.vx = nx * s + (-ny) * perp;
+      n.vy = ny * s + nx * perp;
+      n.x += n.vx; n.y += n.vy;
+      n.sinePhase = phase;
+      n.spawnTimer = (e.spawnTimer ?? 0) + 1;
+      break;
+    }
+
+    case 11: {
+      if (!e.reached) {
+        const tx = e.targetX ?? CW / 2, ty = e.targetY ?? CH / 2;
+        const tdx = tx - e.x, tdy = ty - e.y;
+        const td = Math.sqrt(tdx * tdx + tdy * tdy) || 1;
+        const s = def.speed * sf;
+        if (td < s + 2) {
+          n.x = tx; n.y = ty; n.reached = true; n.vx = 0; n.vy = 0;
+        } else {
+          n.vx = (tdx / td) * s; n.vy = (tdy / td) * s;
+          n.x += n.vx; n.y += n.vy;
+        }
+      }
+      break;
+    }
+  }
+
+  return n;
+}
+
+// ── Initial state ─────────────────────────────────────────────────────────────
+
+function makeGS(): GS {
+  return {
+    hero: { x: CW / 2, y: CH / 2, vx: 0, vy: 0, radius: 12, life: 1, direction: 0, damageFlash: 0 },
+    enemies: [], bullets: [], particles: [], powerups: [], floaters: [],
+    activePowerups: [],
+    gameTime: 0, lastFire: 0, lastEnemySpawn: 0, lastLevel: 1,
+    screenShake: 0, score: 0, kills: 0, level: 1,
+  };
+}
+
+// ── Component ─────────────────────────────────────────────────────────────────
 
 export default function RaidShooterGame({
-  gameState,
-  gameStats,
+  gameState, gameStats,
   onGameStateChange: _onGameStateChange,
-  onStatsUpdate,
-  onGameOver,
+  onStatsUpdate, onGameOver,
 }: RaidShooterGameProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const animationFrameRef = useRef<number>();
-  const lastTimeRef = useRef<number>(0);
-  const mouseRef = useRef({ x: 0, y: 0, down: false });
-  const keysRef = useRef({
-    w: false, a: false, s: false, d: false,
-    up: false, left: false, down: false, right: false,
-    m: false
-  });
+  const canvasRef     = useRef<HTMLCanvasElement>(null);
+  const animRef       = useRef<number>();
+  const lastTimeRef   = useRef<number>(0);
+  const mouseRef      = useRef({ x: 0, y: 0, down: false });
+  const keysRef       = useRef({ w: false, a: false, s: false, d: false, up: false, left: false, down: false, right: false });
+  const gsRef         = useRef<GS>(makeGS());
+  const gameStateRef  = useRef(gameState);
+  const doneRef       = useRef(false); // game-over guard
+  const bestRef       = useRef(gameStats.bestScore);
+  const isMutedRef    = useRef(false);
 
-  // Audio system
-  const { playSound, toggleMute, isMuted } = useAudio();
+  const { playSound, toggleMute, isMuted }                                        = useAudio();
+  const { isTouchDevice, showControls, getControlsState, toggleControls, leftZoneRef, rightZoneRef } = useVirtualControls(canvasRef);
 
-  // Virtual controls for touch devices
-  const { 
-    isTouchDevice, 
-    showControls, 
-    getControlsState, 
-    toggleControls, 
-    leftZoneRef,
-    rightZoneRef
-  } = useVirtualControls(canvasRef);
+  // Sync refs
+  useEffect(() => { isMutedRef.current = isMuted; }, [isMuted]);
+  useEffect(() => { bestRef.current = gameStats.bestScore; }, [gameStats.bestScore]);
 
-  // Game entities
-  const [hero, setHero] = useState<Hero>({
-    id: 'hero',
-    x: 200,
-    y: 200,
-    vx: 0,
-    vy: 0,
-    radius: 10,
-    color: '#ffffff',
-    life: 1,
-    direction: 0,
-  });
-  
-  const [enemies, setEnemies] = useState<Enemy[]>([]);
-  const [bullets, setBullets] = useState<Bullet[]>([]);
-  const [particles, setParticles] = useState<Entity[]>([]);
+  // Reset game state when entering play
+  useEffect(() => {
+    gameStateRef.current = gameState;
+    if (gameState === 'play') {
+      gsRef.current = makeGS();
+      lastTimeRef.current = 0;
+      doneRef.current = false;
+    }
+  }, [gameState]);
 
-  // Game configuration
-  const config = {
-    canvas: { width: 400, height: 600 },
-    hero: { speed: 4, fireRate: 200 },
-    enemy: { spawnRate: 1000, speed: 2 },
-    bullet: { speed: 8 },
-  };
+  // ── Render ──────────────────────────────────────────────────────────────────
 
-  const lastFire = useRef<number>(0);
-  const lastEnemySpawn = useRef<number>(0);
-  const gameTime = useRef<number>(0);
-  const lastLevel = useRef<number>(1);
+  const renderGame = useCallback((ctx: CanvasRenderingContext2D, gs: GS) => {
+    const { hero, enemies, bullets, particles, powerups, floaters, activePowerups } = gs;
+    const t = gs.gameTime;
+    const shake = gs.screenShake;
 
-  // Utility functions
-  const distance = (a: Entity, b: Entity) => {
-    const dx = a.x - b.x;
-    const dy = a.y - b.y;
-    return Math.sqrt(dx * dx + dy * dy);
-  };
+    ctx.save();
+    if (shake > 0) ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
 
-  const generateId = () => Math.random().toString(36).substr(2, 9);
+    // Background
+    ctx.fillStyle = '#000010';
+    ctx.fillRect(-shake * 2, -shake * 2, CW + shake * 4, CH + shake * 4);
 
-  // Create enemy
-  const createEnemy = useCallback((): Enemy => {
-    const canvas = canvasRef.current;
-    if (!canvas) return { id: '', x: 0, y: 0, vx: 0, vy: 0, radius: 0, color: '', value: 0, hue: 0 };
+    // Parallax stars — 3 layers
+    const layers = [
+      { count: 30, speed: 0.03, size: 1,   alpha: 0.4 },
+      { count: 20, speed: 0.07, size: 1.5, alpha: 0.7 },
+      { count: 12, speed: 0.13, size: 2,   alpha: 1.0 },
+    ];
+    for (const L of layers) {
+      ctx.globalAlpha = L.alpha;
+      ctx.fillStyle = '#ffffff';
+      for (let i = 0; i < L.count; i++) {
+        const sx = (i * 137 + i * L.count * 11) % CW;
+        const sy = ((i * 97 + t * L.speed) % CH + CH) % CH;
+        ctx.fillRect(sx, sy, L.size, L.size);
+      }
+    }
+    ctx.globalAlpha = 1;
 
-    const side = Math.floor(Math.random() * 4);
-    let x = 0, y = 0;
-    
-    switch (side) {
-      case 0: // top
-        x = Math.random() * canvas.width;
-        y = -20;
-        break;
-      case 1: // right
-        x = canvas.width + 20;
-        y = Math.random() * canvas.height;
-        break;
-      case 2: // bottom
-        x = Math.random() * canvas.width;
-        y = canvas.height + 20;
-        break;
-      case 3: // left
-        x = -20;
-        y = Math.random() * canvas.height;
-        break;
+    // Powerups — pulsing glow + label
+    for (const p of powerups) {
+      const pulse = 0.7 + 0.3 * Math.sin(t * 0.005 + p.age * 0.1);
+      const col = POWERUP_COLORS[p.type];
+      ctx.globalAlpha = 0.25 * pulse;
+      ctx.fillStyle = col;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.radius * 1.8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = col;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#000';
+      ctx.font = 'bold 9px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(POWERUP_NAMES[p.type][0], p.x, p.y + 3);
     }
 
-    const hue = Math.random() * 360;
-    return {
-      id: generateId(),
-      x,
-      y,
-      vx: (Math.random() - 0.5) * 2,
-      vy: (Math.random() - 0.5) * 2,
-      radius: 5 + Math.random() * 15,
-      color: `hsl(${hue}, 100%, 50%)`,
-      value: Math.floor(5 + Math.random() * 15),
-      hue,
-    };
-  }, []);
-
-  // Create bullet
-  const createBullet = useCallback((fromX: number, fromY: number, direction: number): Bullet => {
-    return {
-      id: generateId(),
-      x: fromX,
-      y: fromY,
-      vx: Math.cos(direction) * config.bullet.speed,
-      vy: Math.sin(direction) * config.bullet.speed,
-      radius: 3,
-      color: '#ffff00',
-      damage: 1,
-    };
-  }, []);
-
-  // Create particle explosion
-  const createParticles = useCallback((x: number, y: number, color: string) => {
-    const newParticles: Entity[] = [];
-    for (let i = 0; i < 8; i++) {
-      const angle = (Math.PI * 2 * i) / 8;
-      newParticles.push({
-        id: generateId(),
-        x,
-        y,
-        vx: Math.cos(angle) * (2 + Math.random() * 3),
-        vy: Math.sin(angle) * (2 + Math.random() * 3),
-        radius: 2 + Math.random() * 3,
-        color,
-      });
+    // Particles
+    for (const p of particles) {
+      ctx.globalAlpha = p.alpha;
+      ctx.fillStyle = `hsl(${p.hue},100%,60%)`;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+      ctx.fill();
     }
-    return newParticles;
+    ctx.globalAlpha = 1;
+
+    // Enemies
+    for (const e of enemies) {
+      const col = e.hitFlash > 0 ? '#ffffff' : `hsl(${e.hue},${e.sat}%,${e.lit}%)`;
+
+      // HP bar for multi-HP enemies
+      if (e.maxHp > 1) {
+        const bw = e.radius * 2;
+        ctx.fillStyle = '#440000';
+        ctx.fillRect(e.x - e.radius, e.y - e.radius - 9, bw, 4);
+        ctx.fillStyle = '#00ff44';
+        ctx.fillRect(e.x - e.radius, e.y - e.radius - 9, bw * (e.hp / e.maxHp), 4);
+      }
+
+      // Glow halo for flashy types
+      if (e.type === 7 || e.type === 8 || e.type === 12) {
+        ctx.globalAlpha = 0.25;
+        ctx.fillStyle = col;
+        ctx.beginPath();
+        ctx.arc(e.x, e.y, e.radius * 1.6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+
+      ctx.fillStyle = col;
+      ctx.beginPath();
+      ctx.arc(e.x, e.y, e.radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Bullets — yellow with glow
+    ctx.shadowColor = '#ffee00';
+    ctx.shadowBlur = 8;
+    ctx.fillStyle = '#ffff44';
+    for (const b of bullets) {
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.shadowBlur = 0;
+
+    // Hero — blinks when damaged
+    const heroAlpha = hero.damageFlash > 0 ? (Math.floor(hero.damageFlash / 2) % 2 === 0 ? 0.3 : 1) : 1;
+    ctx.globalAlpha = heroAlpha;
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(hero.x, hero.y, hero.radius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#88ccff';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(hero.x, hero.y);
+    ctx.lineTo(
+      hero.x + Math.cos(hero.direction) * hero.radius * 2.2,
+      hero.y + Math.sin(hero.direction) * hero.radius * 2.2,
+    );
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+
+    // Score floaters
+    ctx.textAlign = 'center';
+    for (const f of floaters) {
+      ctx.globalAlpha = Math.max(0, 1 - f.age / 45);
+      ctx.fillStyle = f.color;
+      ctx.font = `bold ${f.text.startsWith('LEVEL') ? 22 : 13}px monospace`;
+      ctx.fillText(f.text, f.x, f.y);
+    }
+    ctx.globalAlpha = 1;
+
+    // HUD
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '14px monospace';
+    ctx.fillText(`SCORE ${gs.score.toLocaleString()}`, 10, 20);
+    ctx.fillText(`LV ${gs.level}  KILLS ${gs.kills}`, 10, 38);
+
+    // Active powerup indicators
+    let py = 58;
+    for (const ap of activePowerups) {
+      const remaining = Math.max(0, ap.expiresAt - gs.gameTime);
+      const pct = remaining / POWERUP_DUR;
+      ctx.fillStyle = POWERUP_COLORS[ap.type];
+      ctx.fillText(`${POWERUP_NAMES[ap.type]} ${(remaining / 1000).toFixed(1)}s`, 10, py);
+      ctx.fillStyle = '#333';
+      ctx.fillRect(10, py + 2, 80, 3);
+      ctx.fillStyle = POWERUP_COLORS[ap.type];
+      ctx.fillRect(10, py + 2, 80 * pct, 3);
+      py += 16;
+    }
+
+    // Health bar
+    ctx.fillStyle = '#550000';
+    ctx.fillRect(10, CH - 24, 100, 8);
+    ctx.fillStyle = hero.life > 0.3 ? '#00ff44' : '#ff8800';
+    ctx.fillRect(10, CH - 24, 100 * hero.life, 8);
+    ctx.strokeStyle = '#ffffff44';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(10, CH - 24, 100, 8);
+    ctx.fillStyle = '#888';
+    ctx.font = '10px monospace';
+    ctx.fillText('HP', 114, CH - 16);
+
+    // Mute hint
+    ctx.fillStyle = isMutedRef.current ? '#ff4444' : '#444';
+    ctx.fillText(isMutedRef.current ? 'MUTED' : 'M:mute', CW - 62, 18);
+
+    ctx.restore();
   }, []);
 
-  // Game loop
+  // ── Game loop ────────────────────────────────────────────────────────────────
+
   const gameLoop = useCallback((currentTime: number) => {
-    if (gameState !== 'play') {
-      animationFrameRef.current = requestAnimationFrame(gameLoop);
+    if (gameStateRef.current !== 'play') {
+      animRef.current = requestAnimationFrame(gameLoop);
       return;
     }
 
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
     if (!canvas || !ctx) {
-      animationFrameRef.current = requestAnimationFrame(gameLoop);
+      animRef.current = requestAnimationFrame(gameLoop);
       return;
     }
 
-    const deltaTime = currentTime - lastTimeRef.current;
+    if (lastTimeRef.current === 0) lastTimeRef.current = currentTime;
     lastTimeRef.current = currentTime;
-    gameTime.current += deltaTime;
 
-    // Clear canvas
-    ctx.fillStyle = '#000000';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    const gs = gsRef.current;
+    gs.gameTime += 16; // fixed ~60fps timestep for determinism
 
-    // Draw stars background
-    ctx.fillStyle = '#ffffff';
-    for (let i = 0; i < 50; i++) {
-      const x = (i * 83) % canvas.width;
-      const y = (i * 97 + gameTime.current * 0.1) % canvas.height;
-      ctx.fillRect(x, y, 1, 1);
-    }
-
-    // Update hero
-    setHero(prev => {
-      const newHero = { ...prev };
-      const controls = getControlsState();
-      
-      // Movement - prioritize virtual controls over keyboard
-      if (controls.movement.active) {
-        // Use virtual joystick input
-        newHero.vx = controls.movement.x * config.hero.speed;
-        newHero.vy = controls.movement.y * config.hero.speed;
-      } else {
-        // Use keyboard input
-        if (keysRef.current.w || keysRef.current.up) newHero.vy = Math.max(newHero.vy - 0.5, -config.hero.speed);
-        if (keysRef.current.s || keysRef.current.down) newHero.vy = Math.min(newHero.vy + 0.5, config.hero.speed);
-        if (keysRef.current.a || keysRef.current.left) newHero.vx = Math.max(newHero.vx - 0.5, -config.hero.speed);
-        if (keysRef.current.d || keysRef.current.right) newHero.vx = Math.min(newHero.vx + 0.5, config.hero.speed);
-        
-        // Friction for keyboard input
-        newHero.vx *= 0.9;
-        newHero.vy *= 0.9;
-      }
-
-      // Update position
-      newHero.x += newHero.vx;
-      newHero.y += newHero.vy;
-
-      // Bounds
-      newHero.x = Math.max(newHero.radius, Math.min(canvas.width - newHero.radius, newHero.x));
-      newHero.y = Math.max(newHero.radius, Math.min(canvas.height - newHero.radius, newHero.y));
-
-      // Aiming - prioritize virtual controls over mouse
-      if (controls.aiming.active) {
-        // Use virtual controls aiming
-        newHero.direction = controls.aiming.angle;
-      } else {
-        // Use mouse aiming
-        newHero.direction = Math.atan2(mouseRef.current.y - newHero.y, mouseRef.current.x - newHero.x);
-      }
-
-      return newHero;
-    });
-
-    // Fire bullets - prioritize virtual controls over mouse
+    const now = gs.gameTime;
     const controls = getControlsState();
-    const shouldFire = (controls.aiming.firing || mouseRef.current.down) && 
-                      currentTime - lastFire.current > config.hero.fireRate;
-    
-    if (shouldFire) {
-      setBullets(prev => [...prev, createBullet(hero.x, hero.y, hero.direction)]);
-      lastFire.current = currentTime;
+
+    // ── Active powerups ────────────────────────────────────────────────────────
+    gs.activePowerups = gs.activePowerups.filter(ap => ap.expiresAt > now);
+    const hasSlow   = gs.activePowerups.some(a => a.type === 1);
+    const hasFast   = gs.activePowerups.some(a => a.type === 2);
+    const hasTriple = gs.activePowerups.some(a => a.type === 3);
+    const hasPierce = gs.activePowerups.some(a => a.type === 4);
+    const fireRate  = hasFast ? FAST_FIRE_RATE : BASE_FIRE_RATE;
+
+    // ── Hero movement ─────────────────────────────────────────────────────────
+    const hero = gs.hero;
+    if (controls.movement.active) {
+      hero.vx = controls.movement.x * HERO_SPEED;
+      hero.vy = controls.movement.y * HERO_SPEED;
+    } else {
+      const k = keysRef.current;
+      if (k.w || k.up)    hero.vy = Math.max(hero.vy - 0.5, -HERO_SPEED);
+      if (k.s || k.down)  hero.vy = Math.min(hero.vy + 0.5,  HERO_SPEED);
+      if (k.a || k.left)  hero.vx = Math.max(hero.vx - 0.5, -HERO_SPEED);
+      if (k.d || k.right) hero.vx = Math.min(hero.vx + 0.5,  HERO_SPEED);
+      hero.vx *= 0.9; hero.vy *= 0.9;
+    }
+    hero.x = clamp(hero.x + hero.vx, hero.radius, CW - hero.radius);
+    hero.y = clamp(hero.y + hero.vy, hero.radius, CH - hero.radius);
+
+    hero.direction = controls.aiming.active
+      ? controls.aiming.angle
+      : Math.atan2(mouseRef.current.y - hero.y, mouseRef.current.x - hero.x);
+
+    hero.damageFlash = Math.max(0, hero.damageFlash - 1);
+    gs.screenShake   = Math.max(0, gs.screenShake - 0.4);
+
+    // ── Fire ──────────────────────────────────────────────────────────────────
+    if ((controls.aiming.firing || mouseRef.current.down) && now - gs.lastFire > fireRate) {
+      gs.lastFire = now;
       playSound('shoot');
-    }
-
-    // Spawn enemies
-    if (currentTime - lastEnemySpawn.current > config.enemy.spawnRate) {
-      setEnemies(prev => [...prev, createEnemy()]);
-      lastEnemySpawn.current = currentTime;
-    }
-
-    // Update bullets
-    setBullets(prev => prev.filter(bullet => {
-      bullet.x += bullet.vx;
-      bullet.y += bullet.vy;
-      return bullet.x > -50 && bullet.x < canvas.width + 50 && bullet.y > -50 && bullet.y < canvas.height + 50;
-    }));
-
-    // Update enemies
-    setEnemies(prev => prev.map(enemy => {
-      // Move towards hero
-      const dx = hero.x - enemy.x;
-      const dy = hero.y - enemy.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist > 0) {
-        enemy.vx = (dx / dist) * config.enemy.speed;
-        enemy.vy = (dy / dist) * config.enemy.speed;
-      }
-      enemy.x += enemy.vx;
-      enemy.y += enemy.vy;
-      return enemy;
-    }));
-
-    // Collision detection: bullets vs enemies
-    setBullets(prevBullets => {
-      const remainingBullets = [...prevBullets];
-      setEnemies(prevEnemies => {
-        const remainingEnemies = [...prevEnemies];
-        
-        for (let i = remainingBullets.length - 1; i >= 0; i--) {
-          for (let j = remainingEnemies.length - 1; j >= 0; j--) {
-            if (distance(remainingBullets[i], remainingEnemies[j]) < remainingBullets[i].radius + remainingEnemies[j].radius) {
-              // Audio feedback
-              playSound('hit');
-              playSound('explosion');
-              
-              // Create explosion particles
-              setParticles(prev => [...prev, ...createParticles(remainingEnemies[j].x, remainingEnemies[j].y, remainingEnemies[j].color)]);
-              
-              // Update stats
-              onStatsUpdate(prevStats => {
-                const newStats = {
-                  ...prevStats,
-                  score: prevStats.score + remainingEnemies[j].value,
-                  kills: prevStats.kills + 1,
-                  time: gameTime.current / 1000,
-                };
-                
-                // Check for level up (every 10 kills)
-                const newLevel = Math.floor(newStats.kills / 10) + 1;
-                if (newLevel > lastLevel.current) {
-                  lastLevel.current = newLevel;
-                  playSound('levelup');
-                }
-                
-                return newStats;
-              });
-              
-              // Remove bullet and enemy
-              remainingBullets.splice(i, 1);
-              remainingEnemies.splice(j, 1);
-              break;
-            }
-          }
-        }
-        
-        return remainingEnemies;
-      });
-      return remainingBullets;
-    });
-
-    // Collision detection: hero vs enemies
-    enemies.forEach(enemy => {
-      if (distance(hero, enemy) < hero.radius + enemy.radius) {
-        setHero(prev => {
-          const newLife = Math.max(0, prev.life - 0.01);
-          if (newLife > 0) {
-            playSound('takingDamage');
-          } else if (prev.life > 0) {
-            // Hero just died
-            playSound('death');
-            onGameOver({
-              ...gameStats,
-              score: gameStats.score,
-              time: gameTime.current / 1000,
-            });
-          }
-          return { ...prev, life: newLife };
+      const spreads = hasTriple ? [-0.22, 0, 0.22] : [0];
+      for (const spread of spreads) {
+        const dir = hero.direction + spread;
+        gs.bullets.push({
+          id: uid(), x: hero.x, y: hero.y,
+          vx: Math.cos(dir) * BULLET_SPEED, vy: Math.sin(dir) * BULLET_SPEED,
+          radius: 3, damage: 1, pierced: 0,
         });
       }
+    }
+
+    // ── Spawn enemies ─────────────────────────────────────────────────────────
+    const spawnRate = Math.max(380, 1000 - gs.level * 48);
+    if (now - gs.lastEnemySpawn > spawnRate) {
+      gs.lastEnemySpawn = now;
+      gs.enemies.push(spawnEnemy(pickEnemyType(gs.level), hero.x, hero.y));
+    }
+
+    // ── Update bullets ────────────────────────────────────────────────────────
+    gs.bullets = gs.bullets.filter(b => {
+      b.x += b.vx; b.y += b.vy;
+      return b.x > -50 && b.x < CW + 50 && b.y > -50 && b.y < CH + 50;
     });
 
-    // Update particles
-    setParticles(prev => prev.filter(particle => {
-      particle.x += particle.vx;
-      particle.y += particle.vy;
-      particle.vx *= 0.98;
-      particle.vy *= 0.98;
-      particle.radius *= 0.98;
-      return particle.radius > 0.5;
-    }));
-
-    // Render everything
-    // Hero
-    ctx.fillStyle = hero.color;
-    ctx.beginPath();
-    ctx.arc(hero.x, hero.y, hero.radius, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Hero direction indicator
-    ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(hero.x, hero.y);
-    ctx.lineTo(hero.x + Math.cos(hero.direction) * hero.radius * 2, hero.y + Math.sin(hero.direction) * hero.radius * 2);
-    ctx.stroke();
-
-    // Enemies
-    enemies.forEach(enemy => {
-      ctx.fillStyle = enemy.color;
-      ctx.beginPath();
-      ctx.arc(enemy.x, enemy.y, enemy.radius, 0, Math.PI * 2);
-      ctx.fill();
+    // ── Update enemies ────────────────────────────────────────────────────────
+    const spawned: Enemy[] = [];
+    gs.enemies = gs.enemies.map(e => {
+      const ne = stepEnemy(e, hero.x, hero.y, hasSlow);
+      // Spawner fires mini-chasers every ~15 frames
+      if (ne.type === 10 && (ne.spawnTimer ?? 0) > 15) {
+        ne.spawnTimer = 0;
+        spawned.push({
+          id: uid(), x: ne.x, y: ne.y,
+          vx: (Math.random() - 0.5) * 3,
+          vy: (Math.random() - 0.5) * 3,
+          radius: 8, type: 2, hp: 1, maxHp: 1,
+          value: 5, hue: 0, sat: 100, lit: 55, hitFlash: 0,
+        });
+      }
+      return ne;
     });
+    gs.enemies.push(...spawned);
 
-    // Bullets
-    bullets.forEach(bullet => {
-      ctx.fillStyle = bullet.color;
-      ctx.beginPath();
-      ctx.arc(bullet.x, bullet.y, bullet.radius, 0, Math.PI * 2);
-      ctx.fill();
-    });
+    // ── Bullets vs enemies ────────────────────────────────────────────────────
+    const maxPierce = hasPierce ? 3 : 0;
+    const bulletsKilled = new Set<string>();
+    const damageMap = new Map<string, number>();
 
-    // Particles
-    particles.forEach(particle => {
-      ctx.fillStyle = particle.color;
-      ctx.beginPath();
-      ctx.arc(particle.x, particle.y, particle.radius, 0, Math.PI * 2);
-      ctx.fill();
-    });
+    for (const b of gs.bullets) {
+      if (bulletsKilled.has(b.id)) continue;
+      for (const e of gs.enemies) {
+        if (dist2d(b.x, b.y, e.x, e.y) < b.radius + e.radius) {
+          damageMap.set(e.id, (damageMap.get(e.id) ?? 0) + b.damage);
+          b.pierced++;
+          if (b.pierced > maxPierce) { bulletsKilled.add(b.id); break; }
+        }
+      }
+    }
+    gs.bullets = gs.bullets.filter(b => !bulletsKilled.has(b.id));
 
-    // HUD
-    ctx.fillStyle = '#ffffff';
-    ctx.font = '16px monospace';
-    ctx.fillText(`Score: ${gameStats.score}`, 10, 25);
-    ctx.fillText(`Kills: ${gameStats.kills}`, 10, 45);
-    ctx.fillText(`Time: ${Math.floor(gameStats.time)}s`, 10, 65);
-    
-    // Mute indicator
-    if (isMuted) {
-      ctx.fillStyle = '#ff0000';
-      ctx.fillText('MUTED (M to unmute)', 10, 85);
-    } else {
-      ctx.fillStyle = '#666666';
-      ctx.fillText('M: Toggle Mute', 10, 85);
-      
-      // Touch controls hint for touch devices
-      if (isTouchDevice) {
-        ctx.fillText('T: Toggle Touch Controls', 10, 105);
+    // Apply damage; handle deaths
+    const deadIds = new Set<string>();
+    for (const [eid, dmg] of damageMap) {
+      const e = gs.enemies.find(x => x.id === eid);
+      if (!e) continue;
+      e.hp -= dmg;
+      e.hitFlash = 6;
+      playSound('hit');
+      if (e.hp > 0) continue;
+
+      deadIds.add(eid);
+      playSound('explosion');
+
+      // Particles
+      for (let i = 0; i < 12; i++) {
+        const a = (Math.PI * 2 * i / 12) + (Math.random() - 0.5) * 0.4;
+        gs.particles.push({
+          id: uid(), x: e.x, y: e.y,
+          vx: Math.cos(a) * (2 + Math.random() * 4),
+          vy: Math.sin(a) * (2 + Math.random() * 4),
+          radius: 2 + Math.random() * 3, hue: e.hue, alpha: 1,
+        });
+      }
+
+      // Score floater
+      gs.floaters.push({ id: uid(), x: e.x, y: e.y - 10, text: `+${e.value}`, age: 0, color: `hsl(${e.hue || 60},100%,70%)` });
+
+      // Score / level
+      gs.score += e.value;
+      gs.kills++;
+      const newLevel = getLevelFromKills(gs.kills);
+      if (newLevel > gs.lastLevel) {
+        gs.lastLevel = newLevel;
+        gs.level = newLevel;
+        gs.floaters.push({ id: uid(), x: CW / 2, y: CH / 2 - 20, text: `LEVEL ${newLevel}!`, age: 0, color: '#ffff44' });
+        playSound('levelup');
+      }
+      onStatsUpdate(prev => ({
+        ...prev, score: gs.score, kills: gs.kills, level: gs.level,
+        time: gs.gameTime / 1000, bestScore: Math.max(prev.bestScore, gs.score),
+      }));
+
+      // Splitter → 4 mini chasers
+      if (e.type === 3) {
+        for (let i = 0; i < 4; i++) {
+          const a = (Math.PI * 2 * i / 4) + Math.PI / 4;
+          gs.enemies.push({
+            id: uid(), x: e.x + Math.cos(a) * 35, y: e.y + Math.sin(a) * 35,
+            vx: Math.cos(a), vy: Math.sin(a),
+            radius: 15, type: 2, hp: 1, maxHp: 1,
+            value: 5, hue: 210, sat: 100, lit: 70, hitFlash: 0,
+          });
+        }
+      }
+
+      // Powerup drop (20 %)
+      if (Math.random() < 0.2) {
+        gs.powerups.push({ id: uid(), x: e.x, y: e.y, type: Math.floor(Math.random() * 5), radius: 12, age: 0 });
+      }
+    }
+    gs.enemies = gs.enemies.filter(e => !deadIds.has(e.id));
+
+    // ── Hero vs enemies ───────────────────────────────────────────────────────
+    if (!doneRef.current) {
+      let touching = false;
+      for (const e of gs.enemies) {
+        if (dist2d(hero.x, hero.y, e.x, e.y) < hero.radius + e.radius) { touching = true; break; }
+      }
+      if (touching) {
+        hero.life = Math.max(0, hero.life - 0.005);
+        hero.damageFlash = Math.max(hero.damageFlash, 10);
+        gs.screenShake = Math.min(10, gs.screenShake + 1.5);
+        playSound('takingDamage');
+        if (hero.life <= 0) {
+          doneRef.current = true;
+          playSound('death');
+          onGameOver({
+            score: gs.score, kills: gs.kills, level: gs.level,
+            time: gs.gameTime / 1000, bestScore: Math.max(bestRef.current, gs.score),
+          });
+        }
       }
     }
 
-    // Health bar
-    ctx.fillStyle = '#ff0000';
-    ctx.fillRect(10, canvas.height - 30, 100, 10);
-    ctx.fillStyle = '#00ff00';
-    ctx.fillRect(10, canvas.height - 30, 100 * hero.life, 10);
-
-    animationFrameRef.current = requestAnimationFrame(gameLoop);
-  }, [gameState, hero, enemies, bullets, particles, gameStats, createBullet, createEnemy, createParticles, onStatsUpdate, onGameOver, playSound, isMuted, isTouchDevice, getControlsState]);
-
-  // Start game loop
-  useEffect(() => {
-    animationFrameRef.current = requestAnimationFrame(gameLoop);
-    return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
+    // ── Hero vs powerups ──────────────────────────────────────────────────────
+    gs.powerups = gs.powerups.filter(p => {
+      p.age++;
+      if (dist2d(hero.x, hero.y, p.x, p.y) < hero.radius + p.radius) {
+        playSound('powerup');
+        if (p.type === 0) {
+          hero.life = Math.min(1, hero.life + 0.5);
+        } else {
+          gs.activePowerups = gs.activePowerups.filter(a => a.type !== p.type);
+          gs.activePowerups.push({ type: p.type, expiresAt: now + POWERUP_DUR });
+        }
+        gs.floaters.push({ id: uid(), x: p.x, y: p.y - 12, text: POWERUP_NAMES[p.type], age: 0, color: POWERUP_COLORS[p.type] });
+        return false;
       }
-    };
+      return p.age < 600; // expire after ~10 s
+    });
+
+    // ── Particles ─────────────────────────────────────────────────────────────
+    gs.particles = gs.particles.filter(p => {
+      p.x += p.vx; p.y += p.vy;
+      p.vx *= 0.97; p.vy *= 0.97;
+      p.radius *= 0.97; p.alpha *= 0.97;
+      return p.radius > 0.5;
+    });
+
+    // ── Floaters ──────────────────────────────────────────────────────────────
+    gs.floaters = gs.floaters.filter(f => { f.y -= 0.8; f.age++; return f.age < 50; });
+
+    // ── Render ────────────────────────────────────────────────────────────────
+    renderGame(ctx, gs);
+
+    animRef.current = requestAnimationFrame(gameLoop);
+  }, [getControlsState, playSound, renderGame, onStatsUpdate, onGameOver]);
+
+  // Start/stop RAF
+  useEffect(() => {
+    animRef.current = requestAnimationFrame(gameLoop);
+    return () => { if (animRef.current) cancelAnimationFrame(animRef.current); };
   }, [gameLoop]);
 
-  // Input handlers
+  // ── Input handlers ────────────────────────────────────────────────────────
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const key = e.key.toLowerCase();
-      if (key in keysRef.current) {
-        keysRef.current[key as keyof typeof keysRef.current] = true;
-      }
-      
-      // Handle mute toggle
-      if (key === 'm') {
-        toggleMute();
-      }
-      
-      // Handle virtual controls toggle (T key)
-      if (key === 't' && isTouchDevice) {
-        toggleControls();
-      }
+    const onKD = (e: KeyboardEvent) => {
+      const k = e.key.toLowerCase();
+      if (k in keysRef.current) keysRef.current[k as keyof typeof keysRef.current] = true;
+      if (k === 'm') toggleMute();
+      if (k === 't' && isTouchDevice) toggleControls();
     };
-
-    const handleKeyUp = (e: KeyboardEvent) => {
-      const key = e.key.toLowerCase();
-      if (key in keysRef.current) {
-        keysRef.current[key as keyof typeof keysRef.current] = false;
-      }
+    const onKU = (e: KeyboardEvent) => {
+      const k = e.key.toLowerCase();
+      if (k in keysRef.current) keysRef.current[k as keyof typeof keysRef.current] = false;
     };
+    const onMM = (e: MouseEvent) => { const r = canvas.getBoundingClientRect(); mouseRef.current.x = e.clientX - r.left; mouseRef.current.y = e.clientY - r.top; };
+    const onMD = () => { mouseRef.current.down = true; };
+    const onMU = () => { mouseRef.current.down = false; };
 
-    const handleMouseMove = (e: MouseEvent) => {
-      const rect = canvas.getBoundingClientRect();
-      mouseRef.current.x = e.clientX - rect.left;
-      mouseRef.current.y = e.clientY - rect.top;
-    };
-
-    const handleMouseDown = () => {
-      mouseRef.current.down = true;
-    };
-
-    const handleMouseUp = () => {
-      mouseRef.current.down = false;
-    };
-
-    const handleTouchStart = (e: TouchEvent) => {
-      // Only handle canvas touch if virtual controls are not being used
-      const controls = getControlsState();
-      if (!controls.movement.active && !controls.aiming.active) {
+    const onTS = (e: TouchEvent) => {
+      const c = getControlsState();
+      if (!c.movement.active && !c.aiming.active) {
         e.preventDefault();
         if (e.touches.length > 0) {
-          const rect = canvas.getBoundingClientRect();
-          mouseRef.current.x = e.touches[0].clientX - rect.left;
-          mouseRef.current.y = e.touches[0].clientY - rect.top;
+          const r = canvas.getBoundingClientRect();
+          mouseRef.current.x = e.touches[0].clientX - r.left;
+          mouseRef.current.y = e.touches[0].clientY - r.top;
           mouseRef.current.down = true;
         }
       }
     };
-
-    const handleTouchMove = (e: TouchEvent) => {
-      // Only handle canvas touch if virtual controls are not being used
-      const controls = getControlsState();
-      if (!controls.movement.active && !controls.aiming.active) {
+    const onTM = (e: TouchEvent) => {
+      const c = getControlsState();
+      if (!c.movement.active && !c.aiming.active) {
         e.preventDefault();
         if (e.touches.length > 0) {
-          const rect = canvas.getBoundingClientRect();
-          mouseRef.current.x = e.touches[0].clientX - rect.left;
-          mouseRef.current.y = e.touches[0].clientY - rect.top;
+          const r = canvas.getBoundingClientRect();
+          mouseRef.current.x = e.touches[0].clientX - r.left;
+          mouseRef.current.y = e.touches[0].clientY - r.top;
         }
       }
     };
-
-    const handleTouchEnd = (e: TouchEvent) => {
-      // Only handle canvas touch if virtual controls are not being used
-      const controls = getControlsState();
-      if (!controls.movement.active && !controls.aiming.active) {
-        e.preventDefault();
-        mouseRef.current.down = false;
-      }
+    const onTE = (e: TouchEvent) => {
+      const c = getControlsState();
+      if (!c.movement.active && !c.aiming.active) { e.preventDefault(); mouseRef.current.down = false; }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
-    canvas.addEventListener('mousemove', handleMouseMove);
-    canvas.addEventListener('mousedown', handleMouseDown);
-    canvas.addEventListener('mouseup', handleMouseUp);
-    canvas.addEventListener('touchstart', handleTouchStart);
-    canvas.addEventListener('touchmove', handleTouchMove);
-    canvas.addEventListener('touchend', handleTouchEnd);
+    window.addEventListener('keydown', onKD);
+    window.addEventListener('keyup', onKU);
+    canvas.addEventListener('mousemove', onMM);
+    canvas.addEventListener('mousedown', onMD);
+    canvas.addEventListener('mouseup', onMU);
+    canvas.addEventListener('touchstart', onTS, { passive: false });
+    canvas.addEventListener('touchmove', onTM, { passive: false });
+    canvas.addEventListener('touchend', onTE, { passive: false });
 
     return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
-      canvas.removeEventListener('mousemove', handleMouseMove);
-      canvas.removeEventListener('mousedown', handleMouseDown);
-      canvas.removeEventListener('mouseup', handleMouseUp);
-      canvas.removeEventListener('touchstart', handleTouchStart);
-      canvas.removeEventListener('touchmove', handleTouchMove);
-      canvas.removeEventListener('touchend', handleTouchEnd);
+      window.removeEventListener('keydown', onKD);
+      window.removeEventListener('keyup', onKU);
+      canvas.removeEventListener('mousemove', onMM);
+      canvas.removeEventListener('mousedown', onMD);
+      canvas.removeEventListener('mouseup', onMU);
+      canvas.removeEventListener('touchstart', onTS);
+      canvas.removeEventListener('touchmove', onTM);
+      canvas.removeEventListener('touchend', onTE);
     };
   }, [toggleMute, isTouchDevice, toggleControls, getControlsState]);
+
+  // ── Screens ──────────────────────────────────────────────────────────────────
 
   if (gameState === 'menu') {
     return (
       <div className="flex flex-col items-center justify-center h-screen bg-black text-white">
-        <h1 className="text-4xl font-bold mb-4">ONYIX RAIDER</h1>
-        <p className="text-lg mb-8">Survive the enemy waves!</p>
-        <div className="text-center space-y-2">
-          <p>Best Score: {gameStats.bestScore.toLocaleString()}</p>
-          <div className="text-sm text-gray-400 mt-4">
-            <p>Move: WASD or Arrow Keys{isTouchDevice ? ' or Left Joystick' : ''}</p>
-            <p>Aim/Fire: Mouse{isTouchDevice ? ' or Right Joystick' : ''}</p>
-            {isTouchDevice && <p className="text-xs mt-2">Virtual controls will appear during gameplay</p>}
-          </div>
+        <h1 className="text-4xl font-bold mb-2 tracking-widest text-cyan-400">ONYIX RAIDER</h1>
+        <p className="text-sm text-gray-500 mb-6">Survive the waves</p>
+        <p className="text-yellow-400 font-bold text-xl mb-8">
+          Best: {gameStats.bestScore.toLocaleString()}
+        </p>
+        <div className="text-xs text-gray-500 space-y-1 text-center">
+          <p>WASD / Arrows — Move</p>
+          <p>Mouse — Aim &amp; Fire</p>
+          {isTouchDevice && <p>Virtual joysticks appear during play</p>}
+          <p className="mt-3 text-gray-700">13 enemy types · 5 powerups · 13 levels</p>
         </div>
       </div>
     );
@@ -576,15 +872,15 @@ export default function RaidShooterGame({
   if (gameState === 'gameover') {
     return (
       <div className="flex flex-col items-center justify-center h-screen bg-black text-white">
-        <h2 className="text-3xl font-bold text-red-500 mb-4">GAME OVER</h2>
-        <div className="text-center space-y-2">
-          <p>Final Score: {gameStats.score.toLocaleString()}</p>
-          <p>Enemies Killed: {gameStats.kills}</p>
-          <p>Time Survived: {Math.floor(gameStats.time)}s</p>
-          {gameStats.score > gameStats.bestScore && (
-            <p className="text-yellow-400 font-bold">NEW HIGH SCORE!</p>
-          )}
-        </div>
+        <h2 className="text-3xl font-bold text-red-500 mb-6 tracking-widest">GAME OVER</h2>
+        <p className="text-2xl font-bold mb-2">{gameStats.score.toLocaleString()} pts</p>
+        <p className="text-gray-400 mb-4">
+          Level {gameStats.level} · {gameStats.kills} kills · {Math.floor(gameStats.time)}s
+        </p>
+        {gameStats.score > 0 && gameStats.score >= gameStats.bestScore && (
+          <p className="text-yellow-400 font-bold animate-pulse">✦ NEW HIGH SCORE ✦</p>
+        )}
+        <p className="text-gray-600 text-sm mt-6">Tap Start to play again</p>
       </div>
     );
   }
@@ -593,58 +889,37 @@ export default function RaidShooterGame({
     <div className="relative">
       <canvas
         ref={canvasRef}
-        width={config.canvas.width}
-        height={config.canvas.height}
-        className="border border-gray-600 mx-auto"
-        style={{ touchAction: 'none' }}
+        width={CW}
+        height={CH}
+        className="block mx-auto"
+        style={{ touchAction: 'none', border: '1px solid #1a1a2e' }}
       />
-      
-      {/* Virtual Controls Overlay */}
       {showControls && gameState === 'play' && (
         <>
-          <VirtualJoystick 
-            position="left" 
-            type="movement" 
+          <VirtualJoystick
+            position="left" type="movement"
             isActive={getControlsState().movement.active}
             value={{ x: getControlsState().movement.x, y: getControlsState().movement.y }}
             onRef={(ref) => { if (leftZoneRef.current !== ref) leftZoneRef.current = ref; }}
           />
-          <VirtualJoystick 
-            position="right" 
-            type="aiming" 
+          <VirtualJoystick
+            position="right" type="aiming"
             isActive={getControlsState().aiming.active}
             value={{ x: 0, y: 0 }}
             onRef={(ref) => { if (rightZoneRef.current !== ref) rightZoneRef.current = ref; }}
           />
-          
-          {/* Controls toggle button */}
           <button
             onClick={toggleControls}
-            className="fixed top-4 right-4 w-8 h-8 rounded-full bg-black/20 border border-white/30 
-                     flex items-center justify-center text-white/60 hover:text-white/80 
-                     transition-colors backdrop-blur-sm"
+            className="fixed top-4 right-4 w-8 h-8 rounded-full bg-black/30 border border-white/20 flex items-center justify-center text-white/60 hover:text-white/80"
             style={{ touchAction: 'manipulation' }}
-          >
-            ⚙️
-          </button>
-          
-          {/* Enhanced HUD for touch */}
-          <div className="fixed top-4 left-4 text-white/80 text-sm font-mono space-y-1 pointer-events-none">
-            <div>Touch Controls Active</div>
-            <div className="text-xs text-white/60">
-              Left: Move • Right: Aim/Fire
-            </div>
-          </div>
+          >⚙</button>
         </>
       )}
-      
-      {/* Desktop controls hint */}
       {!isTouchDevice && gameState === 'play' && (
-        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 
-                      text-white/60 text-xs font-mono text-center pointer-events-none">
-          <div>WASD: Move • Mouse: Aim/Fire • M: Mute</div>
+        <div className="absolute bottom-1 left-1/2 -translate-x-1/2 text-white/30 text-xs font-mono pointer-events-none">
+          WASD Move · Mouse Aim/Fire · M Mute
         </div>
       )}
     </div>
   );
-} 
+}
