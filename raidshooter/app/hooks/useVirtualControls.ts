@@ -34,8 +34,8 @@ export const useVirtualControls = (canvasRef: React.RefObject<HTMLCanvasElement>
   });
   
   const touchesRef = useRef<Map<number, TouchData>>(new Map());
-  const leftZoneRef = useRef<HTMLDivElement>(null);
-  const rightZoneRef = useRef<HTMLDivElement>(null);
+  const leftZoneRef = useRef<HTMLDivElement | null>(null);
+  const rightZoneRef = useRef<HTMLDivElement | null>(null);
 
   // Detect touch device
   useEffect(() => {

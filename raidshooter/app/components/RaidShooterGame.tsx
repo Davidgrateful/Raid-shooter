@@ -17,7 +17,7 @@ interface RaidShooterGameProps {
   gameState: 'menu' | 'play' | 'gameover';
   gameStats: GameStats;
   onGameStateChange: (state: 'menu' | 'play' | 'gameover') => void;
-  onStatsUpdate: (stats: GameStats) => void;
+  onStatsUpdate: (stats: GameStats | ((prev: GameStats) => GameStats)) => void;
   onGameOver: (finalStats: GameStats) => void;
 }
 
@@ -48,7 +48,7 @@ interface Bullet extends Entity {
 export default function RaidShooterGame({
   gameState,
   gameStats,
-  onGameStateChange,
+  onGameStateChange: _onGameStateChange,
   onStatsUpdate,
   onGameOver,
 }: RaidShooterGameProps) {
