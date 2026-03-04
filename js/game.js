@@ -1292,7 +1292,7 @@ $.setupStates = function() {
 			ctx: $.ctxmg,
 			x: $.cw / 2,
 			y: $.ch / 2 - 100,
-			text: 'RAID SHOOTER',
+			text: 'ONYIX RAIDER',
 			hspacing: 2,
 			vspacing: 1,
 			halign: 'center',
