@@ -22,7 +22,7 @@ $.EnemyBullet.prototype.update = function( i ) {
 			dist = Math.sqrt( dx * dx + dy * dy );
 		if( dist <= $.hero.radius + this.radius ) {
 			if( !$.shielded && $.dashActive <= 0 ) {
-				$.hero.life -= this.damage;
+				$.hero.life -= this.damage * ( $.diffMod ? $.diffMod.damageMult : 1 );
 				$.hero.takingDamage = 1;
 				$.rumble.level = 4;
 				$.audio.play( 'takingDamage' );

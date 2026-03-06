@@ -33,6 +33,15 @@ $.Enemy = function( opt ) {
 		this.speed += Math.min( $.hero.vmax, $.levelDiffOffset * 0.25 );
 		this.value += $.levelDiffOffset * 5;
 	}
+
+	/*==============================================================================
+	Apply Difficulty Mode
+	==============================================================================*/
+	if( $.diffMod ) {
+		this.speed *= $.diffMod.enemySpeedMult;
+		this.life *= $.diffMod.enemyLifeMult;
+		this.lifeMax = this.life;
+	}
 };
 
 /*==============================================================================
@@ -132,7 +141,13 @@ $.Enemy.prototype.receiveDamage = function( i, val ) {
 		} else {
 			$.spawnPowerup( this.x, this.y );
 		}
-		$.score += this.value;
+		// Combo system
+		$.combo++;
+		$.comboTimer = $.comboTimerMax;
+		$.comboMultiplier = 1 + Math.floor( $.combo / 5 ) * 0.5; // +0.5x every 5 kills
+		$.comboMultiplier = Math.min( $.comboMultiplier, 5 ); // cap at 5x
+		if( $.combo > $.bestCombo ) { $.bestCombo = $.combo; }
+		$.score += Math.floor( this.value * $.comboMultiplier );
 		$.level.kills++;
 		$.kills++;
 		$.enemies.splice( i, 1 );

@@ -44,6 +44,15 @@ $.init = function() {
 	$.mute = $.storage['mute'];
 	$.autofire = $.storage['autofire'];
 	$.slowEnemyDivider = 3;
+	$.hasTouchSupport = ('ontouchstart' in window);
+	$.difficulty = $.storage['difficulty'] || 1; // 0=easy, 1=normal, 2=hard
+	$.difficultyNames = ['EASY', 'NORMAL', 'HARD'];
+	$.difficultyColors = ['hsla(120, 100%, 50%, 1)', 'hsla(50, 100%, 50%, 1)', 'hsla(0, 100%, 50%, 1)'];
+
+	$.abilityBtns = {
+		dash: { x: $.cw - 140, y: $.ch - 90, radius: 30, pressed: 0 },
+		bomb: { x: $.cw - 60, y: $.ch - 90, radius: 30, pressed: 0 }
+	};
 
 	$.vjoyLeft = {
 		active: 0,
@@ -204,6 +213,13 @@ $.reset = function() {
 	$.powerupsCollected = 0;
 	$.score = 0;
 
+	// Combo system
+	$.combo = 0;
+	$.comboTimer = 0;
+	$.comboTimerMax = 90; // 1.5 seconds to chain kills
+	$.comboMultiplier = 1;
+	$.bestCombo = 0;
+
 	// Boss state
 	$.boss = null;
 	$.bossWarning = 0;
@@ -221,6 +237,14 @@ $.reset = function() {
 	$.bombCooldownMax = 600; // 10 seconds at 60fps
 	$.bombActive = 0;
 	$.bombRadius = 300;
+
+	// Difficulty modifiers: [easy, normal, hard]
+	var diffMods = [
+		{ enemySpeedMult: 0.7, enemyLifeMult: 0.7, damageMult: 0.6, spawnMult: 1.3 },
+		{ enemySpeedMult: 1.0, enemyLifeMult: 1.0, damageMult: 1.0, spawnMult: 1.0 },
+		{ enemySpeedMult: 1.3, enemyLifeMult: 1.4, damageMult: 1.5, spawnMult: 0.7 }
+	];
+	$.diffMod = diffMods[ $.difficulty ] || diffMods[1];
 
 	$.hero = new $.Hero();
 
@@ -639,6 +663,50 @@ $.renderInterface = function() {
 	} );
 	$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 1)';
 	$.ctxmg.fill();
+
+	/*==============================================================================
+	Combo
+	==============================================================================*/
+	if( $.combo >= 3 ) {
+		var comboAlpha = Math.min( 1, $.comboTimer / 30 );
+		var comboHue = ( $.comboMultiplier >= 3 ) ? 50 : ( $.comboMultiplier >= 2 ) ? 30 : 0;
+
+		$.ctxmg.beginPath();
+		var comboLabel = $.text( {
+			ctx: $.ctxmg,
+			x: $.cw / 2,
+			y: 50,
+			text: $.combo + 'X COMBO',
+			hspacing: 1,
+			vspacing: 1,
+			halign: 'center',
+			valign: 'top',
+			scale: 3,
+			snap: 1,
+			render: 1
+		} );
+		$.ctxmg.fillStyle = 'hsla(' + comboHue + ', 100%, 70%, ' + comboAlpha + ')';
+		$.ctxmg.fill();
+
+		if( $.comboMultiplier > 1 ) {
+			$.ctxmg.beginPath();
+			$.text( {
+				ctx: $.ctxmg,
+				x: $.cw / 2,
+				y: comboLabel.ey + 5,
+				text: $.comboMultiplier + 'X SCORE',
+				hspacing: 1,
+				vspacing: 1,
+				halign: 'center',
+				valign: 'top',
+				scale: 2,
+				snap: 1,
+				render: 1
+			} );
+			$.ctxmg.fillStyle = 'hsla(' + comboHue + ', 100%, 90%, ' + ( comboAlpha * 0.7 ) + ')';
+			$.ctxmg.fill();
+		}
+	}
 };
 
 $.renderMinimap = function() {
@@ -732,6 +800,10 @@ $.spawnEnemies = function() {
 		var timeCheck = $.level.distribution[ i ];
 		if( $.levelDiffOffset > 0 ){
 			timeCheck = Math.max( 1, timeCheck - ( $.levelDiffOffset * 2) );
+		}
+		// Apply difficulty spawn rate modifier
+		if( $.diffMod ) {
+			timeCheck = Math.max( 1, Math.round( timeCheck * $.diffMod.spawnMult ) );
 		}
 		if( floorTick % timeCheck === 0 ) {
 			// Swarm type spawns in groups
@@ -850,14 +922,31 @@ $.mousedowncb = function( e ) {
 		}
 
 		if( !buttonHovered ) {
-			if( tx < $.cw / 2 && !$.vjoyLeft.active ) {
+			// Check ability buttons on touch
+			var abilityTapped = false;
+			if( $.hasTouchSupport && $.state == 'play' ) {
+				var dashBtn = $.abilityBtns.dash;
+				var bombBtn = $.abilityBtns.bomb;
+				var ddx = tx - dashBtn.x, ddy = ty - dashBtn.y;
+				var bdx = tx - bombBtn.x, bdy = ty - bombBtn.y;
+				if( Math.sqrt( ddx * ddx + ddy * ddy ) <= dashBtn.radius + 10 ) {
+					$.keys.state.space = 1;
+					dashBtn.pressed = 1;
+					abilityTapped = true;
+				} else if( Math.sqrt( bdx * bdx + bdy * bdy ) <= bombBtn.radius + 10 ) {
+					$.keys.state.q = 1;
+					bombBtn.pressed = 1;
+					abilityTapped = true;
+				}
+			}
+			if( !abilityTapped && tx < $.cw / 2 && !$.vjoyLeft.active ) {
 				$.vjoyLeft.active = 1;
 				$.vjoyLeft.ox = tx;
 				$.vjoyLeft.oy = ty;
 				$.vjoyLeft.cx = tx;
 				$.vjoyLeft.cy = ty;
 				$.vjoyLeft.id = tid;
-			} else if( tx >= $.cw / 2 && !$.vjoyRight.active ) {
+			} else if( !abilityTapped && tx >= $.cw / 2 && !$.vjoyRight.active ) {
 				$.vjoyRight.active = 1;
 				$.vjoyRight.ox = tx;
 				$.vjoyRight.oy = ty;
@@ -1004,8 +1093,8 @@ $.updateScreen = function() {
 		$.rumble.y = 0;
 	}
 
-	//$.screen.x -= $.rumble.x;
-	//$.screen.y -= $.rumble.y;
+	$.screen.x -= $.rumble.x;
+	$.screen.y -= $.rumble.y;
 
 	// animate background canvas
 	$.cbg1.style.marginLeft =
@@ -1200,6 +1289,28 @@ $.updateAbilities = function() {
 			minDirection: 0, maxDirection: $.twopi, hue: 50, saturation: 100
 		} ) );
 	}
+
+	// Auto-release touch ability buttons after one frame
+	if( $.hasTouchSupport ) {
+		if( $.abilityBtns.dash.pressed ) {
+			$.abilityBtns.dash.pressed = 0;
+			$.keys.state.space = 0;
+		}
+		if( $.abilityBtns.bomb.pressed ) {
+			$.abilityBtns.bomb.pressed = 0;
+			$.keys.state.q = 0;
+		}
+	}
+};
+
+$.updateCombo = function() {
+	if( $.comboTimer > 0 ) {
+		$.comboTimer -= $.dt;
+		if( $.comboTimer <= 0 ) {
+			$.combo = 0;
+			$.comboMultiplier = 1;
+		}
+	}
 };
 
 $.updatePowerupTimers = function() {
@@ -1393,101 +1504,136 @@ $.renderBossUI = function() {
 Ability UI
 ==============================================================================*/
 $.renderAbilityUI = function() {
-	var abilityY = $.ch - 30;
-	var abilityX = $.cw - 200;
-
-	// Dash indicator
 	var dashReady = $.dashCooldown <= 0;
-	var dashAlpha = dashReady ? 1 : 0.3;
-	$.ctxmg.beginPath();
-	$.text( {
-		ctx: $.ctxmg,
-		x: abilityX,
-		y: abilityY,
-		text: 'DASH',
-		hspacing: 1,
-		vspacing: 1,
-		halign: 'left',
-		valign: 'bottom',
-		scale: 2,
-		snap: 1,
-		render: 1
-	} );
-	$.ctxmg.fillStyle = 'hsla(200, 100%, 70%, ' + dashAlpha + ')';
-	$.ctxmg.fill();
-
-	// Dash cooldown bar
-	if( !dashReady ) {
-		var cdPct = 1 - $.dashCooldown / $.dashCooldownMax;
-		$.ctxmg.fillStyle = 'hsla(200, 100%, 50%, 0.3)';
-		$.ctxmg.fillRect( abilityX, abilityY + 3, 50, 4 );
-		$.ctxmg.fillStyle = 'hsla(200, 100%, 70%, 0.8)';
-		$.ctxmg.fillRect( abilityX, abilityY + 3, 50 * cdPct, 4 );
-	}
-
-	// Bomb indicator
 	var bombReady = $.bombCooldown <= 0;
-	var bombAlpha = bombReady ? 1 : 0.3;
-	$.ctxmg.beginPath();
-	$.text( {
-		ctx: $.ctxmg,
-		x: abilityX + 80,
-		y: abilityY,
-		text: 'BOMB',
-		hspacing: 1,
-		vspacing: 1,
-		halign: 'left',
-		valign: 'bottom',
-		scale: 2,
-		snap: 1,
-		render: 1
-	} );
-	$.ctxmg.fillStyle = 'hsla(50, 100%, 60%, ' + bombAlpha + ')';
-	$.ctxmg.fill();
 
-	// Bomb cooldown bar
-	if( !bombReady ) {
-		var cdPct = 1 - $.bombCooldown / $.bombCooldownMax;
-		$.ctxmg.fillStyle = 'hsla(50, 100%, 50%, 0.3)';
-		$.ctxmg.fillRect( abilityX + 80, abilityY + 3, 50, 4 );
-		$.ctxmg.fillStyle = 'hsla(50, 100%, 60%, 0.8)';
-		$.ctxmg.fillRect( abilityX + 80, abilityY + 3, 50 * cdPct, 4 );
+	if( $.hasTouchSupport ) {
+		// Mobile: circular touch buttons
+		var dashBtn = $.abilityBtns.dash;
+		var bombBtn = $.abilityBtns.bomb;
+
+		// Dash button
+		var dashAlpha = dashReady ? 0.6 : 0.2;
+		$.ctxmg.beginPath();
+		$.ctxmg.arc( dashBtn.x, dashBtn.y, dashBtn.radius, 0, $.twopi );
+		$.ctxmg.fillStyle = 'hsla(200, 100%, 50%, ' + dashAlpha + ')';
+		$.ctxmg.fill();
+		$.ctxmg.strokeStyle = 'hsla(200, 100%, 80%, ' + ( dashReady ? 0.8 : 0.3 ) + ')';
+		$.ctxmg.lineWidth = 2;
+		$.ctxmg.stroke();
+
+		// Dash cooldown arc
+		if( !dashReady ) {
+			var cdPct = 1 - $.dashCooldown / $.dashCooldownMax;
+			$.ctxmg.beginPath();
+			$.ctxmg.moveTo( dashBtn.x, dashBtn.y );
+			$.ctxmg.arc( dashBtn.x, dashBtn.y, dashBtn.radius, -$.pi / 2, -$.pi / 2 + $.twopi * cdPct );
+			$.ctxmg.closePath();
+			$.ctxmg.fillStyle = 'hsla(200, 100%, 70%, 0.3)';
+			$.ctxmg.fill();
+		}
+
+		// Dash label
+		$.ctxmg.beginPath();
+		$.text( {
+			ctx: $.ctxmg, x: dashBtn.x, y: dashBtn.y,
+			text: 'DASH', hspacing: 1, vspacing: 1,
+			halign: 'center', valign: 'center', scale: 2, snap: 1, render: 1
+		} );
+		$.ctxmg.fillStyle = 'hsla(200, 100%, 90%, ' + ( dashReady ? 1 : 0.4 ) + ')';
+		$.ctxmg.fill();
+
+		// Bomb button
+		var bombAlpha = bombReady ? 0.6 : 0.2;
+		$.ctxmg.beginPath();
+		$.ctxmg.arc( bombBtn.x, bombBtn.y, bombBtn.radius, 0, $.twopi );
+		$.ctxmg.fillStyle = 'hsla(50, 100%, 40%, ' + bombAlpha + ')';
+		$.ctxmg.fill();
+		$.ctxmg.strokeStyle = 'hsla(50, 100%, 70%, ' + ( bombReady ? 0.8 : 0.3 ) + ')';
+		$.ctxmg.lineWidth = 2;
+		$.ctxmg.stroke();
+
+		// Bomb cooldown arc
+		if( !bombReady ) {
+			var cdPct = 1 - $.bombCooldown / $.bombCooldownMax;
+			$.ctxmg.beginPath();
+			$.ctxmg.moveTo( bombBtn.x, bombBtn.y );
+			$.ctxmg.arc( bombBtn.x, bombBtn.y, bombBtn.radius, -$.pi / 2, -$.pi / 2 + $.twopi * cdPct );
+			$.ctxmg.closePath();
+			$.ctxmg.fillStyle = 'hsla(50, 100%, 60%, 0.3)';
+			$.ctxmg.fill();
+		}
+
+		// Bomb label
+		$.ctxmg.beginPath();
+		$.text( {
+			ctx: $.ctxmg, x: bombBtn.x, y: bombBtn.y,
+			text: 'BOMB', hspacing: 1, vspacing: 1,
+			halign: 'center', valign: 'center', scale: 2, snap: 1, render: 1
+		} );
+		$.ctxmg.fillStyle = 'hsla(50, 100%, 90%, ' + ( bombReady ? 1 : 0.4 ) + ')';
+		$.ctxmg.fill();
+
+	} else {
+		// Desktop: text indicators with cooldown bars
+		var abilityY = $.ch - 30;
+		var abilityX = $.cw - 200;
+
+		var dashAlpha = dashReady ? 1 : 0.3;
+		$.ctxmg.beginPath();
+		$.text( {
+			ctx: $.ctxmg, x: abilityX, y: abilityY,
+			text: 'DASH', hspacing: 1, vspacing: 1,
+			halign: 'left', valign: 'bottom', scale: 2, snap: 1, render: 1
+		} );
+		$.ctxmg.fillStyle = 'hsla(200, 100%, 70%, ' + dashAlpha + ')';
+		$.ctxmg.fill();
+
+		if( !dashReady ) {
+			var cdPct = 1 - $.dashCooldown / $.dashCooldownMax;
+			$.ctxmg.fillStyle = 'hsla(200, 100%, 50%, 0.3)';
+			$.ctxmg.fillRect( abilityX, abilityY + 3, 50, 4 );
+			$.ctxmg.fillStyle = 'hsla(200, 100%, 70%, 0.8)';
+			$.ctxmg.fillRect( abilityX, abilityY + 3, 50 * cdPct, 4 );
+		}
+
+		var bombAlpha = bombReady ? 1 : 0.3;
+		$.ctxmg.beginPath();
+		$.text( {
+			ctx: $.ctxmg, x: abilityX + 80, y: abilityY,
+			text: 'BOMB', hspacing: 1, vspacing: 1,
+			halign: 'left', valign: 'bottom', scale: 2, snap: 1, render: 1
+		} );
+		$.ctxmg.fillStyle = 'hsla(50, 100%, 60%, ' + bombAlpha + ')';
+		$.ctxmg.fill();
+
+		if( !bombReady ) {
+			var cdPct = 1 - $.bombCooldown / $.bombCooldownMax;
+			$.ctxmg.fillStyle = 'hsla(50, 100%, 50%, 0.3)';
+			$.ctxmg.fillRect( abilityX + 80, abilityY + 3, 50, 4 );
+			$.ctxmg.fillStyle = 'hsla(50, 100%, 60%, 0.8)';
+			$.ctxmg.fillRect( abilityX + 80, abilityY + 3, 50 * cdPct, 4 );
+		}
+
+		// Key hints
+		$.ctxmg.beginPath();
+		$.text( {
+			ctx: $.ctxmg, x: abilityX + 15, y: abilityY + 12,
+			text: 'SPACE', hspacing: 1, vspacing: 1,
+			halign: 'left', valign: 'top', scale: 1, snap: 1, render: 1
+		} );
+		$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 0.3)';
+		$.ctxmg.fill();
+
+		$.ctxmg.beginPath();
+		$.text( {
+			ctx: $.ctxmg, x: abilityX + 100, y: abilityY + 12,
+			text: 'Q', hspacing: 1, vspacing: 1,
+			halign: 'left', valign: 'top', scale: 1, snap: 1, render: 1
+		} );
+		$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 0.3)';
+		$.ctxmg.fill();
 	}
-
-	// Key hints
-	$.ctxmg.beginPath();
-	$.text( {
-		ctx: $.ctxmg,
-		x: abilityX + 15,
-		y: abilityY + 12,
-		text: 'SPACE',
-		hspacing: 1,
-		vspacing: 1,
-		halign: 'left',
-		valign: 'top',
-		scale: 1,
-		snap: 1,
-		render: 1
-	} );
-	$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 0.3)';
-	$.ctxmg.fill();
-
-	$.ctxmg.beginPath();
-	$.text( {
-		ctx: $.ctxmg,
-		x: abilityX + 100,
-		y: abilityY + 12,
-		text: 'Q',
-		hspacing: 1,
-		vspacing: 1,
-		halign: 'left',
-		valign: 'top',
-		scale: 1,
-		snap: 1,
-		render: 1
-	} );
-	$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 0.3)';
-	$.ctxmg.fill();
 
 	// Bomb blast radius indicator when active
 	if( $.bombActive > 0 ) {
@@ -1511,9 +1657,26 @@ $.setState = function( state ) {
 
 		$.reset();
 
+		var diffButton = new $.Button( {
+			x: $.cw / 2 + 1,
+			y: $.ch / 2 - 49,
+			lockedWidth: 299,
+			lockedHeight: 49,
+			scale: 3,
+			title: $.difficultyNames[ $.difficulty ],
+			action: function() {
+				$.difficulty = ( $.difficulty + 1 ) % 3;
+				$.storage['difficulty'] = $.difficulty;
+				$.updateStorage();
+				diffButton.title = $.difficultyNames[ $.difficulty ];
+				$.audio.play( 'click' );
+			}
+		} );
+		$.buttons.push( diffButton );
+
 		var playButton = new $.Button( {
 			x: $.cw / 2 + 1,
-			y: $.ch / 2 - 24,
+			y: diffButton.ey + 25,
 			lockedWidth: 299,
 			lockedHeight: 49,
 			scale: 3,
@@ -1888,6 +2051,7 @@ $.setupStates = function() {
 		$.updateLevel();
 		$.updateBoss();
 		$.updateAbilities();
+		$.updateCombo();
 		$.updatePowerupTimers();
 		$.spawnEnemies();
 		$.enemyOffsetMod += ( $.slow ) ? $.dt / 3 : $.dt;
@@ -2090,7 +2254,7 @@ $.setupStates = function() {
 			ctx: $.ctxmg,
 			x: $.cw / 2 - 10,
 			y: gameoverTitle.ey + 51,
-			text: 'SCORE\nLEVEL\nKILLS\nBULLETS\nPOWERUPS\nTIME',
+			text: 'DIFFICULTY\nSCORE\nLEVEL\nKILLS\nBEST COMBO\nBULLETS\nPOWERUPS\nTIME',
 			hspacing: 1,
 			vspacing: 17,
 			halign: 'right',
@@ -2108,9 +2272,11 @@ $.setupStates = function() {
 			x: $.cw / 2 + 10,
 			y: gameoverTitle.ey + 51,
 			text:
+				$.difficultyNames[ $.difficulty ] + '\n' +
 				$.util.commas( $.score ) + '\n' +
 				( $.level.current + 1 ) + '\n' +
 				$.util.commas( $.kills ) + '\n' +
+				$.bestCombo + '\n' +
 				$.util.commas( $.bulletsFired ) + '\n' +
 				$.util.commas( $.powerupsCollected ) + '\n' +
 				$.util.convertTime( ( $.elapsed * ( 1000 / 60 ) ) / 1000 )

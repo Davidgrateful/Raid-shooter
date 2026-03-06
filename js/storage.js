@@ -21,8 +21,9 @@ $.setupStorage = function() {
 		'rounds': 0,
 		'kills': 0,
 		'bullets': 0,
-		'powerups': 0,		
-		'time': 0
+		'powerups': 0,
+		'time': 0,
+		'difficulty': 1
 	};
 };
 

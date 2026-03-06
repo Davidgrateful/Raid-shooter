@@ -177,7 +177,7 @@ $.Hero.prototype.update = function() {
 				} ) );
 				if( !$.shielded && $.dashActive <= 0 ) {
 					this.takingDamage = 1;
-					this.life -= 0.0075;
+					this.life -= 0.0075 * ( $.diffMod ? $.diffMod.damageMult : 1 );
 					$.rumble.level = 3;
 					if( Math.floor( $.tick ) % 5 == 0 ){
 						$.audio.play( 'takingDamage' );
