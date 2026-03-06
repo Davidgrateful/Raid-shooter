@@ -44,15 +44,8 @@ $.init = function() {
 	$.mute = $.storage['mute'];
 	$.autofire = $.storage['autofire'];
 	$.slowEnemyDivider = 3;
-	$.hasTouchSupport = ('ontouchstart' in window);
 	$.difficulty = $.storage['difficulty'] || 1; // 0=easy, 1=normal, 2=hard
 	$.difficultyNames = ['EASY', 'NORMAL', 'HARD'];
-	$.difficultyColors = ['hsla(120, 100%, 50%, 1)', 'hsla(50, 100%, 50%, 1)', 'hsla(0, 100%, 50%, 1)'];
-
-	$.abilityBtns = {
-		dash: { x: $.cw - 140, y: $.ch - 90, radius: 30, pressed: 0 },
-		bomb: { x: $.cw - 60, y: $.ch - 90, radius: 30, pressed: 0 }
-	};
 
 	$.vjoyLeft = {
 		active: 0,
@@ -81,9 +74,7 @@ $.init = function() {
 			right: 0,
 			f: 0,
 			m: 0,
-			p: 0,
-			space: 0,
-			q: 0
+			p: 0
 		},
 		pressed: {
 			up: 0,
@@ -92,9 +83,7 @@ $.init = function() {
 			right: 0,
 			f: 0,
 			m: 0,
-			p: 0,
-			space: 0,
-			q: 0
+			p: 0
 		}
 	};
 	$.okeys = {};
@@ -225,18 +214,6 @@ $.reset = function() {
 	$.bossWarning = 0;
 	$.bossWarningMax = 120;
 	$.bossLevel = 0; // tracks which boss to spawn next (0, 1, 2)
-
-	// Hero abilities
-	$.dashCooldown = 0;
-	$.dashCooldownMax = 180; // 3 seconds at 60fps
-	$.dashActive = 0;
-	$.dashDuration = 10;
-	$.dashSpeed = 25;
-
-	$.bombCooldown = 0;
-	$.bombCooldownMax = 600; // 10 seconds at 60fps
-	$.bombActive = 0;
-	$.bombRadius = 300;
 
 	// Difficulty modifiers: [easy, normal, hard]
 	var diffMods = [
@@ -420,7 +397,7 @@ $.renderInterface = function() {
 				ctx: $.ctxmg,
 				x: $.cw / 2 - 10,
 				y: $.ch - 20,
-				text: 'MOVE\nAIM/FIRE\nAUTOFIRE\nDASH\nBOMB\nPAUSE\nMUTE',
+				text: 'MOVE\nAIM/FIRE\nAUTOFIRE\nPAUSE\nMUTE',
 				hspacing: 1,
 				vspacing: 17,
 				halign: 'right',
@@ -446,7 +423,7 @@ $.renderInterface = function() {
 				ctx: $.ctxmg,
 				x: $.cw / 2 + 10,
 				y: $.ch - 20,
-				text: 'WASD/ARROWS\nMOUSE\nF\nSPACE\nQ\nP\nM',
+				text: 'WASD/ARROWS\nMOUSE\nF\nP\nM',
 				hspacing: 1,
 				vspacing: 17,
 				halign: 'left',
@@ -922,31 +899,14 @@ $.mousedowncb = function( e ) {
 		}
 
 		if( !buttonHovered ) {
-			// Check ability buttons on touch
-			var abilityTapped = false;
-			if( $.hasTouchSupport && $.state == 'play' ) {
-				var dashBtn = $.abilityBtns.dash;
-				var bombBtn = $.abilityBtns.bomb;
-				var ddx = tx - dashBtn.x, ddy = ty - dashBtn.y;
-				var bdx = tx - bombBtn.x, bdy = ty - bombBtn.y;
-				if( Math.sqrt( ddx * ddx + ddy * ddy ) <= dashBtn.radius + 10 ) {
-					$.keys.state.space = 1;
-					dashBtn.pressed = 1;
-					abilityTapped = true;
-				} else if( Math.sqrt( bdx * bdx + bdy * bdy ) <= bombBtn.radius + 10 ) {
-					$.keys.state.q = 1;
-					bombBtn.pressed = 1;
-					abilityTapped = true;
-				}
-			}
-			if( !abilityTapped && tx < $.cw / 2 && !$.vjoyLeft.active ) {
+			if( tx < $.cw / 2 && !$.vjoyLeft.active ) {
 				$.vjoyLeft.active = 1;
 				$.vjoyLeft.ox = tx;
 				$.vjoyLeft.oy = ty;
 				$.vjoyLeft.cx = tx;
 				$.vjoyLeft.cy = ty;
 				$.vjoyLeft.id = tid;
-			} else if( !abilityTapped && tx >= $.cw / 2 && !$.vjoyRight.active ) {
+			} else if( tx >= $.cw / 2 && !$.vjoyRight.active ) {
 				$.vjoyRight.active = 1;
 				$.vjoyRight.ox = tx;
 				$.vjoyRight.oy = ty;
@@ -982,7 +942,6 @@ $.mouseupcb = function( e ) {
 };
 
 $.keydowncb = function( e ) {
-	if( e.keyCode === 32 ) { e.preventDefault(); }
 	var e = ( e.keyCode ? e.keyCode : e.which );
 	if( e === 38 || e === 87 ){ $.keys.state.up = 1; }
 	if( e === 39 || e === 68 ){ $.keys.state.right = 1; }
@@ -991,8 +950,6 @@ $.keydowncb = function( e ) {
 	if( e === 70 ){ $.keys.state.f = 1; }
 	if( e === 77 ){ $.keys.state.m = 1; }
 	if( e === 80 ){ $.keys.state.p = 1; }
-	if( e === 32 ){ $.keys.state.space = 1; }
-	if( e === 81 ){ $.keys.state.q = 1; }
 }
 
 $.keyupcb = function( e ) {
@@ -1004,8 +961,6 @@ $.keyupcb = function( e ) {
 	if( e === 70 ){ $.keys.state.f = 0; }
 	if( e === 77 ){ $.keys.state.m = 0; }
 	if( e === 80 ){ $.keys.state.p = 0; }
-	if( e === 32 ){ $.keys.state.space = 0; }
-	if( e === 81 ){ $.keys.state.q = 0; }
 }
 
 $.resizecb = function( e ) {
@@ -1093,8 +1048,8 @@ $.updateScreen = function() {
 		$.rumble.y = 0;
 	}
 
-	$.screen.x -= $.rumble.x;
-	$.screen.y -= $.rumble.y;
+	//$.screen.x -= $.rumble.x;
+	//$.screen.y -= $.rumble.y;
 
 	// animate background canvas
 	$.cbg1.style.marginLeft =
@@ -1202,104 +1157,6 @@ $.updateBoss = function() {
 	// Check if boss is dead
 	if( $.boss && $.boss.life <= 0 ) {
 		$.boss = null;
-	}
-};
-
-$.updateAbilities = function() {
-	// Dash cooldown
-	if( $.dashCooldown > 0 ) {
-		$.dashCooldown -= $.dt;
-	}
-
-	// Dash active
-	if( $.dashActive > 0 ) {
-		$.dashActive -= $.dt;
-		// During dash, hero is invulnerable and moves fast
-		var dashDir = $.hero.direction;
-		$.hero.x += Math.cos( dashDir ) * $.dashSpeed * $.dt;
-		$.hero.y += Math.sin( dashDir ) * $.dashSpeed * $.dt;
-		// Clamp bounds
-		$.hero.x = Math.max( $.hero.radius, Math.min( $.ww - $.hero.radius, $.hero.x ) );
-		$.hero.y = Math.max( $.hero.radius, Math.min( $.wh - $.hero.radius, $.hero.y ) );
-		// Trail particles
-		$.particleEmitters.push( new $.ParticleEmitter( {
-			x: $.hero.x, y: $.hero.y, count: 2, spawnRange: 5,
-			friction: 0.8, minSpeed: 3, maxSpeed: 10,
-			minDirection: dashDir + $.pi - 0.3, maxDirection: dashDir + $.pi + 0.3,
-			hue: 200, saturation: 100
-		} ) );
-	}
-
-	// Bomb cooldown
-	if( $.bombCooldown > 0 ) {
-		$.bombCooldown -= $.dt;
-	}
-
-	// Bomb active
-	if( $.bombActive > 0 ) {
-		$.bombActive -= $.dt;
-	}
-
-	// Trigger dash (Space key)
-	if( $.keys.pressed.space && $.dashCooldown <= 0 && $.dashActive <= 0 && $.hero.life > 0 ) {
-		$.dashActive = $.dashDuration;
-		$.dashCooldown = $.dashCooldownMax;
-		$.audio.play( 'dash' );
-		$.rumble.level = 4;
-	}
-
-	// Trigger bomb (Q key)
-	if( $.keys.pressed.q && $.bombCooldown <= 0 && $.hero.life > 0 ) {
-		$.bombCooldown = $.bombCooldownMax;
-		$.bombActive = 15;
-		$.audio.play( 'bomb' );
-		$.rumble.level = 15;
-
-		// Damage all enemies in radius
-		var ei = $.enemies.length;
-		while( ei-- ) {
-			var enemy = $.enemies[ ei ];
-			var dx = $.hero.x - enemy.x,
-				dy = $.hero.y - enemy.y,
-				dist = Math.sqrt( dx * dx + dy * dy );
-			if( dist < $.bombRadius ) {
-				var dmg = enemy.isBoss ? 5 : 3;
-				enemy.receiveDamage( ei, dmg );
-			}
-		}
-		// Clear enemy bullets in radius
-		var bi = $.enemyBullets.length;
-		while( bi-- ) {
-			var b = $.enemyBullets[ bi ];
-			var dx = $.hero.x - b.x,
-				dy = $.hero.y - b.y,
-				dist = Math.sqrt( dx * dx + dy * dy );
-			if( dist < $.bombRadius ) {
-				$.enemyBullets.splice( bi, 1 );
-			}
-		}
-		// Visual explosion
-		$.explosions.push( new $.Explosion( {
-			x: $.hero.x, y: $.hero.y, radius: $.bombRadius / 3,
-			hue: 50, saturation: 100
-		} ) );
-		$.particleEmitters.push( new $.ParticleEmitter( {
-			x: $.hero.x, y: $.hero.y, count: 40, spawnRange: 20,
-			friction: 0.92, minSpeed: 5, maxSpeed: 25,
-			minDirection: 0, maxDirection: $.twopi, hue: 50, saturation: 100
-		} ) );
-	}
-
-	// Auto-release touch ability buttons after one frame
-	if( $.hasTouchSupport ) {
-		if( $.abilityBtns.dash.pressed ) {
-			$.abilityBtns.dash.pressed = 0;
-			$.keys.state.space = 0;
-		}
-		if( $.abilityBtns.bomb.pressed ) {
-			$.abilityBtns.bomb.pressed = 0;
-			$.keys.state.q = 0;
-		}
 	}
 };
 
@@ -1503,149 +1360,6 @@ $.renderBossUI = function() {
 /*==============================================================================
 Ability UI
 ==============================================================================*/
-$.renderAbilityUI = function() {
-	var dashReady = $.dashCooldown <= 0;
-	var bombReady = $.bombCooldown <= 0;
-
-	if( $.hasTouchSupport ) {
-		// Mobile: circular touch buttons
-		var dashBtn = $.abilityBtns.dash;
-		var bombBtn = $.abilityBtns.bomb;
-
-		// Dash button
-		var dashAlpha = dashReady ? 0.6 : 0.2;
-		$.ctxmg.beginPath();
-		$.ctxmg.arc( dashBtn.x, dashBtn.y, dashBtn.radius, 0, $.twopi );
-		$.ctxmg.fillStyle = 'hsla(200, 100%, 50%, ' + dashAlpha + ')';
-		$.ctxmg.fill();
-		$.ctxmg.strokeStyle = 'hsla(200, 100%, 80%, ' + ( dashReady ? 0.8 : 0.3 ) + ')';
-		$.ctxmg.lineWidth = 2;
-		$.ctxmg.stroke();
-
-		// Dash cooldown arc
-		if( !dashReady ) {
-			var cdPct = 1 - $.dashCooldown / $.dashCooldownMax;
-			$.ctxmg.beginPath();
-			$.ctxmg.moveTo( dashBtn.x, dashBtn.y );
-			$.ctxmg.arc( dashBtn.x, dashBtn.y, dashBtn.radius, -$.pi / 2, -$.pi / 2 + $.twopi * cdPct );
-			$.ctxmg.closePath();
-			$.ctxmg.fillStyle = 'hsla(200, 100%, 70%, 0.3)';
-			$.ctxmg.fill();
-		}
-
-		// Dash label
-		$.ctxmg.beginPath();
-		$.text( {
-			ctx: $.ctxmg, x: dashBtn.x, y: dashBtn.y,
-			text: 'DASH', hspacing: 1, vspacing: 1,
-			halign: 'center', valign: 'center', scale: 2, snap: 1, render: 1
-		} );
-		$.ctxmg.fillStyle = 'hsla(200, 100%, 90%, ' + ( dashReady ? 1 : 0.4 ) + ')';
-		$.ctxmg.fill();
-
-		// Bomb button
-		var bombAlpha = bombReady ? 0.6 : 0.2;
-		$.ctxmg.beginPath();
-		$.ctxmg.arc( bombBtn.x, bombBtn.y, bombBtn.radius, 0, $.twopi );
-		$.ctxmg.fillStyle = 'hsla(50, 100%, 40%, ' + bombAlpha + ')';
-		$.ctxmg.fill();
-		$.ctxmg.strokeStyle = 'hsla(50, 100%, 70%, ' + ( bombReady ? 0.8 : 0.3 ) + ')';
-		$.ctxmg.lineWidth = 2;
-		$.ctxmg.stroke();
-
-		// Bomb cooldown arc
-		if( !bombReady ) {
-			var cdPct = 1 - $.bombCooldown / $.bombCooldownMax;
-			$.ctxmg.beginPath();
-			$.ctxmg.moveTo( bombBtn.x, bombBtn.y );
-			$.ctxmg.arc( bombBtn.x, bombBtn.y, bombBtn.radius, -$.pi / 2, -$.pi / 2 + $.twopi * cdPct );
-			$.ctxmg.closePath();
-			$.ctxmg.fillStyle = 'hsla(50, 100%, 60%, 0.3)';
-			$.ctxmg.fill();
-		}
-
-		// Bomb label
-		$.ctxmg.beginPath();
-		$.text( {
-			ctx: $.ctxmg, x: bombBtn.x, y: bombBtn.y,
-			text: 'BOMB', hspacing: 1, vspacing: 1,
-			halign: 'center', valign: 'center', scale: 2, snap: 1, render: 1
-		} );
-		$.ctxmg.fillStyle = 'hsla(50, 100%, 90%, ' + ( bombReady ? 1 : 0.4 ) + ')';
-		$.ctxmg.fill();
-
-	} else {
-		// Desktop: text indicators with cooldown bars
-		var abilityY = $.ch - 30;
-		var abilityX = $.cw - 200;
-
-		var dashAlpha = dashReady ? 1 : 0.3;
-		$.ctxmg.beginPath();
-		$.text( {
-			ctx: $.ctxmg, x: abilityX, y: abilityY,
-			text: 'DASH', hspacing: 1, vspacing: 1,
-			halign: 'left', valign: 'bottom', scale: 2, snap: 1, render: 1
-		} );
-		$.ctxmg.fillStyle = 'hsla(200, 100%, 70%, ' + dashAlpha + ')';
-		$.ctxmg.fill();
-
-		if( !dashReady ) {
-			var cdPct = 1 - $.dashCooldown / $.dashCooldownMax;
-			$.ctxmg.fillStyle = 'hsla(200, 100%, 50%, 0.3)';
-			$.ctxmg.fillRect( abilityX, abilityY + 3, 50, 4 );
-			$.ctxmg.fillStyle = 'hsla(200, 100%, 70%, 0.8)';
-			$.ctxmg.fillRect( abilityX, abilityY + 3, 50 * cdPct, 4 );
-		}
-
-		var bombAlpha = bombReady ? 1 : 0.3;
-		$.ctxmg.beginPath();
-		$.text( {
-			ctx: $.ctxmg, x: abilityX + 80, y: abilityY,
-			text: 'BOMB', hspacing: 1, vspacing: 1,
-			halign: 'left', valign: 'bottom', scale: 2, snap: 1, render: 1
-		} );
-		$.ctxmg.fillStyle = 'hsla(50, 100%, 60%, ' + bombAlpha + ')';
-		$.ctxmg.fill();
-
-		if( !bombReady ) {
-			var cdPct = 1 - $.bombCooldown / $.bombCooldownMax;
-			$.ctxmg.fillStyle = 'hsla(50, 100%, 50%, 0.3)';
-			$.ctxmg.fillRect( abilityX + 80, abilityY + 3, 50, 4 );
-			$.ctxmg.fillStyle = 'hsla(50, 100%, 60%, 0.8)';
-			$.ctxmg.fillRect( abilityX + 80, abilityY + 3, 50 * cdPct, 4 );
-		}
-
-		// Key hints
-		$.ctxmg.beginPath();
-		$.text( {
-			ctx: $.ctxmg, x: abilityX + 15, y: abilityY + 12,
-			text: 'SPACE', hspacing: 1, vspacing: 1,
-			halign: 'left', valign: 'top', scale: 1, snap: 1, render: 1
-		} );
-		$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 0.3)';
-		$.ctxmg.fill();
-
-		$.ctxmg.beginPath();
-		$.text( {
-			ctx: $.ctxmg, x: abilityX + 100, y: abilityY + 12,
-			text: 'Q', hspacing: 1, vspacing: 1,
-			halign: 'left', valign: 'top', scale: 1, snap: 1, render: 1
-		} );
-		$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 0.3)';
-		$.ctxmg.fill();
-	}
-
-	// Bomb blast radius indicator when active
-	if( $.bombActive > 0 ) {
-		var bombAlpha = ( $.bombActive / 15 ) * 0.3;
-		$.ctxmg.save();
-		$.ctxmg.translate( $.screen.x - $.rumble.x, $.screen.y - $.rumble.y );
-		$.util.strokeCircle( $.ctxmg, $.hero.x, $.hero.y, $.bombRadius, 'hsla(50, 100%, 70%, ' + bombAlpha + ')', 3 );
-		$.util.fillCircle( $.ctxmg, $.hero.x, $.hero.y, $.bombRadius * ( 1 - $.bombActive / 15 ), 'hsla(50, 100%, 80%, ' + ( bombAlpha * 0.3 ) + ')' );
-		$.ctxmg.restore();
-	}
-};
-
 $.setState = function( state ) {
 	// handle clean up between states
 	$.buttons.length = 0;
@@ -1669,7 +1383,7 @@ $.setState = function( state ) {
 				$.storage['difficulty'] = $.difficulty;
 				$.updateStorage();
 				diffButton.title = $.difficultyNames[ $.difficulty ];
-				$.audio.play( 'click' );
+				$.mouse.down = 0;
 			}
 		} );
 		$.buttons.push( diffButton );
@@ -2050,7 +1764,6 @@ $.setupStates = function() {
 		$.updateScreen();
 		$.updateLevel();
 		$.updateBoss();
-		$.updateAbilities();
 		$.updateCombo();
 		$.updatePowerupTimers();
 		$.spawnEnemies();
@@ -2123,7 +1836,6 @@ $.setupStates = function() {
 		$.renderInterface();
 		$.renderMinimap();
 		$.renderBossUI();
-		$.renderAbilityUI();
 
 		// handle gameover
 		if( $.hero.life <= 0 ) {
