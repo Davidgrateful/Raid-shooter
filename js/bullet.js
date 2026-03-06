@@ -42,6 +42,36 @@ $.Bullet.prototype.update = function( i ) {
 		var enemy = $.enemies[ ei ];
 		if( $.util.distance( this.x, this.y, enemy.x, enemy.y ) <= enemy.radius ) {
 			if( this.enemiesHit.indexOf( enemy.index ) == -1 ){
+				// Shield Bearer: block bullets hitting the shielded side
+				if( typeof enemy.shieldAngle !== 'undefined' ) {
+					var bulletAngle = Math.atan2( this.y - enemy.y, this.x - enemy.x );
+					var angleDiff = bulletAngle - enemy.shieldAngle;
+					// Normalize to [-PI, PI]
+					while( angleDiff > $.pi ) angleDiff -= $.twopi;
+					while( angleDiff < -$.pi ) angleDiff += $.twopi;
+					if( Math.abs( angleDiff ) < enemy.shieldArc / 2 ) {
+						// Bullet blocked by shield - deflect
+						$.particleEmitters.push( new $.ParticleEmitter( {
+							x: this.x,
+							y: this.y,
+							count: 2,
+							spawnRange: 0,
+							friction: 0.85,
+							minSpeed: 3,
+							maxSpeed: 8,
+							minDirection: this.direction - $.pi / 3,
+							maxDirection: this.direction + $.pi / 3,
+							hue: 50,
+							saturation: 100
+						} ) );
+						this.enemiesHit.push( enemy.index );
+						if( !this.piercing ) {
+							$.bullets.splice( i, 1 );
+						}
+						continue;
+					}
+				}
+
 				$.particleEmitters.push( new $.ParticleEmitter( {
 					x: this.x,
 					y: this.y,
@@ -60,7 +90,7 @@ $.Bullet.prototype.update = function( i ) {
 
 				if( this.enemiesHit.length > 3 ) {
 					$.bullets.splice( i, 1 );
-				}						
+				}
 			}
 			if( !this.piercing ) {
 				$.bullets.splice( i, 1 );

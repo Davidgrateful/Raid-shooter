@@ -154,7 +154,30 @@ $.Enemy.prototype.render = function( i ) {
 		if( this.hitFlag > 0 ) {
 			this.hitFlag -= $.dt;
 			$.util.fillCircle( $.ctxmg, this.x, this.y, this.radius, 'hsla(' + this.hue + ', ' + this.saturation + '%, 75%, ' + this.hitFlag / 10 + ')' );
-			$.util.strokeCircle( $.ctxmg, this.x, this.y, this.radius, 'hsla(' + this.hue + ', ' + this.saturation + '%, ' + $.util.rand( 60, 90) + '%, ' + this.hitFlag / 10 + ')', $.util.rand( 1, 10) );	
+			$.util.strokeCircle( $.ctxmg, this.x, this.y, this.radius, 'hsla(' + this.hue + ', ' + this.saturation + '%, ' + $.util.rand( 60, 90) + '%, ' + this.hitFlag / 10 + ')', $.util.rand( 1, 10) );
+		}
+		// Shield Bearer: draw directional shield arc
+		if( typeof this.shieldAngle !== 'undefined' ) {
+			$.ctxmg.strokeStyle = 'hsla(50, 100%, 80%, 0.8)';
+			$.ctxmg.lineWidth = 4;
+			$.ctxmg.beginPath();
+			$.ctxmg.arc( this.x, this.y, this.radius + 5, this.shieldAngle - this.shieldArc / 2, this.shieldAngle + this.shieldArc / 2 );
+			$.ctxmg.stroke();
+			$.ctxmg.strokeStyle = 'hsla(50, 100%, 90%, 0.4)';
+			$.ctxmg.lineWidth = 8;
+			$.ctxmg.beginPath();
+			$.ctxmg.arc( this.x, this.y, this.radius + 5, this.shieldAngle - this.shieldArc / 2, this.shieldAngle + this.shieldArc / 2 );
+			$.ctxmg.stroke();
+		}
+		// Buff aura: draw range indicator for Tower when stationary
+		if( this.buffRadius && this.vx === 0 && this.vy === 0 ) {
+			var auraAlpha = 0.05 + Math.sin( $.tick / 10 ) * 0.03;
+			$.util.strokeCircle( $.ctxmg, this.x, this.y, this.buffRadius, 'hsla(90, 100%, 60%, ' + auraAlpha + ')', 1 );
+		}
+		// Buffed glow on any enemy
+		if( this.buffed && this.buffed > 0 ) {
+			this.buffed -= $.dt;
+			$.util.fillCircle( $.ctxmg, this.x, this.y, this.radius + 3, 'hsla(90, 100%, 70%, 0.15)' );
 		}
 		this.renderHealth();
 	}

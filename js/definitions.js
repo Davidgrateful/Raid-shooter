@@ -254,7 +254,7 @@ $.definitions.enemies = [
 			this.vy = Math.sin( direction ) * speed;
 		}
 	},
-	{ // Enemy 6 - big strong slow fatty
+	{ // Enemy 6 - big strong slow fatty (explodes on death)
 		value: 35,
 		speed: 0.25,
 		life: 8,
@@ -263,7 +263,7 @@ $.definitions.enemies = [
 		behavior: function() {
 			var speed = this.speed;
 			if( $.slow ) {
-				speed = this.speed / $.slowEnemyDivider; 
+				speed = this.speed / $.slowEnemyDivider;
 			}
 
 			var dx = $.hero.x - this.x,
@@ -271,24 +271,73 @@ $.definitions.enemies = [
 				direction = Math.atan2( dy, dx );
 			this.vx = Math.cos( direction ) * speed;
 			this.vy = Math.sin( direction ) * speed;
+		},
+		death: function() {
+			// Explode on death - area damage to hero if nearby
+			var dx = $.hero.x - this.x,
+				dy = $.hero.y - this.y,
+				dist = Math.sqrt( dx * dx + dy * dy ),
+				blastRadius = this.radius * 3;
+			if( dist < blastRadius && !$.shielded ) {
+				var dmg = 0.15 * ( 1 - dist / blastRadius );
+				$.hero.life -= dmg;
+				$.hero.takingDamage = 1;
+				$.rumble.level = 8;
+				$.audio.play( 'explosion' );
+			}
+			// Big visual explosion
+			$.particleEmitters.push( new $.ParticleEmitter( {
+				x: this.x,
+				y: this.y,
+				count: 25,
+				spawnRange: this.radius,
+				friction: 0.9,
+				minSpeed: 3,
+				maxSpeed: 15,
+				minDirection: 0,
+				maxDirection: $.twopi,
+				hue: 0,
+				saturation: 100
+			} ) );
 		}
 	},
-	{ // Enemy 7 - small weak speedy
+	{ // Enemy 7 - small weak speedy (dodges bullets)
 		value: 40,
 		speed: 2.5,
 		life: 1,
 		radius: 15,
 		hue: 300,
+		dodgeCooldown: 0,
 		behavior: function() {
 			var speed = this.speed;
 			if( $.slow ) {
-				speed = this.speed / $.slowEnemyDivider; 
+				speed = this.speed / $.slowEnemyDivider;
 			}
 
 			var dx = $.hero.x - this.x,
 				dy = $.hero.y - this.y,
 				direction = Math.atan2( dy, dx );
 			direction = direction + Math.cos( $.tick / 50 ) * 1;
+
+			// Dodge incoming bullets
+			if( this.dodgeCooldown > 0 ) {
+				this.dodgeCooldown -= $.dt;
+			} else {
+				var bi = $.bullets.length;
+				while( bi-- ) {
+					var b = $.bullets[ bi ];
+					var bDist = Math.sqrt( ( b.x - this.x ) * ( b.x - this.x ) + ( b.y - this.y ) * ( b.y - this.y ) );
+					if( bDist < 80 ) {
+						// Dodge perpendicular to bullet direction
+						var dodgeDir = b.direction + ( Math.random() > 0.5 ? $.pi / 2 : -$.pi / 2 );
+						this.vx = Math.cos( dodgeDir ) * speed * 3;
+						this.vy = Math.sin( dodgeDir ) * speed * 3;
+						this.dodgeCooldown = 30;
+						return;
+					}
+				}
+			}
+
 			this.vx = Math.cos( direction ) * speed;
 			this.vy = Math.sin( direction ) * speed;
 		}
@@ -401,12 +450,14 @@ $.definitions.enemies = [
 			} 
 		}
 	},
-	{ // Enemy 11 - random location strong tower
+	{ // Enemy 11 - random location strong tower (buff aura)
 		value: 60,
 		speed: 1.5,
 		life: 10,
 		radius: 30,
-		hue: 90,		
+		hue: 90,
+		buffRadius: 200,
+		buffTick: 0,
 		setup: function(){
 			this.xTarget = $.util.rand( 50, $.ww - 50 );
 			this.yTarget = $.util.rand( 50, $.wh - 50 );
@@ -414,7 +465,7 @@ $.definitions.enemies = [
 		behavior: function() {
 			var speed = this.speed;
 			if( $.slow ) {
-				speed = this.speed / $.slowEnemyDivider; 
+				speed = this.speed / $.slowEnemyDivider;
 			}
 			var dx = this.xTarget - this.x,
 				dy = this.yTarget - this.y,
@@ -425,6 +476,25 @@ $.definitions.enemies = [
 			} else {
 				this.vx = 0;
 				this.vy = 0;
+
+				// Buff nearby allies when stationary
+				this.buffTick += $.dt;
+				if( this.buffTick >= 60 ) {
+					this.buffTick = 0;
+					var ei = $.enemies.length;
+					while( ei-- ) {
+						var ally = $.enemies[ ei ];
+						if( ally !== this && ally.index !== this.index ) {
+							var adx = ally.x - this.x,
+								ady = ally.y - this.y,
+								aDist = Math.sqrt( adx * adx + ady * ady );
+							if( aDist < this.buffRadius ) {
+								ally.speed = Math.min( ally.speed * 1.1, 8 );
+								ally.buffed = 20;
+							}
+						}
+					}
+				}
 			}
 		}
 	},
@@ -472,6 +542,177 @@ $.definitions.enemies = [
 			this.lightness = 50;
 			this.fillStyle = 'hsla(' + this.hue + ', 100%, ' + this.lightness + '%, 0.2)';
 			this.strokeStyle = 'hsla(' + this.hue + ', 100%, ' + this.lightness + '%, 1)';
+		}
+	},
+	{ // Enemy 13 - Shooter: keeps distance, fires bullets at player
+		value: 70,
+		speed: 1,
+		life: 4,
+		radius: 25,
+		hue: 15,
+		fireTick: 0,
+		fireMax: 120,
+		preferredDist: 300,
+		behavior: function() {
+			var speed = this.speed;
+			if( $.slow ) {
+				speed = this.speed / $.slowEnemyDivider;
+			}
+
+			var dx = $.hero.x - this.x,
+				dy = $.hero.y - this.y,
+				dist = Math.sqrt( dx * dx + dy * dy ),
+				direction = Math.atan2( dy, dx );
+
+			// Keep preferred distance from player
+			if( dist > this.preferredDist + 50 ) {
+				this.vx = Math.cos( direction ) * speed;
+				this.vy = Math.sin( direction ) * speed;
+			} else if( dist < this.preferredDist - 50 ) {
+				this.vx = -Math.cos( direction ) * speed;
+				this.vy = -Math.sin( direction ) * speed;
+			} else {
+				// Strafe sideways
+				this.vx = Math.cos( direction + $.pi / 2 ) * speed * 0.5;
+				this.vy = Math.sin( direction + $.pi / 2 ) * speed * 0.5;
+			}
+
+			// Fire bullets at player
+			this.fireTick += $.dt;
+			if( this.fireTick >= this.fireMax ) {
+				this.fireTick = 0;
+				var bulletSpeed = 3;
+				if( $.slow ) { bulletSpeed = bulletSpeed / $.slowEnemyDivider; }
+				$.enemyBullets.push( new $.EnemyBullet( {
+					x: this.x,
+					y: this.y,
+					direction: direction,
+					speed: bulletSpeed,
+					radius: 4,
+					damage: 0.05,
+					hue: this.hue
+				} ) );
+			}
+		}
+	},
+	{ // Enemy 14 - Teleporter: blinks around, appears near player
+		value: 75,
+		speed: 0.5,
+		life: 2,
+		radius: 18,
+		hue: 270,
+		teleportTick: 0,
+		teleportMax: 150,
+		teleportWarning: 30,
+		opacity: 1,
+		behavior: function() {
+			var speed = this.speed;
+			if( $.slow ) {
+				speed = this.speed / $.slowEnemyDivider;
+			}
+
+			this.teleportTick += $.dt;
+
+			if( this.teleportTick >= this.teleportMax - this.teleportWarning ) {
+				// Fading out before teleport
+				this.opacity = Math.max( 0.1, 1 - ( this.teleportTick - ( this.teleportMax - this.teleportWarning ) ) / this.teleportWarning );
+				this.fillStyle = 'hsla(' + this.hue + ', 100%, 50%, ' + ( this.opacity * 0.1 ) + ')';
+				this.strokeStyle = 'hsla(' + this.hue + ', 100%, 50%, ' + this.opacity + ')';
+			}
+
+			if( this.teleportTick >= this.teleportMax ) {
+				this.teleportTick = 0;
+				// Teleport to random position near player
+				var angle = $.util.rand( 0, $.twopi ),
+					dist = $.util.rand( 100, 250 );
+				this.x = $.hero.x + Math.cos( angle ) * dist;
+				this.y = $.hero.y + Math.sin( angle ) * dist;
+				// Clamp to bounds
+				this.x = Math.max( this.radius, Math.min( $.ww - this.radius, this.x ) );
+				this.y = Math.max( this.radius, Math.min( $.wh - this.radius, this.y ) );
+				this.opacity = 1;
+				this.fillStyle = 'hsla(' + this.hue + ', 100%, 50%, 0.1)';
+				this.strokeStyle = 'hsla(' + this.hue + ', 100%, 50%, 1)';
+				// Flash effect on arrival
+				$.particleEmitters.push( new $.ParticleEmitter( {
+					x: this.x,
+					y: this.y,
+					count: 6,
+					spawnRange: this.radius,
+					friction: 0.85,
+					minSpeed: 3,
+					maxSpeed: 8,
+					minDirection: 0,
+					maxDirection: $.twopi,
+					hue: this.hue,
+					saturation: 100
+				} ) );
+			}
+
+			// Slowly drift toward player between teleports
+			var dx = $.hero.x - this.x,
+				dy = $.hero.y - this.y,
+				direction = Math.atan2( dy, dx );
+			this.vx = Math.cos( direction ) * speed;
+			this.vy = Math.sin( direction ) * speed;
+		}
+	},
+	{ // Enemy 15 - Shield Bearer: has a directional shield blocking bullets from front
+		value: 80,
+		speed: 1,
+		life: 4,
+		radius: 25,
+		hue: 50,
+		saturation: 100,
+		lightness: 70,
+		shieldAngle: 0,
+		shieldArc: 1.2,
+		behavior: function() {
+			var speed = this.speed;
+			if( $.slow ) {
+				speed = this.speed / $.slowEnemyDivider;
+			}
+
+			var dx = $.hero.x - this.x,
+				dy = $.hero.y - this.y,
+				direction = Math.atan2( dy, dx );
+
+			this.shieldAngle = direction;
+			this.vx = Math.cos( direction ) * speed;
+			this.vy = Math.sin( direction ) * speed;
+		}
+	},
+	{ // Enemy 16 - Swarm: small enemies that coordinate in groups
+		value: 10,
+		speed: 2,
+		life: 1,
+		radius: 10,
+		hue: 290,
+		saturation: 80,
+		lightness: 60,
+		swarmOffset: 0,
+		behavior: function() {
+			var speed = this.speed;
+			if( $.slow ) {
+				speed = this.speed / $.slowEnemyDivider;
+			}
+
+			var dx = $.hero.x - this.x,
+				dy = $.hero.y - this.y,
+				direction = Math.atan2( dy, dx );
+
+			// Add swarm wobble - each swarm member oscillates differently
+			direction += Math.sin( $.tick / 20 + this.swarmOffset ) * 0.8;
+			this.vx = Math.cos( direction ) * speed;
+			this.vy = Math.sin( direction ) * speed;
+
+			// Color pulse
+			var pulse = Math.sin( $.tick / 10 + this.swarmOffset ) * 20 + 60;
+			this.fillStyle = 'hsla(' + this.hue + ', ' + this.saturation + '%, ' + pulse + '%, 0.2)';
+			this.strokeStyle = 'hsla(' + this.hue + ', ' + this.saturation + '%, ' + pulse + '%, 1)';
+		},
+		setup: function() {
+			this.swarmOffset = $.util.rand( 0, $.twopi );
 		}
 	}
 ];

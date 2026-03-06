@@ -117,6 +117,7 @@ $.init = function() {
 	$.state = '';
 	$.enemies = [];
 	$.bullets = [];
+	$.enemyBullets = [];
 	$.explosions = [];
 	$.powerups = [];
 	$.particleEmitters = [];
@@ -182,6 +183,7 @@ $.reset = function() {
 
 	$.enemies.length = 0;
 	$.bullets.length = 0;
+	$.enemyBullets.length = 0;
 	$.explosions.length = 0;
 	$.powerups.length = 0;
 	$.particleEmitters.length = 0;
@@ -710,7 +712,20 @@ $.spawnEnemies = function() {
 			timeCheck = Math.max( 1, timeCheck - ( $.levelDiffOffset * 2) );
 		}
 		if( floorTick % timeCheck === 0 ) {
-			$.enemies.push( $.spawnEnemy( i ) );
+			// Swarm type spawns in groups
+			if( i === 16 ) {
+				var count = Math.floor( $.util.rand( 3, 6 ) );
+				var leader = $.spawnEnemy( i );
+				$.enemies.push( leader );
+				for( var s = 1; s < count; s++ ) {
+					var follower = $.spawnEnemy( i );
+					follower.x = leader.x + $.util.rand( -30, 30 );
+					follower.y = leader.y + $.util.rand( -30, 30 );
+					$.enemies.push( follower );
+				}
+			} else {
+				$.enemies.push( $.spawnEnemy( i ) );
+			}
 		}
 	}
 };
@@ -1522,6 +1537,7 @@ $.setupStates = function() {
 
 		// update entities
 		var i = $.enemies.length; while( i-- ){ $.enemies[ i ].update( i ) }
+			i = $.enemyBullets.length; while( i-- ){ $.enemyBullets[ i ].update( i ) }
 			i = $.explosions.length; while( i-- ){ $.explosions[ i ].update( i ) }
 			i = $.powerups.length; while( i-- ){ $.powerups[ i ].update( i ) }
 			i = $.particleEmitters.length; while( i-- ){ $.particleEmitters[ i ].update( i ) }
@@ -1535,6 +1551,7 @@ $.setupStates = function() {
 		$.ctxmg.save();
 		$.ctxmg.translate( $.screen.x - $.rumble.x, $.screen.y - $.rumble.y );
 		i = $.enemies.length; while( i-- ){ $.enemies[ i ].render( i ) }
+		i = $.enemyBullets.length; while( i-- ){ $.enemyBullets[ i ].render( i ) }
 		i = $.explosions.length; while( i-- ){ $.explosions[ i ].render( i ) }
 		i = $.powerups.length; while( i-- ){ $.powerups[ i ].render( i ) }
 		i = $.particleEmitters.length; while( i-- ){ $.particleEmitters[ i ].render( i ) }
