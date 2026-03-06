@@ -527,7 +527,25 @@ $.definitions.powerups = [
 		hue: 0,
 		saturation: 100,
 		lightness: 60
-	}	
+	},
+	{
+		title: 'SHIELD',
+		hue: 180,
+		saturation: 100,
+		lightness: 80
+	},
+	{
+		title: 'SPEED BOOST',
+		hue: 50,
+		saturation: 100,
+		lightness: 60
+	},
+	{
+		title: 'MAGNET',
+		hue: 300,
+		saturation: 100,
+		lightness: 70
+	}
 ];
 
 /*==============================================================================

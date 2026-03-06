@@ -28,7 +28,7 @@ $.Hero = function() {
 			strokeStyle: '#fff'
 		},
 		fireFlag: 0
-	};	
+	};
 };
 
 /*==============================================================================
@@ -63,8 +63,8 @@ $.Hero.prototype.update = function() {
 		}
 
 		this.vy *= 0.9;
-		this.vx *= 0.9;	
-		
+		this.vx *= 0.9;
+
 		this.x += this.vx * $.dt;
 		this.y += this.vy * $.dt;
 
@@ -91,9 +91,9 @@ $.Hero.prototype.update = function() {
 			var dx = $.vjoyRight.cx - $.vjoyRight.ox,
 				dy = $.vjoyRight.cy - $.vjoyRight.oy;
 			if( dx !== 0 || dy !== 0 ) {
-				// The user reported the joystick is vertically inverted. 
-				// The previous mapping in game.js was actually inverted, which made them BOTH appear inverted relative to the correct interaction model. 
-				// Now that game.js mappings are restored to true canvas y-is-down behavior, 
+				// The user reported the joystick is vertically inverted.
+				// The previous mapping in game.js was actually inverted, which made them BOTH appear inverted relative to the correct interaction model.
+				// Now that game.js mappings are restored to true canvas y-is-down behavior,
 				// this should also be regular canvas atan2 behavior (dy, dx).
 				this.direction = Math.atan2( dy, dx );
 			}
@@ -139,7 +139,7 @@ $.Hero.prototype.update = function() {
 						if( $.powerupTimers[ 4 ] > 0 ) { colors.push( 'hsl(' + $.definitions.powerups[ 4 ].hue + ', ' + $.definitions.powerups[ 4 ].saturation + '%, ' + $.definitions.powerups[ 4 ].lightness + '%)' ); }
 						color = colors[ Math.floor( $.util.rand( 0, colors.length ) ) ];
 					}
-					$.bullets.push( new $.Bullet( {					
+					$.bullets.push( new $.Bullet( {
 						x: gunX,
 						y: gunY,
 						speed: this.weapon.bullet.speed,
@@ -148,7 +148,7 @@ $.Hero.prototype.update = function() {
 						size: this.weapon.bullet.size,
 						lineWidth: this.weapon.bullet.lineWidth,
 						strokeStyle: color,
-						piercing: this.weapon.bullet.piercing					
+						piercing: this.weapon.bullet.piercing
 					} ) );
 				}
 			}
@@ -172,17 +172,19 @@ $.Hero.prototype.update = function() {
 					maxSpeed: 15,
 					minDirection: 0,
 					maxDirection: $.twopi,
-					hue: 0,
-					saturation: 0
+					hue: $.shielded ? 180 : 0,
+					saturation: $.shielded ? 100 : 0
 				} ) );
-				this.takingDamage = 1;
-				this.life -= 0.0075;
-				$.rumble.level = 3;
-				if( Math.floor( $.tick ) % 5 == 0 ){
-					$.audio.play( 'takingDamage' );
+				if( !$.shielded ) {
+					this.takingDamage = 1;
+					this.life -= 0.0075;
+					$.rumble.level = 3;
+					if( Math.floor( $.tick ) % 5 == 0 ){
+						$.audio.play( 'takingDamage' );
+					}
 				}
 			}
-		}		
+		}
 	}
 };
 
@@ -202,6 +204,12 @@ $.Hero.prototype.render = function() {
 			var fillStyle = this.fillStyle;
 		}
 
+		// Speed trail
+		if( $.powerupTimers[ 6 ] > 0 && ( Math.abs( this.vx ) > 0.5 || Math.abs( this.vy ) > 0.5 ) ) {
+			$.util.fillCircle( $.ctxmg, this.x - this.vx * 2, this.y - this.vy * 2, this.radius * 0.6, 'hsla(50, 100%, 60%, 0.3)' );
+			$.util.fillCircle( $.ctxmg, this.x - this.vx * 4, this.y - this.vy * 4, this.radius * 0.4, 'hsla(50, 100%, 60%, 0.15)' );
+		}
+
 		$.ctxmg.save();
 		$.ctxmg.translate( this.x, this.y );
 		$.ctxmg.rotate( this.direction - $.pi / 4 );
@@ -210,19 +218,27 @@ $.Hero.prototype.render = function() {
 		$.ctxmg.restore();
 
 		$.ctxmg.save();
-		$.ctxmg.translate( this.x, this.y );	
+		$.ctxmg.translate( this.x, this.y );
 		$.ctxmg.rotate( this.direction - $.pi / 4 + $.twopi / 3 );
 		$.ctxmg.fillStyle = fillStyle;
 		$.ctxmg.fillRect( 0, 0, this.radius, this.radius );
 		$.ctxmg.restore();
 
 		$.ctxmg.save();
-		$.ctxmg.translate( this.x, this.y );	
+		$.ctxmg.translate( this.x, this.y );
 		$.ctxmg.rotate( this.direction - $.pi / 4 - $.twopi / 3 );
 		$.ctxmg.fillStyle = fillStyle;
 		$.ctxmg.fillRect( 0, 0, this.radius, this.radius );
 		$.ctxmg.restore();
 
 		$.util.fillCircle( $.ctxmg, this.x, this.y, this.radius - 3, fillStyle );
-	}	
+
+		// Shield bubble
+		if( $.shielded ) {
+			var shieldRadius = this.radius + 8 + Math.sin( $.tick / 5 ) * 2;
+			var shieldAlpha = 0.15 + Math.sin( $.tick / 8 ) * 0.1;
+			$.util.fillCircle( $.ctxmg, this.x, this.y, shieldRadius, 'hsla(180, 100%, 80%, ' + shieldAlpha + ')' );
+			$.util.strokeCircle( $.ctxmg, this.x, this.y, shieldRadius, 'hsla(180, 100%, 80%, 0.6)', 2 );
+		}
+	}
 };

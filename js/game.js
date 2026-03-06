@@ -157,6 +157,7 @@ $.reset = function() {
 	$.levelDiffOffset = 0;
 	$.enemyOffsetMod = 0;
 	$.slow = 0;
+	$.shielded = 0;
 
 	$.screen = {
 		x: ( $.ww - $.cw ) / -2,
@@ -424,6 +425,22 @@ $.renderInterface = function() {
 		==============================================================================*/
 		if( $.powerupTimers[ 1 ] > 0 ) {
 			$.ctxmg.fillStyle = 'hsla(200, 100%, 20%, 0.05)';
+			$.ctxmg.fillRect( 0, 0, $.cw, $.ch );
+		}
+
+		/*==============================================================================
+		Speed Boost Screen Cover
+		==============================================================================*/
+		if( $.powerupTimers[ 6 ] > 0 ) {
+			$.ctxmg.fillStyle = 'hsla(50, 100%, 50%, 0.03)';
+			$.ctxmg.fillRect( 0, 0, $.cw, $.ch );
+		}
+
+		/*==============================================================================
+		Magnet Screen Cover
+		==============================================================================*/
+		if( $.powerupTimers[ 7 ] > 0 ) {
+			$.ctxmg.fillStyle = 'hsla(300, 100%, 50%, 0.02)';
 			$.ctxmg.fillRect( 0, 0, $.cw, $.ch );
 		}
 
@@ -1061,6 +1078,41 @@ $.updatePowerupTimers = function() {
 	} else {
 		$.hero.weapon.bullet.piercing = 0;
 	}
+
+	// SHIELD
+	if( $.powerupTimers[ 5 ] > 0 ){
+		$.shielded = 1;
+		$.powerupTimers[ 5 ] -= $.dt;
+	} else {
+		$.shielded = 0;
+	}
+
+	// SPEED BOOST
+	if( $.powerupTimers[ 6 ] > 0 ){
+		$.hero.vmax = 10;
+		$.hero.accel = 0.8;
+		$.powerupTimers[ 6 ] -= $.dt;
+	} else {
+		$.hero.vmax = 6;
+		$.hero.accel = 0.5;
+	}
+
+	// MAGNET
+	if( $.powerupTimers[ 7 ] > 0 ){
+		var pi = $.powerups.length;
+		while( pi-- ) {
+			var p = $.powerups[ pi ];
+			var dx = $.hero.x - ( p.x + p.width / 2 );
+			var dy = $.hero.y - ( p.y + p.height / 2 );
+			var dist = Math.sqrt( dx * dx + dy * dy );
+			if( dist < 300 && dist > 5 ) {
+				var angle = Math.atan2( dy, dx );
+				p.x += Math.cos( angle ) * 4 * $.dt;
+				p.y += Math.sin( angle ) * 4 * $.dt;
+			}
+		}
+		$.powerupTimers[ 7 ] -= $.dt;
+	}
 };
 
 $.spawnPowerup = function( x, y ) {
@@ -1489,6 +1541,13 @@ $.setupStates = function() {
 		i = $.textPops.length; while( i-- ){ $.textPops[ i ].render( i ) }
 		i = $.bullets.length; while( i-- ){ $.bullets[ i ].render( i ) }
 		$.hero.render();
+
+		// Magnet radius indicator
+		if( $.powerupTimers[ 7 ] > 0 ) {
+			var magnetAlpha = 0.05 + Math.sin( $.tick / 10 ) * 0.03;
+			$.util.strokeCircle( $.ctxmg, $.hero.x, $.hero.y, 300, 'hsla(300, 100%, 70%, ' + magnetAlpha + ')', 1 );
+		}
+
 		$.ctxmg.restore();
 		i = $.levelPops.length; while( i-- ){ $.levelPops[ i ].render( i ) }
 
