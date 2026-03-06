@@ -77,6 +77,30 @@ $.definitions.audio = {
 		params: [
 			[3,,0.18,,,1,,-1,-1,,,,,,,,,,1,,,0.64,,0.35]
 		]
+	},
+	'bossWarning': {
+		count: 3,
+		params: [
+			[2,,0.3,0.5,0.5,0.08,,0.2,,,0.5,-0.3,0.7,,,0.5,,0.3,1,,,,,0.35]
+		]
+	},
+	'bossDeath': {
+		count: 2,
+		params: [
+			[3,,0.4,0.9,0.8,0.04,,0.1,0.1,,,-0.1,0.9,0.8,,,-0.2,0.5,1,0.4,0.9,,0.2,0.2]
+		]
+	},
+	'dash': {
+		count: 5,
+		params: [
+			[0,,0.05,,0.3,0.5,,-0.4,,,,,,0.3,,,,,1,,,,,0.2]
+		]
+	},
+	'bomb': {
+		count: 3,
+		params: [
+			[3,,0.3,0.7,0.6,0.05,,0.15,0.15,,0.4,-0.2,0.8,0.6,,,0.4,0.4,1,0.3,0.7,,0.15,0.25]
+		]
 	}
 };
 
@@ -713,6 +737,301 @@ $.definitions.enemies = [
 		},
 		setup: function() {
 			this.swarmOffset = $.util.rand( 0, $.twopi );
+		}
+	}
+];
+
+/*==============================================================================
+Boss Enemies
+==============================================================================*/
+$.definitions.bosses = [
+	{ // Boss 0 - Titan: huge, slow, fires spread shots, spawns minions
+		title: 'TITAN',
+		value: 500,
+		speed: 0.4,
+		life: 80,
+		radius: 100,
+		hue: 0,
+		saturation: 100,
+		lightness: 50,
+		fireTick: 0,
+		fireMax: 80,
+		spawnTick: 0,
+		spawnMax: 300,
+		isBoss: 1,
+		setup: function() {},
+		behavior: function() {
+			var speed = this.speed;
+			if( $.slow ) { speed = this.speed / $.slowEnemyDivider; }
+
+			var dx = $.hero.x - this.x,
+				dy = $.hero.y - this.y,
+				direction = Math.atan2( dy, dx );
+			this.vx = Math.cos( direction ) * speed;
+			this.vy = Math.sin( direction ) * speed;
+
+			// Spread shot
+			this.fireTick += $.dt;
+			if( this.fireTick >= this.fireMax ) {
+				this.fireTick = 0;
+				var bulletSpeed = 2.5;
+				if( $.slow ) { bulletSpeed = bulletSpeed / $.slowEnemyDivider; }
+				for( var a = -2; a <= 2; a++ ) {
+					$.enemyBullets.push( new $.EnemyBullet( {
+						x: this.x,
+						y: this.y,
+						direction: direction + a * 0.3,
+						speed: bulletSpeed,
+						radius: 6,
+						damage: 0.04,
+						hue: this.hue
+					} ) );
+				}
+				$.audio.play( 'shootAlt' );
+			}
+
+			// Spawn minions periodically
+			this.spawnTick += $.dt;
+			if( this.spawnTick >= this.spawnMax ) {
+				this.spawnTick = 0;
+				for( var s = 0; s < 3; s++ ) {
+					var enemy = $.spawnEnemy( 2 );
+					enemy.x = this.x + $.util.rand( -60, 60 );
+					enemy.y = this.y + $.util.rand( -60, 60 );
+					enemy.life = 1;
+					enemy.speed = 2;
+					enemy.value = 10;
+					enemy.radius = 12;
+					$.enemies.push( enemy );
+				}
+			}
+
+			// Pulsing color
+			var pulse = Math.sin( $.tick / 15 ) * 20 + 50;
+			this.fillStyle = 'hsla(' + this.hue + ', 100%, ' + pulse + '%, 0.15)';
+			this.strokeStyle = 'hsla(' + this.hue + ', 100%, ' + pulse + '%, 1)';
+		},
+		death: function() {
+			// Massive explosion
+			for( var e = 0; e < 5; e++ ) {
+				$.explosions.push( new $.Explosion( {
+					x: this.x + $.util.rand( -50, 50 ),
+					y: this.y + $.util.rand( -50, 50 ),
+					radius: $.util.rand( 40, 80 ),
+					hue: this.hue,
+					saturation: 100
+				} ) );
+			}
+			$.particleEmitters.push( new $.ParticleEmitter( {
+				x: this.x, y: this.y, count: 50, spawnRange: this.radius,
+				friction: 0.92, minSpeed: 5, maxSpeed: 25,
+				minDirection: 0, maxDirection: $.twopi, hue: this.hue, saturation: 100
+			} ) );
+			$.audio.play( 'bossDeath' );
+			$.rumble.level = 30;
+		}
+	},
+	{ // Boss 1 - Phantom: teleports frequently, fires homing shots, creates decoys
+		title: 'PHANTOM',
+		value: 600,
+		speed: 1,
+		life: 60,
+		radius: 70,
+		hue: 270,
+		saturation: 100,
+		lightness: 60,
+		fireTick: 0,
+		fireMax: 60,
+		teleportTick: 0,
+		teleportMax: 120,
+		opacity: 1,
+		isBoss: 1,
+		setup: function() {},
+		behavior: function() {
+			var speed = this.speed;
+			if( $.slow ) { speed = this.speed / $.slowEnemyDivider; }
+
+			var dx = $.hero.x - this.x,
+				dy = $.hero.y - this.y,
+				direction = Math.atan2( dy, dx );
+
+			// Teleport
+			this.teleportTick += $.dt;
+			if( this.teleportTick >= this.teleportMax - 20 ) {
+				this.opacity = Math.max( 0.1, 1 - ( this.teleportTick - ( this.teleportMax - 20 ) ) / 20 );
+			}
+			if( this.teleportTick >= this.teleportMax ) {
+				this.teleportTick = 0;
+				var angle = $.util.rand( 0, $.twopi ),
+					dist = $.util.rand( 150, 350 );
+				this.x = $.hero.x + Math.cos( angle ) * dist;
+				this.y = $.hero.y + Math.sin( angle ) * dist;
+				this.x = Math.max( this.radius, Math.min( $.ww - this.radius, this.x ) );
+				this.y = Math.max( this.radius, Math.min( $.wh - this.radius, this.y ) );
+				this.opacity = 1;
+				// Spawn a decoy on teleport
+				var decoy = $.spawnEnemy( 14 );
+				decoy.x = this.x + $.util.rand( -100, 100 );
+				decoy.y = this.y + $.util.rand( -100, 100 );
+				decoy.life = 1;
+				decoy.value = 15;
+				$.enemies.push( decoy );
+				$.particleEmitters.push( new $.ParticleEmitter( {
+					x: this.x, y: this.y, count: 10, spawnRange: this.radius,
+					friction: 0.85, minSpeed: 3, maxSpeed: 12,
+					minDirection: 0, maxDirection: $.twopi, hue: this.hue, saturation: 100
+				} ) );
+			}
+
+			// Fire aimed shots
+			this.fireTick += $.dt;
+			if( this.fireTick >= this.fireMax ) {
+				this.fireTick = 0;
+				var bulletSpeed = 3.5;
+				if( $.slow ) { bulletSpeed = bulletSpeed / $.slowEnemyDivider; }
+				$.enemyBullets.push( new $.EnemyBullet( {
+					x: this.x, y: this.y, direction: direction,
+					speed: bulletSpeed, radius: 5, damage: 0.06, hue: this.hue
+				} ) );
+				// Fire two side shots
+				$.enemyBullets.push( new $.EnemyBullet( {
+					x: this.x, y: this.y, direction: direction + 0.5,
+					speed: bulletSpeed * 0.8, radius: 4, damage: 0.03, hue: this.hue
+				} ) );
+				$.enemyBullets.push( new $.EnemyBullet( {
+					x: this.x, y: this.y, direction: direction - 0.5,
+					speed: bulletSpeed * 0.8, radius: 4, damage: 0.03, hue: this.hue
+				} ) );
+			}
+
+			this.vx = Math.cos( direction + $.pi / 2 ) * speed;
+			this.vy = Math.sin( direction + $.pi / 2 ) * speed;
+
+			this.fillStyle = 'hsla(' + this.hue + ', 100%, ' + this.lightness + '%, ' + ( this.opacity * 0.15 ) + ')';
+			this.strokeStyle = 'hsla(' + this.hue + ', 100%, ' + this.lightness + '%, ' + this.opacity + ')';
+		},
+		death: function() {
+			for( var e = 0; e < 4; e++ ) {
+				$.explosions.push( new $.Explosion( {
+					x: this.x + $.util.rand( -40, 40 ),
+					y: this.y + $.util.rand( -40, 40 ),
+					radius: $.util.rand( 30, 60 ),
+					hue: this.hue, saturation: 100
+				} ) );
+			}
+			$.particleEmitters.push( new $.ParticleEmitter( {
+				x: this.x, y: this.y, count: 40, spawnRange: this.radius,
+				friction: 0.9, minSpeed: 5, maxSpeed: 20,
+				minDirection: 0, maxDirection: $.twopi, hue: this.hue, saturation: 100
+			} ) );
+			$.audio.play( 'bossDeath' );
+			$.rumble.level = 25;
+		}
+	},
+	{ // Boss 2 - Overlord: orbits with shield segments, fires ring patterns, buffs all enemies
+		title: 'OVERLORD',
+		value: 800,
+		speed: 0.6,
+		life: 100,
+		radius: 90,
+		hue: 45,
+		saturation: 100,
+		lightness: 60,
+		fireTick: 0,
+		fireMax: 100,
+		ringTick: 0,
+		ringMax: 200,
+		buffTick: 0,
+		shieldAngle: 0,
+		shieldArc: 2.0,
+		isBoss: 1,
+		setup: function() {},
+		behavior: function() {
+			var speed = this.speed;
+			if( $.slow ) { speed = this.speed / $.slowEnemyDivider; }
+
+			var dx = $.hero.x - this.x,
+				dy = $.hero.y - this.y,
+				direction = Math.atan2( dy, dx ),
+				dist = Math.sqrt( dx * dx + dy * dy );
+
+			// Orbit player at distance
+			if( dist > 350 ) {
+				this.vx = Math.cos( direction ) * speed * 1.5;
+				this.vy = Math.sin( direction ) * speed * 1.5;
+			} else if( dist < 250 ) {
+				this.vx = -Math.cos( direction ) * speed;
+				this.vy = -Math.sin( direction ) * speed;
+			} else {
+				this.vx = Math.cos( direction + $.pi / 2 ) * speed;
+				this.vy = Math.sin( direction + $.pi / 2 ) * speed;
+			}
+
+			// Rotating shield faces player
+			this.shieldAngle = direction;
+
+			// Fire aimed shots
+			this.fireTick += $.dt;
+			if( this.fireTick >= this.fireMax ) {
+				this.fireTick = 0;
+				var bulletSpeed = 3;
+				if( $.slow ) { bulletSpeed = bulletSpeed / $.slowEnemyDivider; }
+				$.enemyBullets.push( new $.EnemyBullet( {
+					x: this.x, y: this.y, direction: direction,
+					speed: bulletSpeed, radius: 7, damage: 0.05, hue: this.hue
+				} ) );
+			}
+
+			// Ring burst
+			this.ringTick += $.dt;
+			if( this.ringTick >= this.ringMax ) {
+				this.ringTick = 0;
+				var bulletSpeed = 2;
+				if( $.slow ) { bulletSpeed = bulletSpeed / $.slowEnemyDivider; }
+				for( var r = 0; r < 12; r++ ) {
+					$.enemyBullets.push( new $.EnemyBullet( {
+						x: this.x, y: this.y,
+						direction: ( $.twopi / 12 ) * r,
+						speed: bulletSpeed, radius: 5, damage: 0.03, hue: this.hue
+					} ) );
+				}
+				$.audio.play( 'shootAlt' );
+			}
+
+			// Buff all enemies periodically
+			this.buffTick += $.dt;
+			if( this.buffTick >= 120 ) {
+				this.buffTick = 0;
+				var ei = $.enemies.length;
+				while( ei-- ) {
+					var ally = $.enemies[ ei ];
+					if( ally !== this ) {
+						ally.speed = Math.min( ally.speed * 1.15, 8 );
+						ally.buffed = 30;
+					}
+				}
+			}
+
+			var pulse = Math.sin( $.tick / 10 ) * 15 + 60;
+			this.fillStyle = 'hsla(' + this.hue + ', 100%, ' + pulse + '%, 0.15)';
+			this.strokeStyle = 'hsla(' + this.hue + ', 100%, ' + pulse + '%, 1)';
+		},
+		death: function() {
+			for( var e = 0; e < 8; e++ ) {
+				$.explosions.push( new $.Explosion( {
+					x: this.x + $.util.rand( -60, 60 ),
+					y: this.y + $.util.rand( -60, 60 ),
+					radius: $.util.rand( 50, 100 ),
+					hue: this.hue, saturation: 100
+				} ) );
+			}
+			$.particleEmitters.push( new $.ParticleEmitter( {
+				x: this.x, y: this.y, count: 60, spawnRange: this.radius,
+				friction: 0.93, minSpeed: 5, maxSpeed: 30,
+				minDirection: 0, maxDirection: $.twopi, hue: this.hue, saturation: 100
+			} ) );
+			$.audio.play( 'bossDeath' );
+			$.rumble.level = 35;
 		}
 	}
 ];

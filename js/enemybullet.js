@@ -21,7 +21,7 @@ $.EnemyBullet.prototype.update = function( i ) {
 			dy = $.hero.y - this.y,
 			dist = Math.sqrt( dx * dx + dy * dy );
 		if( dist <= $.hero.radius + this.radius ) {
-			if( !$.shielded ) {
+			if( !$.shielded && $.dashActive <= 0 ) {
 				$.hero.life -= this.damage;
 				$.hero.takingDamage = 1;
 				$.rumble.level = 4;

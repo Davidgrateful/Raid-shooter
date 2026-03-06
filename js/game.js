@@ -72,7 +72,9 @@ $.init = function() {
 			right: 0,
 			f: 0,
 			m: 0,
-			p: 0
+			p: 0,
+			space: 0,
+			q: 0
 		},
 		pressed: {
 			up: 0,
@@ -81,7 +83,9 @@ $.init = function() {
 			right: 0,
 			f: 0,
 			m: 0,
-			p: 0
+			p: 0,
+			space: 0,
+			q: 0
 		}
 	};
 	$.okeys = {};
@@ -199,6 +203,24 @@ $.reset = function() {
 	$.bulletsFired = 0;
 	$.powerupsCollected = 0;
 	$.score = 0;
+
+	// Boss state
+	$.boss = null;
+	$.bossWarning = 0;
+	$.bossWarningMax = 120;
+	$.bossLevel = 0; // tracks which boss to spawn next (0, 1, 2)
+
+	// Hero abilities
+	$.dashCooldown = 0;
+	$.dashCooldownMax = 180; // 3 seconds at 60fps
+	$.dashActive = 0;
+	$.dashDuration = 10;
+	$.dashSpeed = 25;
+
+	$.bombCooldown = 0;
+	$.bombCooldownMax = 600; // 10 seconds at 60fps
+	$.bombActive = 0;
+	$.bombRadius = 300;
 
 	$.hero = new $.Hero();
 
@@ -374,7 +396,7 @@ $.renderInterface = function() {
 				ctx: $.ctxmg,
 				x: $.cw / 2 - 10,
 				y: $.ch - 20,
-				text: 'MOVE\nAIM/FIRE\nAUTOFIRE\nPAUSE\nMUTE',
+				text: 'MOVE\nAIM/FIRE\nAUTOFIRE\nDASH\nBOMB\nPAUSE\nMUTE',
 				hspacing: 1,
 				vspacing: 17,
 				halign: 'right',
@@ -400,7 +422,7 @@ $.renderInterface = function() {
 				ctx: $.ctxmg,
 				x: $.cw / 2 + 10,
 				y: $.ch - 20,
-				text: 'WASD/ARROWS\nMOUSE\nF\nP\nM',
+				text: 'WASD/ARROWS\nMOUSE\nF\nSPACE\nQ\nP\nM',
 				hspacing: 1,
 				vspacing: 17,
 				halign: 'left',
@@ -871,6 +893,7 @@ $.mouseupcb = function( e ) {
 };
 
 $.keydowncb = function( e ) {
+	if( e.keyCode === 32 ) { e.preventDefault(); }
 	var e = ( e.keyCode ? e.keyCode : e.which );
 	if( e === 38 || e === 87 ){ $.keys.state.up = 1; }
 	if( e === 39 || e === 68 ){ $.keys.state.right = 1; }
@@ -879,6 +902,8 @@ $.keydowncb = function( e ) {
 	if( e === 70 ){ $.keys.state.f = 1; }
 	if( e === 77 ){ $.keys.state.m = 1; }
 	if( e === 80 ){ $.keys.state.p = 1; }
+	if( e === 32 ){ $.keys.state.space = 1; }
+	if( e === 81 ){ $.keys.state.q = 1; }
 }
 
 $.keyupcb = function( e ) {
@@ -890,6 +915,8 @@ $.keyupcb = function( e ) {
 	if( e === 70 ){ $.keys.state.f = 0; }
 	if( e === 77 ){ $.keys.state.m = 0; }
 	if( e === 80 ){ $.keys.state.p = 0; }
+	if( e === 32 ){ $.keys.state.space = 0; }
+	if( e === 81 ){ $.keys.state.q = 0; }
 }
 
 $.resizecb = function( e ) {
@@ -1036,14 +1063,141 @@ $.updateLevel = function() {
 		} else {
 			$.level.current++;
 			$.level.kills = 0;
-			// no more level definitions, so take the last level and increase the spawn rate slightly
-			//for( var i = 0; i < $.level.distributionCount; i++ ) {
-				//$.level.distribution[ i ] = Math.max( 1, $.level.distribution[ i ] - 5 );
-			//}
 		}
 		$.levelDiffOffset = $.level.current + 1 - $.levelCount;
 		$.levelPops.push( new $.LevelPop( {
 			level: $.level.current + 1
+		} ) );
+
+		// Spawn boss every 5 levels (at level 5, 10, 15...)
+		if( ( $.level.current + 1 ) % 5 === 0 && !$.boss ) {
+			$.bossWarning = $.bossWarningMax;
+		}
+	}
+};
+
+$.spawnBoss = function() {
+	var bossType = $.bossLevel % $.definitions.bosses.length;
+	var params = $.definitions.bosses[ bossType ];
+	var coordinates = $.getSpawnCoordinates( params.radius );
+
+	// Scale boss with progression
+	var scaleFactor = 1 + Math.floor( $.bossLevel / $.definitions.bosses.length ) * 0.5;
+	var bossParams = {};
+	for( var k in params ) { bossParams[k] = params[k]; }
+	bossParams.x = coordinates.x;
+	bossParams.y = coordinates.y;
+	bossParams.start = coordinates.start;
+	bossParams.type = 0;
+	bossParams.life = params.life * scaleFactor;
+	bossParams.value = params.value * scaleFactor;
+
+	$.boss = new $.Enemy( bossParams );
+	$.boss.isBoss = 1;
+	$.boss.bossTitle = params.title;
+	$.enemies.push( $.boss );
+	$.bossLevel++;
+	$.audio.play( 'bossWarning' );
+};
+
+$.updateBoss = function() {
+	// Boss warning countdown
+	if( $.bossWarning > 0 ) {
+		$.bossWarning -= $.dt;
+		if( $.bossWarning <= 0 ) {
+			$.bossWarning = 0;
+			$.spawnBoss();
+		}
+	}
+
+	// Check if boss is dead
+	if( $.boss && $.boss.life <= 0 ) {
+		$.boss = null;
+	}
+};
+
+$.updateAbilities = function() {
+	// Dash cooldown
+	if( $.dashCooldown > 0 ) {
+		$.dashCooldown -= $.dt;
+	}
+
+	// Dash active
+	if( $.dashActive > 0 ) {
+		$.dashActive -= $.dt;
+		// During dash, hero is invulnerable and moves fast
+		var dashDir = $.hero.direction;
+		$.hero.x += Math.cos( dashDir ) * $.dashSpeed * $.dt;
+		$.hero.y += Math.sin( dashDir ) * $.dashSpeed * $.dt;
+		// Clamp bounds
+		$.hero.x = Math.max( $.hero.radius, Math.min( $.ww - $.hero.radius, $.hero.x ) );
+		$.hero.y = Math.max( $.hero.radius, Math.min( $.wh - $.hero.radius, $.hero.y ) );
+		// Trail particles
+		$.particleEmitters.push( new $.ParticleEmitter( {
+			x: $.hero.x, y: $.hero.y, count: 2, spawnRange: 5,
+			friction: 0.8, minSpeed: 3, maxSpeed: 10,
+			minDirection: dashDir + $.pi - 0.3, maxDirection: dashDir + $.pi + 0.3,
+			hue: 200, saturation: 100
+		} ) );
+	}
+
+	// Bomb cooldown
+	if( $.bombCooldown > 0 ) {
+		$.bombCooldown -= $.dt;
+	}
+
+	// Bomb active
+	if( $.bombActive > 0 ) {
+		$.bombActive -= $.dt;
+	}
+
+	// Trigger dash (Space key)
+	if( $.keys.pressed.space && $.dashCooldown <= 0 && $.dashActive <= 0 && $.hero.life > 0 ) {
+		$.dashActive = $.dashDuration;
+		$.dashCooldown = $.dashCooldownMax;
+		$.audio.play( 'dash' );
+		$.rumble.level = 4;
+	}
+
+	// Trigger bomb (Q key)
+	if( $.keys.pressed.q && $.bombCooldown <= 0 && $.hero.life > 0 ) {
+		$.bombCooldown = $.bombCooldownMax;
+		$.bombActive = 15;
+		$.audio.play( 'bomb' );
+		$.rumble.level = 15;
+
+		// Damage all enemies in radius
+		var ei = $.enemies.length;
+		while( ei-- ) {
+			var enemy = $.enemies[ ei ];
+			var dx = $.hero.x - enemy.x,
+				dy = $.hero.y - enemy.y,
+				dist = Math.sqrt( dx * dx + dy * dy );
+			if( dist < $.bombRadius ) {
+				var dmg = enemy.isBoss ? 5 : 3;
+				enemy.receiveDamage( ei, dmg );
+			}
+		}
+		// Clear enemy bullets in radius
+		var bi = $.enemyBullets.length;
+		while( bi-- ) {
+			var b = $.enemyBullets[ bi ];
+			var dx = $.hero.x - b.x,
+				dy = $.hero.y - b.y,
+				dist = Math.sqrt( dx * dx + dy * dy );
+			if( dist < $.bombRadius ) {
+				$.enemyBullets.splice( bi, 1 );
+			}
+		}
+		// Visual explosion
+		$.explosions.push( new $.Explosion( {
+			x: $.hero.x, y: $.hero.y, radius: $.bombRadius / 3,
+			hue: 50, saturation: 100
+		} ) );
+		$.particleEmitters.push( new $.ParticleEmitter( {
+			x: $.hero.x, y: $.hero.y, count: 40, spawnRange: 20,
+			friction: 0.92, minSpeed: 5, maxSpeed: 25,
+			minDirection: 0, maxDirection: $.twopi, hue: 50, saturation: 100
 		} ) );
 	}
 };
@@ -1145,6 +1299,207 @@ $.spawnPowerup = function( x, y ) {
 /*==============================================================================
 States
 ==============================================================================*/
+/*==============================================================================
+Boss UI
+==============================================================================*/
+$.renderBossUI = function() {
+	// Boss warning
+	if( $.bossWarning > 0 ) {
+		var warningAlpha = Math.abs( Math.sin( $.tick / 5 ) ) * 0.8;
+		$.ctxmg.beginPath();
+		var warningText = $.text( {
+			ctx: $.ctxmg,
+			x: $.cw / 2,
+			y: $.ch / 2 - 50,
+			text: 'WARNING',
+			hspacing: 3,
+			vspacing: 1,
+			halign: 'center',
+			valign: 'center',
+			scale: 8,
+			snap: 1,
+			render: 1
+		} );
+		$.ctxmg.fillStyle = 'hsla(0, 100%, 50%, ' + warningAlpha + ')';
+		$.ctxmg.fill();
+
+		$.ctxmg.beginPath();
+		$.text( {
+			ctx: $.ctxmg,
+			x: $.cw / 2,
+			y: $.ch / 2 + 10,
+			text: 'BOSS APPROACHING',
+			hspacing: 1,
+			vspacing: 1,
+			halign: 'center',
+			valign: 'center',
+			scale: 3,
+			snap: 1,
+			render: 1
+		} );
+		$.ctxmg.fillStyle = 'hsla(0, 100%, 70%, ' + warningAlpha * 0.7 + ')';
+		$.ctxmg.fill();
+
+		// Red vignette
+		$.ctxmg.fillStyle = 'hsla(0, 100%, 30%, ' + ( warningAlpha * 0.08 ) + ')';
+		$.ctxmg.fillRect( 0, 0, $.cw, $.ch );
+	}
+
+	// Boss health bar (centered at top)
+	if( $.boss && $.boss.life > 0 ) {
+		var bossBarWidth = 300;
+		var bossBarHeight = 12;
+		var bossBarX = ( $.cw - bossBarWidth ) / 2;
+		var bossBarY = 45;
+
+		// Boss name
+		$.ctxmg.beginPath();
+		$.text( {
+			ctx: $.ctxmg,
+			x: $.cw / 2,
+			y: bossBarY - 5,
+			text: $.boss.bossTitle || 'BOSS',
+			hspacing: 1,
+			vspacing: 1,
+			halign: 'center',
+			valign: 'bottom',
+			scale: 2,
+			snap: 1,
+			render: 1
+		} );
+		$.ctxmg.fillStyle = 'hsla(0, 100%, 70%, 0.8)';
+		$.ctxmg.fill();
+
+		// Health bar background
+		$.ctxmg.fillStyle = 'hsla(0, 0%, 10%, 0.8)';
+		$.ctxmg.fillRect( bossBarX, bossBarY, bossBarWidth, bossBarHeight );
+
+		// Health bar fill
+		var healthPct = $.boss.life / $.boss.lifeMax;
+		var bossHue = healthPct > 0.5 ? 0 : ( healthPct > 0.25 ? 30 : 0 );
+		$.ctxmg.fillStyle = 'hsla(' + bossHue + ', 100%, 40%, 1)';
+		$.ctxmg.fillRect( bossBarX, bossBarY, bossBarWidth * healthPct, bossBarHeight );
+		$.ctxmg.fillStyle = 'hsla(' + bossHue + ', 100%, 70%, 1)';
+		$.ctxmg.fillRect( bossBarX, bossBarY, bossBarWidth * healthPct, bossBarHeight / 2 );
+
+		// Border
+		$.ctxmg.strokeStyle = 'hsla(0, 100%, 50%, 0.6)';
+		$.ctxmg.lineWidth = 1;
+		$.ctxmg.strokeRect( bossBarX - 0.5, bossBarY - 0.5, bossBarWidth + 1, bossBarHeight + 1 );
+	}
+};
+
+/*==============================================================================
+Ability UI
+==============================================================================*/
+$.renderAbilityUI = function() {
+	var abilityY = $.ch - 30;
+	var abilityX = $.cw - 200;
+
+	// Dash indicator
+	var dashReady = $.dashCooldown <= 0;
+	var dashAlpha = dashReady ? 1 : 0.3;
+	$.ctxmg.beginPath();
+	$.text( {
+		ctx: $.ctxmg,
+		x: abilityX,
+		y: abilityY,
+		text: 'DASH',
+		hspacing: 1,
+		vspacing: 1,
+		halign: 'left',
+		valign: 'bottom',
+		scale: 2,
+		snap: 1,
+		render: 1
+	} );
+	$.ctxmg.fillStyle = 'hsla(200, 100%, 70%, ' + dashAlpha + ')';
+	$.ctxmg.fill();
+
+	// Dash cooldown bar
+	if( !dashReady ) {
+		var cdPct = 1 - $.dashCooldown / $.dashCooldownMax;
+		$.ctxmg.fillStyle = 'hsla(200, 100%, 50%, 0.3)';
+		$.ctxmg.fillRect( abilityX, abilityY + 3, 50, 4 );
+		$.ctxmg.fillStyle = 'hsla(200, 100%, 70%, 0.8)';
+		$.ctxmg.fillRect( abilityX, abilityY + 3, 50 * cdPct, 4 );
+	}
+
+	// Bomb indicator
+	var bombReady = $.bombCooldown <= 0;
+	var bombAlpha = bombReady ? 1 : 0.3;
+	$.ctxmg.beginPath();
+	$.text( {
+		ctx: $.ctxmg,
+		x: abilityX + 80,
+		y: abilityY,
+		text: 'BOMB',
+		hspacing: 1,
+		vspacing: 1,
+		halign: 'left',
+		valign: 'bottom',
+		scale: 2,
+		snap: 1,
+		render: 1
+	} );
+	$.ctxmg.fillStyle = 'hsla(50, 100%, 60%, ' + bombAlpha + ')';
+	$.ctxmg.fill();
+
+	// Bomb cooldown bar
+	if( !bombReady ) {
+		var cdPct = 1 - $.bombCooldown / $.bombCooldownMax;
+		$.ctxmg.fillStyle = 'hsla(50, 100%, 50%, 0.3)';
+		$.ctxmg.fillRect( abilityX + 80, abilityY + 3, 50, 4 );
+		$.ctxmg.fillStyle = 'hsla(50, 100%, 60%, 0.8)';
+		$.ctxmg.fillRect( abilityX + 80, abilityY + 3, 50 * cdPct, 4 );
+	}
+
+	// Key hints
+	$.ctxmg.beginPath();
+	$.text( {
+		ctx: $.ctxmg,
+		x: abilityX + 15,
+		y: abilityY + 12,
+		text: 'SPACE',
+		hspacing: 1,
+		vspacing: 1,
+		halign: 'left',
+		valign: 'top',
+		scale: 1,
+		snap: 1,
+		render: 1
+	} );
+	$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 0.3)';
+	$.ctxmg.fill();
+
+	$.ctxmg.beginPath();
+	$.text( {
+		ctx: $.ctxmg,
+		x: abilityX + 100,
+		y: abilityY + 12,
+		text: 'Q',
+		hspacing: 1,
+		vspacing: 1,
+		halign: 'left',
+		valign: 'top',
+		scale: 1,
+		snap: 1,
+		render: 1
+	} );
+	$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 0.3)';
+	$.ctxmg.fill();
+
+	// Bomb blast radius indicator when active
+	if( $.bombActive > 0 ) {
+		var bombAlpha = ( $.bombActive / 15 ) * 0.3;
+		$.ctxmg.save();
+		$.ctxmg.translate( $.screen.x - $.rumble.x, $.screen.y - $.rumble.y );
+		$.util.strokeCircle( $.ctxmg, $.hero.x, $.hero.y, $.bombRadius, 'hsla(50, 100%, 70%, ' + bombAlpha + ')', 3 );
+		$.util.fillCircle( $.ctxmg, $.hero.x, $.hero.y, $.bombRadius * ( 1 - $.bombActive / 15 ), 'hsla(50, 100%, 80%, ' + ( bombAlpha * 0.3 ) + ')' );
+		$.ctxmg.restore();
+	}
+};
+
 $.setState = function( state ) {
 	// handle clean up between states
 	$.buttons.length = 0;
@@ -1531,6 +1886,8 @@ $.setupStates = function() {
 		$.updateDelta();
 		$.updateScreen();
 		$.updateLevel();
+		$.updateBoss();
+		$.updateAbilities();
 		$.updatePowerupTimers();
 		$.spawnEnemies();
 		$.enemyOffsetMod += ( $.slow ) ? $.dt / 3 : $.dt;
@@ -1601,6 +1958,8 @@ $.setupStates = function() {
 		}
 		$.renderInterface();
 		$.renderMinimap();
+		$.renderBossUI();
+		$.renderAbilityUI();
 
 		// handle gameover
 		if( $.hero.life <= 0 ) {

@@ -109,7 +109,29 @@ $.Enemy.prototype.receiveDamage = function( i, val ) {
 			$.rumble.level = 6;
 		}
 		this.death();
-		$.spawnPowerup( this.x, this.y );
+		if( this.isBoss ) {
+			// Boss drops 3 guaranteed powerups
+			for( var p = 0; p < 3; p++ ) {
+				var min = ( $.hero.life < 0.9 ) ? 0 : 1,
+					type = Math.floor( $.util.rand( min, $.definitions.powerups.length ) ),
+					params = $.definitions.powerups[ type ];
+				params.type = type;
+				params.x = this.x + $.util.rand( -40, 40 );
+				params.y = this.y + $.util.rand( -40, 40 );
+				$.powerups.push( new $.Powerup( params ) );
+			}
+			// Extra score text for boss
+			$.textPops.push( new $.TextPop( {
+				x: this.x,
+				y: this.y - 30,
+				value: this.value,
+				hue: 50,
+				saturation: 100,
+				lightness: 70
+			} ) );
+		} else {
+			$.spawnPowerup( this.x, this.y );
+		}
 		$.score += this.value;
 		$.level.kills++;
 		$.kills++;

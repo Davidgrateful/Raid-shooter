@@ -172,10 +172,10 @@ $.Hero.prototype.update = function() {
 					maxSpeed: 15,
 					minDirection: 0,
 					maxDirection: $.twopi,
-					hue: $.shielded ? 180 : 0,
-					saturation: $.shielded ? 100 : 0
+					hue: ( $.shielded || $.dashActive > 0 ) ? 180 : 0,
+					saturation: ( $.shielded || $.dashActive > 0 ) ? 100 : 0
 				} ) );
-				if( !$.shielded ) {
+				if( !$.shielded && $.dashActive <= 0 ) {
 					this.takingDamage = 1;
 					this.life -= 0.0075;
 					$.rumble.level = 3;
@@ -232,6 +232,13 @@ $.Hero.prototype.render = function() {
 		$.ctxmg.restore();
 
 		$.util.fillCircle( $.ctxmg, this.x, this.y, this.radius - 3, fillStyle );
+
+		// Dash glow
+		if( $.dashActive > 0 ) {
+			var dashAlpha = 0.2 + Math.sin( $.tick / 3 ) * 0.15;
+			$.util.fillCircle( $.ctxmg, this.x, this.y, this.radius + 12, 'hsla(200, 100%, 70%, ' + dashAlpha + ')' );
+			$.util.strokeCircle( $.ctxmg, this.x, this.y, this.radius + 12, 'hsla(200, 100%, 80%, 0.7)', 2 );
+		}
 
 		// Shield bubble
 		if( $.shielded ) {
