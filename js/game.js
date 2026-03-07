@@ -554,7 +554,8 @@ $.init = function() {
 			right: 0,
 			f: 0,
 			m: 0,
-			p: 0
+			p: 0,
+			esc: 0
 		},
 		pressed: {
 			up: 0,
@@ -563,7 +564,8 @@ $.init = function() {
 			right: 0,
 			f: 0,
 			m: 0,
-			p: 0
+			p: 0,
+			esc: 0
 		}
 	};
 	$.okeys = {};
@@ -1496,6 +1498,7 @@ $.keydowncb = function( e ) {
 	if( e === 70 ){ $.keys.state.f = 1; }
 	if( e === 77 ){ $.keys.state.m = 1; }
 	if( e === 80 ){ $.keys.state.p = 1; }
+	if( e === 27 ){ $.keys.state.esc = 1; }
 }
 
 $.keyupcb = function( e ) {
@@ -1507,6 +1510,7 @@ $.keyupcb = function( e ) {
 	if( e === 70 ){ $.keys.state.f = 0; }
 	if( e === 77 ){ $.keys.state.m = 0; }
 	if( e === 80 ){ $.keys.state.p = 0; }
+	if( e === 27 ){ $.keys.state.esc = 0; }
 }
 
 $.resizecb = function( e ) {
@@ -2025,7 +2029,7 @@ $.setState = function( state ) {
 			lockedWidth: 299,
 			lockedHeight: 49,
 			scale: 3,
-			title: 'MENU',
+			title: 'BACK',
 			action: function() {
 				$.setState( 'menu' );
 			}
@@ -2056,7 +2060,7 @@ $.setState = function( state ) {
 			lockedWidth: 299,
 			lockedHeight: 49,
 			scale: 3,
-			title: 'MENU',
+			title: 'BACK',
 			action: function() {
 				$.setState( 'menu' );
 			}
@@ -2087,7 +2091,7 @@ $.setState = function( state ) {
 			lockedWidth: 299,
 			lockedHeight: 49,
 			scale: 3,
-			title: 'MENU',
+			title: 'QUIT TO MENU',
 			action: function() {
 				$.mouse.down = 0;
 				if( window.confirm( 'Are you sure you want to end this game and return to the menu?') ) {
@@ -2118,13 +2122,30 @@ $.setState = function( state ) {
 		} );
 		$.buttons.push( resumeButton );
 
-		var menuButton = new $.Button( {
+		var mapButton = new $.Button( {
 			x: $.cw / 2 + 1,
 			y: resumeButton.ey + 25,
 			lockedWidth: 299,
 			lockedHeight: 49,
 			scale: 3,
-			title: 'MENU',
+			title: $.maps[ $.mapIndex ].name,
+			action: function() {
+				$.mapIndex = ( $.mapIndex + 1 ) % $.maps.length;
+				$.storage['map'] = $.mapIndex;
+				$.updateStorage();
+				mapButton.title = $.maps[ $.mapIndex ].name;
+				$.mouse.down = 0;
+			}
+		} );
+		$.buttons.push( mapButton );
+
+		var menuButton = new $.Button( {
+			x: $.cw / 2 + 1,
+			y: mapButton.ey + 25,
+			lockedWidth: 299,
+			lockedHeight: 49,
+			scale: 3,
+			title: 'BACK',
 			action: function() {
 				$.setState( 'menu' );
 			}
@@ -2263,6 +2284,10 @@ $.setupStates = function() {
 
 		var i = $.buttons.length; while( i-- ){ $.buttons[ i ].render( i ) }
 			i = $.buttons.length; while( i-- ){ $.buttons[ i ].update( i ) }
+
+		if( $.keys.pressed.esc ){
+			$.setState( 'menu' );
+		}
 	};
 
 	$.states['credits'] = function() {
@@ -2326,6 +2351,10 @@ $.setupStates = function() {
 
 		var i = $.buttons.length; while( i-- ){ $.buttons[ i ].render( i ) }
 			i = $.buttons.length; while( i-- ){ $.buttons[ i ].update( i ) }
+
+		if( $.keys.pressed.esc ){
+			$.setState( 'menu' );
+		}
 	};
 
 	$.states['play'] = function() {
@@ -2452,7 +2481,7 @@ $.setupStates = function() {
 		$.tick += $.dt;
 
 		// listen for pause
-		if( $.keys.pressed.p ){
+		if( $.keys.pressed.p || $.keys.pressed.esc ){
 			$.setState( 'pause' );
 		}
 
@@ -2496,7 +2525,26 @@ $.setupStates = function() {
 		var i = $.buttons.length; while( i-- ){ $.buttons[ i ].render( i ) }
 			i = $.buttons.length; while( i-- ){ $.buttons[ i ].update( i ) }
 
-		if( $.keys.pressed.p ){
+		// Hint text
+		$.ctxmg.beginPath();
+		$.text( {
+			ctx: $.ctxmg,
+			x: $.cw / 2,
+			y: $.ch / 2 + 130,
+			text: 'ESC/P TO RESUME',
+			hspacing: 1,
+			vspacing: 1,
+			halign: 'center',
+			valign: 'top',
+			scale: 1,
+			snap: 1,
+			render: 1
+		} );
+		$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 0.3)';
+		$.ctxmg.fill();
+
+		if( $.keys.pressed.p || $.keys.pressed.esc ){
+			$.lt = Date.now() + 1000;
 			$.setState( 'play' );
 		}
 	};
@@ -2572,6 +2620,10 @@ $.setupStates = function() {
 		} );
 		$.ctxmg.fillStyle = '#fff';
 		$.ctxmg.fill();
+
+		if( $.keys.pressed.esc ){
+			$.setState( 'menu' );
+		}
 	};
 }
 
