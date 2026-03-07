@@ -59,7 +59,9 @@ $.init = function() {
 			medStarAlphaMin: 0.05, medStarAlphaMax: 0.15,
 			farStarAlphaMin: 0.05, farStarAlphaMax: 0.1,
 			gridColor: 'hsla(0, 0%, 50%, 0.05)',
-			vignetteColor: 'hsla(0, 0%, 0%, 0.5)'
+			vignetteColor: 'hsla(0, 0%, 0%, 0.5)',
+			gridSize: 50, starCount: 2000, medStarCount: 80, farStarCount: 40,
+			scanlineAlpha: 0.1, scanlineSpacing: 2
 		},
 		{
 			name: 'CRIMSON NEBULA',
@@ -71,7 +73,9 @@ $.init = function() {
 			medStarAlphaMin: 0.05, medStarAlphaMax: 0.2,
 			farStarAlphaMin: 0.03, farStarAlphaMax: 0.12,
 			gridColor: 'hsla(340, 40%, 40%, 0.04)',
-			vignetteColor: 'hsla(340, 50%, 5%, 0.5)'
+			vignetteColor: 'hsla(340, 50%, 5%, 0.5)',
+			gridSize: 50, starCount: 2000, medStarCount: 80, farStarCount: 40,
+			scanlineAlpha: 0.1, scanlineSpacing: 2
 		},
 		{
 			name: 'FROZEN VOID',
@@ -83,7 +87,9 @@ $.init = function() {
 			medStarAlphaMin: 0.05, medStarAlphaMax: 0.2,
 			farStarAlphaMin: 0.05, farStarAlphaMax: 0.15,
 			gridColor: 'hsla(200, 30%, 50%, 0.04)',
-			vignetteColor: 'hsla(200, 40%, 5%, 0.5)'
+			vignetteColor: 'hsla(200, 40%, 5%, 0.5)',
+			gridSize: 50, starCount: 2000, medStarCount: 80, farStarCount: 40,
+			scanlineAlpha: 0.1, scanlineSpacing: 2
 		},
 		{
 			name: 'TOXIC ZONE',
@@ -95,7 +101,9 @@ $.init = function() {
 			medStarAlphaMin: 0.05, medStarAlphaMax: 0.18,
 			farStarAlphaMin: 0.03, farStarAlphaMax: 0.1,
 			gridColor: 'hsla(100, 50%, 40%, 0.05)',
-			vignetteColor: 'hsla(100, 40%, 5%, 0.5)'
+			vignetteColor: 'hsla(100, 40%, 5%, 0.5)',
+			gridSize: 50, starCount: 2000, medStarCount: 80, farStarCount: 40,
+			scanlineAlpha: 0.1, scanlineSpacing: 2
 		},
 		{
 			name: 'WARZONE',
@@ -107,7 +115,9 @@ $.init = function() {
 			medStarAlphaMin: 0.05, medStarAlphaMax: 0.2,
 			farStarAlphaMin: 0.03, farStarAlphaMax: 0.12,
 			gridColor: 'hsla(30, 30%, 40%, 0.06)',
-			vignetteColor: 'hsla(20, 40%, 4%, 0.6)'
+			vignetteColor: 'hsla(20, 40%, 4%, 0.6)',
+			gridSize: 50, starCount: 2000, medStarCount: 80, farStarCount: 40,
+			scanlineAlpha: 0.1, scanlineSpacing: 2
 		},
 		{
 			name: 'DESERT STORM',
@@ -119,7 +129,9 @@ $.init = function() {
 			medStarAlphaMin: 0.04, medStarAlphaMax: 0.15,
 			farStarAlphaMin: 0.03, farStarAlphaMax: 0.1,
 			gridColor: 'hsla(40, 25%, 45%, 0.05)',
-			vignetteColor: 'hsla(35, 30%, 5%, 0.55)'
+			vignetteColor: 'hsla(35, 30%, 5%, 0.55)',
+			gridSize: 50, starCount: 2000, medStarCount: 80, farStarCount: 40,
+			scanlineAlpha: 0.1, scanlineSpacing: 2
 		},
 		{
 			name: 'IRON CURTAIN',
@@ -131,7 +143,9 @@ $.init = function() {
 			medStarAlphaMin: 0.04, medStarAlphaMax: 0.15,
 			farStarAlphaMin: 0.03, farStarAlphaMax: 0.1,
 			gridColor: 'hsla(220, 10%, 50%, 0.06)',
-			vignetteColor: 'hsla(220, 15%, 4%, 0.6)'
+			vignetteColor: 'hsla(220, 15%, 4%, 0.6)',
+			gridSize: 50, starCount: 2000, medStarCount: 80, farStarCount: 40,
+			scanlineAlpha: 0.1, scanlineSpacing: 2
 		},
 		{
 			name: 'SCORCHED EARTH',
@@ -143,7 +157,193 @@ $.init = function() {
 			medStarAlphaMin: 0.05, medStarAlphaMax: 0.25,
 			farStarAlphaMin: 0.04, farStarAlphaMax: 0.15,
 			gridColor: 'hsla(10, 60%, 35%, 0.06)',
-			vignetteColor: 'hsla(5, 50%, 5%, 0.6)'
+			vignetteColor: 'hsla(5, 50%, 5%, 0.6)',
+			gridSize: 50, starCount: 2000, medStarCount: 80, farStarCount: 40,
+			scanlineAlpha: 0.1, scanlineSpacing: 2
+		},
+		// --- EXTENDED UNIVERSE MAPS ---
+		{
+			name: 'PORTAL STORM',
+			bg: '#000a02',
+			starHue: 140, starSat: 100,
+			nebulaColor1: 'hsla(150, 100%, 40%, 0.25)',
+			nebulaColor2: 'hsla(120, 80%, 15%, 0)',
+			starAlphaMin: 0.08, starAlphaMax: 0.7,
+			medStarAlphaMin: 0.1, medStarAlphaMax: 0.35,
+			farStarAlphaMin: 0.08, farStarAlphaMax: 0.2,
+			gridColor: 'hsla(140, 100%, 50%, 0.08)',
+			vignetteColor: 'hsla(140, 80%, 8%, 0.7)',
+			gridSize: 35, starCount: 3000, medStarCount: 120, farStarCount: 60,
+			scanlineAlpha: 0.15, scanlineSpacing: 3,
+			nebula2Color1: 'hsla(160, 100%, 50%, 0.12)',
+			nebula2Color2: 'hsla(130, 80%, 20%, 0)'
+		},
+		{
+			name: 'DARK MATTER',
+			bg: '#02000a',
+			starHue: 270, starSat: 85,
+			nebulaColor1: 'hsla(280, 70%, 35%, 0.2)',
+			nebulaColor2: 'hsla(260, 60%, 10%, 0)',
+			starAlphaMin: 0.06, starAlphaMax: 0.55,
+			medStarAlphaMin: 0.08, medStarAlphaMax: 0.3,
+			farStarAlphaMin: 0.05, farStarAlphaMax: 0.18,
+			gridColor: 'hsla(270, 60%, 50%, 0.06)',
+			vignetteColor: 'hsla(280, 60%, 5%, 0.6)',
+			gridSize: 60, starCount: 2500, medStarCount: 100, farStarCount: 50,
+			scanlineAlpha: 0.08, scanlineSpacing: 2,
+			nebula2Color1: 'hsla(300, 80%, 40%, 0.1)',
+			nebula2Color2: 'hsla(250, 50%, 15%, 0)'
+		},
+		{
+			name: 'ANCIENT RUINS',
+			bg: '#080808',
+			starHue: 50, starSat: 40,
+			nebulaColor1: 'hsla(45, 30%, 40%, 0.12)',
+			nebulaColor2: 'hsla(30, 20%, 15%, 0)',
+			starAlphaMin: 0.04, starAlphaMax: 0.35,
+			medStarAlphaMin: 0.06, medStarAlphaMax: 0.2,
+			farStarAlphaMin: 0.04, farStarAlphaMax: 0.12,
+			gridColor: 'hsla(45, 20%, 60%, 0.08)',
+			vignetteColor: 'hsla(40, 20%, 3%, 0.7)',
+			gridSize: 40, starCount: 1500, medStarCount: 60, farStarCount: 30,
+			scanlineAlpha: 0.18, scanlineSpacing: 2,
+			gridStyle: 'cross'
+		},
+		{
+			name: 'MUTANT SECTOR',
+			bg: '#0a0004',
+			starHue: 320, starSat: 90,
+			nebulaColor1: 'hsla(330, 80%, 25%, 0.22)',
+			nebulaColor2: 'hsla(300, 70%, 10%, 0)',
+			starAlphaMin: 0.06, starAlphaMax: 0.5,
+			medStarAlphaMin: 0.08, medStarAlphaMax: 0.28,
+			farStarAlphaMin: 0.05, farStarAlphaMax: 0.15,
+			gridColor: 'hsla(320, 70%, 35%, 0.07)',
+			vignetteColor: 'hsla(330, 60%, 5%, 0.65)',
+			gridSize: 45, starCount: 2200, medStarCount: 90, farStarCount: 45,
+			scanlineAlpha: 0.12, scanlineSpacing: 2,
+			nebula2Color1: 'hsla(350, 90%, 30%, 0.15)',
+			nebula2Color2: 'hsla(310, 60%, 8%, 0)'
+		},
+		{
+			name: 'NEON ABYSS',
+			bg: '#000308',
+			starHue: 210, starSat: 90,
+			nebulaColor1: 'hsla(220, 80%, 45%, 0.18)',
+			nebulaColor2: 'hsla(200, 60%, 12%, 0)',
+			starAlphaMin: 0.1, starAlphaMax: 0.65,
+			medStarAlphaMin: 0.1, medStarAlphaMax: 0.35,
+			farStarAlphaMin: 0.08, farStarAlphaMax: 0.2,
+			gridColor: 'hsla(210, 80%, 60%, 0.07)',
+			vignetteColor: 'hsla(220, 60%, 6%, 0.55)',
+			gridSize: 30, starCount: 3500, medStarCount: 150, farStarCount: 70,
+			scanlineAlpha: 0.06, scanlineSpacing: 1
+		},
+		{
+			name: 'EMBER DRIFT',
+			bg: '#080200',
+			starHue: 20, starSat: 95,
+			nebulaColor1: 'hsla(15, 90%, 35%, 0.2)',
+			nebulaColor2: 'hsla(30, 70%, 10%, 0)',
+			starAlphaMin: 0.06, starAlphaMax: 0.5,
+			medStarAlphaMin: 0.07, medStarAlphaMax: 0.25,
+			farStarAlphaMin: 0.04, farStarAlphaMax: 0.14,
+			gridColor: 'hsla(20, 80%, 40%, 0.07)',
+			vignetteColor: 'hsla(15, 70%, 4%, 0.65)',
+			gridSize: 55, starCount: 1800, medStarCount: 70, farStarCount: 35,
+			scanlineAlpha: 0.12, scanlineSpacing: 2,
+			nebula2Color1: 'hsla(40, 80%, 40%, 0.1)',
+			nebula2Color2: 'hsla(10, 60%, 12%, 0)'
+		},
+		{
+			name: 'MICROVERSE',
+			bg: '#02020a',
+			starHue: 250, starSat: 70,
+			nebulaColor1: 'hsla(240, 60%, 50%, 0.15)',
+			nebulaColor2: 'hsla(260, 50%, 15%, 0)',
+			starAlphaMin: 0.15, starAlphaMax: 0.8,
+			medStarAlphaMin: 0.12, medStarAlphaMax: 0.4,
+			farStarAlphaMin: 0.1, farStarAlphaMax: 0.25,
+			gridColor: 'hsla(250, 50%, 60%, 0.04)',
+			vignetteColor: 'hsla(250, 50%, 5%, 0.5)',
+			gridSize: 20, starCount: 5000, medStarCount: 200, farStarCount: 100,
+			scanlineAlpha: 0.05, scanlineSpacing: 1
+		},
+		{
+			name: 'RIFT ZONE',
+			bg: '#060006',
+			starHue: 290, starSat: 80,
+			nebulaColor1: 'hsla(300, 70%, 35%, 0.2)',
+			nebulaColor2: 'hsla(270, 60%, 12%, 0)',
+			starAlphaMin: 0.07, starAlphaMax: 0.55,
+			medStarAlphaMin: 0.08, medStarAlphaMax: 0.3,
+			farStarAlphaMin: 0.06, farStarAlphaMax: 0.18,
+			gridColor: 'hsla(290, 60%, 45%, 0.06)',
+			vignetteColor: 'hsla(300, 50%, 5%, 0.6)',
+			gridSize: 70, starCount: 2000, medStarCount: 80, farStarCount: 40,
+			scanlineAlpha: 0.1, scanlineSpacing: 3,
+			nebula2Color1: 'hsla(180, 90%, 40%, 0.1)',
+			nebula2Color2: 'hsla(260, 40%, 10%, 0)',
+			gridStyle: 'hex'
+		},
+		{
+			name: 'QUANTUM GRID',
+			bg: '#000505',
+			starHue: 180, starSat: 60,
+			nebulaColor1: 'hsla(175, 50%, 40%, 0.14)',
+			nebulaColor2: 'hsla(190, 40%, 10%, 0)',
+			starAlphaMin: 0.06, starAlphaMax: 0.4,
+			medStarAlphaMin: 0.06, medStarAlphaMax: 0.22,
+			farStarAlphaMin: 0.04, farStarAlphaMax: 0.14,
+			gridColor: 'hsla(180, 40%, 50%, 0.06)',
+			vignetteColor: 'hsla(180, 40%, 4%, 0.55)',
+			gridSize: 45, starCount: 2200, medStarCount: 90, farStarCount: 45,
+			scanlineAlpha: 0.08, scanlineSpacing: 2,
+			gridStyle: 'diamond'
+		},
+		{
+			name: 'SOLAR FORGE',
+			bg: '#0a0800',
+			starHue: 55, starSat: 75,
+			nebulaColor1: 'hsla(50, 70%, 40%, 0.18)',
+			nebulaColor2: 'hsla(60, 50%, 12%, 0)',
+			starAlphaMin: 0.08, starAlphaMax: 0.55,
+			medStarAlphaMin: 0.08, medStarAlphaMax: 0.3,
+			farStarAlphaMin: 0.06, farStarAlphaMax: 0.18,
+			gridColor: 'hsla(50, 60%, 50%, 0.07)',
+			vignetteColor: 'hsla(50, 50%, 5%, 0.6)',
+			gridSize: 65, starCount: 1800, medStarCount: 70, farStarCount: 35,
+			scanlineAlpha: 0.14, scanlineSpacing: 2
+		},
+		{
+			name: 'BLOOD MOON',
+			bg: '#0a0000',
+			starHue: 0, starSat: 100,
+			nebulaColor1: 'hsla(0, 90%, 30%, 0.25)',
+			nebulaColor2: 'hsla(350, 70%, 8%, 0)',
+			starAlphaMin: 0.08, starAlphaMax: 0.6,
+			medStarAlphaMin: 0.1, medStarAlphaMax: 0.35,
+			farStarAlphaMin: 0.06, farStarAlphaMax: 0.2,
+			gridColor: 'hsla(0, 80%, 40%, 0.08)',
+			vignetteColor: 'hsla(0, 70%, 5%, 0.7)',
+			gridSize: 40, starCount: 2800, medStarCount: 110, farStarCount: 55,
+			scanlineAlpha: 0.2, scanlineSpacing: 2,
+			nebula2Color1: 'hsla(20, 100%, 35%, 0.12)',
+			nebula2Color2: 'hsla(350, 80%, 10%, 0)'
+		},
+		{
+			name: 'VOID WALKER',
+			bg: '#030303',
+			starHue: 0, starSat: 0,
+			nebulaColor1: 'hsla(0, 0%, 20%, 0.08)',
+			nebulaColor2: 'hsla(0, 0%, 5%, 0)',
+			starAlphaMin: 0.02, starAlphaMax: 0.15,
+			medStarAlphaMin: 0.03, medStarAlphaMax: 0.1,
+			farStarAlphaMin: 0.02, farStarAlphaMax: 0.06,
+			gridColor: 'hsla(0, 0%, 30%, 0.03)',
+			vignetteColor: 'hsla(0, 0%, 0%, 0.8)',
+			gridSize: 80, starCount: 800, medStarCount: 30, farStarCount: 15,
+			scanlineAlpha: 0.25, scanlineSpacing: 1
 		}
 	];
 
@@ -369,6 +569,12 @@ Render Backgrounds (map-themed)
 ==============================================================================*/
 $.renderAllBackgrounds = function() {
 	var m = $.maps[ $.mapIndex ];
+	var starCount = m.starCount || 2000;
+	var medStarCount = m.medStarCount || 80;
+	var farStarCount = m.farStarCount || 40;
+	var gridSize = m.gridSize || 50;
+	var scanlineAlpha = m.scanlineAlpha !== undefined ? m.scanlineAlpha : 0.1;
+	var scanlineSpacing = m.scanlineSpacing || 2;
 
 	// Set wrap-inner background color
 	$.wrapInner.style.background = m.bg;
@@ -381,12 +587,22 @@ $.renderAllBackgrounds = function() {
 	$.ctxbg1.fillStyle = gradient;
 	$.ctxbg1.fillRect( 0, 0, $.cbg1.width, $.cbg1.height );
 
-	var i = 2000;
+	// Second nebula for dual-nebula maps (offset position)
+	if( m.nebula2Color1 ) {
+		var ox = $.cbg1.width * 0.3, oy = $.cbg1.height * 0.7;
+		var g2 = $.ctxbg1.createRadialGradient( ox, oy, 0, ox, oy, $.cbg1.height * 0.6 );
+		g2.addColorStop( 0, m.nebula2Color1 );
+		g2.addColorStop( 0.7, m.nebula2Color2 );
+		$.ctxbg1.fillStyle = g2;
+		$.ctxbg1.fillRect( 0, 0, $.cbg1.width, $.cbg1.height );
+	}
+
+	var i = starCount;
 	while( i-- ) {
 		var hue = m.starHue + $.util.rand( -20, 20 );
 		$.util.fillCircle( $.ctxbg1, $.util.rand( 0, $.cbg1.width ), $.util.rand( 0, $.cbg1.height ), $.util.rand( 0.2, 0.5 ), 'hsla(' + hue + ', ' + m.starSat + '%, 100%, ' + $.util.rand( m.starAlphaMin, m.starAlphaMax * 0.4 ) + ')' );
 	}
-	i = 800;
+	i = Math.round( starCount * 0.4 );
 	while( i-- ) {
 		var hue = m.starHue + $.util.rand( -30, 30 );
 		$.util.fillCircle( $.ctxbg1, $.util.rand( 0, $.cbg1.width ), $.util.rand( 0, $.cbg1.height ), $.util.rand( 0.1, 0.8 ), 'hsla(' + hue + ', ' + m.starSat + '%, 100%, ' + $.util.rand( m.starAlphaMin, m.starAlphaMax ) + ')' );
@@ -394,7 +610,7 @@ $.renderAllBackgrounds = function() {
 
 	// BG2: medium stars
 	$.ctxbg2.clearRect( 0, 0, $.cbg2.width, $.cbg2.height );
-	i = 80;
+	i = medStarCount;
 	while( i-- ) {
 		var hue = m.starHue + $.util.rand( -15, 15 );
 		$.util.fillCircle( $.ctxbg2, $.util.rand( 0, $.cbg2.width ), $.util.rand( 0, $.cbg2.height ), $.util.rand( 1, 2 ), 'hsla(' + hue + ', ' + m.starSat + '%, 100%, ' + $.util.rand( m.medStarAlphaMin, m.medStarAlphaMax ) + ')' );
@@ -402,23 +618,63 @@ $.renderAllBackgrounds = function() {
 
 	// BG3: far stars
 	$.ctxbg3.clearRect( 0, 0, $.cbg3.width, $.cbg3.height );
-	i = 40;
+	i = farStarCount;
 	while( i-- ) {
 		var hue = m.starHue + $.util.rand( -10, 10 );
 		$.util.fillCircle( $.ctxbg3, $.util.rand( 0, $.cbg3.width ), $.util.rand( 0, $.cbg3.height ), $.util.rand( 1, 2.5 ), 'hsla(' + hue + ', ' + m.starSat + '%, 100%, ' + $.util.rand( m.farStarAlphaMin, m.farStarAlphaMax ) + ')' );
 	}
 
-	// BG4: grid
+	// BG4: grid with per-map style
 	$.ctxbg4.clearRect( 0, 0, $.cbg4.width, $.cbg4.height );
-	var size = 50;
 	$.ctxbg4.fillStyle = m.gridColor;
-	i = Math.round( $.cbg4.height / size );
-	while( i-- ) {
-		$.ctxbg4.fillRect( 0, i * size + 25, $.cbg4.width, 1 );
-	}
-	i = Math.round( $.cbg4.width / size );
-	while( i-- ) {
-		$.ctxbg4.fillRect( i * size, 0, 1, $.cbg4.height );
+
+	if( m.gridStyle === 'cross' ) {
+		// Cross-hatch pattern (Citadel Ruins)
+		var cx = Math.round( $.cbg4.width / gridSize );
+		var cy = Math.round( $.cbg4.height / gridSize );
+		for( var gx = 0; gx < cx; gx++ ) {
+			for( var gy = 0; gy < cy; gy++ ) {
+				var px = gx * gridSize + gridSize / 2;
+				var py = gy * gridSize + gridSize / 2;
+				$.ctxbg4.fillRect( px - 4, py, 9, 1 );
+				$.ctxbg4.fillRect( px, py - 4, 1, 9 );
+			}
+		}
+	} else if( m.gridStyle === 'hex' ) {
+		// Hexagonal offset grid (Interdimensional)
+		var rows = Math.round( $.cbg4.height / gridSize );
+		var cols = Math.round( $.cbg4.width / gridSize );
+		for( var gy = 0; gy < rows; gy++ ) {
+			var offset = ( gy % 2 ) * ( gridSize / 2 );
+			for( var gx = 0; gx < cols; gx++ ) {
+				var px = gx * gridSize + offset;
+				$.ctxbg4.fillRect( px, gy * gridSize, 1, gridSize );
+			}
+			$.ctxbg4.fillRect( 0, gy * gridSize, $.cbg4.width, 1 );
+		}
+	} else if( m.gridStyle === 'diamond' ) {
+		// Diamond/rotated grid (Galactic Fed)
+		$.ctxbg4.save();
+		$.ctxbg4.translate( $.cbg4.width / 2, $.cbg4.height / 2 );
+		$.ctxbg4.rotate( Math.PI / 4 );
+		var diagSize = Math.sqrt( $.cbg4.width * $.cbg4.width + $.cbg4.height * $.cbg4.height );
+		var halfDiag = diagSize / 2;
+		i = Math.round( diagSize / gridSize );
+		while( i-- ) {
+			$.ctxbg4.fillRect( -halfDiag, i * gridSize - halfDiag, diagSize, 1 );
+			$.ctxbg4.fillRect( i * gridSize - halfDiag, -halfDiag, 1, diagSize );
+		}
+		$.ctxbg4.restore();
+	} else {
+		// Standard grid
+		i = Math.round( $.cbg4.height / gridSize );
+		while( i-- ) {
+			$.ctxbg4.fillRect( 0, i * gridSize + Math.floor( gridSize / 2 ), $.cbg4.width, 1 );
+		}
+		i = Math.round( $.cbg4.width / gridSize );
+		while( i-- ) {
+			$.ctxbg4.fillRect( i * gridSize, 0, 1, $.cbg4.height );
+		}
 	}
 
 	// Foreground: vignette + scanlines
@@ -429,10 +685,10 @@ $.renderAllBackgrounds = function() {
 	$.ctxfg.fillStyle = fgGradient;
 	$.ctxfg.fillRect( 0, 0, $.cw, $.ch );
 
-	$.ctxfg.fillStyle = 'hsla(0, 0%, 50%, 0.1)';
-	i = Math.round( $.ch / 2 );
+	$.ctxfg.fillStyle = 'hsla(0, 0%, 50%, ' + scanlineAlpha + ')';
+	i = Math.round( $.ch / scanlineSpacing );
 	while( i-- ) {
-		$.ctxfg.fillRect( 0, i * 2, $.cw, 1 );
+		$.ctxfg.fillRect( 0, i * scanlineSpacing, $.cw, 1 );
 	}
 
 	var gradient2 = $.ctxfg.createLinearGradient( $.cw, 0, 0, $.ch );
