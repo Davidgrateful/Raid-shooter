@@ -23,7 +23,8 @@ $.setupStorage = function() {
 		'bullets': 0,
 		'powerups': 0,
 		'time': 0,
-		'difficulty': 1
+		'difficulty': 1,
+		'map': 0
 	};
 };
 

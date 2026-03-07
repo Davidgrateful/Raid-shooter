@@ -47,6 +47,106 @@ $.init = function() {
 	$.difficulty = $.storage['difficulty'] || 1; // 0=easy, 1=normal, 2=hard
 	$.difficultyNames = ['EASY', 'NORMAL', 'HARD'];
 
+	$.mapIndex = $.storage['map'] || 0;
+	$.maps = [
+		{
+			name: 'DEEP SPACE',
+			bg: '#000',
+			starHue: 0, starSat: 0,
+			nebulaColor1: 'hsla(0, 0%, 100%, 0.1)',
+			nebulaColor2: 'hsla(0, 0%, 100%, 0)',
+			starAlphaMin: 0.05, starAlphaMax: 0.5,
+			medStarAlphaMin: 0.05, medStarAlphaMax: 0.15,
+			farStarAlphaMin: 0.05, farStarAlphaMax: 0.1,
+			gridColor: 'hsla(0, 0%, 50%, 0.05)',
+			vignetteColor: 'hsla(0, 0%, 0%, 0.5)'
+		},
+		{
+			name: 'CRIMSON NEBULA',
+			bg: '#0a0005',
+			starHue: 340, starSat: 80,
+			nebulaColor1: 'hsla(340, 60%, 30%, 0.15)',
+			nebulaColor2: 'hsla(340, 60%, 10%, 0)',
+			starAlphaMin: 0.05, starAlphaMax: 0.4,
+			medStarAlphaMin: 0.05, medStarAlphaMax: 0.2,
+			farStarAlphaMin: 0.03, farStarAlphaMax: 0.12,
+			gridColor: 'hsla(340, 40%, 40%, 0.04)',
+			vignetteColor: 'hsla(340, 50%, 5%, 0.5)'
+		},
+		{
+			name: 'FROZEN VOID',
+			bg: '#000810',
+			starHue: 200, starSat: 60,
+			nebulaColor1: 'hsla(200, 50%, 40%, 0.12)',
+			nebulaColor2: 'hsla(200, 50%, 10%, 0)',
+			starAlphaMin: 0.08, starAlphaMax: 0.5,
+			medStarAlphaMin: 0.05, medStarAlphaMax: 0.2,
+			farStarAlphaMin: 0.05, farStarAlphaMax: 0.15,
+			gridColor: 'hsla(200, 30%, 50%, 0.04)',
+			vignetteColor: 'hsla(200, 40%, 5%, 0.5)'
+		},
+		{
+			name: 'TOXIC ZONE',
+			bg: '#020800',
+			starHue: 100, starSat: 70,
+			nebulaColor1: 'hsla(100, 60%, 25%, 0.12)',
+			nebulaColor2: 'hsla(100, 60%, 5%, 0)',
+			starAlphaMin: 0.05, starAlphaMax: 0.35,
+			medStarAlphaMin: 0.05, medStarAlphaMax: 0.18,
+			farStarAlphaMin: 0.03, farStarAlphaMax: 0.1,
+			gridColor: 'hsla(100, 50%, 40%, 0.05)',
+			vignetteColor: 'hsla(100, 40%, 5%, 0.5)'
+		},
+		{
+			name: 'WARZONE',
+			bg: '#0a0600',
+			starHue: 30, starSat: 70,
+			nebulaColor1: 'hsla(30, 50%, 25%, 0.18)',
+			nebulaColor2: 'hsla(30, 40%, 8%, 0)',
+			starAlphaMin: 0.04, starAlphaMax: 0.3,
+			medStarAlphaMin: 0.05, medStarAlphaMax: 0.2,
+			farStarAlphaMin: 0.03, farStarAlphaMax: 0.12,
+			gridColor: 'hsla(30, 30%, 40%, 0.06)',
+			vignetteColor: 'hsla(20, 40%, 4%, 0.6)'
+		},
+		{
+			name: 'DESERT STORM',
+			bg: '#080600',
+			starHue: 40, starSat: 50,
+			nebulaColor1: 'hsla(40, 40%, 30%, 0.1)',
+			nebulaColor2: 'hsla(40, 30%, 10%, 0)',
+			starAlphaMin: 0.03, starAlphaMax: 0.25,
+			medStarAlphaMin: 0.04, medStarAlphaMax: 0.15,
+			farStarAlphaMin: 0.03, farStarAlphaMax: 0.1,
+			gridColor: 'hsla(40, 25%, 45%, 0.05)',
+			vignetteColor: 'hsla(35, 30%, 5%, 0.55)'
+		},
+		{
+			name: 'IRON CURTAIN',
+			bg: '#050608',
+			starHue: 220, starSat: 15,
+			nebulaColor1: 'hsla(220, 10%, 35%, 0.1)',
+			nebulaColor2: 'hsla(220, 10%, 10%, 0)',
+			starAlphaMin: 0.05, starAlphaMax: 0.3,
+			medStarAlphaMin: 0.04, medStarAlphaMax: 0.15,
+			farStarAlphaMin: 0.03, farStarAlphaMax: 0.1,
+			gridColor: 'hsla(220, 10%, 50%, 0.06)',
+			vignetteColor: 'hsla(220, 15%, 4%, 0.6)'
+		},
+		{
+			name: 'SCORCHED EARTH',
+			bg: '#0a0200',
+			starHue: 15, starSat: 90,
+			nebulaColor1: 'hsla(10, 70%, 30%, 0.2)',
+			nebulaColor2: 'hsla(10, 60%, 8%, 0)',
+			starAlphaMin: 0.05, starAlphaMax: 0.45,
+			medStarAlphaMin: 0.05, medStarAlphaMax: 0.25,
+			farStarAlphaMin: 0.04, farStarAlphaMax: 0.15,
+			gridColor: 'hsla(10, 60%, 35%, 0.06)',
+			vignetteColor: 'hsla(5, 50%, 5%, 0.6)'
+		}
+	];
+
 	$.vjoyLeft = {
 		active: 0,
 		ox: 0,
@@ -130,11 +230,7 @@ $.init = function() {
 	$.resizecb();
 	$.bindEvents();
 	$.setupStates();
-	$.renderBackground1();
-	$.renderBackground2();
-	$.renderBackground3();
-	$.renderBackground4();
-	$.renderForeground();
+	$.renderAllBackgrounds();
 	$.renderFavicon();
 	$.setState( 'menu' );
 	$.loop();
@@ -269,44 +365,54 @@ $.renderFavicon = function() {
 };
 
 /*==============================================================================
-Render Backgrounds
+Render Backgrounds (map-themed)
 ==============================================================================*/
-$.renderBackground1 = function() {
+$.renderAllBackgrounds = function() {
+	var m = $.maps[ $.mapIndex ];
+
+	// Set wrap-inner background color
+	$.wrapInner.style.background = m.bg;
+
+	// BG1: nebula gradient + dense star field
+	$.ctxbg1.clearRect( 0, 0, $.cbg1.width, $.cbg1.height );
 	var gradient = $.ctxbg1.createRadialGradient( $.cbg1.width / 2, $.cbg1.height / 2, 0, $.cbg1.width / 2, $.cbg1.height / 2, $.cbg1.height );
-	gradient.addColorStop( 0, 'hsla(0, 0%, 100%, 0.1)' );
-	gradient.addColorStop( 0.65, 'hsla(0, 0%, 100%, 0)' );
+	gradient.addColorStop( 0, m.nebulaColor1 );
+	gradient.addColorStop( 0.65, m.nebulaColor2 );
 	$.ctxbg1.fillStyle = gradient;
 	$.ctxbg1.fillRect( 0, 0, $.cbg1.width, $.cbg1.height );
 
 	var i = 2000;
 	while( i-- ) {
-		$.util.fillCircle( $.ctxbg1, $.util.rand( 0, $.cbg1.width ), $.util.rand( 0, $.cbg1.height ), $.util.rand( 0.2, 0.5 ), 'hsla(0, 0%, 100%, ' + $.util.rand( 0.05, 0.2 ) + ')' );
+		var hue = m.starHue + $.util.rand( -20, 20 );
+		$.util.fillCircle( $.ctxbg1, $.util.rand( 0, $.cbg1.width ), $.util.rand( 0, $.cbg1.height ), $.util.rand( 0.2, 0.5 ), 'hsla(' + hue + ', ' + m.starSat + '%, 100%, ' + $.util.rand( m.starAlphaMin, m.starAlphaMax * 0.4 ) + ')' );
 	}
-
-	var i = 800;
+	i = 800;
 	while( i-- ) {
-		$.util.fillCircle( $.ctxbg1, $.util.rand( 0, $.cbg1.width ), $.util.rand( 0, $.cbg1.height ), $.util.rand( 0.1, 0.8 ), 'hsla(0, 0%, 100%, ' + $.util.rand( 0.05, 0.5 ) + ')' );
+		var hue = m.starHue + $.util.rand( -30, 30 );
+		$.util.fillCircle( $.ctxbg1, $.util.rand( 0, $.cbg1.width ), $.util.rand( 0, $.cbg1.height ), $.util.rand( 0.1, 0.8 ), 'hsla(' + hue + ', ' + m.starSat + '%, 100%, ' + $.util.rand( m.starAlphaMin, m.starAlphaMax ) + ')' );
 	}
-}
 
-$.renderBackground2 = function() {
-	var i = 80;
+	// BG2: medium stars
+	$.ctxbg2.clearRect( 0, 0, $.cbg2.width, $.cbg2.height );
+	i = 80;
 	while( i-- ) {
-		$.util.fillCircle( $.ctxbg2, $.util.rand( 0, $.cbg2.width ), $.util.rand( 0, $.cbg2.height ), $.util.rand( 1, 2 ), 'hsla(0, 0%, 100%, ' + $.util.rand( 0.05, 0.15 ) + ')' );
+		var hue = m.starHue + $.util.rand( -15, 15 );
+		$.util.fillCircle( $.ctxbg2, $.util.rand( 0, $.cbg2.width ), $.util.rand( 0, $.cbg2.height ), $.util.rand( 1, 2 ), 'hsla(' + hue + ', ' + m.starSat + '%, 100%, ' + $.util.rand( m.medStarAlphaMin, m.medStarAlphaMax ) + ')' );
 	}
-}
 
-$.renderBackground3 = function() {
-	var i = 40;
+	// BG3: far stars
+	$.ctxbg3.clearRect( 0, 0, $.cbg3.width, $.cbg3.height );
+	i = 40;
 	while( i-- ) {
-		$.util.fillCircle( $.ctxbg3, $.util.rand( 0, $.cbg3.width ), $.util.rand( 0, $.cbg3.height ), $.util.rand( 1, 2.5 ), 'hsla(0, 0%, 100%, ' + $.util.rand( 0.05, 0.1 ) + ')' );
+		var hue = m.starHue + $.util.rand( -10, 10 );
+		$.util.fillCircle( $.ctxbg3, $.util.rand( 0, $.cbg3.width ), $.util.rand( 0, $.cbg3.height ), $.util.rand( 1, 2.5 ), 'hsla(' + hue + ', ' + m.starSat + '%, 100%, ' + $.util.rand( m.farStarAlphaMin, m.farStarAlphaMax ) + ')' );
 	}
-}
 
-$.renderBackground4 = function() {
+	// BG4: grid
+	$.ctxbg4.clearRect( 0, 0, $.cbg4.width, $.cbg4.height );
 	var size = 50;
-	$.ctxbg4.fillStyle = 'hsla(0, 0%, 50%, 0.05)';
-	var i = Math.round( $.cbg4.height / size );
+	$.ctxbg4.fillStyle = m.gridColor;
+	i = Math.round( $.cbg4.height / size );
 	while( i-- ) {
 		$.ctxbg4.fillRect( 0, i * size + 25, $.cbg4.width, 1 );
 	}
@@ -314,20 +420,17 @@ $.renderBackground4 = function() {
 	while( i-- ) {
 		$.ctxbg4.fillRect( i * size, 0, 1, $.cbg4.height );
 	}
-}
 
-/*==============================================================================
-Render Foreground
-==============================================================================*/
-$.renderForeground = function() {
-	var gradient = $.ctxfg.createRadialGradient( $.cw / 2, $.ch / 2, $.ch / 3, $.cw / 2, $.ch / 2, $.ch );
-	gradient.addColorStop( 0, 'hsla(0, 0%, 0%, 0)' );
-	gradient.addColorStop( 1, 'hsla(0, 0%, 0%, 0.5)' );
-	$.ctxfg.fillStyle = gradient;
+	// Foreground: vignette + scanlines
+	$.ctxfg.clearRect( 0, 0, $.cw, $.ch );
+	var fgGradient = $.ctxfg.createRadialGradient( $.cw / 2, $.ch / 2, $.ch / 3, $.cw / 2, $.ch / 2, $.ch );
+	fgGradient.addColorStop( 0, 'hsla(0, 0%, 0%, 0)' );
+	fgGradient.addColorStop( 1, m.vignetteColor );
+	$.ctxfg.fillStyle = fgGradient;
 	$.ctxfg.fillRect( 0, 0, $.cw, $.ch );
 
 	$.ctxfg.fillStyle = 'hsla(0, 0%, 50%, 0.1)';
-	var i = Math.round( $.ch / 2 );
+	i = Math.round( $.ch / 2 );
 	while( i-- ) {
 		$.ctxfg.fillRect( 0, i * 2, $.cw, 1 );
 	}
@@ -1388,14 +1491,33 @@ $.setState = function( state ) {
 		} );
 		$.buttons.push( diffButton );
 
-		var playButton = new $.Button( {
+		var mapButton = new $.Button( {
 			x: $.cw / 2 + 1,
 			y: diffButton.ey + 25,
 			lockedWidth: 299,
 			lockedHeight: 49,
 			scale: 3,
+			title: $.maps[ $.mapIndex ].name,
+			action: function() {
+				$.mapIndex = ( $.mapIndex + 1 ) % $.maps.length;
+				$.storage['map'] = $.mapIndex;
+				$.updateStorage();
+				mapButton.title = $.maps[ $.mapIndex ].name;
+				$.renderAllBackgrounds();
+				$.mouse.down = 0;
+			}
+		} );
+		$.buttons.push( mapButton );
+
+		var playButton = new $.Button( {
+			x: $.cw / 2 + 1,
+			y: mapButton.ey + 25,
+			lockedWidth: 299,
+			lockedHeight: 49,
+			scale: 3,
 			title: 'PLAY',
 			action: function() {
+				$.renderAllBackgrounds();
 				$.reset();
 				$.audio.play( 'levelup' );
 				$.setState( 'play' );
