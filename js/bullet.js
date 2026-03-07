@@ -17,8 +17,8 @@ $.Bullet = function( opt ) {
 		maxSpeed: 10,
 		minDirection: 0,
 		maxDirection: $.twopi,
-		hue: 0,
-		saturation: 0
+		hue: $.theme ? $.theme.accentHue : 0,
+		saturation: $.theme ? $.theme.accentSat : 0
 	} ) );
 };
 

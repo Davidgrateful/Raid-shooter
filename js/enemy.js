@@ -17,6 +17,10 @@ $.Enemy = function( opt ) {
 	this.index = $.indexGlobal++;
 	this.inView = this.hitFlag = this.vx = this.vy = 0;
 	this.lifeMax = opt.life;
+	// Apply per-map enemy hue shift
+	if( $.theme && $.theme.enemyHueShift ) {
+		this.hue = ( this.hue + $.theme.enemyHueShift + 360 ) % 360;
+	}
 	this.fillStyle ='hsla(' + this.hue + ', ' + this.saturation + '%, ' + this.lightness + '%, 0.1)';
 	this.strokeStyle = 'hsla(' + this.hue + ', ' + this.saturation + '%, ' + this.lightness + '%, 1)';
 	/*==============================================================================

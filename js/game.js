@@ -61,7 +61,16 @@ $.init = function() {
 			gridColor: 'hsla(0, 0%, 50%, 0.05)',
 			vignetteColor: 'hsla(0, 0%, 0%, 0.5)',
 			gridSize: 50, starCount: 2000, medStarCount: 80, farStarCount: 40,
-			scanlineAlpha: 0.1, scanlineSpacing: 2
+			scanlineAlpha: 0.1, scanlineSpacing: 2,
+			// Theme: neutral white/clean
+			heroColor: '#fff', bulletColor: '#fff',
+			accentHue: 0, accentSat: 0,
+			enemyHueShift: 0,
+			shieldHue: 180, trailHue: 50,
+			uiAccent: 'hsla(0, 0%, 100%,',
+			slowOverlay: 'hsla(200, 100%, 20%, 0.05)',
+			speedOverlay: 'hsla(50, 100%, 50%, 0.03)',
+			magnetOverlay: 'hsla(300, 100%, 50%, 0.02)'
 		},
 		{
 			name: 'CRIMSON NEBULA',
@@ -75,7 +84,16 @@ $.init = function() {
 			gridColor: 'hsla(340, 40%, 40%, 0.04)',
 			vignetteColor: 'hsla(340, 50%, 5%, 0.5)',
 			gridSize: 50, starCount: 2000, medStarCount: 80, farStarCount: 40,
-			scanlineAlpha: 0.1, scanlineSpacing: 2
+			scanlineAlpha: 0.1, scanlineSpacing: 2,
+			// Theme: crimson/magenta
+			heroColor: 'hsl(340, 100%, 85%)', bulletColor: 'hsl(340, 100%, 75%)',
+			accentHue: 340, accentSat: 80,
+			enemyHueShift: 20,
+			shieldHue: 340, trailHue: 350,
+			uiAccent: 'hsla(340, 80%, 70%,',
+			slowOverlay: 'hsla(340, 80%, 20%, 0.05)',
+			speedOverlay: 'hsla(350, 100%, 50%, 0.03)',
+			magnetOverlay: 'hsla(320, 100%, 50%, 0.02)'
 		},
 		{
 			name: 'FROZEN VOID',
@@ -89,7 +107,16 @@ $.init = function() {
 			gridColor: 'hsla(200, 30%, 50%, 0.04)',
 			vignetteColor: 'hsla(200, 40%, 5%, 0.5)',
 			gridSize: 50, starCount: 2000, medStarCount: 80, farStarCount: 40,
-			scanlineAlpha: 0.1, scanlineSpacing: 2
+			scanlineAlpha: 0.1, scanlineSpacing: 2,
+			// Theme: icy blue/cyan
+			heroColor: 'hsl(200, 80%, 85%)', bulletColor: 'hsl(195, 100%, 75%)',
+			accentHue: 200, accentSat: 70,
+			enemyHueShift: -30,
+			shieldHue: 200, trailHue: 190,
+			uiAccent: 'hsla(200, 70%, 70%,',
+			slowOverlay: 'hsla(210, 100%, 20%, 0.06)',
+			speedOverlay: 'hsla(190, 100%, 50%, 0.03)',
+			magnetOverlay: 'hsla(220, 100%, 50%, 0.02)'
 		},
 		{
 			name: 'TOXIC ZONE',
@@ -103,7 +130,16 @@ $.init = function() {
 			gridColor: 'hsla(100, 50%, 40%, 0.05)',
 			vignetteColor: 'hsla(100, 40%, 5%, 0.5)',
 			gridSize: 50, starCount: 2000, medStarCount: 80, farStarCount: 40,
-			scanlineAlpha: 0.1, scanlineSpacing: 2
+			scanlineAlpha: 0.1, scanlineSpacing: 2,
+			// Theme: toxic green
+			heroColor: 'hsl(120, 100%, 80%)', bulletColor: 'hsl(100, 100%, 65%)',
+			accentHue: 100, accentSat: 80,
+			enemyHueShift: 40,
+			shieldHue: 120, trailHue: 100,
+			uiAccent: 'hsla(100, 80%, 65%,',
+			slowOverlay: 'hsla(120, 100%, 20%, 0.05)',
+			speedOverlay: 'hsla(90, 100%, 50%, 0.03)',
+			magnetOverlay: 'hsla(140, 100%, 50%, 0.02)'
 		},
 		{
 			name: 'WARZONE',
@@ -117,7 +153,16 @@ $.init = function() {
 			gridColor: 'hsla(30, 30%, 40%, 0.06)',
 			vignetteColor: 'hsla(20, 40%, 4%, 0.6)',
 			gridSize: 50, starCount: 2000, medStarCount: 80, farStarCount: 40,
-			scanlineAlpha: 0.1, scanlineSpacing: 2
+			scanlineAlpha: 0.1, scanlineSpacing: 2,
+			// Theme: military orange/amber
+			heroColor: 'hsl(40, 100%, 80%)', bulletColor: 'hsl(30, 100%, 65%)',
+			accentHue: 30, accentSat: 80,
+			enemyHueShift: 10,
+			shieldHue: 40, trailHue: 30,
+			uiAccent: 'hsla(30, 80%, 65%,',
+			slowOverlay: 'hsla(30, 80%, 20%, 0.05)',
+			speedOverlay: 'hsla(40, 100%, 50%, 0.03)',
+			magnetOverlay: 'hsla(20, 100%, 50%, 0.02)'
 		},
 		{
 			name: 'DESERT STORM',
@@ -131,7 +176,16 @@ $.init = function() {
 			gridColor: 'hsla(40, 25%, 45%, 0.05)',
 			vignetteColor: 'hsla(35, 30%, 5%, 0.55)',
 			gridSize: 50, starCount: 2000, medStarCount: 80, farStarCount: 40,
-			scanlineAlpha: 0.1, scanlineSpacing: 2
+			scanlineAlpha: 0.1, scanlineSpacing: 2,
+			// Theme: sandy gold
+			heroColor: 'hsl(45, 80%, 80%)', bulletColor: 'hsl(40, 70%, 65%)',
+			accentHue: 40, accentSat: 60,
+			enemyHueShift: 15,
+			shieldHue: 45, trailHue: 40,
+			uiAccent: 'hsla(40, 60%, 70%,',
+			slowOverlay: 'hsla(40, 60%, 20%, 0.05)',
+			speedOverlay: 'hsla(45, 100%, 50%, 0.03)',
+			magnetOverlay: 'hsla(30, 100%, 50%, 0.02)'
 		},
 		{
 			name: 'IRON CURTAIN',
@@ -145,7 +199,16 @@ $.init = function() {
 			gridColor: 'hsla(220, 10%, 50%, 0.06)',
 			vignetteColor: 'hsla(220, 15%, 4%, 0.6)',
 			gridSize: 50, starCount: 2000, medStarCount: 80, farStarCount: 40,
-			scanlineAlpha: 0.1, scanlineSpacing: 2
+			scanlineAlpha: 0.1, scanlineSpacing: 2,
+			// Theme: cold steel gray-blue
+			heroColor: 'hsl(220, 20%, 80%)', bulletColor: 'hsl(220, 15%, 70%)',
+			accentHue: 220, accentSat: 20,
+			enemyHueShift: 0,
+			shieldHue: 210, trailHue: 220,
+			uiAccent: 'hsla(220, 20%, 70%,',
+			slowOverlay: 'hsla(220, 30%, 20%, 0.05)',
+			speedOverlay: 'hsla(210, 50%, 50%, 0.03)',
+			magnetOverlay: 'hsla(230, 50%, 50%, 0.02)'
 		},
 		{
 			name: 'SCORCHED EARTH',
@@ -159,7 +222,16 @@ $.init = function() {
 			gridColor: 'hsla(10, 60%, 35%, 0.06)',
 			vignetteColor: 'hsla(5, 50%, 5%, 0.6)',
 			gridSize: 50, starCount: 2000, medStarCount: 80, farStarCount: 40,
-			scanlineAlpha: 0.1, scanlineSpacing: 2
+			scanlineAlpha: 0.1, scanlineSpacing: 2,
+			// Theme: fiery red-orange
+			heroColor: 'hsl(15, 100%, 80%)', bulletColor: 'hsl(10, 100%, 65%)',
+			accentHue: 10, accentSat: 90,
+			enemyHueShift: -10,
+			shieldHue: 15, trailHue: 10,
+			uiAccent: 'hsla(10, 90%, 65%,',
+			slowOverlay: 'hsla(10, 80%, 20%, 0.05)',
+			speedOverlay: 'hsla(20, 100%, 50%, 0.03)',
+			magnetOverlay: 'hsla(0, 100%, 50%, 0.02)'
 		},
 		// --- EXTENDED UNIVERSE MAPS ---
 		{
@@ -176,7 +248,16 @@ $.init = function() {
 			gridSize: 35, starCount: 3000, medStarCount: 120, farStarCount: 60,
 			scanlineAlpha: 0.15, scanlineSpacing: 3,
 			nebula2Color1: 'hsla(160, 100%, 50%, 0.12)',
-			nebula2Color2: 'hsla(130, 80%, 20%, 0)'
+			nebula2Color2: 'hsla(130, 80%, 20%, 0)',
+			// Theme: electric green
+			heroColor: 'hsl(140, 100%, 80%)', bulletColor: 'hsl(140, 100%, 65%)',
+			accentHue: 140, accentSat: 100,
+			enemyHueShift: 50,
+			shieldHue: 150, trailHue: 140,
+			uiAccent: 'hsla(140, 100%, 70%,',
+			slowOverlay: 'hsla(150, 100%, 20%, 0.06)',
+			speedOverlay: 'hsla(130, 100%, 50%, 0.03)',
+			magnetOverlay: 'hsla(160, 100%, 50%, 0.02)'
 		},
 		{
 			name: 'DARK MATTER',
@@ -192,7 +273,16 @@ $.init = function() {
 			gridSize: 60, starCount: 2500, medStarCount: 100, farStarCount: 50,
 			scanlineAlpha: 0.08, scanlineSpacing: 2,
 			nebula2Color1: 'hsla(300, 80%, 40%, 0.1)',
-			nebula2Color2: 'hsla(250, 50%, 15%, 0)'
+			nebula2Color2: 'hsla(250, 50%, 15%, 0)',
+			// Theme: dark purple
+			heroColor: 'hsl(270, 80%, 85%)', bulletColor: 'hsl(280, 100%, 75%)',
+			accentHue: 270, accentSat: 80,
+			enemyHueShift: -20,
+			shieldHue: 280, trailHue: 270,
+			uiAccent: 'hsla(270, 80%, 75%,',
+			slowOverlay: 'hsla(280, 80%, 20%, 0.05)',
+			speedOverlay: 'hsla(260, 100%, 50%, 0.03)',
+			magnetOverlay: 'hsla(300, 100%, 50%, 0.02)'
 		},
 		{
 			name: 'ANCIENT RUINS',
@@ -207,7 +297,16 @@ $.init = function() {
 			vignetteColor: 'hsla(40, 20%, 3%, 0.7)',
 			gridSize: 40, starCount: 1500, medStarCount: 60, farStarCount: 30,
 			scanlineAlpha: 0.18, scanlineSpacing: 2,
-			gridStyle: 'cross'
+			gridStyle: 'cross',
+			// Theme: ancient gold/sepia
+			heroColor: 'hsl(45, 60%, 75%)', bulletColor: 'hsl(45, 50%, 65%)',
+			accentHue: 45, accentSat: 50,
+			enemyHueShift: 5,
+			shieldHue: 50, trailHue: 45,
+			uiAccent: 'hsla(45, 50%, 70%,',
+			slowOverlay: 'hsla(45, 40%, 20%, 0.05)',
+			speedOverlay: 'hsla(50, 80%, 50%, 0.03)',
+			magnetOverlay: 'hsla(35, 80%, 50%, 0.02)'
 		},
 		{
 			name: 'MUTANT SECTOR',
@@ -223,7 +322,16 @@ $.init = function() {
 			gridSize: 45, starCount: 2200, medStarCount: 90, farStarCount: 45,
 			scanlineAlpha: 0.12, scanlineSpacing: 2,
 			nebula2Color1: 'hsla(350, 90%, 30%, 0.15)',
-			nebula2Color2: 'hsla(310, 60%, 8%, 0)'
+			nebula2Color2: 'hsla(310, 60%, 8%, 0)',
+			// Theme: mutant magenta/pink
+			heroColor: 'hsl(320, 100%, 85%)', bulletColor: 'hsl(330, 100%, 70%)',
+			accentHue: 320, accentSat: 90,
+			enemyHueShift: 30,
+			shieldHue: 330, trailHue: 320,
+			uiAccent: 'hsla(320, 90%, 70%,',
+			slowOverlay: 'hsla(330, 80%, 20%, 0.05)',
+			speedOverlay: 'hsla(310, 100%, 50%, 0.03)',
+			magnetOverlay: 'hsla(340, 100%, 50%, 0.02)'
 		},
 		{
 			name: 'NEON ABYSS',
@@ -237,7 +345,16 @@ $.init = function() {
 			gridColor: 'hsla(210, 80%, 60%, 0.07)',
 			vignetteColor: 'hsla(220, 60%, 6%, 0.55)',
 			gridSize: 30, starCount: 3500, medStarCount: 150, farStarCount: 70,
-			scanlineAlpha: 0.06, scanlineSpacing: 1
+			scanlineAlpha: 0.06, scanlineSpacing: 1,
+			// Theme: neon cyan-blue
+			heroColor: 'hsl(210, 100%, 85%)', bulletColor: 'hsl(200, 100%, 70%)',
+			accentHue: 210, accentSat: 100,
+			enemyHueShift: -15,
+			shieldHue: 200, trailHue: 210,
+			uiAccent: 'hsla(210, 100%, 75%,',
+			slowOverlay: 'hsla(210, 100%, 20%, 0.06)',
+			speedOverlay: 'hsla(200, 100%, 50%, 0.03)',
+			magnetOverlay: 'hsla(230, 100%, 50%, 0.02)'
 		},
 		{
 			name: 'EMBER DRIFT',
@@ -253,7 +370,16 @@ $.init = function() {
 			gridSize: 55, starCount: 1800, medStarCount: 70, farStarCount: 35,
 			scanlineAlpha: 0.12, scanlineSpacing: 2,
 			nebula2Color1: 'hsla(40, 80%, 40%, 0.1)',
-			nebula2Color2: 'hsla(10, 60%, 12%, 0)'
+			nebula2Color2: 'hsla(10, 60%, 12%, 0)',
+			// Theme: warm ember orange
+			heroColor: 'hsl(25, 100%, 80%)', bulletColor: 'hsl(20, 100%, 65%)',
+			accentHue: 20, accentSat: 95,
+			enemyHueShift: 5,
+			shieldHue: 25, trailHue: 20,
+			uiAccent: 'hsla(20, 95%, 65%,',
+			slowOverlay: 'hsla(20, 80%, 20%, 0.05)',
+			speedOverlay: 'hsla(30, 100%, 50%, 0.03)',
+			magnetOverlay: 'hsla(10, 100%, 50%, 0.02)'
 		},
 		{
 			name: 'MICROVERSE',
@@ -267,7 +393,16 @@ $.init = function() {
 			gridColor: 'hsla(250, 50%, 60%, 0.04)',
 			vignetteColor: 'hsla(250, 50%, 5%, 0.5)',
 			gridSize: 20, starCount: 5000, medStarCount: 200, farStarCount: 100,
-			scanlineAlpha: 0.05, scanlineSpacing: 1
+			scanlineAlpha: 0.05, scanlineSpacing: 1,
+			// Theme: electric indigo
+			heroColor: 'hsl(250, 80%, 85%)', bulletColor: 'hsl(240, 90%, 75%)',
+			accentHue: 250, accentSat: 80,
+			enemyHueShift: -25,
+			shieldHue: 240, trailHue: 250,
+			uiAccent: 'hsla(250, 80%, 75%,',
+			slowOverlay: 'hsla(250, 80%, 20%, 0.05)',
+			speedOverlay: 'hsla(240, 100%, 50%, 0.03)',
+			magnetOverlay: 'hsla(260, 100%, 50%, 0.02)'
 		},
 		{
 			name: 'RIFT ZONE',
@@ -284,7 +419,16 @@ $.init = function() {
 			scanlineAlpha: 0.1, scanlineSpacing: 3,
 			nebula2Color1: 'hsla(180, 90%, 40%, 0.1)',
 			nebula2Color2: 'hsla(260, 40%, 10%, 0)',
-			gridStyle: 'hex'
+			gridStyle: 'hex',
+			// Theme: rift purple/cyan
+			heroColor: 'hsl(290, 80%, 85%)', bulletColor: 'hsl(280, 100%, 75%)',
+			accentHue: 290, accentSat: 80,
+			enemyHueShift: -30,
+			shieldHue: 180, trailHue: 290,
+			uiAccent: 'hsla(290, 80%, 75%,',
+			slowOverlay: 'hsla(290, 80%, 20%, 0.05)',
+			speedOverlay: 'hsla(180, 100%, 50%, 0.03)',
+			magnetOverlay: 'hsla(300, 100%, 50%, 0.02)'
 		},
 		{
 			name: 'QUANTUM GRID',
@@ -299,7 +443,16 @@ $.init = function() {
 			vignetteColor: 'hsla(180, 40%, 4%, 0.55)',
 			gridSize: 45, starCount: 2200, medStarCount: 90, farStarCount: 45,
 			scanlineAlpha: 0.08, scanlineSpacing: 2,
-			gridStyle: 'diamond'
+			gridStyle: 'diamond',
+			// Theme: quantum cyan-teal
+			heroColor: 'hsl(180, 80%, 80%)', bulletColor: 'hsl(175, 100%, 65%)',
+			accentHue: 180, accentSat: 70,
+			enemyHueShift: -40,
+			shieldHue: 170, trailHue: 180,
+			uiAccent: 'hsla(180, 70%, 70%,',
+			slowOverlay: 'hsla(180, 80%, 20%, 0.06)',
+			speedOverlay: 'hsla(170, 100%, 50%, 0.03)',
+			magnetOverlay: 'hsla(190, 100%, 50%, 0.02)'
 		},
 		{
 			name: 'SOLAR FORGE',
@@ -313,7 +466,16 @@ $.init = function() {
 			gridColor: 'hsla(50, 60%, 50%, 0.07)',
 			vignetteColor: 'hsla(50, 50%, 5%, 0.6)',
 			gridSize: 65, starCount: 1800, medStarCount: 70, farStarCount: 35,
-			scanlineAlpha: 0.14, scanlineSpacing: 2
+			scanlineAlpha: 0.14, scanlineSpacing: 2,
+			// Theme: solar yellow-gold
+			heroColor: 'hsl(55, 100%, 80%)', bulletColor: 'hsl(50, 100%, 65%)',
+			accentHue: 55, accentSat: 80,
+			enemyHueShift: 10,
+			shieldHue: 55, trailHue: 50,
+			uiAccent: 'hsla(55, 80%, 65%,',
+			slowOverlay: 'hsla(55, 80%, 20%, 0.05)',
+			speedOverlay: 'hsla(50, 100%, 50%, 0.03)',
+			magnetOverlay: 'hsla(60, 100%, 50%, 0.02)'
 		},
 		{
 			name: 'BLOOD MOON',
@@ -329,7 +491,16 @@ $.init = function() {
 			gridSize: 40, starCount: 2800, medStarCount: 110, farStarCount: 55,
 			scanlineAlpha: 0.2, scanlineSpacing: 2,
 			nebula2Color1: 'hsla(20, 100%, 35%, 0.12)',
-			nebula2Color2: 'hsla(350, 80%, 10%, 0)'
+			nebula2Color2: 'hsla(350, 80%, 10%, 0)',
+			// Theme: blood red
+			heroColor: 'hsl(0, 100%, 80%)', bulletColor: 'hsl(355, 100%, 65%)',
+			accentHue: 0, accentSat: 100,
+			enemyHueShift: -5,
+			shieldHue: 0, trailHue: 355,
+			uiAccent: 'hsla(0, 100%, 65%,',
+			slowOverlay: 'hsla(0, 100%, 20%, 0.06)',
+			speedOverlay: 'hsla(350, 100%, 50%, 0.03)',
+			magnetOverlay: 'hsla(10, 100%, 50%, 0.02)'
 		},
 		{
 			name: 'VOID WALKER',
@@ -343,7 +514,16 @@ $.init = function() {
 			gridColor: 'hsla(0, 0%, 30%, 0.03)',
 			vignetteColor: 'hsla(0, 0%, 0%, 0.8)',
 			gridSize: 80, starCount: 800, medStarCount: 30, farStarCount: 15,
-			scanlineAlpha: 0.25, scanlineSpacing: 1
+			scanlineAlpha: 0.25, scanlineSpacing: 1,
+			// Theme: void darkness - barely visible
+			heroColor: 'hsl(0, 0%, 60%)', bulletColor: 'hsl(0, 0%, 50%)',
+			accentHue: 0, accentSat: 0,
+			enemyHueShift: 0,
+			shieldHue: 0, trailHue: 0,
+			uiAccent: 'hsla(0, 0%, 50%,',
+			slowOverlay: 'hsla(0, 0%, 20%, 0.04)',
+			speedOverlay: 'hsla(0, 0%, 50%, 0.02)',
+			magnetOverlay: 'hsla(0, 0%, 50%, 0.02)'
 		}
 	];
 
@@ -518,6 +698,9 @@ $.reset = function() {
 		{ enemySpeedMult: 1.3, enemyLifeMult: 1.4, damageMult: 1.5, spawnMult: 0.7 }
 	];
 	$.diffMod = diffMods[ $.difficulty ] || diffMods[1];
+
+	// Cache current map theme for all rendering systems
+	$.theme = $.maps[ $.mapIndex ];
 
 	$.hero = new $.Hero();
 
@@ -808,7 +991,7 @@ $.renderInterface = function() {
 		Slow Enemies Screen Cover
 		==============================================================================*/
 		if( $.powerupTimers[ 1 ] > 0 ) {
-			$.ctxmg.fillStyle = 'hsla(200, 100%, 20%, 0.05)';
+			$.ctxmg.fillStyle = $.theme ? $.theme.slowOverlay : 'hsla(200, 100%, 20%, 0.05)';
 			$.ctxmg.fillRect( 0, 0, $.cw, $.ch );
 		}
 
@@ -816,7 +999,7 @@ $.renderInterface = function() {
 		Speed Boost Screen Cover
 		==============================================================================*/
 		if( $.powerupTimers[ 6 ] > 0 ) {
-			$.ctxmg.fillStyle = 'hsla(50, 100%, 50%, 0.03)';
+			$.ctxmg.fillStyle = $.theme ? $.theme.speedOverlay : 'hsla(50, 100%, 50%, 0.03)';
 			$.ctxmg.fillRect( 0, 0, $.cw, $.ch );
 		}
 
@@ -824,7 +1007,7 @@ $.renderInterface = function() {
 		Magnet Screen Cover
 		==============================================================================*/
 		if( $.powerupTimers[ 7 ] > 0 ) {
-			$.ctxmg.fillStyle = 'hsla(300, 100%, 50%, 0.02)';
+			$.ctxmg.fillStyle = $.theme ? $.theme.magnetOverlay : 'hsla(300, 100%, 50%, 0.02)';
 			$.ctxmg.fillRect( 0, 0, $.cw, $.ch );
 		}
 
@@ -907,9 +1090,11 @@ $.renderInterface = function() {
 	$.ctxmg.fillRect( progressBar.x, progressBar.y, progressBar.width, progressBar.height );
 	$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 0.25)';
 	$.ctxmg.fillRect( progressBar.x, progressBar.y, progressBar.width, progressBar.height / 2 );
-	$.ctxmg.fillStyle = 'hsla(0, 0%, 50%, 1)';
+	var pHue = $.theme ? $.theme.accentHue : 0;
+	var pSat = $.theme ? $.theme.accentSat : 0;
+	$.ctxmg.fillStyle = 'hsla(' + pHue + ', ' + pSat + '%, 50%, 1)';
 	$.ctxmg.fillRect( progressBar.x, progressBar.y, ( $.level.kills / $.level.killsToLevel ) * progressBar.width, progressBar.height );
-	$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 1)';
+	$.ctxmg.fillStyle = 'hsla(' + pHue + ', ' + pSat + '%, 80%, 1)';
 	$.ctxmg.fillRect( progressBar.x, progressBar.y, ( $.level.kills / $.level.killsToLevel ) * progressBar.width, progressBar.height / 2 );
 
 	if( $.level.kills == $.level.killsToLevel ) {
@@ -924,8 +1109,8 @@ $.renderInterface = function() {
 			minDirection: 0,
 			minDirection: $.pi / 2 - $.pi / 4,
 			maxDirection: $.pi / 2 + $.pi / 4,
-			hue: 0,
-			saturation: 0
+			hue: $.theme ? $.theme.accentHue : 0,
+			saturation: $.theme ? $.theme.accentSat : 0
 		} ) );
 	}
 
@@ -1005,7 +1190,7 @@ $.renderInterface = function() {
 	==============================================================================*/
 	if( $.combo >= 3 ) {
 		var comboAlpha = Math.min( 1, $.comboTimer / 30 );
-		var comboHue = ( $.comboMultiplier >= 3 ) ? 50 : ( $.comboMultiplier >= 2 ) ? 30 : 0;
+		var comboHue = $.theme && $.theme.accentSat > 0 ? $.theme.accentHue : ( ( $.comboMultiplier >= 3 ) ? 50 : ( $.comboMultiplier >= 2 ) ? 30 : 0 );
 
 		$.ctxmg.beginPath();
 		var comboLabel = $.text( {
@@ -1086,7 +1271,9 @@ $.renderMinimap = function() {
 	$.ctxmg.fillStyle = $.hero.fillStyle;
 	$.ctxmg.fillRect( $.minimap.x + Math.floor( $.hero.x * $.minimap.scale ), $.minimap.y + Math.floor( $.hero.y * $.minimap.scale ), 2, 2 );
 
-	$.ctxmg.strokeStyle = $.minimap.strokeColor;
+	var mmHue = $.theme ? $.theme.accentHue : 0;
+	var mmSat = $.theme ? $.theme.accentSat : 0;
+	$.ctxmg.strokeStyle = mmSat > 0 ? 'hsla(' + mmHue + ', ' + mmSat + '%, 35%, 0.6)' : $.minimap.strokeColor;
 	$.ctxmg.strokeRect( $.minimap.x - 0.5, $.minimap.y - 0.5, $.minimap.width + 1, $.minimap.height + 1 );
 };
 
@@ -1632,6 +1819,8 @@ Boss UI
 $.renderBossUI = function() {
 	// Boss warning
 	if( $.bossWarning > 0 ) {
+		var bwHue = $.theme ? $.theme.accentHue : 0;
+		var bwSat = $.theme && $.theme.accentSat > 0 ? 100 : 100;
 		var warningAlpha = Math.abs( Math.sin( $.tick / 5 ) ) * 0.8;
 		$.ctxmg.beginPath();
 		var warningText = $.text( {
@@ -1647,7 +1836,7 @@ $.renderBossUI = function() {
 			snap: 1,
 			render: 1
 		} );
-		$.ctxmg.fillStyle = 'hsla(0, 100%, 50%, ' + warningAlpha + ')';
+		$.ctxmg.fillStyle = 'hsla(' + bwHue + ', ' + bwSat + '%, 50%, ' + warningAlpha + ')';
 		$.ctxmg.fill();
 
 		$.ctxmg.beginPath();
@@ -1664,16 +1853,18 @@ $.renderBossUI = function() {
 			snap: 1,
 			render: 1
 		} );
-		$.ctxmg.fillStyle = 'hsla(0, 100%, 70%, ' + warningAlpha * 0.7 + ')';
+		$.ctxmg.fillStyle = 'hsla(' + bwHue + ', ' + bwSat + '%, 70%, ' + warningAlpha * 0.7 + ')';
 		$.ctxmg.fill();
 
-		// Red vignette
-		$.ctxmg.fillStyle = 'hsla(0, 100%, 30%, ' + ( warningAlpha * 0.08 ) + ')';
+		// Themed vignette
+		$.ctxmg.fillStyle = 'hsla(' + bwHue + ', ' + bwSat + '%, 30%, ' + ( warningAlpha * 0.08 ) + ')';
 		$.ctxmg.fillRect( 0, 0, $.cw, $.ch );
 	}
 
 	// Boss health bar (centered at top)
 	if( $.boss && $.boss.life > 0 ) {
+		var bhHue = $.theme ? $.theme.accentHue : 0;
+		var bhSat = $.theme && $.theme.accentSat > 0 ? 100 : 100;
 		var bossBarWidth = 300;
 		var bossBarHeight = 12;
 		var bossBarX = ( $.cw - bossBarWidth ) / 2;
@@ -1694,7 +1885,7 @@ $.renderBossUI = function() {
 			snap: 1,
 			render: 1
 		} );
-		$.ctxmg.fillStyle = 'hsla(0, 100%, 70%, 0.8)';
+		$.ctxmg.fillStyle = 'hsla(' + bhHue + ', ' + bhSat + '%, 70%, 0.8)';
 		$.ctxmg.fill();
 
 		// Health bar background
@@ -1703,14 +1894,14 @@ $.renderBossUI = function() {
 
 		// Health bar fill
 		var healthPct = $.boss.life / $.boss.lifeMax;
-		var bossHue = healthPct > 0.5 ? 0 : ( healthPct > 0.25 ? 30 : 0 );
+		var bossHue = healthPct > 0.5 ? bhHue : ( healthPct > 0.25 ? ( bhHue + 30 ) % 360 : bhHue );
 		$.ctxmg.fillStyle = 'hsla(' + bossHue + ', 100%, 40%, 1)';
 		$.ctxmg.fillRect( bossBarX, bossBarY, bossBarWidth * healthPct, bossBarHeight );
 		$.ctxmg.fillStyle = 'hsla(' + bossHue + ', 100%, 70%, 1)';
 		$.ctxmg.fillRect( bossBarX, bossBarY, bossBarWidth * healthPct, bossBarHeight / 2 );
 
 		// Border
-		$.ctxmg.strokeStyle = 'hsla(0, 100%, 50%, 0.6)';
+		$.ctxmg.strokeStyle = 'hsla(' + bhHue + ', ' + bhSat + '%, 50%, 0.6)';
 		$.ctxmg.lineWidth = 1;
 		$.ctxmg.strokeRect( bossBarX - 0.5, bossBarY - 0.5, bossBarWidth + 1, bossBarHeight + 1 );
 	}

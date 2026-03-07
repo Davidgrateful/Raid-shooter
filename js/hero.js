@@ -13,7 +13,7 @@ $.Hero = function() {
 	this.radius = 10;
 	this.life = 1;
 	this.takingDamage = 0;
-	this.fillStyle = '#fff';
+	this.fillStyle = $.theme ? $.theme.heroColor : '#fff';
 	this.weapon = {
 		fireRate: 5,
 		fireRateTick: 5,
@@ -25,7 +25,7 @@ $.Hero = function() {
 			damage: 1,
 			speed: 10,
 			piercing: 0,
-			strokeStyle: '#fff'
+			strokeStyle: $.theme ? $.theme.bulletColor : '#fff'
 		},
 		fireFlag: 0
 	};
@@ -206,8 +206,9 @@ $.Hero.prototype.render = function() {
 
 		// Speed trail
 		if( $.powerupTimers[ 6 ] > 0 && ( Math.abs( this.vx ) > 0.5 || Math.abs( this.vy ) > 0.5 ) ) {
-			$.util.fillCircle( $.ctxmg, this.x - this.vx * 2, this.y - this.vy * 2, this.radius * 0.6, 'hsla(50, 100%, 60%, 0.3)' );
-			$.util.fillCircle( $.ctxmg, this.x - this.vx * 4, this.y - this.vy * 4, this.radius * 0.4, 'hsla(50, 100%, 60%, 0.15)' );
+			var th = $.theme ? $.theme.trailHue : 50;
+			$.util.fillCircle( $.ctxmg, this.x - this.vx * 2, this.y - this.vy * 2, this.radius * 0.6, 'hsla(' + th + ', 100%, 60%, 0.3)' );
+			$.util.fillCircle( $.ctxmg, this.x - this.vx * 4, this.y - this.vy * 4, this.radius * 0.4, 'hsla(' + th + ', 100%, 60%, 0.15)' );
 		}
 
 		$.ctxmg.save();
@@ -235,10 +236,11 @@ $.Hero.prototype.render = function() {
 
 		// Shield bubble
 		if( $.shielded ) {
+			var sh = $.theme ? $.theme.shieldHue : 180;
 			var shieldRadius = this.radius + 8 + Math.sin( $.tick / 5 ) * 2;
 			var shieldAlpha = 0.15 + Math.sin( $.tick / 8 ) * 0.1;
-			$.util.fillCircle( $.ctxmg, this.x, this.y, shieldRadius, 'hsla(180, 100%, 80%, ' + shieldAlpha + ')' );
-			$.util.strokeCircle( $.ctxmg, this.x, this.y, shieldRadius, 'hsla(180, 100%, 80%, 0.6)', 2 );
+			$.util.fillCircle( $.ctxmg, this.x, this.y, shieldRadius, 'hsla(' + sh + ', 100%, 80%, ' + shieldAlpha + ')' );
+			$.util.strokeCircle( $.ctxmg, this.x, this.y, shieldRadius, 'hsla(' + sh + ', 100%, 80%, 0.6)', 2 );
 		}
 	}
 };
