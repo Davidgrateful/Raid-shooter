@@ -1611,7 +1611,7 @@ $.setupStates = function() {
 			ctx: $.ctxmg,
 			x: $.cw / 2,
 			y: $.ch - 172,
-			text: 'CREATED BY MELVINCYPHER 2022',
+			text: 'CREATED BY DAVID GRATEFUL 2022',
 			hspacing: 1,
 			vspacing: 1,
 			halign: 'center',
