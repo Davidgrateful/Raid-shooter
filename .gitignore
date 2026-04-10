@@ -111,6 +111,10 @@ Thumbs.db
 *.sln
 *.sw?
 
+# Next.js
+.next/
+out/
+
 # Custom project specific
 run.sh
 auto-commit.sh

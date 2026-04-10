@@ -1,0 +1,47 @@
+@import "tailwindcss";
+
+:root {
+  --game-bg: #080808;
+}
+
+body {
+  background: var(--game-bg);
+  color: #fff;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, monospace;
+}
+
+/* Game container styles - match the original game's styling */
+#game-mount #wrap {
+  background: #222;
+  box-shadow: inset 0 0 0 1px #404040, 0 0 0 1px #000;
+  left: 0;
+  opacity: 0;
+  position: absolute;
+  top: 0;
+  transition: opacity 1.5s;
+  width: 100%;
+  height: 100%;
+}
+
+#game-mount.loaded #wrap {
+  opacity: 1;
+}
+
+#game-mount #wrap-inner {
+  background: #000;
+  overflow: hidden;
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+#game-mount canvas {
+  cursor: crosshair;
+  display: block;
+  left: 0;
+  position: absolute;
+  top: 0;
+}
