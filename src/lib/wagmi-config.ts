@@ -1,23 +1,25 @@
-import { http, createConfig } from 'wagmi';
-import { mainnet, sepolia } from 'wagmi/chains';
-import { injected, walletConnect } from 'wagmi/connectors';
+import { cookieStorage, createStorage } from 'wagmi';
+import { mainnet, sepolia } from '@reown/appkit/networks';
+import { WagmiAdapter } from '@reown/appkit-adapter-wagmi';
 
-const projectId = process.env.NEXT_PUBLIC_WC_PROJECT_ID || '';
+// Reown Cloud project ID — get one at https://cloud.reown.com
+export const projectId = process.env.NEXT_PUBLIC_REOWN_PROJECT_ID;
 
-export const config = createConfig({
-  chains: [mainnet, sepolia],
-  connectors: [
-    injected(),
-    ...(projectId ? [walletConnect({ projectId })] : []),
-  ],
-  transports: {
-    [mainnet.id]: http(),
-    [sepolia.id]: http(),
-  },
+if (!projectId) {
+  console.warn(
+    '[Reown] NEXT_PUBLIC_REOWN_PROJECT_ID is not set. Wallet connection will be limited. Get a project ID at https://cloud.reown.com'
+  );
+}
+
+// Chains to support — easy to extend
+export const networks = [mainnet, sepolia] as const;
+
+// Wagmi adapter bridges Reown AppKit with wagmi hooks
+export const wagmiAdapter = new WagmiAdapter({
+  storage: createStorage({ storage: cookieStorage }),
+  ssr: true,
+  projectId: projectId || 'dev-placeholder',
+  networks: [...networks],
 });
 
-declare module 'wagmi' {
-  interface Register {
-    config: typeof config;
-  }
-}
+export const config = wagmiAdapter.wagmiConfig;

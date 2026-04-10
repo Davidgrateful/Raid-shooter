@@ -1,6 +1,7 @@
 'use client';
 
-import { useAccount, useConnect, useDisconnect } from 'wagmi';
+import { useAccount, useDisconnect } from 'wagmi';
+import { useAppKit } from '@reown/appkit/react';
 import { useSIWE } from '@/hooks/useSIWE';
 
 function shortenAddress(addr: string) {
@@ -9,23 +10,18 @@ function shortenAddress(addr: string) {
 
 export function WalletButton() {
   const { address, isConnected } = useAccount();
-  const { connect, connectors } = useConnect();
   const { disconnect } = useDisconnect();
+  const { open } = useAppKit();
   const { authenticated, address: siweAddress, signIn, signOut, loading } = useSIWE();
 
   if (!isConnected) {
     return (
-      <div className="flex gap-2">
-        {connectors.map((connector) => (
-          <button
-            key={connector.uid}
-            onClick={() => connect({ connector })}
-            className="px-3 py-1.5 bg-white/10 hover:bg-white/20 border border-white/20 rounded text-sm text-white transition-colors"
-          >
-            Connect {connector.name === 'Injected' ? 'Wallet' : connector.name}
-          </button>
-        ))}
-      </div>
+      <button
+        onClick={() => open()}
+        className="px-3 py-1.5 bg-white/10 hover:bg-white/20 border border-white/20 rounded text-sm text-white transition-colors"
+      >
+        Connect Wallet
+      </button>
     );
   }
 
@@ -62,6 +58,12 @@ export function WalletButton() {
         className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 border border-blue-400/30 rounded text-sm text-white transition-colors disabled:opacity-50"
       >
         {loading ? 'Signing...' : 'Sign In'}
+      </button>
+      <button
+        onClick={() => open({ view: 'Account' })}
+        className="px-3 py-1.5 bg-white/10 hover:bg-white/20 border border-white/20 rounded text-sm text-white transition-colors"
+      >
+        Account
       </button>
       <button
         onClick={() => disconnect()}

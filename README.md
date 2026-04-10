@@ -29,7 +29,21 @@ Open [http://localhost:3000](http://localhost:3000).
 | Variable | Required | Description |
 |---|---|---|
 | `SESSION_SECRET` | Yes (prod) | Iron-session encryption key, at least 32 chars. A dev fallback is built in. |
-| `NEXT_PUBLIC_WC_PROJECT_ID` | No | WalletConnect Cloud project ID. Without it, only injected wallets (MetaMask, etc.) work. |
+| `NEXT_PUBLIC_REOWN_PROJECT_ID` | Yes | Reown Cloud project ID. Required for wallet connection to work properly. |
+
+### Getting a Reown Project ID
+
+1. Go to [https://cloud.reown.com](https://cloud.reown.com)
+2. Sign up or log in
+3. Click **Create Project**
+4. Give it a name (e.g. "Raid Shooter") and pick the **AppKit** product
+5. Copy the **Project ID** from the project dashboard
+6. Paste it into your `.env.local`:
+   ```
+   NEXT_PUBLIC_REOWN_PROJECT_ID=your_project_id_here
+   ```
+7. In the Reown dashboard, add your domains under **Settings → Domains** (e.g. `http://localhost:3000` for dev, your production URL for prod)
+8. Restart `npm run dev`
 
 ## Controls
 
@@ -45,11 +59,10 @@ Touch controls (dual virtual joysticks) also work on mobile.
 
 ## Wallet Connection
 
-- Click **Connect Wallet** in the top-right header bar.
-- Uses [wagmi](https://wagmi.sh) + [viem](https://viem.sh) for EVM wallet connectivity.
-- Supports injected wallets (MetaMask, Brave, Coinbase Wallet, etc.) out of the box.
-- WalletConnect support is enabled when `NEXT_PUBLIC_WC_PROJECT_ID` is set.
-- Configured for Ethereum Mainnet and Sepolia by default; add more chains in `src/lib/wagmi-config.ts`.
+- Click **Connect Wallet** in the top-right header bar to open the Reown AppKit modal.
+- Uses [Reown AppKit](https://reown.com/appkit) (the new name for WalletConnect) with [wagmi](https://wagmi.sh) + [viem](https://viem.sh).
+- Supports injected wallets (MetaMask, Brave, Coinbase Wallet, Rabby, etc.), WalletConnect-compatible mobile wallets, and more — all through the unified Reown modal.
+- Configured for Ethereum Mainnet and Sepolia by default; add more chains in `src/lib/wagmi-config.ts` (import from `@reown/appkit/networks`).
 
 ## SIWE Authentication
 
