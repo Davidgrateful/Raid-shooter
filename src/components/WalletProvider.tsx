@@ -15,7 +15,7 @@ createAppKit({
   metadata: {
     name: 'Raid Shooter',
     description: 'Canvas-based arcade shooter with Web3 wallet integration',
-    url: 'http://localhost:3000',
+    url: typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000',
     icons: [],
   },
   features: {
