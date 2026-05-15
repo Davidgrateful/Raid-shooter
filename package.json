@@ -12,7 +12,6 @@
     "@base-org/account": "^2.5.5",
     "@coinbase/wallet-sdk": "^4.3.7",
     "@metamask/connect-evm": "^0.9.1",
-    "@next/swc-win32-x64-msvc": "^16.2.6",
     "@phosphor-icons/webcomponents": "^2.1.5",
     "@reown/appkit": "^1.8.19",
     "@reown/appkit-adapter-wagmi": "^1.8.19",
