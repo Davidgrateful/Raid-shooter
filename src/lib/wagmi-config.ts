@@ -16,7 +16,7 @@ export const networks = [mainnet, sepolia] as const;
 
 // Wagmi adapter bridges Reown AppKit with wagmi hooks
 export const wagmiAdapter = new WagmiAdapter({
-  storage: createStorage({ storage: cookieStorage }),
+  storage: createStorage<Record<string, unknown>>({ storage: cookieStorage }),
   ssr: true,
   projectId: projectId || 'dev-placeholder',
   networks: [...networks],
