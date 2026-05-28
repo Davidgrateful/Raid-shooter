@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
 
-export default function GamePage() {
+export default function UnknownPage() {
   redirect('/');
 }
