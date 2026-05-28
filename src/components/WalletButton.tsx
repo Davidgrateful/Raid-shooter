@@ -12,7 +12,7 @@ export function WalletButton() {
   const { address, isConnected } = useAccount();
   const { disconnect } = useDisconnect();
   const { open } = useAppKit();
-  const { authenticated, address: siweAddress, signIn, signOut, loading } = useSIWE();
+  const { authenticated, address: siweAddress, signIn, signOut, loading, error } = useSIWE();
 
   if (!isConnected) {
     return (
@@ -48,29 +48,32 @@ export function WalletButton() {
   }
 
   return (
-    <div className="flex items-center gap-3">
-      <span className="text-xs text-white/60">
-        {shortenAddress(address || '')}
-      </span>
-      <button
-        onClick={signIn}
-        disabled={loading}
-        className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 border border-blue-400/30 rounded text-sm text-white transition-colors disabled:opacity-50"
-      >
-        {loading ? 'Signing...' : 'Sign In'}
-      </button>
-      <button
-        onClick={() => open({ view: 'Account' })}
-        className="px-3 py-1.5 bg-white/10 hover:bg-white/20 border border-white/20 rounded text-sm text-white transition-colors"
-      >
-        Account
-      </button>
-      <button
-        onClick={() => disconnect()}
-        className="px-3 py-1.5 bg-white/10 hover:bg-red-500/30 border border-white/20 rounded text-sm text-white transition-colors"
-      >
-        Disconnect
-      </button>
+    <div className="flex max-w-full flex-col items-end gap-1">
+      <div className="flex items-center gap-3">
+        <span className="text-xs text-white/60">
+          {shortenAddress(address || '')}
+        </span>
+        <button
+          onClick={signIn}
+          disabled={loading}
+          className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 border border-blue-400/30 rounded text-sm text-white transition-colors disabled:opacity-50"
+        >
+          {loading ? 'Signing...' : 'Sign In'}
+        </button>
+        <button
+          onClick={() => open({ view: 'Account' })}
+          className="px-3 py-1.5 bg-white/10 hover:bg-white/20 border border-white/20 rounded text-sm text-white transition-colors"
+        >
+          Account
+        </button>
+        <button
+          onClick={() => disconnect()}
+          className="px-3 py-1.5 bg-white/10 hover:bg-red-500/30 border border-white/20 rounded text-sm text-white transition-colors"
+        >
+          Disconnect
+        </button>
+      </div>
+      {error ? <p className="max-w-64 text-right text-[11px] text-red-300">{error}</p> : null}
     </div>
   );
 }
