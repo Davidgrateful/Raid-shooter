@@ -8,7 +8,6 @@ interface SIWEState {
   authenticated: boolean;
   address: string | null;
   loading: boolean;
-  error: string | null;
 }
 
 export function useSIWE() {
@@ -18,7 +17,6 @@ export function useSIWE() {
     authenticated: false,
     address: null,
     loading: true,
-    error: null,
   });
 
   // Check existing session on mount
@@ -30,32 +28,19 @@ export function useSIWE() {
           authenticated: data.authenticated,
           address: data.address || null,
           loading: false,
-          error: null,
         });
       })
-      .catch(() =>
-        setState((s) => ({
-          ...s,
-          loading: false,
-          error: 'Could not check wallet session.',
-        }))
-      );
+      .catch(() => setState((s) => ({ ...s, loading: false })));
   }, []);
 
   const signIn = useCallback(async () => {
     if (!address || !chainId) return;
 
-    setState((s) => ({ ...s, loading: true, error: null }));
+    setState((s) => ({ ...s, loading: true }));
     try {
       // 1. Get nonce
       const nonceRes = await fetch('/api/siwe/nonce');
-      if (!nonceRes.ok) {
-        throw new Error('Could not create sign-in nonce.');
-      }
       const { nonce } = await nonceRes.json();
-      if (!nonce) {
-        throw new Error('Sign-in nonce was empty.');
-      }
 
       // 2. Create SIWE message
       const message = new SiweMessage({
@@ -80,20 +65,19 @@ export function useSIWE() {
       });
       const result = await verifyRes.json();
 
-      if (!verifyRes.ok || !result.ok) {
-        throw new Error(result.error || 'Wallet signature could not be verified.');
+      if (result.ok) {
+        setState({ authenticated: true, address: result.address, loading: false });
+      } else {
+        setState((s) => ({ ...s, loading: false }));
       }
-
-      setState({ authenticated: true, address: result.address, loading: false, error: null });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Wallet sign-in failed.';
-      setState((s) => ({ ...s, loading: false, error: message }));
+    } catch {
+      setState((s) => ({ ...s, loading: false }));
     }
   }, [address, chainId, signMessageAsync]);
 
   const signOut = useCallback(async () => {
     await fetch('/api/siwe/session', { method: 'DELETE' });
-    setState({ authenticated: false, address: null, loading: false, error: null });
+    setState({ authenticated: false, address: null, loading: false });
   }, []);
 
   return {

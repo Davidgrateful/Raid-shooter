@@ -131,7 +131,6 @@ $.init = function() {
 	$.renderBackground2();
 	$.renderBackground3();
 	$.renderBackground4();
-	$.renderSpaceObjects();
 	$.renderForeground();
 	$.renderFavicon();
 	$.setState( 'menu' );
@@ -153,30 +152,11 @@ $.reset = function() {
 	$.gameoverExplosion = 0;
 
 	$.instructionTick = 0;
-	$.instructionTickMax = ( $.cw < 700 ) ? 240 : 400;
+	$.instructionTickMax = 400;
 
 	$.levelDiffOffset = 0;
 	$.enemyOffsetMod = 0;
 	$.slow = 0;
-	$.combo = 1;
-	$.comboTick = 0;
-	$.comboTickMax = 180;
-	$.bestCombo = 1;
-	$.bossActive = 0;
-	$.currentBoss = null;
-	$.bossNextLevel = 3;
-	$.upgradeChoices = [];
-	$.newRecord = 0;
-	$.difficulty = 1;
-	$.mapTheme = 0;
-	$.runUpgrades = {
-		fireRate: 0,
-		spread: 0,
-		pierce: 0,
-		damage: 0,
-		speed: 0,
-		repair: 0
-	};
 
 	$.screen = {
 		x: ( $.ww - $.cw ) / -2,
@@ -201,7 +181,6 @@ $.reset = function() {
 
 	$.enemies.length = 0;
 	$.bullets.length = 0;
-	$.enemyBullets = [];
 	$.explosions.length = 0;
 	$.powerups.length = 0;
 	$.particleEmitters.length = 0;
@@ -215,7 +194,6 @@ $.reset = function() {
 
 	$.kills = 0;
 	$.bulletsFired = 0;
-	$.bulletsHit = 0;
 	$.powerupsCollected = 0;
 	$.score = 0;
 
@@ -251,12 +229,6 @@ $.renderFavicon = function() {
 			[ 1,  ,  ,  ,  ,  ,  ,  ,  ,  ,  ,  ,  ,  ,  , 1 ],
 			[ 1, 1, 1, 1, 1, 1, 1, 1, 1,  ,  , 1, 1, 1, 1, 1 ]
 		];
-	if( !favicon ) {
-		favicon = document.createElement( 'link' );
-		favicon.id = 'favicon';
-		favicon.rel = 'icon';
-		document.head.appendChild( favicon );
-	}
 	favc.width = favc.height = 16;
 	favctx.beginPath();
 	for( var y = 0; y < 16; y++ ) {
@@ -274,10 +246,8 @@ $.renderFavicon = function() {
 Render Backgrounds
 ==============================================================================*/
 $.renderBackground1 = function() {
-	var map = $.definitions.maps[ $.mapTheme || 0 ],
-		hue = map ? map.hue : 210;
 	var gradient = $.ctxbg1.createRadialGradient( $.cbg1.width / 2, $.cbg1.height / 2, 0, $.cbg1.width / 2, $.cbg1.height / 2, $.cbg1.height );
-	gradient.addColorStop( 0, 'hsla(' + hue + ', 80%, 62%, 0.13)' );
+	gradient.addColorStop( 0, 'hsla(0, 0%, 100%, 0.1)' );
 	gradient.addColorStop( 0.65, 'hsla(0, 0%, 100%, 0)' );
 	$.ctxbg1.fillStyle = gradient;
 	$.ctxbg1.fillRect( 0, 0, $.cbg1.width, $.cbg1.height );
@@ -294,20 +264,16 @@ $.renderBackground1 = function() {
 }
 
 $.renderBackground2 = function() {
-	var map = $.definitions.maps[ $.mapTheme || 0 ],
-		hue = map ? map.hue : 210;
 	var i = 80;
 	while( i-- ) {
-		$.util.fillCircle( $.ctxbg2, $.util.rand( 0, $.cbg2.width ), $.util.rand( 0, $.cbg2.height ), $.util.rand( 1, 2 ), 'hsla(' + $.util.rand( hue - 30, hue + 30 ) + ', 80%, 70%, ' + $.util.rand( 0.05, 0.18 ) + ')' );
+		$.util.fillCircle( $.ctxbg2, $.util.rand( 0, $.cbg2.width ), $.util.rand( 0, $.cbg2.height ), $.util.rand( 1, 2 ), 'hsla(0, 0%, 100%, ' + $.util.rand( 0.05, 0.15 ) + ')' );
 	}
 }
 
 $.renderBackground3 = function() {
-	var map = $.definitions.maps[ $.mapTheme || 0 ],
-		hue = map ? map.hue : 210;
 	var i = 40;
 	while( i-- ) {
-		$.util.fillCircle( $.ctxbg3, $.util.rand( 0, $.cbg3.width ), $.util.rand( 0, $.cbg3.height ), $.util.rand( 1, 2.5 ), 'hsla(' + $.util.rand( hue - 60, hue + 60 ) + ', 100%, 75%, ' + $.util.rand( 0.04, 0.12 ) + ')' );
+		$.util.fillCircle( $.ctxbg3, $.util.rand( 0, $.cbg3.width ), $.util.rand( 0, $.cbg3.height ), $.util.rand( 1, 2.5 ), 'hsla(0, 0%, 100%, ' + $.util.rand( 0.05, 0.1 ) + ')' );
 	}
 }
 
@@ -323,72 +289,6 @@ $.renderBackground4 = function() {
 		$.ctxbg4.fillRect( i * size, 0, 1, $.cbg4.height );
 	}
 }
-
-$.renderSpaceObjects = function() {
-	var map = $.definitions.maps[ $.mapTheme || 0 ],
-		hue = map ? map.planetHue : 190,
-		i;
-
-	for( i = 0; i < 7; i++ ) {
-		var x = $.util.rand( 80, $.cbg2.width - 80 ),
-			y = $.util.rand( 80, $.cbg2.height - 80 ),
-			r = $.util.rand( 18, 70 ),
-			objectHue = $.util.rand( hue - 45, hue + 45 );
-		$.util.fillCircle( $.ctxbg2, x, y, r, 'hsla(' + objectHue + ', 80%, 42%, 0.18)' );
-		$.util.strokeCircle( $.ctxbg2, x, y, r + 4, 'hsla(' + objectHue + ', 90%, 70%, 0.18)', 2 );
-		$.ctxbg2.strokeStyle = 'hsla(' + objectHue + ', 90%, 70%, 0.16)';
-		$.ctxbg2.lineWidth = 2;
-		$.ctxbg2.beginPath();
-		$.ctxbg2.ellipse( x, y, r * 1.8, r * 0.35, $.util.rand( -0.6, 0.6 ), 0, $.twopi );
-		$.ctxbg2.stroke();
-	}
-
-	for( i = 0; i < 15; i++ ) {
-		var ax = $.util.rand( 0, $.cbg3.width ),
-			ay = $.util.rand( 0, $.cbg3.height ),
-			ar = $.util.rand( 5, 18 );
-		$.ctxbg3.save();
-		$.ctxbg3.translate( ax, ay );
-		$.ctxbg3.rotate( $.util.rand( 0, $.twopi ) );
-		$.ctxbg3.fillStyle = 'hsla(35, 15%, 62%, 0.16)';
-		$.ctxbg3.beginPath();
-		$.ctxbg3.moveTo( -ar, -ar * 0.3 );
-		$.ctxbg3.lineTo( -ar * 0.25, -ar );
-		$.ctxbg3.lineTo( ar, -ar * 0.2 );
-		$.ctxbg3.lineTo( ar * 0.35, ar );
-		$.ctxbg3.lineTo( -ar * 0.8, ar * 0.55 );
-		$.ctxbg3.closePath();
-		$.ctxbg3.fill();
-		$.ctxbg3.restore();
-	}
-
-	for( i = 0; i < 4; i++ ) {
-		var px = $.util.rand( 80, $.cbg1.width - 80 ),
-			py = $.util.rand( 80, $.cbg1.height - 80 ),
-			pr = $.util.rand( 24, 44 );
-		$.ctxbg1.strokeStyle = 'hsla(150, 100%, 60%, 0.18)';
-		$.ctxbg1.lineWidth = 4;
-		$.ctxbg1.beginPath();
-		$.ctxbg1.arc( px, py, pr, 0, $.twopi );
-		$.ctxbg1.stroke();
-		$.ctxbg1.strokeStyle = 'hsla(280, 100%, 65%, 0.12)';
-		$.ctxbg1.beginPath();
-		$.ctxbg1.arc( px, py, pr * 0.65, 0, $.twopi );
-		$.ctxbg1.stroke();
-	}
-};
-
-$.refreshMap = function() {
-	$.ctxbg1.clearRect( 0, 0, $.cbg1.width, $.cbg1.height );
-	$.ctxbg2.clearRect( 0, 0, $.cbg2.width, $.cbg2.height );
-	$.ctxbg3.clearRect( 0, 0, $.cbg3.width, $.cbg3.height );
-	$.ctxbg4.clearRect( 0, 0, $.cbg4.width, $.cbg4.height );
-	$.renderBackground1();
-	$.renderBackground2();
-	$.renderBackground3();
-	$.renderBackground4();
-	$.renderSpaceObjects();
-};
 
 /*==============================================================================
 Render Foreground
@@ -466,20 +366,17 @@ $.renderInterface = function() {
 		==============================================================================*/
 		if( $.instructionTick < $.instructionTickMax ){
 			$.instructionTick += $.dt;
-			var instructionScale = ( $.cw < 700 ) ? 1 : 2,
-				instructionSpacing = ( $.cw < 700 ) ? 10 : 17,
-				instructionY = ( $.cw < 700 ) ? $.ch - 12 : $.ch - 20;
 			$.ctxmg.beginPath();
 			$.text( {
 				ctx: $.ctxmg,
 				x: $.cw / 2 - 10,
-				y: instructionY,
+				y: $.ch - 20,
 				text: 'MOVE\nAIM/FIRE\nAUTOFIRE\nPAUSE\nMUTE',
 				hspacing: 1,
-				vspacing: instructionSpacing,
+				vspacing: 17,
 				halign: 'right',
 				valign: 'bottom',
-				scale: instructionScale,
+				scale: 2,
 				snap: 1,
 				render: 1
 			} );
@@ -499,13 +396,13 @@ $.renderInterface = function() {
 			$.text( {
 				ctx: $.ctxmg,
 				x: $.cw / 2 + 10,
-				y: instructionY,
+				y: $.ch - 20,
 				text: 'WASD/ARROWS\nMOUSE\nF\nP\nM',
 				hspacing: 1,
-				vspacing: instructionSpacing,
+				vspacing: 17,
 				halign: 'left',
 				valign: 'bottom',
-				scale: instructionScale,
+				scale: 2,
 				snap: 1,
 				render: 1
 			} );
@@ -701,71 +598,6 @@ $.renderInterface = function() {
 	} );
 	$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 1)';
 	$.ctxmg.fill();
-
-	$.ctxmg.beginPath();
-	var comboLabel = $.text( {
-		ctx: $.ctxmg,
-		x: 20,
-		y: 42,
-		text: 'COMBO',
-		hspacing: 1,
-		vspacing: 1,
-		halign: 'top',
-		valign: 'left',
-		scale: 2,
-		snap: 1,
-		render: 1
-	} );
-	$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 0.5)';
-	$.ctxmg.fill();
-
-	$.ctxmg.beginPath();
-	$.text( {
-		ctx: $.ctxmg,
-		x: comboLabel.ex + 10,
-		y: 42,
-		text: 'X' + Math.floor( $.combo ),
-		hspacing: 1,
-		vspacing: 1,
-		halign: 'top',
-		valign: 'left',
-		scale: 2,
-		snap: 1,
-		render: 1
-	} );
-	$.ctxmg.fillStyle = ( $.combo >= 4 ) ? '#fff' : 'hsla(0, 0%, 100%, 0.75)';
-	$.ctxmg.fill();
-
-	if( $.currentBoss && $.currentBoss.life > 0 ) {
-		var bossBar = {
-			x: $.cw / 2 - 220,
-			y: 58,
-			width: 440,
-			height: 12
-		};
-		$.ctxmg.beginPath();
-		$.text( {
-			ctx: $.ctxmg,
-			x: $.cw / 2,
-			y: 38,
-			text: 'BOSS',
-			hspacing: 2,
-			vspacing: 1,
-			halign: 'center',
-			valign: 'top',
-			scale: 2,
-			snap: 1,
-			render: 1
-		} );
-		$.ctxmg.fillStyle = 'hsla(' + $.currentBoss.hue + ', 100%, 70%, 0.85)';
-		$.ctxmg.fill();
-		$.ctxmg.fillStyle = 'hsla(0, 0%, 0%, 0.8)';
-		$.ctxmg.fillRect( bossBar.x, bossBar.y, bossBar.width, bossBar.height );
-		$.ctxmg.fillStyle = 'hsla(' + $.currentBoss.hue + ', 100%, 45%, 1)';
-		$.ctxmg.fillRect( bossBar.x, bossBar.y, bossBar.width * Math.max( 0, $.currentBoss.life / $.currentBoss.lifeMax ), bossBar.height );
-		$.ctxmg.strokeStyle = 'hsla(0, 0%, 100%, 0.35)';
-		$.ctxmg.strokeRect( bossBar.x - 0.5, bossBar.y - 0.5, bossBar.width + 1, bossBar.height + 1 );
-	}
 };
 
 $.renderMinimap = function() {
@@ -806,81 +638,11 @@ $.renderMinimap = function() {
 	$.ctxmg.fillStyle = '#fff';
 	$.ctxmg.fill();
 
-	$.ctxmg.beginPath();
-	for( var i = 0; i < $.enemyBullets.length; i++ ){
-		var enemyBullet = $.enemyBullets[ i ],
-			ebx = $.minimap.x + Math.floor( enemyBullet.x * $.minimap.scale ),
-			eby = $.minimap.y + Math.floor( enemyBullet.y * $.minimap.scale );
-		if( $.util.pointInRect( ebx, eby, $.minimap.x, $.minimap.y, $.minimap.width, $.minimap.height ) ) {
-			$.ctxmg.rect( ebx, eby, 2, 2 );
-		}
-	}
-	$.ctxmg.fillStyle = '#f77';
-	$.ctxmg.fill();
-
 	$.ctxmg.fillStyle = $.hero.fillStyle;
 	$.ctxmg.fillRect( $.minimap.x + Math.floor( $.hero.x * $.minimap.scale ), $.minimap.y + Math.floor( $.hero.y * $.minimap.scale ), 2, 2 );
 
 	$.ctxmg.strokeStyle = $.minimap.strokeColor;
 	$.ctxmg.strokeRect( $.minimap.x - 0.5, $.minimap.y - 0.5, $.minimap.width + 1, $.minimap.height + 1 );
-};
-
-$.spawnEnemyBullet = function( x, y, direction, speed, damage, radius, hue ) {
-	$.enemyBullets.push( {
-		x: x,
-		y: y,
-		direction: direction,
-		speed: speed,
-		damage: damage,
-		radius: radius,
-		hue: hue,
-		life: 360
-	} );
-	$.particleEmitters.push( new $.ParticleEmitter( {
-		x: x,
-		y: y,
-		count: 3,
-		spawnRange: 3,
-		friction: 0.85,
-		minSpeed: 2,
-		maxSpeed: 10,
-		minDirection: direction + $.pi - 0.4,
-		maxDirection: direction + $.pi + 0.4,
-		hue: hue,
-		saturation: 100
-	} ) );
-};
-
-$.updateEnemyBullets = function() {
-	var i = $.enemyBullets.length;
-	while( i-- ) {
-		var bullet = $.enemyBullets[ i ];
-		bullet.x += Math.cos( bullet.direction ) * bullet.speed * $.dt;
-		bullet.y += Math.sin( bullet.direction ) * bullet.speed * $.dt;
-		bullet.life -= $.dt;
-		if( $.hero.life > 0 && $.util.distance( bullet.x, bullet.y, $.hero.x, $.hero.y ) <= $.hero.radius + bullet.radius ) {
-			$.hero.life -= bullet.damage;
-			$.hero.takingDamage = 1;
-			$.rumble.level = Math.max( $.rumble.level, 8 );
-			$.audio.play( 'takingDamage' );
-			$.enemyBullets.splice( i, 1 );
-			continue;
-		}
-		if( bullet.life <= 0 || !$.util.pointInRect( bullet.x, bullet.y, 0, 0, $.ww, $.wh ) ) {
-			$.enemyBullets.splice( i, 1 );
-		}
-	}
-};
-
-$.renderEnemyBullets = function() {
-	var i = $.enemyBullets.length;
-	while( i-- ) {
-		var bullet = $.enemyBullets[ i ];
-		if( $.util.pointInRect( bullet.x, bullet.y, -$.screen.x, -$.screen.y, $.cw, $.ch ) ) {
-			$.util.fillCircle( $.ctxmg, bullet.x, bullet.y, bullet.radius, 'hsla(' + bullet.hue + ', 100%, 60%, 0.9)' );
-			$.util.strokeCircle( $.ctxmg, bullet.x, bullet.y, bullet.radius + 4, 'hsla(' + bullet.hue + ', 100%, 70%, 0.35)', 2 );
-		}
-	}
 };
 
 /*==============================================================================
@@ -914,17 +676,8 @@ $.getSpawnCoordinates = function( radius ) {
 };
 
 $.spawnEnemy = function( type ) {
-	var source = $.definitions.enemies[ type ],
-		params = {},
-		k;
-	for( k in source ) {
-		params[ k ] = source[ k ];
-	}
-	var difficulty = $.difficulty || 1,
+	var params = $.definitions.enemies[ type ],
 		coordinates = $.getSpawnCoordinates( params.radius );
-	params.life = Math.ceil( params.life * difficulty );
-	params.speed = params.speed * Math.min( 1.8, 0.9 + difficulty * 0.1 );
-	params.value = Math.floor( params.value * difficulty );
 	params.x = coordinates.x;
 	params.y = coordinates.y;
 	params.start = coordinates.start;
@@ -932,95 +685,13 @@ $.spawnEnemy = function( type ) {
 	return new $.Enemy( params );
 };
 
-$.spawnBoss = function() {
-	if( $.bossActive ) {
-		return;
-	}
-	var displayLevel = $.level.current + 1,
-		params = {
-			x: $.ww / 2,
-			y: -120,
-			start: 'top',
-			type: 99,
-			isBoss: 1,
-			value: 500 + displayLevel * 120,
-			speed: 0.7 + displayLevel * 0.05,
-			life: 25 + displayLevel * 9,
-			radius: 95,
-			hue: ( displayLevel * 35 ) % 360,
-			saturation: 100,
-			lightness: 55,
-			angle: 0,
-			spawnTick: 0,
-			spawnMax: Math.max( 80, 160 - displayLevel * 7 ),
-			fireTick: 0,
-			fireMax: Math.max( 45, 105 - displayLevel * 5 ),
-			behavior: function() {
-				var speed = $.slow ? this.speed / $.slowEnemyDivider : this.speed,
-					dx = $.hero.x - this.x,
-					dy = $.hero.y - this.y,
-					direction = Math.atan2( dy, dx );
-				this.angle += 0.025 * $.dt;
-				if( Math.abs( dy ) > 240 ) {
-					this.vx = Math.cos( direction ) * speed;
-					this.vy = Math.sin( direction ) * speed;
-				} else {
-					this.vx = Math.cos( this.angle ) * speed * 1.8;
-					this.vy = Math.sin( this.angle * 0.5 ) * speed * 0.8;
-				}
-				if( this.spawnTick < this.spawnMax ) {
-					this.spawnTick += $.dt;
-				} else {
-					this.spawnTick = 0;
-					var minionType = Math.floor( $.util.rand( 0, Math.min( $.level.distributionCount, 8 ) ) ),
-						enemy = $.spawnEnemy( minionType );
-					enemy.x = this.x + $.util.rand( -this.radius, this.radius );
-					enemy.y = this.y + $.util.rand( -this.radius, this.radius );
-					enemy.life = Math.max( 1, Math.floor( enemy.life * 0.6 ) );
-					enemy.radius = Math.max( 12, enemy.radius * 0.7 );
-					$.enemies.push( enemy );
-				}
-				if( this.fireTick < this.fireMax ) {
-					this.fireTick += $.dt;
-				} else {
-					this.fireTick = 0;
-					var baseDirection = Math.atan2( $.hero.y - this.y, $.hero.x - this.x ),
-						shots = Math.min( 7, 3 + Math.floor( displayLevel / 3 ) ),
-						spread = 0.55;
-					for( var bi = 0; bi < shots; bi++ ) {
-						var offset = ( shots === 1 ) ? 0 : -spread / 2 + ( spread / ( shots - 1 ) ) * bi;
-						$.spawnEnemyBullet( this.x, this.y, baseDirection + offset, 4.2 + displayLevel * 0.12, 0.08, 7, this.hue );
-					}
-				}
-			},
-			death: function() {
-				$.bossActive = 0;
-				$.currentBoss = null;
-				$.score += 1000 + displayLevel * 250;
-				$.rumble.level = 30;
-				$.levelPops.push( new $.LevelPop( {
-					level: displayLevel
-				} ) );
-			}
-		},
-		boss = new $.Enemy( params );
-	$.bossActive = 1;
-	$.currentBoss = boss;
-	$.audio.play( 'levelup' );
-	$.enemies.push( boss );
-};
-
 $.spawnEnemies = function() {
-	if( $.bossActive && $.enemies.length > 18 ) {
-		return;
-	}
 	var floorTick = Math.floor( $.tick );
 	for( var i = 0; i < $.level.distributionCount; i++ ) {
 		var timeCheck = $.level.distribution[ i ];
 		if( $.levelDiffOffset > 0 ){
 			timeCheck = Math.max( 1, timeCheck - ( $.levelDiffOffset * 2) );
 		}
-		timeCheck = Math.max( 8, Math.floor( timeCheck / ( $.difficulty || 1 ) ) );
 		if( floorTick % timeCheck === 0 ) {
 			$.enemies.push( $.spawnEnemy( i ) );
 		}
@@ -1342,55 +1013,7 @@ $.updateLevel = function() {
 		$.levelPops.push( new $.LevelPop( {
 			level: $.level.current + 1
 		} ) );
-		$.mapTheme = $.level.current % $.definitions.maps.length;
-		$.refreshMap();
-		if( $.level.current + 1 >= $.bossNextLevel ) {
-			$.spawnBoss();
-			$.bossNextLevel += 3;
-		}
-		if( ( $.level.current + 1 ) % 2 === 0 ) {
-			$.setState( 'upgrade' );
-		}
 	}
-};
-
-$.updateCombo = function() {
-	if( $.comboTick > 0 ) {
-		$.comboTick -= $.dt;
-	} else if( $.combo > 1 ) {
-		$.combo = Math.max( 1, $.combo - 0.03 * $.dt );
-	}
-};
-
-$.getAccuracy = function() {
-	return ( $.bulletsFired > 0 ) ? Math.floor( ( $.bulletsHit / $.bulletsFired ) * 100 ) : 0;
-};
-
-$.getUpgradeCount = function() {
-	var count = 0;
-	for( var k in $.runUpgrades ) {
-		count += $.runUpgrades[ k ];
-	}
-	return count;
-};
-
-$.chooseUpgrades = function() {
-	var pool = $.definitions.upgrades.slice( 0 ),
-		choices = [];
-	while( choices.length < 3 && pool.length ) {
-		var index = Math.floor( $.util.rand( 0, pool.length ) );
-		choices.push( pool.splice( index, 1 )[ 0 ] );
-	}
-	return choices;
-};
-
-$.applyUpgrade = function( upgrade ) {
-	upgrade.apply();
-	$.audio.play( 'powerup' );
-	$.levelPops.push( new $.LevelPop( {
-		level: $.level.current + 1
-	} ) );
-	$.setState( 'play' );
 };
 
 $.updatePowerupTimers = function() {
@@ -1414,24 +1037,21 @@ $.updatePowerupTimers = function() {
 	}
 
 	// FAST SHOT
-	var baseFireRate = Math.max( 1.5, 5 - $.runUpgrades.fireRate * 0.7 ),
-		baseBulletSpeed = 10;
 	if( $.powerupTimers[ 2 ] > 0 ){
-		$.hero.weapon.fireRate = Math.max( 1.25, baseFireRate - 3 );
-		$.hero.weapon.bullet.speed = baseBulletSpeed + 4;
+		$.hero.weapon.fireRate = 2;
+		$.hero.weapon.bullet.speed = 14;
 		$.powerupTimers[ 2 ] -= $.dt;
 	} else {
-		$.hero.weapon.fireRate = baseFireRate;
-		$.hero.weapon.bullet.speed = baseBulletSpeed;
+		$.hero.weapon.fireRate = 5;
+		$.hero.weapon.bullet.speed = 10;
 	}
 
 	// TRIPLE SHOT
-	var baseShotCount = Math.min( 7, 1 + $.runUpgrades.spread * 2 );
 	if( $.powerupTimers[ 3 ] > 0 ){
-		$.hero.weapon.count = Math.max( 3, baseShotCount );
+		$.hero.weapon.count = 3;
 		$.powerupTimers[ 3 ] -= $.dt;
 	} else {
-		$.hero.weapon.count = baseShotCount;
+		$.hero.weapon.count = 1;
 	}
 
 	// PIERCE SHOT
@@ -1439,7 +1059,7 @@ $.updatePowerupTimers = function() {
 		$.hero.weapon.bullet.piercing = 1;
 		$.powerupTimers[ 4 ] -= $.dt;
 	} else {
-		$.hero.weapon.bullet.piercing = $.runUpgrades.pierce > 0;
+		$.hero.weapon.bullet.piercing = 0;
 	}
 };
 
@@ -1469,13 +1089,12 @@ $.setState = function( state ) {
 
 		$.reset();
 
-		var menuButtonWidth = Math.min( 299, $.cw - 40 );
 		var playButton = new $.Button( {
 			x: $.cw / 2 + 1,
 			y: $.ch / 2 - 24,
-			lockedWidth: menuButtonWidth,
+			lockedWidth: 299,
 			lockedHeight: 49,
-			scale: ( $.cw < 520 ) ? 2 : 3,
+			scale: 3,
 			title: 'PLAY',
 			action: function() {
 				$.reset();
@@ -1488,9 +1107,9 @@ $.setState = function( state ) {
 		var statsButton = new $.Button( {
 			x: $.cw / 2 + 1,
 			y: playButton.ey + 25,
-			lockedWidth: menuButtonWidth,
+			lockedWidth: 299,
 			lockedHeight: 49,
-			scale: ( $.cw < 520 ) ? 2 : 3,
+			scale: 3,
 			title: 'STATS',
 			action: function() {
 				$.setState( 'stats' );
@@ -1501,9 +1120,9 @@ $.setState = function( state ) {
 		var creditsButton = new $.Button( {
 			x: $.cw / 2 + 1,
 			y: statsButton.ey + 26,
-			lockedWidth: menuButtonWidth,
+			lockedWidth: 299,
 			lockedHeight: 49,
-			scale: ( $.cw < 520 ) ? 2 : 3,
+			scale: 3,
 			title: 'CREDITS',
 			action: function() {
 				$.setState( 'credits' );
@@ -1555,8 +1174,9 @@ $.setState = function( state ) {
 			lockedWidth: 299,
 			lockedHeight: 49,
 			scale: 3,
-			title: 'DAVIDGRATEFUL',
+			title: 'Melvin Games',
 			action: function() {
+				location.href = 'http://elishadavid.netlify.app';
 				$.mouse.down = 0;
 			}
 		} );
@@ -1574,28 +1194,6 @@ $.setState = function( state ) {
 			}
 		} );
 		$.buttons.push( menuButton );
-	}
-
-	if( state == 'upgrade' ) {
-		$.mouse.down = 0;
-		$.screenshot = $.ctxmg.getImageData( 0, 0, $.cw, $.ch );
-		$.upgradeChoices = $.chooseUpgrades();
-		for( var ui = 0; ui < $.upgradeChoices.length; ui++ ) {
-			(function( upgrade, index ) {
-				var upgradeButton = new $.Button( {
-					x: $.cw / 2 + 1,
-					y: $.ch / 2 - 35 + index * 70,
-					lockedWidth: 360,
-					lockedHeight: 54,
-					scale: 2,
-					title: upgrade.title,
-					action: function() {
-						$.applyUpgrade( upgrade );
-					}
-				} );
-				$.buttons.push( upgradeButton );
-			})( $.upgradeChoices[ ui ], ui );
-		}
 	}
 
 	if( state == 'pause' ) {
@@ -1665,7 +1263,6 @@ $.setState = function( state ) {
 		} );
 		$.buttons.push( menuButton );
 
-		$.newRecord = $.score > $.storage['score'];
 		$.storage['score'] = Math.max( $.storage['score'], $.score );
 		$.storage['level'] = Math.max( $.storage['level'], $.level.current );
 		$.storage['rounds'] += 1;
@@ -1700,7 +1297,7 @@ $.setupStates = function() {
 			vspacing: 1,
 			halign: 'center',
 			valign: 'bottom',
-			scale: Math.max( 4, Math.min( 10, Math.floor( $.cw / 95 ) ) ),
+			scale: 10,
 			snap: 1,
 			render: 1
 		} );
@@ -1715,7 +1312,7 @@ $.setupStates = function() {
 			ctx: $.ctxmg,
 			x: $.cw / 2,
 			y: $.ch - 172,
-			text: 'CREATED BY DAVIDGRATEFUL',
+			text: 'CREATED BY MELVINCYPHER 2022',
 			hspacing: 1,
 			vspacing: 1,
 			halign: 'center',
@@ -1830,7 +1427,7 @@ $.setupStates = function() {
 			ctx: $.ctxmg,
 			x: $.cw / 2 - 10,
 			y: creditsTitle.ey + 49,
-			text: 'CREATED BY DAVIDGRATEFUL',
+			text: 'CREATED FOR WEBVIUM BY MELVINCYPHER 2022./n/nI GIVE CREDITS TO SPCK EDITOR FOR THE HELP',
 			hspacing: 1,
 			vspacing: 17,
 			halign: 'right',
@@ -1847,7 +1444,7 @@ $.setupStates = function() {
 			ctx: $.ctxmg,
 			x: $.cw / 2 + 10,
 			y: creditsTitle.ey + 49,
-			text:'RAID SHOOTER\nWEB ARCADE SURVIVAL\nWALLET READY\nBUILT FOR PLAYERS',
+			text:'@Elisha David(MelvinCypher) CELL WARFARE,\nSPACE PIPS, AND MANY MORE\nPhenomenalz\nHTML5 ANIMATION WITH JAVASCRIPT',
 			hspacing: 1,
 			vspacing: 17,
 			halign: 'left',
@@ -1865,13 +1462,8 @@ $.setupStates = function() {
 
 	$.states['play'] = function() {
 		$.updateDelta();
-		$.difficulty = 1 + ( $.elapsed / 3600 ) + ( $.level.current * 0.08 );
 		$.updateScreen();
 		$.updateLevel();
-		if( $.state !== 'play' ) {
-			return;
-		}
-		$.updateCombo();
 		$.updatePowerupTimers();
 		$.spawnEnemies();
 		$.enemyOffsetMod += ( $.slow ) ? $.dt / 3 : $.dt;
@@ -1884,7 +1476,6 @@ $.setupStates = function() {
 			i = $.textPops.length; while( i-- ){ $.textPops[ i ].update( i ) }
 			i = $.levelPops.length; while( i-- ){ $.levelPops[ i ].update( i ) }
 			i = $.bullets.length; while( i-- ){ $.bullets[ i ].update( i ) }
-			$.updateEnemyBullets();
 		$.hero.update();
 
 		// render entities
@@ -1897,7 +1488,6 @@ $.setupStates = function() {
 		i = $.particleEmitters.length; while( i-- ){ $.particleEmitters[ i ].render( i ) }
 		i = $.textPops.length; while( i-- ){ $.textPops[ i ].render( i ) }
 		i = $.bullets.length; while( i-- ){ $.bullets[ i ].render( i ) }
-		$.renderEnemyBullets();
 		$.hero.render();
 		$.ctxmg.restore();
 		i = $.levelPops.length; while( i-- ){ $.levelPops[ i ].render( i ) }
@@ -1994,56 +1584,6 @@ $.setupStates = function() {
 		}
 	};
 
-	$.states['upgrade'] = function() {
-		$.clearScreen();
-		$.ctxmg.putImageData( $.screenshot, 0, 0 );
-		$.ctxmg.fillStyle = 'hsla(0, 0%, 0%, 0.72)';
-		$.ctxmg.fillRect( 0, 0, $.cw, $.ch );
-
-		$.ctxmg.beginPath();
-		var upgradeTitle = $.text( {
-			ctx: $.ctxmg,
-			x: $.cw / 2,
-			y: $.ch / 2 - 120,
-			text: 'CHOOSE UPGRADE',
-			hspacing: 2,
-			vspacing: 1,
-			halign: 'center',
-			valign: 'bottom',
-			scale: 6,
-			snap: 1,
-			render: 1
-		} );
-		var gradient = $.ctxmg.createLinearGradient( upgradeTitle.sx, upgradeTitle.sy, upgradeTitle.sx, upgradeTitle.ey );
-		gradient.addColorStop( 0, '#fff' );
-		gradient.addColorStop( 1, '#8cf' );
-		$.ctxmg.fillStyle = gradient;
-		$.ctxmg.fill();
-
-		for( var ui = 0; ui < $.upgradeChoices.length; ui++ ) {
-			var upgrade = $.upgradeChoices[ ui ];
-			$.ctxmg.beginPath();
-			$.text( {
-				ctx: $.ctxmg,
-				x: $.cw / 2,
-				y: $.ch / 2 - 10 + ui * 70,
-				text: upgrade.description,
-				hspacing: 1,
-				vspacing: 1,
-				halign: 'center',
-				valign: 'top',
-				scale: 1,
-				snap: 1,
-				render: 1
-			} );
-			$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 0.55)';
-			$.ctxmg.fill();
-		}
-
-		var i = $.buttons.length; while( i-- ){ $.buttons[ i ].render( i ) }
-			i = $.buttons.length; while( i-- ){ $.buttons[ i ].update( i ) }
-	};
-
 	$.states['pause'] = function() {
 
 
@@ -2115,7 +1655,7 @@ $.setupStates = function() {
 			ctx: $.ctxmg,
 			x: $.cw / 2 - 10,
 			y: gameoverTitle.ey + 51,
-			text: 'SCORE\nLEVEL\nKILLS\nACCURACY\nBEST COMBO\nUPGRADES\nTIME',
+			text: 'SCORE\nLEVEL\nKILLS\nBULLETS\nPOWERUPS\nTIME',
 			hspacing: 1,
 			vspacing: 17,
 			halign: 'right',
@@ -2136,9 +1676,8 @@ $.setupStates = function() {
 				$.util.commas( $.score ) + '\n' +
 				( $.level.current + 1 ) + '\n' +
 				$.util.commas( $.kills ) + '\n' +
-				$.getAccuracy() + ' PCT\n' +
-				'X' + $.bestCombo + '\n' +
-				$.getUpgradeCount() + '\n' +
+				$.util.commas( $.bulletsFired ) + '\n' +
+				$.util.commas( $.powerupsCollected ) + '\n' +
 				$.util.convertTime( ( $.elapsed * ( 1000 / 60 ) ) / 1000 )
 			,
 			hspacing: 1,
@@ -2151,25 +1690,6 @@ $.setupStates = function() {
 		} );
 		$.ctxmg.fillStyle = '#fff';
 		$.ctxmg.fill();
-
-		if( $.newRecord ) {
-			$.ctxmg.beginPath();
-			$.text( {
-				ctx: $.ctxmg,
-				x: $.cw / 2,
-				y: gameoverTitle.sy - 34,
-				text: 'NEW RECORD',
-				hspacing: 2,
-				vspacing: 1,
-				halign: 'center',
-				valign: 'bottom',
-				scale: 3,
-				snap: 1,
-				render: 1
-			} );
-			$.ctxmg.fillStyle = '#fff';
-			$.ctxmg.fill();
-		}
 	};
 }
 

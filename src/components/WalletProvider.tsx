@@ -6,11 +6,6 @@ import { createAppKit } from '@reown/appkit/react';
 import { wagmiAdapter, projectId, networks } from '@/lib/wagmi-config';
 import { useState, type ReactNode } from 'react';
 
-const appUrl =
-  typeof window !== 'undefined'
-    ? window.location.origin
-    : process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-
 // Initialize Reown AppKit at module load. Supports SSR — the adapter uses
 // cookieStorage and AppKit handles server-side gracefully.
 createAppKit({
@@ -20,7 +15,7 @@ createAppKit({
   metadata: {
     name: 'Raid Shooter',
     description: 'Canvas-based arcade shooter with Web3 wallet integration',
-    url: appUrl,
+    url: typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000',
     icons: [],
   },
   features: {

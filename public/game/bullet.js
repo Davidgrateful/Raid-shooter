@@ -56,7 +56,6 @@ $.Bullet.prototype.update = function( i ) {
 				} ) );
 
 				this.enemiesHit.push( enemy.index );
-				$.bulletsHit++;
 				enemy.receiveDamage( ei, this.damage );
 
 				if( this.enemiesHit.length > 3 ) {

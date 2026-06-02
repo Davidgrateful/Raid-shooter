@@ -110,10 +110,7 @@ $.Enemy.prototype.receiveDamage = function( i, val ) {
 		}
 		this.death();
 		$.spawnPowerup( this.x, this.y );
-		$.combo = Math.min( 9, $.combo + 0.25 );
-		$.comboTick = $.comboTickMax;
-		$.bestCombo = Math.max( $.bestCombo, Math.floor( $.combo ) );
-		$.score += Math.floor( this.value * Math.floor( $.combo ) );
+		$.score += this.value;
 		$.level.kills++;
 		$.kills++;
 		$.enemies.splice( i, 1 );

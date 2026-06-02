@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 
 /**
  * GameCanvas loads the original game engine scripts into a DOM container.
@@ -37,19 +37,6 @@ const GAME_SCRIPTS = [
 export function GameCanvas() {
   const mountRef = useRef<HTMLDivElement>(null);
   const initializedRef = useRef(false);
-  const [showControls, setShowControls] = useState(false);
-
-  useEffect(() => {
-    setShowControls(localStorage.getItem('raid-shooter-controls-seen') !== '1');
-
-    function openControls() {
-      setShowControls(true);
-    }
-
-    window.addEventListener('raid-shooter:show-controls', openControls);
-
-    return () => window.removeEventListener('raid-shooter:show-controls', openControls);
-  }, []);
 
   useEffect(() => {
     if (initializedRef.current) return;
@@ -88,11 +75,6 @@ export function GameCanvas() {
     loadNext();
   }, []);
 
-  function dismissControls() {
-    localStorage.setItem('raid-shooter-controls-seen', '1');
-    setShowControls(false);
-  }
-
   return (
     <div id="game-mount" ref={mountRef} className="absolute inset-0">
       <div id="wrap">
@@ -105,43 +87,6 @@ export function GameCanvas() {
           <canvas id="cfg"></canvas>
         </div>
       </div>
-      {showControls && (
-        <div className="controls-overlay" role="dialog" aria-modal="true" aria-labelledby="controls-title">
-          <div className="controls-panel">
-            <div className="controls-kicker">Before your first run</div>
-            <h2 id="controls-title">Controls</h2>
-            <div className="controls-grid">
-              <div>
-                <span>Move</span>
-                <strong>WASD or Arrow Keys</strong>
-              </div>
-              <div>
-                <span>Aim and Shoot</span>
-                <strong>Mouse or Hold Click</strong>
-              </div>
-              <div>
-                <span>Mobile Move</span>
-                <strong>Left Thumb Joystick</strong>
-              </div>
-              <div>
-                <span>Mobile Aim</span>
-                <strong>Right Thumb Joystick</strong>
-              </div>
-              <div>
-                <span>Pause</span>
-                <strong>P</strong>
-              </div>
-              <div>
-                <span>Autofire</span>
-                <strong>F</strong>
-              </div>
-            </div>
-            <button type="button" onClick={dismissControls}>
-              Start Run
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
