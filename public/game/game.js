@@ -209,11 +209,8 @@ $.reset = function() {
 Create Favicon
 ==============================================================================*/
 $.renderFavicon = function() {
-	var favicon = document.getElementById( 'favicon' );
-	if( !favicon ) {
-		return;
-	}
-	var favc = document.createElement( 'canvas' ),
+	var favicon = document.getElementById( 'favicon' ),
+		favc = document.createElement( 'canvas' ),
 		favctx = favc.getContext( '2d' ),
 		faviconGrid = [
 			[ 1, 1, 1, 1, 1,  ,  , 1, 1, 1, 1, 1, 1, 1, 1, 1 ],
