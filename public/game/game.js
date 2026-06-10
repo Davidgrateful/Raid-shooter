@@ -198,6 +198,7 @@ $.reset = function() {
 	$.score = 0;
 
 	$.hero = new $.Hero();
+	$.resetUpgrades();
 
 	$.levelPops.push( new $.LevelPop( {
 		level: 1
@@ -208,8 +209,11 @@ $.reset = function() {
 Create Favicon
 ==============================================================================*/
 $.renderFavicon = function() {
-	var favicon = document.getElementById( 'favicon' ),
-		favc = document.createElement( 'canvas' ),
+	var favicon = document.getElementById( 'favicon' );
+	if( !favicon ) {
+		return;
+	}
+	var favc = document.createElement( 'canvas' ),
 		favctx = favc.getContext( '2d' ),
 		faviconGrid = [
 			[ 1, 1, 1, 1, 1,  ,  , 1, 1, 1, 1, 1, 1, 1, 1, 1 ],
@@ -350,7 +354,7 @@ $.renderInterface = function() {
 				render: 1
 			} );
 			if( powerupOn ) {
-				$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, ' + ( 0.25 + ( ( $.powerupTimers[ i ] / 300 ) * 0.75 ) ) + ')';
+				$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, ' + ( 0.25 + ( ( $.powerupTimers[ i ] / $.powerupDuration ) * 0.75 ) ) + ')';
 			} else {
 				$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 0.25)';
 			}
@@ -363,7 +367,7 @@ $.renderInterface = function() {
 					height: 5
 				};
 				$.ctxmg.fillStyle = 'hsl(' + powerup.hue + ', ' + powerup.saturation + '%, ' + powerup.lightness + '%)';
-				$.ctxmg.fillRect( powerupBar.x, powerupBar.y, ( $.powerupTimers[ i ] / 300 ) * powerupBar.width, powerupBar.height );
+				$.ctxmg.fillRect( powerupBar.x, powerupBar.y, ( $.powerupTimers[ i ] / $.powerupDuration ) * powerupBar.width, powerupBar.height );
 			}
 		}
 
@@ -1019,6 +1023,7 @@ $.updateLevel = function() {
 		$.levelPops.push( new $.LevelPop( {
 			level: $.level.current + 1
 		} ) );
+		$.openUpgradeDraft();
 	}
 };
 
@@ -1044,20 +1049,20 @@ $.updatePowerupTimers = function() {
 
 	// FAST SHOT
 	if( $.powerupTimers[ 2 ] > 0 ){
-		$.hero.weapon.fireRate = 2;
-		$.hero.weapon.bullet.speed = 14;
+		$.hero.weapon.fireRate = Math.max( 1.2, $.hero.weapon.baseFireRate * 0.4 );
+		$.hero.weapon.bullet.speed = $.hero.weapon.baseBulletSpeed + 4;
 		$.powerupTimers[ 2 ] -= $.dt;
 	} else {
-		$.hero.weapon.fireRate = 5;
-		$.hero.weapon.bullet.speed = 10;
+		$.hero.weapon.fireRate = $.hero.weapon.baseFireRate;
+		$.hero.weapon.bullet.speed = $.hero.weapon.baseBulletSpeed;
 	}
 
 	// TRIPLE SHOT
 	if( $.powerupTimers[ 3 ] > 0 ){
-		$.hero.weapon.count = 3;
+		$.hero.weapon.count = $.hero.weapon.baseCount + 2;
 		$.powerupTimers[ 3 ] -= $.dt;
 	} else {
-		$.hero.weapon.count = 1;
+		$.hero.weapon.count = $.hero.weapon.baseCount;
 	}
 
 	// PIERCE SHOT
@@ -1065,12 +1070,12 @@ $.updatePowerupTimers = function() {
 		$.hero.weapon.bullet.piercing = 1;
 		$.powerupTimers[ 4 ] -= $.dt;
 	} else {
-		$.hero.weapon.bullet.piercing = 0;
+		$.hero.weapon.bullet.piercing = $.hero.weapon.basePiercing;
 	}
 };
 
 $.spawnPowerup = function( x, y ) {
-	if( Math.random() < 0.1 ) {
+	if( Math.random() < $.powerupDropChance ) {
 		var min = ( $.hero.life < 0.9 ) ? 0 : 1,
 			type = Math.floor( $.util.rand( min, $.definitions.powerups.length ) ),
 			params = $.definitions.powerups[ type ];
@@ -1235,6 +1240,35 @@ $.setState = function( state ) {
 			}
 		} );
 		$.buttons.push( menuButton );
+	}
+
+	if( state == 'upgrade' ) {
+		$.mouse.down = 0;
+		$.vjoyLeft.active = 0;
+		$.vjoyRight.active = 0;
+		$.screenshot = $.ctxmg.getImageData( 0, 0, $.cw, $.ch );
+
+		var cardCount = $.upgradeChoices.length,
+			cardGap = 20,
+			cardWidth = Math.min( 300, Math.floor( ( $.cw - 40 - ( cardCount - 1 ) * cardGap ) / cardCount ) ),
+			cardHeight = 170,
+			totalWidth = cardCount * cardWidth + ( cardCount - 1 ) * cardGap,
+			startX = ( $.cw - totalWidth ) / 2;
+
+		for( var ci = 0; ci < cardCount; ci++ ) {
+			( function( def, x ) {
+				$.buttons.push( new $.UpgradeCard( {
+					x: x,
+					y: $.ch / 2 + 30,
+					width: cardWidth,
+					height: cardHeight,
+					def: def,
+					action: function() {
+						$.chooseUpgrade( def.id );
+					}
+				} ) );
+			} )( $.upgradeChoices[ ci ], startX + cardWidth / 2 + ci * ( cardWidth + cardGap ) );
+		}
 	}
 
 	if( state == 'gameover' ) {
@@ -1625,6 +1659,56 @@ $.setupStates = function() {
 		if( $.keys.pressed.p ){
 			$.setState( 'play' );
 		}
+	};
+
+	$.states['upgrade'] = function() {
+
+		$.clearScreen();
+		$.ctxmg.putImageData( $.screenshot, 0, 0 );
+
+		$.ctxmg.fillStyle = 'hsla(0, 0%, 0%, 0.65)';
+		$.ctxmg.fillRect( 0, 0, $.cw, $.ch );
+
+		$.ctxmg.beginPath();
+		var upgradeTitle = $.text( {
+			ctx: $.ctxmg,
+			x: $.cw / 2,
+			y: $.ch / 2 - 110,
+			text: 'LEVEL ' + ( $.level.current + 1 ),
+			hspacing: 3,
+			vspacing: 1,
+			halign: 'center',
+			valign: 'bottom',
+			scale: 8,
+			snap: 1,
+			render: 1
+		} );
+		var gradient = $.ctxmg.createLinearGradient( upgradeTitle.sx, upgradeTitle.sy, upgradeTitle.sx, upgradeTitle.ey );
+		gradient.addColorStop( 0, '#fff' );
+		gradient.addColorStop( 1, '#999' );
+		$.ctxmg.fillStyle = gradient;
+		$.ctxmg.fill();
+
+		$.ctxmg.beginPath();
+		$.text( {
+			ctx: $.ctxmg,
+			x: $.cw / 2,
+			y: upgradeTitle.ey + 25,
+			text: 'CHOOSE AN UPGRADE',
+			hspacing: 2,
+			vspacing: 1,
+			halign: 'center',
+			valign: 'top',
+			scale: 2,
+			snap: 1,
+			render: 1
+		} );
+		$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 0.5)';
+		$.ctxmg.fill();
+
+		// a card's action clears $.buttons mid-loop, so guard each entry
+		var i = $.buttons.length; while( i-- ){ if( $.buttons[ i ] ) { $.buttons[ i ].update( i ) } }
+			i = $.buttons.length; while( i-- ){ if( $.buttons[ i ] ) { $.buttons[ i ].render( i ) } }
 	};
 
 	$.states['gameover'] = function() {

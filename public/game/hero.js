@@ -14,11 +14,17 @@ $.Hero = function() {
 	this.life = 1;
 	this.takingDamage = 0;
 	this.fillStyle = '#fff';
+	this.regenRate = 0;
+	this.damageTakenMult = 1;
 	this.weapon = {
 		fireRate: 5,
 		fireRateTick: 5,
 		spread: 0.3,
 		count: 1,
+		baseFireRate: 5,
+		baseCount: 1,
+		baseBulletSpeed: 10,
+		basePiercing: 0,
 		bullet: {
 			size: 15,
 			lineWidth: 2,
@@ -36,6 +42,9 @@ Update
 ==============================================================================*/
 $.Hero.prototype.update = function() {
 	if( this.life > 0 ) {
+		if( this.regenRate > 0 && this.life < 1 ) {
+			this.life = Math.min( 1, this.life + this.regenRate * $.dt );
+		}
 		/*==============================================================================
 		Apply Forces
 		==============================================================================*/
@@ -176,7 +185,7 @@ $.Hero.prototype.update = function() {
 					saturation: 0
 				} ) );
 				this.takingDamage = 1;
-				this.life -= 0.0075;
+				this.life -= 0.0075 * this.damageTakenMult;
 				$.rumble.level = 3;
 				if( Math.floor( $.tick ) % 5 == 0 ){
 					$.audio.play( 'takingDamage' );

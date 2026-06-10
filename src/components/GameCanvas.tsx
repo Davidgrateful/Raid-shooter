@@ -31,6 +31,7 @@ const GAME_SCRIPTS = [
   '/game/textpop.js',
   '/game/levelpop.js',
   '/game/button.js',
+  '/game/upgrades.js',
   '/game/game.js',
 ];
 
