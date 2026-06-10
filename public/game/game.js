@@ -229,6 +229,12 @@ $.renderFavicon = function() {
 			[ 1,  ,  ,  ,  ,  ,  ,  ,  ,  ,  ,  ,  ,  ,  , 1 ],
 			[ 1, 1, 1, 1, 1, 1, 1, 1, 1,  ,  , 1, 1, 1, 1, 1 ]
 		];
+	if( !favicon ) {
+		favicon = document.createElement( 'link' );
+		favicon.id = 'favicon';
+		favicon.rel = 'icon';
+		document.head.appendChild( favicon );
+	}
 	favc.width = favc.height = 16;
 	favctx.beginPath();
 	for( var y = 0; y < 16; y++ ) {
