@@ -80,6 +80,22 @@ export function useSIWE() {
     setState({ authenticated: false, address: null, loading: false });
   }, []);
 
+  // Auto-prompt the SIWE signature once the wallet connects, so players
+  // aren't left half-logged-in thinking "Connect" was the whole job.
+  // Runs once per connection; declining leaves the manual Sign In button.
+  const [autoPrompted, setAutoPrompted] = useState(false);
+  useEffect(() => {
+    if (!isConnected) {
+      setAutoPrompted(false);
+      return;
+    }
+    if (autoPrompted || state.loading || state.authenticated || !address || !chainId) {
+      return;
+    }
+    setAutoPrompted(true);
+    void signIn();
+  }, [isConnected, autoPrompted, state.loading, state.authenticated, address, chainId, signIn]);
+
   return {
     ...state,
     signIn,

@@ -1,111 +1,63 @@
 # Raid Shooter
 
-<img width="200px" src="received_661686108319509.jpeg" align="center" alt="Elisha David" />
+Free arcade twin-stick raid shooter that runs instantly in the browser. Draft
+upgrades mid-run, chain kill combos, dash through hazards, survive rotating
+sectors, defeat the Asteroid King, and claim your rank on **Shooterboard**
+with your wallet.
 
-Raid Shooter is a space themed shoot 'em up where you must blast away unrelenting enemies before they destroy you. The game features 13 enemy types, 5 powerups, parallax backgrounds, retro sound effects, and locally stored stats.
+![Raid Shooter](public/og.png)
 
-Now migrated to **Next.js** with **wallet connection** and **Sign-In With Ethereum (SIWE)** authentication.
+## Features
 
-## Installation
-
-```bash
-npm install
-```
-
-## Running Locally
-
-```bash
-# Copy environment variables
-cp .env.example .env.local
-
-# Start dev server
-npm run dev
-```
-
-Open [http://localhost:3000](http://localhost:3000).
-
-## Environment Variables
-
-| Variable | Required | Description |
-|---|---|---|
-| `SESSION_SECRET` | Yes (prod) | Iron-session encryption key, at least 32 chars. A dev fallback is built in. |
-| `NEXT_PUBLIC_REOWN_PROJECT_ID` | Yes | Reown Cloud project ID. Required for wallet connection to work properly. |
-
-### Getting a Reown Project ID
-
-1. Go to [https://cloud.reown.com](https://cloud.reown.com)
-2. Sign up or log in
-3. Click **Create Project**
-4. Give it a name (e.g. "Raid Shooter") and pick the **AppKit** product
-5. Copy the **Project ID** from the project dashboard
-6. Paste it into your `.env.local`:
-   ```
-   NEXT_PUBLIC_REOWN_PROJECT_ID=your_project_id_here
-   ```
-7. In the Reown dashboard, add your domains under **Settings → Domains** (e.g. `http://localhost:3000` for dev, your production URL for prod)
-8. Restart `npm run dev`
+- **Upgrade drafts** — pick 1 of 3 stackable upgrades on every level up
+- **Combo scoring** — kill chains multiply score up to x8; getting hit breaks the chain
+- **Dash** — Shift/Space on desktop, double-tap the movement side on touch; brief invincibility
+- **16 enemy types** plus FAST / ARMORED / REGEN elites
+- **Rotating sectors** — Deep Space, Asteroid Belt, Black Hole Zone, Solar Storm, each with its own hazard
+- **Boss raids** — the Asteroid King guards every fifth level; killing it grants a bonus upgrade pick
+- **Pilots** — Onyix, Nova, and Tank Rex, unlocked by playing (never sold); five more teased in the HANGAR
+- **Shooterboard** — global leaderboard; anyone can view, a verified wallet (SIWE) claims your rank
+- Full **desktop + mobile** support: twin virtual joysticks, on-screen pause/mute, landscape prompt
 
 ## Controls
 
-| Action | Input |
-|---|---|
-| Move | WASD / Arrow keys |
-| Aim & Fire | Mouse |
-| Autofire | F |
-| Pause | P |
-| Mute | M |
+| Action | Desktop | Mobile |
+|---|---|---|
+| Move | WASD / arrows | Left thumb joystick |
+| Aim + fire | Mouse (hold) | Right thumb joystick |
+| Dash | Shift / Space | Double-tap left side |
+| Autofire | F | — |
+| Pause | P | PAUSE button |
+| Mute | M | MUTE button |
 
-Touch controls (dual virtual joysticks) also work on mobile.
+## Running locally
 
-## Wallet Connection
-
-- Click **Connect Wallet** in the top-right header bar to open the Reown AppKit modal.
-- Uses [Reown AppKit](https://reown.com/appkit) (the new name for WalletConnect) with [wagmi](https://wagmi.sh) + [viem](https://viem.sh).
-- Supports injected wallets (MetaMask, Brave, Coinbase Wallet, Rabby, etc.), WalletConnect-compatible mobile wallets, and more — all through the unified Reown modal.
-- Configured for Ethereum Mainnet and Sepolia by default; add more chains in `src/lib/wagmi-config.ts` (import from `@reown/appkit/networks`).
-
-## SIWE Authentication
-
-After connecting a wallet, click **Sign In** to authenticate via [Sign-In With Ethereum](https://login.xyz):
-
-1. Client requests a nonce from `GET /api/siwe/nonce`
-2. Client constructs a SIWE message with domain, address, chainId, nonce
-3. User signs the message in their wallet
-4. Client sends the message + signature to `POST /api/siwe/verify`
-5. Server verifies the signature, checks nonce and domain, creates an encrypted session cookie
-6. Session can be checked via `GET /api/siwe/session` and destroyed via `DELETE /api/siwe/session`
-
-Sessions are stored server-side using [iron-session](https://github.com/vvo/iron-session) (encrypted cookies, no database needed).
-
-## Project Structure
-
+```bash
+npm install
+cp .env.example .env.local   # then fill in the values
+npm run dev
 ```
-src/
-  app/
-    layout.tsx          # Root layout with WalletProvider
-    page.tsx            # Main page: header + game canvas
-    globals.css         # Global styles including game container styles
-    api/siwe/           # SIWE auth API routes (nonce, verify, session)
-  components/
-    GameCanvas.tsx      # Client component that loads the game engine
-    Header.tsx          # Top bar with title and wallet controls
-    WalletButton.tsx    # Connect/Sign In/Sign Out button
-    WalletProvider.tsx  # wagmi + react-query provider wrapper
-  hooks/
-    useSIWE.ts          # React hook for SIWE sign-in/sign-out flow
-  lib/
-    session.ts          # iron-session configuration
-    wagmi-config.ts     # wagmi chain and connector configuration
-public/
-  game/                 # Original game engine JS files (served statically)
-js/                     # Original source JS files (preserved for reference)
-```
+
+Open http://localhost:3000.
+
+## Environment variables
+
+| Variable | Required for | Notes |
+|---|---|---|
+| `SESSION_SECRET` | Wallet sign-in (SIWE) | Random string, 32+ characters |
+| `NEXT_PUBLIC_REOWN_PROJECT_ID` | Wallet connection | Free at https://cloud.reown.com |
+| `KV_REST_API_URL` / `KV_REST_API_TOKEN` | Shooterboard persistence | Auto-added by attaching Upstash Redis in Vercel (Storage tab). Without it the board uses ephemeral in-memory storage |
+
+## Deployment
+
+Deploys on Vercel as a standard Next.js app (`vercel.json` pins the
+framework). Set the environment variables above in the Vercel project,
+and attach an Upstash Redis store for a persistent leaderboard.
 
 ## Credits
 
-**Created By:** @vcg_run
-**Software Development:** Elisha David (https://elishadavid.netlify.app), Melvin Jones Repol (https://mrepol742.github.io)
-**Audio Processing:** [JSFXR](https://github.com/mneubrand/jsfxr) by @markusneubrand
-**Game Inspiration:** Asteroids, Cell Warfare, Space Pips, and many more
-**HTML5 Canvas Reference:** [HTML5 Canvas Cheat Sheet](https://simon.html5.org/dump/html5-canvas-cheat-sheet.html)
-**Game Math Reference:** Billy Lamberta - Foundation HTML5 Animation with JavaScript
+Created by **David Grateful**, with support from Dev Dervel and Isra, and the
+many more who helped cook this.
+
+Game engine based on [Radius Raid](https://github.com/jackrugile/radius-raid-js13k)
+by Jack Rugile (JS13K 2013).

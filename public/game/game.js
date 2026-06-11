@@ -399,7 +399,7 @@ $.renderInterface = function() {
 				ctx: $.ctxmg,
 				x: $.cw / 2 - 10,
 				y: $.ch - 20,
-				text: 'MOVE\nAIM/FIRE\nDASH\nAUTOFIRE\nPAUSE\nMUTE',
+				text: $.isTouchDevice ? 'MOVE\nAIM AND FIRE\nDASH' : 'MOVE\nAIM/FIRE\nDASH\nAUTOFIRE\nPAUSE\nMUTE',
 				hspacing: 1,
 				vspacing: 17,
 				halign: 'right',
@@ -425,7 +425,7 @@ $.renderInterface = function() {
 				ctx: $.ctxmg,
 				x: $.cw / 2 + 10,
 				y: $.ch - 20,
-				text: 'WASD/ARROWS\nMOUSE\nSHIFT/SPACE\nF\nP\nM',
+				text: $.isTouchDevice ? 'LEFT THUMB\nRIGHT THUMB\nDOUBLE TAP LEFT' : 'WASD/ARROWS\nMOUSE\nSHIFT/SPACE\nF\nP\nM',
 				hspacing: 1,
 				vspacing: 17,
 				halign: 'left',
@@ -676,7 +676,7 @@ $.renderInterface = function() {
 		$.text( {
 			ctx: $.ctxmg,
 			x: $.cw - 20,
-			y: 160,
+			y: 210,
 			text: 'AUTOFIRE',
 			hspacing: 1,
 			vspacing: 1,
@@ -1375,23 +1375,26 @@ $.setState = function( state ) {
 		} ) ;
 		$.buttons.push( creditsButton );
 
-		var fullscreenButton = new $.Button( {
-			x: $.cw / 2 + 1,
-			y: creditsButton.ey + menuSpacing,
-			lockedWidth: 299,
-			lockedHeight: menuButtonHeight,
-			scale: 2,
-			title: 'FULLSCREEN',
-			action: function() {
-				$.mouse.down = 0;
-				if( document.fullscreenElement ) {
-					document.exitFullscreen();
-				} else if( document.documentElement.requestFullscreen ) {
-					document.documentElement.requestFullscreen();
+		// iPhone Safari has no fullscreen API: skip the dead button there
+		if( document.documentElement.requestFullscreen ) {
+			var fullscreenButton = new $.Button( {
+				x: $.cw / 2 + 1,
+				y: creditsButton.ey + menuSpacing,
+				lockedWidth: 299,
+				lockedHeight: menuButtonHeight,
+				scale: 2,
+				title: 'FULLSCREEN',
+				action: function() {
+					$.mouse.down = 0;
+					if( document.fullscreenElement ) {
+						document.exitFullscreen();
+					} else {
+						document.documentElement.requestFullscreen();
+					}
 				}
-			}
-		} );
-		$.buttons.push( fullscreenButton );
+			} );
+			$.buttons.push( fullscreenButton );
+		}
 	}
 
 	if( state == 'hangar' ) {
@@ -1561,7 +1564,7 @@ $.setState = function( state ) {
 	}
 
 	if( state == 'play' && $.isTouchDevice ) {
-		// touch players have no P key, give them an on-screen pause button
+		// touch players have no P or M keys, give them on-screen buttons
 		$.buttons.push( new $.Button( {
 			x: $.cw - 64,
 			y: 120,
@@ -1571,6 +1574,25 @@ $.setState = function( state ) {
 			title: 'PAUSE',
 			action: function() {
 				$.setState( 'pause' );
+			}
+		} ) );
+		$.buttons.push( new $.Button( {
+			x: $.cw - 64,
+			y: 162,
+			lockedWidth: 89,
+			lockedHeight: 35,
+			scale: 1,
+			title: $.mute ? 'UNMUTE' : 'MUTE',
+			action: function() {
+				$.mouse.down = 0;
+				$.mute = ~~!$.mute;
+				var ai = $.audio.references.length;
+				while( ai-- ) {
+					$.audio.references[ ai ].volume = ~~!$.mute;
+				}
+				$.storage['mute'] = $.mute;
+				$.updateStorage();
+				this.title = $.mute ? 'UNMUTE' : 'MUTE';
 			}
 		} ) );
 	}
@@ -1973,7 +1995,7 @@ $.setupStates = function() {
 			ctx: $.ctxmg,
 			x: $.cw / 2 - 10,
 			y: creditsTitle.ey + ( creditsCompact ? 14 : 49 ),
-			text: 'CREATED BY\nSUPPORT\nSPECIAL THANKS',
+			text: 'CREATED BY\nSUPPORT\nSPECIAL THANKS\n\nENGINE',
 			hspacing: 1,
 			vspacing: creditsCompact ? 9 : 17,
 			halign: 'right',
@@ -1990,7 +2012,7 @@ $.setupStates = function() {
 			ctx: $.ctxmg,
 			x: $.cw / 2 + 10,
 			y: creditsTitle.ey + ( creditsCompact ? 14 : 49 ),
-			text: 'DAVID GRATEFUL\nDEV DERVEL AND ISRA\nAND THE MANY MORE WHO\nHELPED COOK THIS',
+			text: 'DAVID GRATEFUL\nDEV DERVEL AND ISRA\nAND THE MANY MORE WHO\nHELPED COOK THIS\nRADIUS RAID BY JACK RUGILE',
 			hspacing: 1,
 			vspacing: creditsCompact ? 9 : 17,
 			halign: 'left',

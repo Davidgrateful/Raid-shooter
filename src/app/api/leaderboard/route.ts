@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/session';
-import { getTop, submitEntry } from '@/lib/leaderboard';
+import { checkSubmitAllowed, getTop, submitEntry } from '@/lib/leaderboard';
 
 export async function GET() {
   try {
@@ -46,6 +46,10 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    const allowed = await checkSubmitAllowed(session.siwe.address.toLowerCase());
+    if (!allowed) {
+      return NextResponse.json({ error: 'rate_limited' }, { status: 429 });
+    }
     const result = await submitEntry({
       address: session.siwe.address.toLowerCase(),
       score,

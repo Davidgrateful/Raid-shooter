@@ -45,6 +45,31 @@ function memoryRank(address: string): number {
   return sorted.findIndex((e) => e.address === address) + 1;
 }
 
+// One submission per wallet per cooldown window; forged-run spam from a
+// single wallet gets throttled even though runs are client-reported.
+const SUBMIT_COOLDOWN_MS = 20_000;
+const memoryCooldowns = new Map<string, number>();
+
+export async function checkSubmitAllowed(address: string): Promise<boolean> {
+  if (kvUrl && kvToken) {
+    const result = (await redis([
+      'SET',
+      `shooterboard:cooldown:${address}`,
+      '1',
+      'PX',
+      SUBMIT_COOLDOWN_MS,
+      'NX',
+    ])) as string | null;
+    return result === 'OK';
+  }
+  const last = memoryCooldowns.get(address) || 0;
+  if (Date.now() - last < SUBMIT_COOLDOWN_MS) {
+    return false;
+  }
+  memoryCooldowns.set(address, Date.now());
+  return true;
+}
+
 export async function submitEntry(
   entry: BoardEntry
 ): Promise<{ rank: number; improved: boolean }> {

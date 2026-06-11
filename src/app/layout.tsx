@@ -4,7 +4,22 @@ import { WalletProvider } from '@/components/WalletProvider';
 
 export const metadata: Metadata = {
   title: 'Raid Shooter',
-  description: 'Canvas-based arcade shooter game with Web3 wallet integration',
+  description:
+    'Free arcade twin-stick raid shooter: draft upgrades, chain combos, survive hazard sectors, defeat the Asteroid King, and claim your rank on Shooterboard with your wallet.',
+  openGraph: {
+    title: 'Raid Shooter',
+    description:
+      'Instant arcade raids in your browser. Build your ship, chain combos, beat the boss, claim your rank.',
+    images: ['/og.png'],
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Raid Shooter',
+    description:
+      'Instant arcade raids in your browser. Build your ship, chain combos, beat the boss, claim your rank.',
+    images: ['/og.png'],
+  },
 };
 
 // lock zoom so pinch and double-tap (used for the dash) never zoom the page
