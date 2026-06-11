@@ -11,9 +11,13 @@ body {
   padding: 0;
   overflow: hidden;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, monospace;
-  /* gameplay owns all touch gestures: no scroll, no pinch, no double-tap zoom */
-  touch-action: none;
   overscroll-behavior: none;
+}
+
+/* gameplay owns touch gestures on the canvas only - HTML overlays like
+   the wallet modal keep native scrolling and taps */
+#game-mount {
+  touch-action: none;
 }
 
 /* Landscape prompt for touch devices held in portrait */

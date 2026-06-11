@@ -456,8 +456,12 @@ $.renderInterface = function() {
 		}
 
 	/*==============================================================================
-	Health
+	Health (compact sizing keeps the whole HUD row on narrow phone screens)
 	==============================================================================*/
+	var hudCompact = ( $.cw < 900 ),
+		hudScale = hudCompact ? 1 : 2,
+		hudBarWidth = hudCompact ? 70 : 110,
+		hudGap = hudCompact ? 18 : 40;
 	$.ctxmg.beginPath();
 	var healthText = $.text( {
 		ctx: $.ctxmg,
@@ -468,7 +472,7 @@ $.renderInterface = function() {
 		vspacing: 1,
 		halign: 'top',
 		valign: 'left',
-		scale: 2,
+		scale: hudScale,
 		snap: 1,
 		render: 1
 	} );
@@ -477,7 +481,7 @@ $.renderInterface = function() {
 	var healthBar = {
 		x: healthText.ex + 10,
 		y: healthText.sy,
-		width: 110,
+		width: hudBarWidth,
 		height: 10
 	};
 	$.ctxmg.fillStyle = 'hsla(0, 0%, 20%, 1)';
@@ -511,14 +515,14 @@ $.renderInterface = function() {
 	$.ctxmg.beginPath();
 	var progressText = $.text( {
 		ctx: $.ctxmg,
-		x: healthBar.x + healthBar.width + 40,
+		x: healthBar.x + healthBar.width + hudGap,
 		y: 64,
 		text: 'PROGRESS',
 		hspacing: 1,
 		vspacing: 1,
 		halign: 'top',
 		valign: 'left',
-		scale: 2,
+		scale: hudScale,
 		snap: 1,
 		render: 1
 	} );
@@ -562,14 +566,14 @@ $.renderInterface = function() {
 	$.ctxmg.beginPath();
 	var scoreLabel = $.text( {
 		ctx: $.ctxmg,
-		x: progressBar.x + progressBar.width + 40,
+		x: progressBar.x + progressBar.width + hudGap,
 		y: 64,
 		text: 'SCORE',
 		hspacing: 1,
 		vspacing: 1,
 		halign: 'top',
 		valign: 'left',
-		scale: 2,
+		scale: hudScale,
 		snap: 1,
 		render: 1
 	} );
@@ -586,7 +590,7 @@ $.renderInterface = function() {
 		vspacing: 1,
 		halign: 'top',
 		valign: 'left',
-		scale: 2,
+		scale: hudScale,
 		snap: 1,
 		render: 1
 	} );
@@ -596,14 +600,14 @@ $.renderInterface = function() {
 	$.ctxmg.beginPath();
 	var bestLabel = $.text( {
 		ctx: $.ctxmg,
-		x: scoreText.ex + 40,
+		x: scoreText.ex + hudGap,
 		y: 64,
 		text: 'BEST',
 		hspacing: 1,
 		vspacing: 1,
 		halign: 'top',
 		valign: 'left',
-		scale: 2,
+		scale: hudScale,
 		snap: 1,
 		render: 1
 	} );
@@ -620,7 +624,7 @@ $.renderInterface = function() {
 		vspacing: 1,
 		halign: 'top',
 		valign: 'left',
-		scale: 2,
+		scale: hudScale,
 		snap: 1,
 		render: 1
 	} );
@@ -634,14 +638,14 @@ $.renderInterface = function() {
 		$.ctxmg.beginPath();
 		var comboText = $.text( {
 			ctx: $.ctxmg,
-			x: bestText.ex + 40,
+			x: bestText.ex + hudGap,
 			y: 64,
 			text: 'COMBO ' + $.combo + ' X' + $.comboMultiplier,
 			hspacing: 1,
 			vspacing: 1,
 			halign: 'top',
 			valign: 'left',
-			scale: 2,
+			scale: hudScale,
 			snap: 1,
 			render: 1
 		} );
@@ -817,7 +821,17 @@ $.spawnEnemies = function() {
 /*==============================================================================
 Events
 ==============================================================================*/
+// touches and clicks that belong to HTML overlays (wallet modal, header)
+// must not be hijacked by the game, or those buttons never receive taps
+$.eventInsideUi = function( e ) {
+	var t = e.target;
+	return !!( t && t.closest && t.closest( 'header, w3m-modal, appkit-modal, wcm-modal, [role=dialog], nextjs-portal' ) );
+};
+
 $.mousemovecb = function( e ) {
+	if( $.eventInsideUi( e ) ) {
+		return;
+	}
 	e.preventDefault();
 
 	var touches = e.changedTouches ? e.changedTouches : [e];
@@ -887,6 +901,9 @@ $.mousescreen = function() {
 };
 
 $.mousedowncb = function( e ) {
+	if( $.eventInsideUi( e ) ) {
+		return;
+	}
 	e.preventDefault();
 	$.mouse.down = 1;
 
@@ -948,7 +965,11 @@ $.mousedowncb = function( e ) {
 };
 
 $.mouseupcb = function( e ) {
-	e.preventDefault();
+	// always release game input, but only swallow the event when it
+	// belongs to the game rather than an HTML overlay
+	if( !$.eventInsideUi( e ) ) {
+		e.preventDefault();
+	}
 	$.mouse.down = 0;
 
 	var touches = e.changedTouches ? e.changedTouches : [{ identifier: 0 }];
@@ -1452,12 +1473,14 @@ $.setState = function( state ) {
 	if( state == 'stats' ) {
 		$.mouse.down = 0;
 
+		var statsCompact = ( $.ch < 640 );
+
 		var clearButton = new $.Button( {
-			x: $.cw / 2 + 1,
-			y: 426,
-			lockedWidth: 299,
-			lockedHeight: 49,
-			scale: 3,
+			x: statsCompact ? $.cw / 2 - 104 : $.cw / 2 + 1,
+			y: statsCompact ? $.ch - 34 : 426,
+			lockedWidth: statsCompact ? 199 : 299,
+			lockedHeight: statsCompact ? 45 : 49,
+			scale: statsCompact ? 2 : 3,
 			title: 'CLEAR DATA',
 			action: function() {
 				$.mouse.down = 0;
@@ -1470,11 +1493,11 @@ $.setState = function( state ) {
 		$.buttons.push( clearButton );
 
 		var menuButton = new $.Button( {
-			x: $.cw / 2 + 1,
-			y: clearButton.ey + 25,
-			lockedWidth: 299,
-			lockedHeight: 49,
-			scale: 3,
+			x: statsCompact ? $.cw / 2 + 106 : $.cw / 2 + 1,
+			y: statsCompact ? $.ch - 34 : clearButton.ey + 25,
+			lockedWidth: statsCompact ? 199 : 299,
+			lockedHeight: statsCompact ? 45 : 49,
+			scale: statsCompact ? 2 : 3,
 			title: 'MENU',
 			action: function() {
 				$.setState( 'menu' );
@@ -1486,12 +1509,14 @@ $.setState = function( state ) {
 	if( state == 'credits' ) {
 		$.mouse.down = 0;
 
+		var creditsCompact = ( $.ch < 640 );
+
 		var menuButton = new $.Button( {
 			x: $.cw / 2 + 1,
-			y: 501,
+			y: creditsCompact ? $.ch - 34 : 501,
 			lockedWidth: 299,
-			lockedHeight: 49,
-			scale: 3,
+			lockedHeight: creditsCompact ? 45 : 49,
+			scale: creditsCompact ? 2 : 3,
 			title: 'MENU',
 			action: function() {
 				$.setState( 'menu' );
@@ -1583,12 +1608,17 @@ $.setState = function( state ) {
 		$.mouse.down = 0;
 
 		$.screenshot = $.ctxmg.getImageData( 0, 0, $.cw, $.ch );
+
+		// short screens (phone landscape) place the buttons side by side
+		// at the bottom; fixed tall positions would push them off-screen
+		var goCompact = ( $.ch < 640 );
+
 		var resumeButton = new $.Button( {
-			x: $.cw / 2 + 1,
-			y: 426,
-			lockedWidth: 299,
-			lockedHeight: 49,
-			scale: 3,
+			x: goCompact ? $.cw / 2 - 104 : $.cw / 2 + 1,
+			y: goCompact ? $.ch - 34 : 426,
+			lockedWidth: goCompact ? 199 : 299,
+			lockedHeight: goCompact ? 45 : 49,
+			scale: goCompact ? 2 : 3,
 			title: 'PLAY AGAIN',
 			action: function() {
 				$.reset();
@@ -1599,11 +1629,11 @@ $.setState = function( state ) {
 		$.buttons.push( resumeButton );
 
 		var menuButton = new $.Button( {
-			x: $.cw / 2 + 1,
-			y: resumeButton.ey + 25,
-			lockedWidth: 299,
-			lockedHeight: 49,
-			scale: 3,
+			x: goCompact ? $.cw / 2 + 106 : $.cw / 2 + 1,
+			y: goCompact ? $.ch - 34 : resumeButton.ey + 25,
+			lockedWidth: goCompact ? 199 : 299,
+			lockedHeight: goCompact ? 45 : 49,
+			scale: goCompact ? 2 : 3,
 			title: 'MENU',
 			action: function() {
 				$.setState( 'menu' );
@@ -1844,17 +1874,18 @@ $.setupStates = function() {
 
 		$.clearScreen();
 
+		var statsCompact = ( $.ch < 640 );
 		$.ctxmg.beginPath();
 		var statsTitle = $.text( {
 			ctx: $.ctxmg,
 			x: $.cw / 2,
-			y: 150,
+			y: statsCompact ? 80 : 150,
 			text: 'STATS',
 			hspacing: 3,
 			vspacing: 1,
 			halign: 'center',
 			valign: 'bottom',
-			scale: 10,
+			scale: statsCompact ? 5 : 10,
 			snap: 1,
 			render: 1
 		} );
@@ -1868,10 +1899,10 @@ $.setupStates = function() {
 		var statKeys = $.text( {
 			ctx: $.ctxmg,
 			x: $.cw / 2 - 10,
-			y: statsTitle.ey + 39,
+			y: statsTitle.ey + ( statsCompact ? 12 : 39 ),
 			text: 'BEST SCORE\nBEST LEVEL\nBEST COMBO\nROUNDS PLAYED\nENEMIES KILLED\nBULLETS FIRED\nPOWERUPS COLLECTED\nTIME ELAPSED',
 			hspacing: 1,
-			vspacing: 17,
+			vspacing: statsCompact ? 8 : 17,
 			halign: 'right',
 			valign: 'top',
 			scale: 2,
@@ -1885,7 +1916,7 @@ $.setupStates = function() {
 		var statsValues = $.text( {
 			ctx: $.ctxmg,
 			x: $.cw / 2 + 10,
-			y: statsTitle.ey + 39,
+			y: statsTitle.ey + ( statsCompact ? 12 : 39 ),
 			text:
 				$.util.commas( $.storage['score'] ) + '\n' +
 				( $.storage['level'] + 1 ) + '\n' +
@@ -1897,7 +1928,7 @@ $.setupStates = function() {
 				$.util.convertTime( ( $.storage['time'] * ( 1000 / 60 ) ) / 1000 )
 			,
 			hspacing: 1,
-			vspacing: 17,
+			vspacing: statsCompact ? 8 : 17,
 			halign: 'left',
 			valign: 'top',
 			scale: 2,
@@ -1917,16 +1948,17 @@ $.setupStates = function() {
 		$.clearScreen();
 
 		$.ctxmg.beginPath();
+		var creditsCompact = ( $.ch < 640 );
 		var creditsTitle = $.text( {
 			ctx: $.ctxmg,
 			x: $.cw / 2,
-			y: 130,
+			y: creditsCompact ? 80 : 130,
 			text: 'CREDITS',
 			hspacing: 3,
 			vspacing: 1,
 			halign: 'center',
 			valign: 'bottom',
-			scale: 10,
+			scale: creditsCompact ? 5 : 10,
 			snap: 1,
 			render: 1
 		} );
@@ -1940,10 +1972,10 @@ $.setupStates = function() {
 		var creditKeys = $.text( {
 			ctx: $.ctxmg,
 			x: $.cw / 2 - 10,
-			y: creditsTitle.ey + 49,
+			y: creditsTitle.ey + ( creditsCompact ? 14 : 49 ),
 			text: 'CREATED BY\nSUPPORT\nSPECIAL THANKS',
 			hspacing: 1,
-			vspacing: 17,
+			vspacing: creditsCompact ? 9 : 17,
 			halign: 'right',
 			valign: 'top',
 			scale: 2,
@@ -1957,10 +1989,10 @@ $.setupStates = function() {
 		var creditValues = $.text( {
 			ctx: $.ctxmg,
 			x: $.cw / 2 + 10,
-			y: creditsTitle.ey + 49,
+			y: creditsTitle.ey + ( creditsCompact ? 14 : 49 ),
 			text: 'DAVID GRATEFUL\nDEV DERVEL AND ISRA\nAND THE MANY MORE WHO\nHELPED COOK THIS',
 			hspacing: 1,
-			vspacing: 17,
+			vspacing: creditsCompact ? 9 : 17,
 			halign: 'left',
 			valign: 'top',
 			scale: 2,
@@ -2202,17 +2234,18 @@ $.setupStates = function() {
 		var i = $.buttons.length; while( i-- ){ if( $.buttons[ i ] ) { $.buttons[ i ].update( i ) } }
 			i = $.buttons.length; while( i-- ){ if( $.buttons[ i ] ) { $.buttons[ i ].render( i ) } }
 
+		var goCompact = ( $.ch < 640 );
 		$.ctxmg.beginPath();
 		var gameoverTitle = $.text( {
 			ctx: $.ctxmg,
 			x: $.cw / 2,
-			y: 150,
+			y: goCompact ? 80 : 150,
 			text: 'GAME OVER',
 			hspacing: 3,
 			vspacing: 1,
 			halign: 'center',
 			valign: 'bottom',
-			scale: 10,
+			scale: goCompact ? 5 : 10,
 			snap: 1,
 			render: 1
 		} );
@@ -2226,10 +2259,10 @@ $.setupStates = function() {
 		var gameoverStatsKeys = $.text( {
 			ctx: $.ctxmg,
 			x: $.cw / 2 - 10,
-			y: gameoverTitle.ey + 51,
+			y: gameoverTitle.ey + ( goCompact ? 12 : 51 ),
 			text: 'SCORE\nLEVEL\nKILLS\nBEST COMBO\nBULLETS\nPOWERUPS\nTIME',
 			hspacing: 1,
-			vspacing: 17,
+			vspacing: goCompact ? 8 : 17,
 			halign: 'right',
 			valign: 'top',
 			scale: 2,
@@ -2243,7 +2276,7 @@ $.setupStates = function() {
 		var gameoverStatsValues = $.text( {
 			ctx: $.ctxmg,
 			x: $.cw / 2 + 10,
-			y: gameoverTitle.ey + 51,
+			y: gameoverTitle.ey + ( goCompact ? 12 : 51 ),
 			text:
 				$.util.commas( $.score ) + '\n' +
 				( $.level.current + 1 ) + '\n' +
@@ -2254,7 +2287,7 @@ $.setupStates = function() {
 				$.util.convertTime( ( $.elapsed * ( 1000 / 60 ) ) / 1000 )
 			,
 			hspacing: 1,
-			vspacing: 17,
+			vspacing: goCompact ? 8 : 17,
 			halign: 'left',
 			valign: 'top',
 			scale: 2,
@@ -2284,7 +2317,7 @@ $.setupStates = function() {
 			$.text( {
 				ctx: $.ctxmg,
 				x: $.cw / 2,
-				y: gameoverStatsValues.ey + 25,
+				y: gameoverStatsValues.ey + ( goCompact ? 10 : 25 ),
 				text: 'BUILD: ' + buildLines.join( '\n' ),
 				hspacing: 1,
 				vspacing: 6,
@@ -2321,7 +2354,7 @@ $.setupStates = function() {
 			$.text( {
 				ctx: $.ctxmg,
 				x: $.cw / 2,
-				y: gameoverStatsValues.ey + ( buildNames.length > 0 ? 60 : 25 ),
+				y: gameoverStatsValues.ey + ( goCompact ? ( buildNames.length > 0 ? 34 : 10 ) : ( buildNames.length > 0 ? 60 : 25 ) ),
 				text: boardText,
 				hspacing: 1,
 				vspacing: 1,
