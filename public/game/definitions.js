@@ -731,6 +731,15 @@ $.definitions.shipColors = [
 Letters
 ==============================================================================*/
 $.definitions.letters = {
+	// blank fallback so unsupported characters render as a space
+	// instead of crashing the text renderer
+	'unknown': [
+		[  ,  ,  ,  ,   ],
+		[  ,  ,  ,  ,   ],
+		[  ,  ,  ,  ,   ],
+		[  ,  ,  ,  ,   ],
+		[  ,  ,  ,  ,   ]
+	],
 	'1': [
 		 [  , ,  1,  , 0 ],
 		 [  , 1, 1,  , 0 ],

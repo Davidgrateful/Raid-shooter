@@ -1,0 +1,110 @@
+// Shooterboard storage. Uses a Redis REST backend (Vercel KV / Upstash)
+// when configured, falling back to an in-memory store so local dev works
+// without any setup. On Vercel, set KV_REST_API_URL/KV_REST_API_TOKEN
+// (or UPSTASH_REDIS_REST_URL/UPSTASH_REDIS_REST_TOKEN) for persistence.
+
+export interface BoardEntry {
+  address: string;
+  score: number;
+  level: number;
+  kills: number;
+  combo: number;
+  pilot: string;
+  time: number;
+  at: number;
+}
+
+const BOARD_KEY = 'shooterboard';
+const ENTRIES_KEY = 'shooterboard:entries';
+
+const kvUrl = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
+const kvToken = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
+
+async function redis(command: (string | number)[]): Promise<unknown> {
+  const res = await fetch(kvUrl!, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${kvToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(command),
+    cache: 'no-store',
+  });
+  if (!res.ok) {
+    throw new Error(`Redis command failed: ${res.status}`);
+  }
+  const data = (await res.json()) as { result: unknown };
+  return data.result;
+}
+
+// In-memory fallback (per server instance; fine for dev, ephemeral on serverless)
+const memoryBoard = new Map<string, BoardEntry>();
+
+function memoryRank(address: string): number {
+  const sorted = [...memoryBoard.values()].sort((a, b) => b.score - a.score);
+  return sorted.findIndex((e) => e.address === address) + 1;
+}
+
+export async function submitEntry(
+  entry: BoardEntry
+): Promise<{ rank: number; improved: boolean }> {
+  if (kvUrl && kvToken) {
+    const changed = (await redis([
+      'ZADD',
+      BOARD_KEY,
+      'GT',
+      'CH',
+      entry.score,
+      entry.address,
+    ])) as number;
+    const improved = changed > 0;
+    if (improved) {
+      await redis(['HSET', ENTRIES_KEY, entry.address, JSON.stringify(entry)]);
+    }
+    const rank = (await redis(['ZREVRANK', BOARD_KEY, entry.address])) as
+      | number
+      | null;
+    return { rank: rank === null ? 0 : rank + 1, improved };
+  }
+
+  const existing = memoryBoard.get(entry.address);
+  const improved = !existing || entry.score > existing.score;
+  if (improved) {
+    memoryBoard.set(entry.address, entry);
+  }
+  return { rank: memoryRank(entry.address), improved };
+}
+
+export async function getTop(limit = 50): Promise<BoardEntry[]> {
+  if (kvUrl && kvToken) {
+    const addresses = (await redis([
+      'ZRANGE',
+      BOARD_KEY,
+      0,
+      limit - 1,
+      'REV',
+    ])) as string[];
+    if (!addresses || addresses.length === 0) {
+      return [];
+    }
+    const raw = (await redis(['HMGET', ENTRIES_KEY, ...addresses])) as (
+      | string
+      | null
+    )[];
+    const entries: BoardEntry[] = [];
+    for (const item of raw) {
+      if (item) {
+        try {
+          entries.push(JSON.parse(item) as BoardEntry);
+        } catch {
+          // skip corrupt rows rather than failing the whole board
+        }
+      }
+    }
+    return entries;
+  }
+
+  return [...memoryBoard.values()]
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit);
+}

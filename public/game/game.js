@@ -1279,14 +1279,17 @@ $.setState = function( state ) {
 
 		// compact layout keeps all buttons on short screens (phone landscape)
 		var menuCompact = ( $.ch < 640 ),
-			menuSpacing = menuCompact ? 6 : 25,
-			menuStartY = menuCompact ? 110 : $.ch / 2 - 24;
+			menuSpacing = menuCompact ? 4 : 25,
+			menuButtonHeight = menuCompact ? 41 : 49,
+			menuStartY = menuCompact ? 106 : $.ch / 2 - 24;
+
+		$.fetchSession();
 
 		var playButton = new $.Button( {
 			x: $.cw / 2 + 1,
 			y: menuStartY,
 			lockedWidth: 299,
-			lockedHeight: 49,
+			lockedHeight: menuButtonHeight,
 			scale: 3,
 			title: 'PLAY',
 			action: function() {
@@ -1301,7 +1304,7 @@ $.setState = function( state ) {
 			x: $.cw / 2 + 1,
 			y: playButton.ey + menuSpacing,
 			lockedWidth: 299,
-			lockedHeight: 49,
+			lockedHeight: menuButtonHeight,
 			scale: 2,
 			title: 'PILOT: ' + $.currentCharacter().title,
 			action: function() {
@@ -1311,11 +1314,25 @@ $.setState = function( state ) {
 		} );
 		$.buttons.push( shipButton );
 
-		var statsButton = new $.Button( {
+		var boardButton = new $.Button( {
 			x: $.cw / 2 + 1,
 			y: shipButton.ey + menuSpacing,
 			lockedWidth: 299,
-			lockedHeight: 49,
+			lockedHeight: menuButtonHeight,
+			scale: 2,
+			title: 'SHOOTERBOARD',
+			action: function() {
+				$.mouse.down = 0;
+				$.setState( 'board' );
+			}
+		} );
+		$.buttons.push( boardButton );
+
+		var statsButton = new $.Button( {
+			x: $.cw / 2 + 1,
+			y: boardButton.ey + menuSpacing,
+			lockedWidth: 299,
+			lockedHeight: menuButtonHeight,
 			scale: 3,
 			title: 'STATS',
 			action: function() {
@@ -1328,7 +1345,7 @@ $.setState = function( state ) {
 			x: $.cw / 2 + 1,
 			y: statsButton.ey + menuSpacing,
 			lockedWidth: 299,
-			lockedHeight: 49,
+			lockedHeight: menuButtonHeight,
 			scale: 3,
 			title: 'CREDITS',
 			action: function() {
@@ -1341,7 +1358,7 @@ $.setState = function( state ) {
 			x: $.cw / 2 + 1,
 			y: creditsButton.ey + menuSpacing,
 			lockedWidth: 299,
-			lockedHeight: 49,
+			lockedHeight: menuButtonHeight,
 			scale: 2,
 			title: 'FULLSCREEN',
 			action: function() {
@@ -1412,6 +1429,24 @@ $.setState = function( state ) {
 			}
 		} );
 		$.buttons.push( hangarMenuButton );
+	}
+
+	if( state == 'board' ) {
+		$.mouse.down = 0;
+		$.fetchBoard();
+
+		var boardMenuButton = new $.Button( {
+			x: $.cw / 2 + 1,
+			y: $.ch - 52,
+			lockedWidth: 299,
+			lockedHeight: 45,
+			scale: 2,
+			title: 'MENU',
+			action: function() {
+				$.setState( 'menu' );
+			}
+		} );
+		$.buttons.push( boardMenuButton );
 	}
 
 	if( state == 'stats' ) {
@@ -1599,6 +1634,8 @@ $.setState = function( state ) {
 		$.storage['powerups'] += $.powerupsCollected;
 		$.storage['time'] += Math.floor( $.elapsed );
 		$.updateStorage();
+
+		$.submitScore();
 	}
 
 	// set state
@@ -1617,8 +1654,8 @@ $.setupStates = function() {
 		$.clearScreen();
 		$.updateScreen();
 
-		var i = $.buttons.length; while( i-- ){ $.buttons[ i ].update( i ) }
-			i = $.buttons.length; while( i-- ){ $.buttons[ i ].render( i ) }
+		var i = $.buttons.length; while( i-- ){ if( $.buttons[ i ] ) { $.buttons[ i ].update( i ) } }
+			i = $.buttons.length; while( i-- ){ if( $.buttons[ i ] ) { $.buttons[ i ].render( i ) } }
 
 		var menuCompact = ( $.ch < 640 );
 		$.ctxmg.beginPath();
@@ -1694,6 +1731,128 @@ $.setupStates = function() {
 			i = $.buttons.length; while( i-- ){ if( $.buttons[ i ] ) { $.buttons[ i ].render( i ) } }
 	};
 
+	$.states['board'] = function() {
+
+		$.clearScreen();
+
+		var boardCompact = ( $.ch < 640 );
+		$.ctxmg.beginPath();
+		var boardTitle = $.text( {
+			ctx: $.ctxmg,
+			x: $.cw / 2,
+			y: boardCompact ? 44 : 110,
+			text: 'SHOOTERBOARD',
+			hspacing: 2,
+			vspacing: 1,
+			halign: 'center',
+			valign: 'bottom',
+			scale: boardCompact ? 4 : 7,
+			snap: 1,
+			render: 1
+		} );
+		var gradient = $.ctxmg.createLinearGradient( boardTitle.sx, boardTitle.sy, boardTitle.sx, boardTitle.ey );
+		gradient.addColorStop( 0, '#fff' );
+		gradient.addColorStop( 1, '#999' );
+		$.ctxmg.fillStyle = gradient;
+		$.ctxmg.fill();
+
+		var statusText = '';
+		if( $.board.loading ) {
+			statusText = 'LOADING';
+		} else if( $.board.error ) {
+			statusText = 'BOARD OFFLINE';
+		} else if( $.board.entries.length === 0 ) {
+			statusText = 'NO PILOTS RANKED YET';
+		}
+
+		if( statusText ) {
+			$.ctxmg.beginPath();
+			$.text( {
+				ctx: $.ctxmg,
+				x: $.cw / 2,
+				y: $.ch / 2,
+				text: statusText,
+				hspacing: 2,
+				vspacing: 1,
+				halign: 'center',
+				valign: 'center',
+				scale: 2,
+				snap: 1,
+				render: 1
+			} );
+			$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 0.5)';
+			$.ctxmg.fill();
+		} else {
+			var rowCount = Math.min( $.board.entries.length, boardCompact ? 7 : 10 ),
+				rowStartY = boardTitle.ey + ( boardCompact ? 16 : 36 ),
+				rowSpacing = boardCompact ? 20 : 24,
+				leftX = Math.max( 30, $.cw / 2 - 250 ),
+				rightX = Math.min( $.cw - 30, $.cw / 2 + 250 );
+
+			for( var ri = 0; ri < rowCount; ri++ ) {
+				var entry = $.board.entries[ ri ],
+					mine = ( $.session.authenticated && entry.address === $.session.address ),
+					rowColor = mine ? 'hsla(45, 100%, 65%, 1)' : ( ri === 0 ? 'hsla(0, 0%, 100%, 1)' : 'hsla(0, 0%, 100%, 0.65)' );
+
+				$.ctxmg.beginPath();
+				$.text( {
+					ctx: $.ctxmg,
+					x: leftX,
+					y: rowStartY + ri * rowSpacing,
+					text: $.util.pad( ri + 1, 2 ) + '  ' + $.shortAddress( entry.address ) + '  ' + ( entry.pilot || '' ),
+					hspacing: 1,
+					vspacing: 1,
+					halign: 'left',
+					valign: 'top',
+					scale: 2,
+					snap: 1,
+					render: 1
+				} );
+				$.ctxmg.fillStyle = rowColor;
+				$.ctxmg.fill();
+
+				$.ctxmg.beginPath();
+				$.text( {
+					ctx: $.ctxmg,
+					x: rightX,
+					y: rowStartY + ri * rowSpacing,
+					text: $.util.commas( entry.score ),
+					hspacing: 1,
+					vspacing: 1,
+					halign: 'right',
+					valign: 'top',
+					scale: 2,
+					snap: 1,
+					render: 1
+				} );
+				$.ctxmg.fillStyle = rowColor;
+				$.ctxmg.fill();
+			}
+		}
+
+		if( !$.session.authenticated && !$.board.loading ) {
+			$.ctxmg.beginPath();
+			$.text( {
+				ctx: $.ctxmg,
+				x: $.cw / 2,
+				y: $.ch - 86,
+				text: 'CONNECT WALLET TO CLAIM YOUR RANK',
+				hspacing: 1,
+				vspacing: 1,
+				halign: 'center',
+				valign: 'bottom',
+				scale: 1,
+				snap: 1,
+				render: 1
+			} );
+			$.ctxmg.fillStyle = 'hsla(45, 100%, 65%, 0.7)';
+			$.ctxmg.fill();
+		}
+
+		var i = $.buttons.length; while( i-- ){ if( $.buttons[ i ] ) { $.buttons[ i ].update( i ) } }
+			i = $.buttons.length; while( i-- ){ if( $.buttons[ i ] ) { $.buttons[ i ].render( i ) } }
+	};
+
 	$.states['stats'] = function() {
 
 
@@ -1762,8 +1921,8 @@ $.setupStates = function() {
 		$.ctxmg.fillStyle = '#fff';
 		$.ctxmg.fill();
 
-		var i = $.buttons.length; while( i-- ){ $.buttons[ i ].render( i ) }
-			i = $.buttons.length; while( i-- ){ $.buttons[ i ].update( i ) }
+		var i = $.buttons.length; while( i-- ){ if( $.buttons[ i ] ) { $.buttons[ i ].render( i ) } }
+			i = $.buttons.length; while( i-- ){ if( $.buttons[ i ] ) { $.buttons[ i ].update( i ) } }
 	};
 
 	$.states['credits'] = function() {
@@ -1796,7 +1955,7 @@ $.setupStates = function() {
 			ctx: $.ctxmg,
 			x: $.cw / 2 - 10,
 			y: creditsTitle.ey + 49,
-			text: 'CREATED FOR WEBVIUM BY MELVINCYPHER 2022./n/nI GIVE CREDITS TO SPCK EDITOR FOR THE HELP',
+			text: 'CREATED FOR WEBVIUM BY\nMELVINCYPHER 2022\nI GIVE CREDITS TO\nSPCK EDITOR FOR THE HELP',
 			hspacing: 1,
 			vspacing: 17,
 			halign: 'right',
@@ -1813,7 +1972,7 @@ $.setupStates = function() {
 			ctx: $.ctxmg,
 			x: $.cw / 2 + 10,
 			y: creditsTitle.ey + 49,
-			text:'@Elisha David(MelvinCypher) CELL WARFARE,\nSPACE PIPS, AND MANY MORE\nPhenomenalz\nHTML5 ANIMATION WITH JAVASCRIPT',
+			text: '@ELISHA DAVID, MELVINCYPHER\nCELL WARFARE, SPACE PIPS\nAND MANY MORE\nPHENOMENALZ\nHTML5 ANIMATION WITH JAVASCRIPT',
 			hspacing: 1,
 			vspacing: 17,
 			halign: 'left',
@@ -1825,8 +1984,8 @@ $.setupStates = function() {
 		$.ctxmg.fillStyle = '#fff';
 		$.ctxmg.fill();
 
-		var i = $.buttons.length; while( i-- ){ $.buttons[ i ].render( i ) }
-			i = $.buttons.length; while( i-- ){ $.buttons[ i ].update( i ) }
+		var i = $.buttons.length; while( i-- ){ if( $.buttons[ i ] ) { $.buttons[ i ].render( i ) } }
+			i = $.buttons.length; while( i-- ){ if( $.buttons[ i ] ) { $.buttons[ i ].update( i ) } }
 	};
 
 	$.states['play'] = function() {
@@ -1990,8 +2149,8 @@ $.setupStates = function() {
 		$.ctxmg.fillStyle = gradient;
 		$.ctxmg.fill();
 
-		var i = $.buttons.length; while( i-- ){ $.buttons[ i ].render( i ) }
-			i = $.buttons.length; while( i-- ){ $.buttons[ i ].update( i ) }
+		var i = $.buttons.length; while( i-- ){ if( $.buttons[ i ] ) { $.buttons[ i ].render( i ) } }
+			i = $.buttons.length; while( i-- ){ if( $.buttons[ i ] ) { $.buttons[ i ].update( i ) } }
 
 		if( $.keys.pressed.p ){
 			$.setState( 'play' );
@@ -2054,8 +2213,8 @@ $.setupStates = function() {
 		$.clearScreen();
 		$.ctxmg.putImageData( $.screenshot, 0, 0 );
 
-		var i = $.buttons.length; while( i-- ){ $.buttons[ i ].update( i ) }
-			i = $.buttons.length; while( i-- ){ $.buttons[ i ].render( i ) }
+		var i = $.buttons.length; while( i-- ){ if( $.buttons[ i ] ) { $.buttons[ i ].update( i ) } }
+			i = $.buttons.length; while( i-- ){ if( $.buttons[ i ] ) { $.buttons[ i ].render( i ) } }
 
 		$.ctxmg.beginPath();
 		var gameoverTitle = $.text( {
@@ -2150,6 +2309,43 @@ $.setupStates = function() {
 				render: 1
 			} );
 			$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 0.5)';
+			$.ctxmg.fill();
+		}
+
+		/*==============================================================================
+		Shooterboard Status
+		==============================================================================*/
+		var boardText = '',
+			boardColor = 'hsla(0, 0%, 100%, 0.5)';
+		if( $.boardSubmit.state === 'guest' ) {
+			boardText = 'CONNECT WALLET TO JOIN SHOOTERBOARD';
+			boardColor = 'hsla(45, 100%, 65%, 0.8)';
+		} else if( $.boardSubmit.state === 'sending' ) {
+			boardText = 'SUBMITTING TO SHOOTERBOARD';
+		} else if( $.boardSubmit.state === 'done' ) {
+			boardText = $.boardSubmit.rank
+				? 'SHOOTERBOARD RANK ' + $.boardSubmit.rank + ( $.boardSubmit.improved ? '' : '  /  PERSONAL BEST STANDS' )
+				: 'SCORE SAVED TO SHOOTERBOARD';
+			boardColor = 'hsla(45, 100%, 65%, 1)';
+		} else if( $.boardSubmit.state === 'error' ) {
+			boardText = 'SHOOTERBOARD UNAVAILABLE';
+		}
+		if( boardText ) {
+			$.ctxmg.beginPath();
+			$.text( {
+				ctx: $.ctxmg,
+				x: $.cw / 2,
+				y: gameoverStatsValues.ey + ( buildNames.length > 0 ? 60 : 25 ),
+				text: boardText,
+				hspacing: 1,
+				vspacing: 1,
+				halign: 'center',
+				valign: 'top',
+				scale: 1,
+				snap: 1,
+				render: 1
+			} );
+			$.ctxmg.fillStyle = boardColor;
 			$.ctxmg.fill();
 		}
 	};
