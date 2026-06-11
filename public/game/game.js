@@ -1486,23 +1486,9 @@ $.setState = function( state ) {
 	if( state == 'credits' ) {
 		$.mouse.down = 0;
 
-		var js13kButton = new $.Button( {
-			x: $.cw / 2 + 1,
-			y: 476,
-			lockedWidth: 299,
-			lockedHeight: 49,
-			scale: 3,
-			title: 'Melvin Games',
-			action: function() {
-				location.href = 'http://elishadavid.netlify.app';
-				$.mouse.down = 0;
-			}
-		} );
-		$.buttons.push( js13kButton );
-
 		var menuButton = new $.Button( {
 			x: $.cw / 2 + 1,
-			y: js13kButton.ey + 25,
+			y: 501,
 			lockedWidth: 299,
 			lockedHeight: 49,
 			scale: 3,
@@ -1684,7 +1670,7 @@ $.setupStates = function() {
 				ctx: $.ctxmg,
 				x: $.cw / 2,
 				y: $.ch - 172,
-				text: 'CREATED BY MELVINCYPHER 2022',
+				text: 'CREATED BY DAVID GRATEFUL',
 				hspacing: 1,
 				vspacing: 1,
 				halign: 'center',
@@ -1934,7 +1920,7 @@ $.setupStates = function() {
 		var creditsTitle = $.text( {
 			ctx: $.ctxmg,
 			x: $.cw / 2,
-			y: 100,
+			y: 130,
 			text: 'CREDITS',
 			hspacing: 3,
 			vspacing: 1,
@@ -1955,7 +1941,7 @@ $.setupStates = function() {
 			ctx: $.ctxmg,
 			x: $.cw / 2 - 10,
 			y: creditsTitle.ey + 49,
-			text: 'CREATED FOR WEBVIUM BY\nMELVINCYPHER 2022\nI GIVE CREDITS TO\nSPCK EDITOR FOR THE HELP',
+			text: 'CREATED BY\nSUPPORT\nSPECIAL THANKS',
 			hspacing: 1,
 			vspacing: 17,
 			halign: 'right',
@@ -1972,7 +1958,7 @@ $.setupStates = function() {
 			ctx: $.ctxmg,
 			x: $.cw / 2 + 10,
 			y: creditsTitle.ey + 49,
-			text: '@ELISHA DAVID, MELVINCYPHER\nCELL WARFARE, SPACE PIPS\nAND MANY MORE\nPHENOMENALZ\nHTML5 ANIMATION WITH JAVASCRIPT',
+			text: 'DAVID GRATEFUL\nDEV DERVEL AND ISRA\nAND THE MANY MORE WHO\nHELPED COOK THIS',
 			hspacing: 1,
 			vspacing: 17,
 			halign: 'left',
