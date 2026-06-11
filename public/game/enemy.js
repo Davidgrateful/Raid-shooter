@@ -101,16 +101,16 @@ $.Enemy.prototype.receiveDamage = function( i, val ) {
 			$.textPops.push( new $.TextPop( {
 				x: this.x,
 				y: this.y,
-				value: this.value,
+				value: this.value * $.comboMultiplier,
 				hue: this.hue,
 				saturation: this.saturation,
 				lightness: 60
-			} ) );			
+			} ) );
 			$.rumble.level = 6;
 		}
 		this.death();
 		$.spawnPowerup( this.x, this.y );
-		$.score += this.value;
+		$.registerKill( this.value );
 		$.level.kills++;
 		$.kills++;
 		$.enemies.splice( i, 1 );

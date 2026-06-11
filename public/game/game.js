@@ -72,7 +72,8 @@ $.init = function() {
 			right: 0,
 			f: 0,
 			m: 0,
-			p: 0
+			p: 0,
+			dash: 0
 		},
 		pressed: {
 			up: 0,
@@ -81,9 +82,11 @@ $.init = function() {
 			right: 0,
 			f: 0,
 			m: 0,
-			p: 0
+			p: 0,
+			dash: 0
 		}
 	};
+	$.isTouchDevice = ( 'ontouchstart' in window ) ? 1 : 0;
 	$.okeys = {};
 	$.mouse = {
 		x: $.ww / 2,
@@ -196,6 +199,14 @@ $.reset = function() {
 	$.bulletsFired = 0;
 	$.powerupsCollected = 0;
 	$.score = 0;
+
+	$.combo = 0;
+	$.comboTimer = 0;
+	$.comboTimerMax = 120;
+	$.comboMultiplier = 1;
+	$.bestCombo = 0;
+	$.spawnLullTick = 0;
+	$.dashRequest = 0;
 
 	$.hero = new $.Hero();
 	$.resetUpgrades();
@@ -378,7 +389,7 @@ $.renderInterface = function() {
 				ctx: $.ctxmg,
 				x: $.cw / 2 - 10,
 				y: $.ch - 20,
-				text: 'MOVE\nAIM/FIRE\nAUTOFIRE\nPAUSE\nMUTE',
+				text: 'MOVE\nAIM/FIRE\nDASH\nAUTOFIRE\nPAUSE\nMUTE',
 				hspacing: 1,
 				vspacing: 17,
 				halign: 'right',
@@ -404,7 +415,7 @@ $.renderInterface = function() {
 				ctx: $.ctxmg,
 				x: $.cw / 2 + 10,
 				y: $.ch - 20,
-				text: 'WASD/ARROWS\nMOUSE\nF\nP\nM',
+				text: 'WASD/ARROWS\nMOUSE\nSHIFT/SPACE\nF\nP\nM',
 				hspacing: 1,
 				vspacing: 17,
 				halign: 'left',
@@ -441,7 +452,7 @@ $.renderInterface = function() {
 	var healthText = $.text( {
 		ctx: $.ctxmg,
 		x: 20,
-		y: 20,
+		y: 64,
 		text: 'HEALTH',
 		hspacing: 1,
 		vspacing: 1,
@@ -491,7 +502,7 @@ $.renderInterface = function() {
 	var progressText = $.text( {
 		ctx: $.ctxmg,
 		x: healthBar.x + healthBar.width + 40,
-		y: 20,
+		y: 64,
 		text: 'PROGRESS',
 		hspacing: 1,
 		vspacing: 1,
@@ -542,7 +553,7 @@ $.renderInterface = function() {
 	var scoreLabel = $.text( {
 		ctx: $.ctxmg,
 		x: progressBar.x + progressBar.width + 40,
-		y: 20,
+		y: 64,
 		text: 'SCORE',
 		hspacing: 1,
 		vspacing: 1,
@@ -559,7 +570,7 @@ $.renderInterface = function() {
 	var scoreText = $.text( {
 		ctx: $.ctxmg,
 		x: scoreLabel.ex + 10,
-		y: 20,
+		y: 64,
 		text: $.util.pad( $.score, 6 ),
 		hspacing: 1,
 		vspacing: 1,
@@ -576,7 +587,7 @@ $.renderInterface = function() {
 	var bestLabel = $.text( {
 		ctx: $.ctxmg,
 		x: scoreText.ex + 40,
-		y: 20,
+		y: 64,
 		text: 'BEST',
 		hspacing: 1,
 		vspacing: 1,
@@ -593,7 +604,7 @@ $.renderInterface = function() {
 	var bestText = $.text( {
 		ctx: $.ctxmg,
 		x: bestLabel.ex + 10,
-		y: 20,
+		y: 64,
 		text: $.util.pad( Math.max( $.storage['score'], $.score ), 6 ),
 		hspacing: 1,
 		vspacing: 1,
@@ -605,6 +616,65 @@ $.renderInterface = function() {
 	} );
 	$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 1)';
 	$.ctxmg.fill();
+
+	/*==============================================================================
+	Combo Meter
+	==============================================================================*/
+	if( $.combo > 0 ) {
+		$.ctxmg.beginPath();
+		var comboText = $.text( {
+			ctx: $.ctxmg,
+			x: bestText.ex + 40,
+			y: 64,
+			text: 'COMBO ' + $.combo + ' X' + $.comboMultiplier,
+			hspacing: 1,
+			vspacing: 1,
+			halign: 'top',
+			valign: 'left',
+			scale: 2,
+			snap: 1,
+			render: 1
+		} );
+		$.ctxmg.fillStyle = 'hsla(' + ( 40 + $.comboMultiplier * 5 ) + ', 100%, 60%, 1)';
+		$.ctxmg.fill();
+
+		// chain decay bar
+		$.ctxmg.fillStyle = 'hsla(0, 0%, 20%, 1)';
+		$.ctxmg.fillRect( comboText.sx, comboText.ey + 4, comboText.ex - comboText.sx, 3 );
+		$.ctxmg.fillStyle = 'hsla(' + ( 40 + $.comboMultiplier * 5 ) + ', 100%, 60%, 1)';
+		$.ctxmg.fillRect( comboText.sx, comboText.ey + 4, ( $.comboTimer / $.comboTimerMax ) * ( comboText.ex - comboText.sx ), 3 );
+	}
+
+	/*==============================================================================
+	Dash Cooldown
+	==============================================================================*/
+	var dashReady = 1 - Math.max( 0, $.hero.dashCooldown ) / $.hero.dashCooldownMax;
+	$.ctxmg.fillStyle = 'hsla(0, 0%, 20%, 1)';
+	$.ctxmg.fillRect( healthBar.x, healthBar.y + healthBar.height + 4, healthBar.width, 3 );
+	$.ctxmg.fillStyle = ( dashReady >= 1 ) ? 'hsla(0, 0%, 100%, 0.9)' : 'hsla(0, 0%, 60%, 0.6)';
+	$.ctxmg.fillRect( healthBar.x, healthBar.y + healthBar.height + 4, dashReady * healthBar.width, 3 );
+
+	/*==============================================================================
+	Autofire Indicator
+	==============================================================================*/
+	if( $.autofire ) {
+		$.ctxmg.beginPath();
+		$.text( {
+			ctx: $.ctxmg,
+			x: $.cw - 20,
+			y: 160,
+			text: 'AUTOFIRE',
+			hspacing: 1,
+			vspacing: 1,
+			halign: 'right',
+			valign: 'top',
+			scale: 1,
+			snap: 1,
+			render: 1
+		} );
+		$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 0.4)';
+		$.ctxmg.fill();
+	}
 };
 
 $.renderMinimap = function() {
@@ -693,6 +763,11 @@ $.spawnEnemy = function( type ) {
 };
 
 $.spawnEnemies = function() {
+	// breathing room after an upgrade draft before the next wave
+	if( $.spawnLullTick > 0 ) {
+		$.spawnLullTick -= $.dt;
+		return;
+	}
 	var floorTick = Math.floor( $.tick );
 	for( var i = 0; i < $.level.distributionCount; i++ ) {
 		var timeCheck = $.level.distribution[ i ];
@@ -793,12 +868,19 @@ $.mousedowncb = function( e ) {
 		$.mouse.ay = ty;
 		$.mousescreen();
 
-		// Check if touching UI Button
+		// Check if touching UI Button. Touch taps can begin and end within a
+		// single frame, so fire the action here instead of relying on the
+		// per-frame hover polling in Button.update
 		var buttonHovered = false;
 		for( var j = 0; j < $.buttons.length; j++ ) {
 			var b = $.buttons[j];
 			if( $.util.pointInRect( $.mouse.sx, $.mouse.sy, b.sx, b.sy, b.width, b.height ) ) {
 				buttonHovered = true;
+				if( isTouch ) {
+					$.audio.play( 'click' );
+					$.mouse.down = 0;
+					b.action();
+				}
 				break;
 			}
 		}
@@ -807,6 +889,12 @@ $.mousedowncb = function( e ) {
 		// fires directly, so spawning a joystick would hijack WASD movement
 		if( !buttonHovered && isTouch ) {
 			if( tx < $.cw / 2 && !$.vjoyLeft.active ) {
+				// double-tap on the movement side triggers a dash
+				var now = Date.now();
+				if( now - ( $.lastLeftTouchTime || 0 ) < 300 ) {
+					$.dashRequest = 1;
+				}
+				$.lastLeftTouchTime = now;
 				$.vjoyLeft.active = 1;
 				$.vjoyLeft.ox = tx;
 				$.vjoyLeft.oy = ty;
@@ -857,6 +945,7 @@ $.keydowncb = function( e ) {
 	if( e === 70 ){ $.keys.state.f = 1; }
 	if( e === 77 ){ $.keys.state.m = 1; }
 	if( e === 80 ){ $.keys.state.p = 1; }
+	if( e === 16 || e === 32 ){ $.keys.state.dash = 1; }
 }
 
 $.keyupcb = function( e ) {
@@ -868,6 +957,7 @@ $.keyupcb = function( e ) {
 	if( e === 70 ){ $.keys.state.f = 0; }
 	if( e === 77 ){ $.keys.state.m = 0; }
 	if( e === 80 ){ $.keys.state.p = 0; }
+	if( e === 16 || e === 32 ){ $.keys.state.dash = 0; }
 }
 
 $.resizecb = function( e ) {
@@ -998,6 +1088,36 @@ $.updateScreen = function() {
 		- $.rumble.y + 'px';
 
 	$.mousescreen();
+};
+
+/*==============================================================================
+Combo
+==============================================================================*/
+$.registerKill = function( value ) {
+	$.score += value * $.comboMultiplier;
+	$.combo++;
+	$.comboTimer = $.comboTimerMax;
+	$.bestCombo = Math.max( $.bestCombo, $.combo );
+	var multiplier = Math.min( 8, 1 + Math.floor( $.combo / 4 ) );
+	if( multiplier > $.comboMultiplier ) {
+		$.audio.play( 'powerup' );
+	}
+	$.comboMultiplier = multiplier;
+};
+
+$.breakCombo = function() {
+	$.combo = 0;
+	$.comboTimer = 0;
+	$.comboMultiplier = 1;
+};
+
+$.updateCombo = function() {
+	if( $.comboTimer > 0 ) {
+		$.comboTimer -= $.dt;
+		if( $.comboTimer <= 0 ) {
+			$.breakCombo();
+		}
+	}
 };
 
 $.updateLevel = function() {
@@ -1239,6 +1359,21 @@ $.setState = function( state ) {
 		$.buttons.push( menuButton );
 	}
 
+	if( state == 'play' && $.isTouchDevice ) {
+		// touch players have no P key, give them an on-screen pause button
+		$.buttons.push( new $.Button( {
+			x: $.cw - 64,
+			y: 120,
+			lockedWidth: 89,
+			lockedHeight: 35,
+			scale: 1,
+			title: 'PAUSE',
+			action: function() {
+				$.setState( 'pause' );
+			}
+		} ) );
+	}
+
 	if( state == 'upgrade' ) {
 		$.mouse.down = 0;
 		$.vjoyLeft.active = 0;
@@ -1302,6 +1437,7 @@ $.setState = function( state ) {
 
 		$.storage['score'] = Math.max( $.storage['score'], $.score );
 		$.storage['level'] = Math.max( $.storage['level'], $.level.current );
+		$.storage['combo'] = Math.max( $.storage['combo'] || 0, $.bestCombo );
 		$.storage['rounds'] += 1;
 		$.storage['kills'] += $.kills;
 		$.storage['bullets'] += $.bulletsFired;
@@ -1393,7 +1529,7 @@ $.setupStates = function() {
 			ctx: $.ctxmg,
 			x: $.cw / 2 - 10,
 			y: statsTitle.ey + 39,
-			text: 'BEST SCORE\nBEST LEVEL\nROUNDS PLAYED\nENEMIES KILLED\nBULLETS FIRED\nPOWERUPS COLLECTED\nTIME ELAPSED',
+			text: 'BEST SCORE\nBEST LEVEL\nBEST COMBO\nROUNDS PLAYED\nENEMIES KILLED\nBULLETS FIRED\nPOWERUPS COLLECTED\nTIME ELAPSED',
 			hspacing: 1,
 			vspacing: 17,
 			halign: 'right',
@@ -1413,6 +1549,7 @@ $.setupStates = function() {
 			text:
 				$.util.commas( $.storage['score'] ) + '\n' +
 				( $.storage['level'] + 1 ) + '\n' +
+				( $.storage['combo'] || 0 ) + '\n' +
 				$.util.commas( $.storage['rounds'] ) + '\n' +
 				$.util.commas( $.storage['kills'] ) + '\n' +
 				$.util.commas( $.storage['bullets'] ) + '\n' +
@@ -1500,6 +1637,7 @@ $.setupStates = function() {
 	$.states['play'] = function() {
 		$.updateDelta();
 		$.updateScreen();
+		$.updateCombo();
 		$.updateLevel();
 		$.updatePowerupTimers();
 		$.spawnEnemies();
@@ -1562,6 +1700,10 @@ $.setupStates = function() {
 		}
 		$.renderInterface();
 		$.renderMinimap();
+
+		// on-screen buttons (touch pause); action can clear $.buttons mid-loop
+		var bi = $.buttons.length; while( bi-- ){ if( $.buttons[ bi ] ) { $.buttons[ bi ].update( bi ) } }
+			bi = $.buttons.length; while( bi-- ){ if( $.buttons[ bi ] ) { $.buttons[ bi ].render( bi ) } }
 
 		// handle gameover
 		if( $.hero.life <= 0 ) {
@@ -1742,7 +1884,7 @@ $.setupStates = function() {
 			ctx: $.ctxmg,
 			x: $.cw / 2 - 10,
 			y: gameoverTitle.ey + 51,
-			text: 'SCORE\nLEVEL\nKILLS\nBULLETS\nPOWERUPS\nTIME',
+			text: 'SCORE\nLEVEL\nKILLS\nBEST COMBO\nBULLETS\nPOWERUPS\nTIME',
 			hspacing: 1,
 			vspacing: 17,
 			halign: 'right',
@@ -1763,6 +1905,7 @@ $.setupStates = function() {
 				$.util.commas( $.score ) + '\n' +
 				( $.level.current + 1 ) + '\n' +
 				$.util.commas( $.kills ) + '\n' +
+				$.bestCombo + '\n' +
 				$.util.commas( $.bulletsFired ) + '\n' +
 				$.util.commas( $.powerupsCollected ) + '\n' +
 				$.util.convertTime( ( $.elapsed * ( 1000 / 60 ) ) / 1000 )
@@ -1777,6 +1920,40 @@ $.setupStates = function() {
 		} );
 		$.ctxmg.fillStyle = '#fff';
 		$.ctxmg.fill();
+
+		/*==============================================================================
+		Build Summary
+		==============================================================================*/
+		var buildNames = [];
+		for( var bi = 0; bi < $.definitions.upgrades.length; bi++ ) {
+			var def = $.definitions.upgrades[ bi ],
+				owned = $.upgrades[ def.id ] || 0;
+			if( owned > 0 ) {
+				buildNames.push( def.title + ( owned > 1 ? ' X' + owned : '' ) );
+			}
+		}
+		if( buildNames.length > 0 ) {
+			var buildLines = [];
+			for( var bi = 0; bi < buildNames.length; bi += 3 ) {
+				buildLines.push( buildNames.slice( bi, bi + 3 ).join( ', ' ) );
+			}
+			$.ctxmg.beginPath();
+			$.text( {
+				ctx: $.ctxmg,
+				x: $.cw / 2,
+				y: gameoverStatsValues.ey + 25,
+				text: 'BUILD: ' + buildLines.join( '\n' ),
+				hspacing: 1,
+				vspacing: 6,
+				halign: 'center',
+				valign: 'top',
+				scale: 1,
+				snap: 1,
+				render: 1
+			} );
+			$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 0.5)';
+			$.ctxmg.fill();
+		}
 	};
 }
 

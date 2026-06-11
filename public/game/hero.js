@@ -16,6 +16,13 @@ $.Hero = function() {
 	this.fillStyle = '#fff';
 	this.regenRate = 0;
 	this.damageTakenMult = 1;
+	this.dashTick = 0;
+	this.dashDuration = 14;
+	this.dashSpeed = 22;
+	this.dashCooldown = 0;
+	this.dashCooldownMax = 120;
+	this.dashDx = 0;
+	this.dashDy = 0;
 	this.weapon = {
 		fireRate: 5,
 		fireRateTick: 5,
@@ -45,29 +52,78 @@ $.Hero.prototype.update = function() {
 		if( this.regenRate > 0 && this.life < 1 ) {
 			this.life = Math.min( 1, this.life + this.regenRate * $.dt );
 		}
+
 		/*==============================================================================
-		Apply Forces
+		Dash
 		==============================================================================*/
-		if( $.keys.state.up ) {
-			this.vy -= this.accel * $.dt;
-			if( this.vy < -this.vmax ) {
-				this.vy = -this.vmax;
-			}
-		} else if( $.keys.state.down ) {
-			this.vy += this.accel * $.dt;
-			if( this.vy > this.vmax ) {
-				this.vy = this.vmax;
-			}
+		if( this.dashCooldown > 0 ) {
+			this.dashCooldown -= $.dt;
 		}
-		if( $.keys.state.left ) {
-			this.vx -= this.accel * $.dt;
-			if( this.vx < -this.vmax ) {
-				this.vx = -this.vmax;
+		var wantDash = $.keys.pressed.dash || $.dashRequest;
+		$.dashRequest = 0;
+		if( wantDash && this.dashCooldown <= 0 && this.dashTick <= 0 ) {
+			// dash toward movement input, falling back to facing direction
+			var ddx = $.keys.state.right - $.keys.state.left,
+				ddy = $.keys.state.down - $.keys.state.up;
+			if( ddx === 0 && ddy === 0 ) {
+				ddx = Math.cos( this.direction );
+				ddy = Math.sin( this.direction );
+			} else {
+				var dlen = Math.sqrt( ddx * ddx + ddy * ddy );
+				ddx /= dlen;
+				ddy /= dlen;
 			}
-		} else if( $.keys.state.right ) {
-			this.vx += this.accel * $.dt;
-			if( this.vx > this.vmax ) {
-				this.vx = this.vmax;
+			this.dashTick = this.dashDuration;
+			this.dashCooldown = this.dashCooldownMax;
+			this.dashDx = ddx;
+			this.dashDy = ddy;
+			$.audio.play( 'shootAlt' );
+		}
+		if( this.dashTick > 0 ) {
+			this.dashTick -= $.dt;
+			this.vx = this.dashDx * this.dashSpeed;
+			this.vy = this.dashDy * this.dashSpeed;
+			$.particleEmitters.push( new $.ParticleEmitter( {
+				x: this.x,
+				y: this.y,
+				count: 2,
+				spawnRange: this.radius,
+				friction: 0.8,
+				minSpeed: 1,
+				maxSpeed: 4,
+				minDirection: 0,
+				maxDirection: $.twopi,
+				hue: 0,
+				saturation: 0
+			} ) );
+		}
+
+		/*==============================================================================
+		Apply Forces (input is overridden while dashing, or it would clamp
+		the dash velocity back down to vmax)
+		==============================================================================*/
+		if( this.dashTick <= 0 ) {
+			if( $.keys.state.up ) {
+				this.vy -= this.accel * $.dt;
+				if( this.vy < -this.vmax ) {
+					this.vy = -this.vmax;
+				}
+			} else if( $.keys.state.down ) {
+				this.vy += this.accel * $.dt;
+				if( this.vy > this.vmax ) {
+					this.vy = this.vmax;
+				}
+			}
+			if( $.keys.state.left ) {
+				this.vx -= this.accel * $.dt;
+				if( this.vx < -this.vmax ) {
+					this.vx = -this.vmax;
+				}
+			} else if( $.keys.state.right ) {
+				this.vx += this.accel * $.dt;
+				if( this.vx > this.vmax ) {
+					this.vx = this.vmax;
+				}
 			}
 		}
 
@@ -166,10 +222,10 @@ $.Hero.prototype.update = function() {
 		}
 
 		/*==============================================================================
-		Check Collisions
+		Check Collisions (dash grants invincibility frames)
 		==============================================================================*/
 		this.takingDamage = 0;
-		var ei = $.enemies.length;
+		var ei = ( this.dashTick > 0 ) ? 0 : $.enemies.length;
 		while( ei-- ) {
 			var enemy = $.enemies[ ei ];
 			if( enemy.inView && $.util.distance( this.x, this.y, enemy.x, enemy.y ) <= this.radius + enemy.radius ) {
@@ -188,6 +244,7 @@ $.Hero.prototype.update = function() {
 				} ) );
 				this.takingDamage = 1;
 				this.life -= 0.0075 * this.damageTakenMult;
+				$.breakCombo();
 				$.rumble.level = 3;
 				if( Math.floor( $.tick ) % 5 == 0 ){
 					$.audio.play( 'takingDamage' );

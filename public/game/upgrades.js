@@ -122,6 +122,7 @@ $.openUpgradeDraft = function() {
 $.chooseUpgrade = function( id ) {
 	$.upgrades[ id ] = ( $.upgrades[ id ] || 0 ) + 1;
 	$.recomputeUpgrades();
+	$.spawnLullTick = 180;
 	$.lt = Date.now();
 	$.setState( 'play' );
 };
