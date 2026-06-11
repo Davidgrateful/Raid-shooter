@@ -19,14 +19,13 @@ export function Header() {
 
   return (
     <header
-      className={`fixed top-0 left-0 right-0 z-50 flex items-center justify-between gap-2 px-4 py-2 max-sm:px-2 max-sm:py-1 bg-black/70 backdrop-blur-sm border-b border-white/10 transition-transform duration-300 ${
+      className={`fixed top-0 left-0 right-0 z-50 flex items-center justify-end gap-2 px-4 py-2 max-sm:px-2 max-sm:py-1 bg-transparent pointer-events-none transition-transform duration-300 ${
         inAction ? '-translate-y-full' : ''
       }`}
     >
-      <div className="text-sm max-sm:text-[10px] font-bold tracking-wider text-white/80 whitespace-nowrap">
-        RAID SHOOTER
+      <div className="pointer-events-auto">
+        <WalletButton />
       </div>
-      <WalletButton />
     </header>
   );
 }

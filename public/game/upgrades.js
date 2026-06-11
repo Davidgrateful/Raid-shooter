@@ -75,23 +75,26 @@ $.resetUpgrades = function() {
 $.recomputeUpgrades = function() {
 	var u = $.upgrades,
 		weapon = $.hero.weapon,
-		character = $.hero.character || $.currentCharacter();
+		character = $.hero.character || $.currentCharacter(),
+		ability = character.ability || {};
 
-	weapon.baseFireRate = 5 * Math.pow( 0.85, u['rapid'] || 0 );
+	weapon.baseFireRate = 5 * ( ability.fireRate || 1 ) * Math.pow( 0.85, u['rapid'] || 0 );
 	weapon.baseCount = 1 + ( u['multi'] || 0 );
-	weapon.baseBulletSpeed = 10 * Math.pow( 1.2, u['velocity'] || 0 );
+	weapon.baseBulletSpeed = 10 * ( ability.bulletSpeed || 1 ) * Math.pow( 1.2, u['velocity'] || 0 );
 	weapon.basePiercing = ( u['pierce'] || 0 ) > 0 ? 1 : 0;
 	weapon.spread = 0.3 + ( weapon.baseCount - 1 ) * 0.1;
-	weapon.bullet.damage = Math.pow( 1.4, u['heavy'] || 0 );
+	weapon.bullet.damage = ( ability.damage || 1 ) * Math.pow( 1.4, u['heavy'] || 0 );
 
 	$.hero.vmax = 6 * character.speedMult * Math.pow( 1.12, u['thrusters'] || 0 );
 	$.hero.accel = 0.5 * character.speedMult * Math.pow( 1.12, u['thrusters'] || 0 );
 	$.hero.regenRate = ( u['nano'] || 0 ) * 0.0002;
 	$.hero.damageTakenMult = character.damageTakenMult * Math.pow( 0.85, u['hull'] || 0 );
 	$.hero.dashCooldownMax = 120 * character.dashCooldownMult;
+	$.hero.dashDuration = 14 * ( ability.dashDuration || 1 );
 
-	$.powerupDropChance = 0.1 * ( 1 + 0.6 * ( u['lucky'] || 0 ) );
-	$.powerupDuration = 300 * ( 1 + 0.5 * ( u['overcharge'] || 0 ) );
+	$.comboTimerMax = 120 * ( ability.combo || 1 );
+	$.powerupDropChance = 0.1 * ( ability.drop || 1 ) * ( 1 + 0.6 * ( u['lucky'] || 0 ) );
+	$.powerupDuration = 300 * ( ability.powerupDuration || 1 ) * ( 1 + 0.5 * ( u['overcharge'] || 0 ) );
 };
 
 $.getUpgradeChoices = function() {

@@ -152,3 +152,29 @@ export async function getTop(limit = 50): Promise<BoardEntry[]> {
     .sort((a, b) => b.score - a.score)
     .slice(0, limit);
 }
+
+export async function updateName(
+  address: string,
+  name: string
+): Promise<boolean> {
+  if (kvUrl && kvToken) {
+    const raw = (await redis(['HGET', ENTRIES_KEY, address])) as string | null;
+    if (!raw) {
+      return false;
+    }
+    try {
+      const stored = JSON.parse(raw) as BoardEntry;
+      stored.name = name;
+      await redis(['HSET', ENTRIES_KEY, address, JSON.stringify(stored)]);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  const existing = memoryBoard.get(address);
+  if (!existing) {
+    return false;
+  }
+  existing.name = name;
+  return true;
+}

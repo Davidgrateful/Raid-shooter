@@ -220,6 +220,12 @@ $.reset = function() {
 
 	$.hero = new $.Hero();
 	$.resetUpgrades();
+	// FOUNDER-style abilities grant a random starting upgrade
+	if( $.hero.character.ability && $.hero.character.ability.startUpgrade ) {
+		var starters = $.definitions.upgrades;
+		$.upgrades[ starters[ Math.floor( $.util.rand( 0, starters.length ) ) ].id ] = 1;
+		$.recomputeUpgrades();
+	}
 	$.resetSector();
 
 	$.levelPops.push( new $.LevelPop( {
@@ -1174,6 +1180,10 @@ $.registerKill = function( value ) {
 	$.score += value * $.comboMultiplier;
 	$.combo++;
 	$.comboTimer = $.comboTimerMax;
+	var ability = $.hero.character && $.hero.character.ability;
+	if( ability && ability.killHeal && $.hero.life > 0 ) {
+		$.hero.life = Math.min( 1, $.hero.life + ability.killHeal );
+	}
 	$.bestCombo = Math.max( $.bestCombo, $.combo );
 	var multiplier = Math.min( 8, 1 + Math.floor( $.combo / 4 ) );
 	if( multiplier > $.comboMultiplier ) {
@@ -1364,79 +1374,182 @@ $.setState = function( state ) {
 
 	if( state == 'hangar' ) {
 		$.mouse.down = 0;
-		$.hangarIndex = $.storage['character'] || 0;
+		if( !$.hangarKeep ) {
+			$.hangarIndex = $.storage['character'] || 0;
+			$.hangarView = 'ship';
+			$.hangarPage = Math.floor( $.hangarIndex / 8 );
+		}
+		$.hangarKeep = 0;
 
 		var hangarCompact = ( $.ch < 640 ),
 			arrowY = hangarCompact ? Math.floor( $.ch * 0.42 ) : Math.floor( $.ch * 0.38 ),
 			row1Y = $.ch - ( hangarCompact ? 78 : 124 ),
 			row2Y = $.ch - ( hangarCompact ? 30 : 60 );
 
-		$.buttons.push( new $.Button( {
-			x: $.cw / 2 - ( hangarCompact ? 150 : 220 ),
-			y: arrowY,
-			lockedWidth: 89,
-			lockedHeight: 45,
-			scale: 2,
-			title: 'PREV',
-			action: function() {
-				$.mouse.down = 0;
-				$.hangarIndex = ( $.hangarIndex - 1 + $.definitions.characters.length ) % $.definitions.characters.length;
+		if( $.hangarView === 'grid' ) {
+			var cols = 4,
+				gap = 12,
+				cardWidth = Math.min( 210, Math.floor( ( $.cw - 200 - ( cols - 1 ) * gap ) / cols ) ),
+				cardHeight = hangarCompact ? 88 : 150,
+				gridTop = hangarCompact ? 52 : 150,
+				gridWidth = cols * cardWidth + ( cols - 1 ) * gap,
+				gridX = ( $.cw - gridWidth ) / 2,
+				pageStart = $.hangarPage * 8,
+				pageCount = Math.ceil( $.definitions.characters.length / 8 );
+
+			for( var ci = pageStart; ci < Math.min( pageStart + 8, $.definitions.characters.length ); ci++ ) {
+				var slot = ci - pageStart,
+					col = slot % cols,
+					row = Math.floor( slot / cols );
+				$.buttons.push( new $.GridCard( {
+					x: gridX + cardWidth / 2 + col * ( cardWidth + gap ),
+					y: gridTop + cardHeight / 2 + row * ( cardHeight + gap ),
+					width: cardWidth,
+					height: cardHeight,
+					charIndex: ci,
+					def: $.definitions.characters[ ci ]
+				} ) );
 			}
-		} ) );
-		$.buttons.push( new $.Button( {
-			x: $.cw / 2 + ( hangarCompact ? 150 : 220 ),
-			y: arrowY,
-			lockedWidth: 89,
-			lockedHeight: 45,
-			scale: 2,
-			title: 'NEXT',
-			action: function() {
-				$.mouse.down = 0;
-				$.hangarIndex = ( $.hangarIndex + 1 ) % $.definitions.characters.length;
-			}
-		} ) );
-		$.buttons.push( new $.Button( {
-			x: $.cw / 2 - 104,
-			y: row1Y,
-			lockedWidth: 199,
-			lockedHeight: 45,
-			scale: 2,
-			title: 'SELECT',
-			action: function() {
-				$.mouse.down = 0;
-				var def = $.definitions.characters[ $.hangarIndex ];
-				if( $.characterUnlocked( def ) ) {
-					$.storage['character'] = $.hangarIndex;
-					$.updateStorage();
+
+			$.buttons.push( new $.Button( {
+				x: gridX - 56,
+				y: gridTop + cardHeight + gap / 2,
+				lockedWidth: 89,
+				lockedHeight: 45,
+				scale: 2,
+				title: 'PREV',
+				action: function() {
+					$.mouse.down = 0;
+					var pages = Math.ceil( $.definitions.characters.length / 8 );
+					$.hangarPage = ( $.hangarPage - 1 + pages ) % pages;
+					$.hangarKeep = 1;
+					$.setState( 'hangar' );
 				}
-			}
-		} ) );
-		$.buttons.push( new $.Button( {
-			x: $.cw / 2 + 106,
-			y: row1Y,
-			lockedWidth: 199,
-			lockedHeight: 45,
-			scale: 1,
-			title: 'COLOR: ' + $.definitions.shipColors[ $.storage['ship'] || 0 ].title,
-			action: function() {
-				$.mouse.down = 0;
-				$.storage['ship'] = ( ( $.storage['ship'] || 0 ) + 1 ) % $.definitions.shipColors.length;
-				$.updateStorage();
-				this.title = 'COLOR: ' + $.definitions.shipColors[ $.storage['ship'] ].title;
-			}
-		} ) );
-		$.buttons.push( new $.Button( {
-			x: $.cw / 2 + 1,
-			y: row2Y,
-			lockedWidth: 299,
-			lockedHeight: 45,
-			scale: 2,
-			title: 'MENU',
-			action: function() {
-				$.mouse.down = 0;
-				$.setState( 'menu' );
-			}
-		} ) );
+			} ) );
+			$.buttons.push( new $.Button( {
+				x: gridX + gridWidth + 56,
+				y: gridTop + cardHeight + gap / 2,
+				lockedWidth: 89,
+				lockedHeight: 45,
+				scale: 2,
+				title: 'NEXT',
+				action: function() {
+					$.mouse.down = 0;
+					var pages = Math.ceil( $.definitions.characters.length / 8 );
+					$.hangarPage = ( $.hangarPage + 1 ) % pages;
+					$.hangarKeep = 1;
+					$.setState( 'hangar' );
+				}
+			} ) );
+			$.buttons.push( new $.Button( {
+				x: $.cw / 2 - 104,
+				y: row2Y,
+				lockedWidth: 199,
+				lockedHeight: 45,
+				scale: 1,
+				title: 'VIEW: SHIP',
+				action: function() {
+					$.mouse.down = 0;
+					$.hangarView = 'ship';
+					$.hangarKeep = 1;
+					$.setState( 'hangar' );
+				}
+			} ) );
+			$.buttons.push( new $.Button( {
+				x: $.cw / 2 + 106,
+				y: row2Y,
+				lockedWidth: 199,
+				lockedHeight: 45,
+				scale: 2,
+				title: 'MENU',
+				action: function() {
+					$.mouse.down = 0;
+					$.setState( 'menu' );
+				}
+			} ) );
+		} else {
+			$.buttons.push( new $.Button( {
+				x: $.cw / 2 - ( hangarCompact ? 150 : 220 ),
+				y: arrowY,
+				lockedWidth: 89,
+				lockedHeight: 45,
+				scale: 2,
+				title: 'PREV',
+				action: function() {
+					$.mouse.down = 0;
+					$.hangarIndex = ( $.hangarIndex - 1 + $.definitions.characters.length ) % $.definitions.characters.length;
+				}
+			} ) );
+			$.buttons.push( new $.Button( {
+				x: $.cw / 2 + ( hangarCompact ? 150 : 220 ),
+				y: arrowY,
+				lockedWidth: 89,
+				lockedHeight: 45,
+				scale: 2,
+				title: 'NEXT',
+				action: function() {
+					$.mouse.down = 0;
+					$.hangarIndex = ( $.hangarIndex + 1 ) % $.definitions.characters.length;
+				}
+			} ) );
+			$.buttons.push( new $.Button( {
+				x: $.cw / 2 - 104,
+				y: row1Y,
+				lockedWidth: 199,
+				lockedHeight: 45,
+				scale: 2,
+				title: 'SELECT',
+				action: function() {
+					$.mouse.down = 0;
+					var def = $.definitions.characters[ $.hangarIndex ];
+					if( $.characterUnlocked( def ) ) {
+						$.storage['character'] = $.hangarIndex;
+						$.updateStorage();
+					}
+				}
+			} ) );
+			$.buttons.push( new $.Button( {
+				x: $.cw / 2 + 106,
+				y: row1Y,
+				lockedWidth: 199,
+				lockedHeight: 45,
+				scale: 1,
+				title: 'COLOR: ' + $.definitions.shipColors[ $.storage['ship'] || 0 ].title,
+				action: function() {
+					$.mouse.down = 0;
+					$.storage['ship'] = ( ( $.storage['ship'] || 0 ) + 1 ) % $.definitions.shipColors.length;
+					$.updateStorage();
+					this.title = 'COLOR: ' + $.definitions.shipColors[ $.storage['ship'] ].title;
+				}
+			} ) );
+			$.buttons.push( new $.Button( {
+				x: $.cw / 2 - 104,
+				y: row2Y,
+				lockedWidth: 199,
+				lockedHeight: 45,
+				scale: 1,
+				title: 'VIEW: GRID',
+				action: function() {
+					$.mouse.down = 0;
+					$.hangarView = 'grid';
+					$.hangarPage = Math.floor( $.hangarIndex / 8 );
+					$.hangarKeep = 1;
+					$.setState( 'hangar' );
+				}
+			} ) );
+			$.buttons.push( new $.Button( {
+				x: $.cw / 2 + 106,
+				y: row2Y,
+				lockedWidth: 199,
+				lockedHeight: 45,
+				scale: 2,
+				title: 'MENU',
+				action: function() {
+					$.mouse.down = 0;
+					$.setState( 'menu' );
+				}
+			} ) );
+		}
 	}
 
 	if( state == 'board' ) {
@@ -1743,7 +1856,8 @@ $.setupStates = function() {
 		var hangarCompact = ( $.ch < 640 ),
 			def = $.definitions.characters[ $.hangarIndex ],
 			status = $.characterStatus( def ),
-			previewY = hangarCompact ? Math.floor( $.ch * 0.42 ) : Math.floor( $.ch * 0.38 );
+			previewY = hangarCompact ? Math.floor( $.ch * 0.42 ) : Math.floor( $.ch * 0.38 ),
+			gridView = ( $.hangarView === 'grid' );
 
 		$.ctxmg.beginPath();
 		var hangarTitle = $.text( {
@@ -1764,6 +1878,30 @@ $.setupStates = function() {
 		gradient.addColorStop( 1, '#999' );
 		$.ctxmg.fillStyle = gradient;
 		$.ctxmg.fill();
+
+		if( gridView ) {
+			$.ctxmg.beginPath();
+			$.text( {
+				ctx: $.ctxmg,
+				x: $.cw / 2,
+				y: hangarTitle.ey + ( hangarCompact ? 8 : 16 ),
+				text: 'PAGE ' + ( $.hangarPage + 1 ) + ' / ' + Math.ceil( $.definitions.characters.length / 8 ),
+				hspacing: 1,
+				vspacing: 1,
+				halign: 'center',
+				valign: 'top',
+				scale: 1,
+				snap: 1,
+				render: 1
+			} );
+			$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 0.35)';
+			$.ctxmg.fill();
+
+			$.tick += 1;
+			var gi = $.buttons.length; while( gi-- ){ if( $.buttons[ gi ] ) { $.buttons[ gi ].update( gi ) } }
+				gi = $.buttons.length; while( gi-- ){ if( $.buttons[ gi ] ) { $.buttons[ gi ].render( gi ) } }
+			return;
+		}
 
 		// big animated ship preview, facing up
 		var unlocked = $.characterUnlocked( def );
@@ -1789,6 +1927,25 @@ $.setupStates = function() {
 		} );
 		$.ctxmg.fillStyle = unlocked ? 'hsla(0, 0%, 100%, 0.95)' : 'hsla(0, 0%, 100%, 0.4)';
 		$.ctxmg.fill();
+
+		if( def.ability ) {
+			$.ctxmg.beginPath();
+			$.text( {
+				ctx: $.ctxmg,
+				x: $.cw / 2,
+				y: previewY + ( hangarCompact ? 84 : 124 ),
+				text: def.ability.title + ': ' + def.ability.text,
+				hspacing: 1,
+				vspacing: 5,
+				halign: 'center',
+				valign: 'top',
+				scale: 1,
+				snap: 1,
+				render: 1
+			} );
+			$.ctxmg.fillStyle = 'hsla(190, 100%, 70%, 0.8)';
+			$.ctxmg.fill();
+		}
 
 		$.ctxmg.beginPath();
 		$.text( {

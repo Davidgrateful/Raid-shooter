@@ -93,8 +93,30 @@ export function useSIWE() {
       return;
     }
     setAutoPrompted(true);
-    void signIn();
+    // mobile wallets need a beat after connecting before they can take a
+    // signature request (the app switch back is still settling)
+    const timer = setTimeout(() => void signIn(), 1200);
+    return () => clearTimeout(timer);
   }, [isConnected, autoPrompted, state.loading, state.authenticated, address, chainId, signIn]);
+
+  // mobile: returning from the wallet app sometimes drops the signature
+  // prompt; retry once when the page becomes visible again
+  useEffect(() => {
+    const onVisible = () => {
+      if (
+        document.visibilityState === 'visible' &&
+        isConnected &&
+        !state.authenticated &&
+        !state.loading &&
+        address &&
+        chainId
+      ) {
+        void signIn();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [isConnected, state.authenticated, state.loading, address, chainId, signIn]);
 
   return {
     ...state,

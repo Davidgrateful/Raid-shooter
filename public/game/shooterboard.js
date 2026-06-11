@@ -29,6 +29,16 @@ $.promptPilotName = function() {
 	if( input.length >= 3 ) {
 		$.storage['pilotname'] = input;
 		$.updateStorage();
+		// apply the new name to an existing board entry right away
+		if( $.session.authenticated ) {
+			fetch( '/api/leaderboard/name', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify( { name: input } )
+			} )
+				.then( function() { $.fetchBoard(); } )
+				.catch( function() {} );
+		}
 	}
 };
 
