@@ -1303,14 +1303,10 @@ $.setState = function( state ) {
 			lockedWidth: 299,
 			lockedHeight: 49,
 			scale: 2,
-			title: 'SHIP: ' + $.definitions.shipColors[ $.storage['ship'] || 0 ].title,
+			title: 'PILOT: ' + $.currentCharacter().title,
 			action: function() {
 				$.mouse.down = 0;
-				$.storage['ship'] = ( ( $.storage['ship'] || 0 ) + 1 ) % $.definitions.shipColors.length;
-				$.updateStorage();
-				$.hero = new $.Hero();
-				$.recomputeUpgrades();
-				this.title = 'SHIP: ' + $.definitions.shipColors[ $.storage['ship'] ].title;
+				$.setState( 'hangar' );
 			}
 		} );
 		$.buttons.push( shipButton );
@@ -1358,6 +1354,64 @@ $.setState = function( state ) {
 			}
 		} );
 		$.buttons.push( fullscreenButton );
+	}
+
+	if( state == 'hangar' ) {
+		$.mouse.down = 0;
+
+		var hangarCompact = ( $.ch < 640 ),
+			cols = 4,
+			gap = 14,
+			cardWidth = Math.min( 210, Math.floor( ( $.cw - 60 - ( cols - 1 ) * gap ) / cols ) ),
+			cardHeight = hangarCompact ? 105 : 165,
+			gridTop = hangarCompact ? 64 : 170,
+			gridWidth = cols * cardWidth + ( cols - 1 ) * gap,
+			gridX = ( $.cw - gridWidth ) / 2;
+
+		for( var ci = 0; ci < $.definitions.characters.length; ci++ ) {
+			var col = ci % cols,
+				row = Math.floor( ci / cols );
+			$.buttons.push( new $.PilotCard( {
+				x: gridX + cardWidth / 2 + col * ( cardWidth + gap ),
+				y: gridTop + cardHeight / 2 + row * ( cardHeight + gap ),
+				width: cardWidth,
+				height: cardHeight,
+				charIndex: ci,
+				def: $.definitions.characters[ ci ]
+			} ) );
+		}
+
+		var hangarButtonY = gridTop + 2 * cardHeight + gap + ( hangarCompact ? 26 : 40 );
+
+		var colorButton = new $.Button( {
+			x: $.cw / 2 - 105,
+			y: hangarButtonY,
+			lockedWidth: 199,
+			lockedHeight: 45,
+			scale: 1,
+			title: 'COLOR: ' + $.definitions.shipColors[ $.storage['ship'] || 0 ].title,
+			action: function() {
+				$.mouse.down = 0;
+				$.storage['ship'] = ( ( $.storage['ship'] || 0 ) + 1 ) % $.definitions.shipColors.length;
+				$.updateStorage();
+				this.title = 'COLOR: ' + $.definitions.shipColors[ $.storage['ship'] ].title;
+			}
+		} );
+		$.buttons.push( colorButton );
+
+		var hangarMenuButton = new $.Button( {
+			x: $.cw / 2 + 105,
+			y: hangarButtonY,
+			lockedWidth: 199,
+			lockedHeight: 45,
+			scale: 1,
+			title: 'MENU',
+			action: function() {
+				$.mouse.down = 0;
+				$.setState( 'menu' );
+			}
+		} );
+		$.buttons.push( hangarMenuButton );
 	}
 
 	if( state == 'stats' ) {
@@ -1606,6 +1660,38 @@ $.setupStates = function() {
 			$.ctxmg.fill();
 		}
 
+	};
+
+	$.states['hangar'] = function() {
+
+		$.clearScreen();
+
+		var hangarCompact = ( $.ch < 640 );
+		$.ctxmg.beginPath();
+		var hangarTitle = $.text( {
+			ctx: $.ctxmg,
+			x: $.cw / 2,
+			y: hangarCompact ? 48 : 130,
+			text: 'HANGAR',
+			hspacing: 3,
+			vspacing: 1,
+			halign: 'center',
+			valign: 'bottom',
+			scale: hangarCompact ? 5 : 9,
+			snap: 1,
+			render: 1
+		} );
+		var gradient = $.ctxmg.createLinearGradient( hangarTitle.sx, hangarTitle.sy, hangarTitle.sx, hangarTitle.ey );
+		gradient.addColorStop( 0, '#fff' );
+		gradient.addColorStop( 1, '#999' );
+		$.ctxmg.fillStyle = gradient;
+		$.ctxmg.fill();
+
+		// advance the tick so ship previews animate (safe: PLAY/MENU reset it)
+		$.tick += 1;
+
+		var i = $.buttons.length; while( i-- ){ if( $.buttons[ i ] ) { $.buttons[ i ].update( i ) } }
+			i = $.buttons.length; while( i-- ){ if( $.buttons[ i ] ) { $.buttons[ i ].render( i ) } }
 	};
 
 	$.states['stats'] = function() {

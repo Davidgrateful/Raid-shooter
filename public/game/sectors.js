@@ -525,6 +525,8 @@ $.spawnBoss = function() {
 			$.boss = null;
 			$.bossDraftQueued = 1;
 			$.hero.life = Math.min( 1, $.hero.life + 0.35 );
+			$.storage['bosskills'] = ( $.storage['bosskills'] || 0 ) + 1;
+			$.updateStorage();
 			// the boss kill completes the level
 			$.level.kills = $.level.killsToLevel;
 		}

@@ -13,6 +13,8 @@ $.Hero = function() {
 	this.radius = 10;
 	this.life = 1;
 	this.takingDamage = 0;
+	this.character = $.currentCharacter();
+	this.radius = this.character.radius;
 	var shipColor = $.definitions.shipColors[ $.storage['ship'] || 0 ] || $.definitions.shipColors[ 0 ];
 	this.fillStyle = shipColor.color;
 	this.regenRate = 0;
@@ -273,25 +275,8 @@ $.Hero.prototype.render = function() {
 
 		$.ctxmg.save();
 		$.ctxmg.translate( this.x, this.y );
-		$.ctxmg.rotate( this.direction - $.pi / 4 );
-		$.ctxmg.fillStyle = fillStyle;
-		$.ctxmg.fillRect( 0, 0, this.radius, this.radius );
+		$.ctxmg.rotate( this.direction );
+		this.character.draw( $.ctxmg, this.radius, fillStyle, $.tick );
 		$.ctxmg.restore();
-
-		$.ctxmg.save();
-		$.ctxmg.translate( this.x, this.y );	
-		$.ctxmg.rotate( this.direction - $.pi / 4 + $.twopi / 3 );
-		$.ctxmg.fillStyle = fillStyle;
-		$.ctxmg.fillRect( 0, 0, this.radius, this.radius );
-		$.ctxmg.restore();
-
-		$.ctxmg.save();
-		$.ctxmg.translate( this.x, this.y );	
-		$.ctxmg.rotate( this.direction - $.pi / 4 - $.twopi / 3 );
-		$.ctxmg.fillStyle = fillStyle;
-		$.ctxmg.fillRect( 0, 0, this.radius, this.radius );
-		$.ctxmg.restore();
-
-		$.util.fillCircle( $.ctxmg, this.x, this.y, this.radius - 3, fillStyle );
-	}	
+	}
 };
