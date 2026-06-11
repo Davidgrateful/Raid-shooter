@@ -67,6 +67,7 @@ $.init = function() {
 		}
 	};
 	$.isTouchDevice = ( 'ontouchstart' in window ) ? 1 : 0;
+	$.perfLite = $.isTouchDevice;
 	$.okeys = {};
 	$.mouse = {
 		x: $.ww / 2,
@@ -1298,135 +1299,121 @@ $.setState = function( state ) {
 
 		$.reset();
 
-		// compact layout keeps all buttons on short screens (phone landscape)
+		// compact layout: two columns of buttons on short screens (phone
+		// landscape), where a single stacked column runs off the bottom
 		var menuCompact = ( $.ch < 640 ),
-			menuSpacing = menuCompact ? 4 : 25,
-			menuButtonHeight = menuCompact ? 41 : 49,
-			menuStartY = menuCompact ? 106 : $.ch / 2 - 24;
+			menuSpacing = menuCompact ? 8 : 25,
+			menuButtonHeight = menuCompact ? 45 : 49,
+			menuStartY = menuCompact ? 112 : $.ch / 2 - 24;
 
 		$.fetchSession();
 
-		var playButton = new $.Button( {
-			x: $.cw / 2 + 1,
-			y: menuStartY,
-			lockedWidth: 299,
-			lockedHeight: menuButtonHeight,
-			scale: 3,
-			title: 'PLAY',
-			action: function() {
+		var menuDefs = [
+			{ title: 'PLAY', scale: menuCompact ? 2 : 3, action: function() {
 				$.reset();
 				$.audio.play( 'levelup' );
 				$.setState( 'play' );
-			}
-		} );
-		$.buttons.push( playButton );
-
-		var shipButton = new $.Button( {
-			x: $.cw / 2 + 1,
-			y: playButton.ey + menuSpacing,
-			lockedWidth: 299,
-			lockedHeight: menuButtonHeight,
-			scale: 2,
-			title: 'PILOT: ' + $.currentCharacter().title,
-			action: function() {
+			} },
+			{ title: 'PILOT: ' + $.currentCharacter().title, scale: menuCompact ? 1 : 2, action: function() {
 				$.mouse.down = 0;
 				$.setState( 'hangar' );
-			}
-		} );
-		$.buttons.push( shipButton );
-
-		var boardButton = new $.Button( {
-			x: $.cw / 2 + 1,
-			y: shipButton.ey + menuSpacing,
-			lockedWidth: 299,
-			lockedHeight: menuButtonHeight,
-			scale: 2,
-			title: 'SHOOTERBOARD',
-			action: function() {
+			} },
+			{ title: 'SHOOTERBOARD', scale: menuCompact ? 1 : 2, action: function() {
 				$.mouse.down = 0;
 				$.setState( 'board' );
-			}
-		} );
-		$.buttons.push( boardButton );
-
-		var statsButton = new $.Button( {
-			x: $.cw / 2 + 1,
-			y: boardButton.ey + menuSpacing,
-			lockedWidth: 299,
-			lockedHeight: menuButtonHeight,
-			scale: 3,
-			title: 'STATS',
-			action: function() {
+			} },
+			{ title: 'STATS', scale: menuCompact ? 2 : 3, action: function() {
 				$.setState( 'stats' );
-			}
-		} );
-		$.buttons.push( statsButton );
-
-		var creditsButton = new $.Button( {
-			x: $.cw / 2 + 1,
-			y: statsButton.ey + menuSpacing,
-			lockedWidth: 299,
-			lockedHeight: menuButtonHeight,
-			scale: 3,
-			title: 'CREDITS',
-			action: function() {
+			} },
+			{ title: 'CREDITS', scale: menuCompact ? 2 : 3, action: function() {
 				$.setState( 'credits' );
-			}
-		} ) ;
-		$.buttons.push( creditsButton );
-
+			} }
+		];
 		// iPhone Safari has no fullscreen API: skip the dead button there
 		if( document.documentElement.requestFullscreen ) {
-			var fullscreenButton = new $.Button( {
-				x: $.cw / 2 + 1,
-				y: creditsButton.ey + menuSpacing,
-				lockedWidth: 299,
-				lockedHeight: menuButtonHeight,
-				scale: 2,
-				title: 'FULLSCREEN',
-				action: function() {
-					$.mouse.down = 0;
-					if( document.fullscreenElement ) {
-						document.exitFullscreen();
-					} else {
-						document.documentElement.requestFullscreen();
-					}
+			menuDefs.push( { title: 'FULLSCREEN', scale: menuCompact ? 1 : 2, action: function() {
+				$.mouse.down = 0;
+				if( document.fullscreenElement ) {
+					document.exitFullscreen();
+				} else {
+					document.documentElement.requestFullscreen();
 				}
-			} );
-			$.buttons.push( fullscreenButton );
+			} } );
+		}
+
+		for( var mi = 0; mi < menuDefs.length; mi++ ) {
+			var menuX, menuY;
+			if( menuCompact ) {
+				menuX = $.cw / 2 + ( ( mi % 2 ) ? 106 : -104 );
+				menuY = menuStartY + Math.floor( mi / 2 ) * ( menuButtonHeight + menuSpacing );
+			} else {
+				menuX = $.cw / 2 + 1;
+				menuY = menuStartY + mi * ( menuButtonHeight + menuSpacing );
+			}
+			$.buttons.push( new $.Button( {
+				x: menuX,
+				y: menuY,
+				lockedWidth: menuCompact ? 199 : 299,
+				lockedHeight: menuButtonHeight,
+				scale: menuDefs[ mi ].scale,
+				title: menuDefs[ mi ].title,
+				action: menuDefs[ mi ].action
+			} ) );
 		}
 	}
 
 	if( state == 'hangar' ) {
 		$.mouse.down = 0;
+		$.hangarIndex = $.storage['character'] || 0;
 
 		var hangarCompact = ( $.ch < 640 ),
-			cols = 4,
-			gap = 14,
-			cardWidth = Math.min( 210, Math.floor( ( $.cw - 60 - ( cols - 1 ) * gap ) / cols ) ),
-			cardHeight = hangarCompact ? 105 : 165,
-			gridTop = hangarCompact ? 64 : 170,
-			gridWidth = cols * cardWidth + ( cols - 1 ) * gap,
-			gridX = ( $.cw - gridWidth ) / 2;
+			arrowY = hangarCompact ? Math.floor( $.ch * 0.42 ) : Math.floor( $.ch * 0.38 ),
+			row1Y = $.ch - ( hangarCompact ? 78 : 124 ),
+			row2Y = $.ch - ( hangarCompact ? 30 : 60 );
 
-		for( var ci = 0; ci < $.definitions.characters.length; ci++ ) {
-			var col = ci % cols,
-				row = Math.floor( ci / cols );
-			$.buttons.push( new $.PilotCard( {
-				x: gridX + cardWidth / 2 + col * ( cardWidth + gap ),
-				y: gridTop + cardHeight / 2 + row * ( cardHeight + gap ),
-				width: cardWidth,
-				height: cardHeight,
-				charIndex: ci,
-				def: $.definitions.characters[ ci ]
-			} ) );
-		}
-
-		var hangarButtonY = gridTop + 2 * cardHeight + gap + ( hangarCompact ? 26 : 40 );
-
-		var colorButton = new $.Button( {
-			x: $.cw / 2 - 105,
-			y: hangarButtonY,
+		$.buttons.push( new $.Button( {
+			x: $.cw / 2 - ( hangarCompact ? 150 : 220 ),
+			y: arrowY,
+			lockedWidth: 89,
+			lockedHeight: 45,
+			scale: 2,
+			title: 'PREV',
+			action: function() {
+				$.mouse.down = 0;
+				$.hangarIndex = ( $.hangarIndex - 1 + $.definitions.characters.length ) % $.definitions.characters.length;
+			}
+		} ) );
+		$.buttons.push( new $.Button( {
+			x: $.cw / 2 + ( hangarCompact ? 150 : 220 ),
+			y: arrowY,
+			lockedWidth: 89,
+			lockedHeight: 45,
+			scale: 2,
+			title: 'NEXT',
+			action: function() {
+				$.mouse.down = 0;
+				$.hangarIndex = ( $.hangarIndex + 1 ) % $.definitions.characters.length;
+			}
+		} ) );
+		$.buttons.push( new $.Button( {
+			x: $.cw / 2 - 104,
+			y: row1Y,
+			lockedWidth: 199,
+			lockedHeight: 45,
+			scale: 2,
+			title: 'SELECT',
+			action: function() {
+				$.mouse.down = 0;
+				var def = $.definitions.characters[ $.hangarIndex ];
+				if( $.characterUnlocked( def ) ) {
+					$.storage['character'] = $.hangarIndex;
+					$.updateStorage();
+				}
+			}
+		} ) );
+		$.buttons.push( new $.Button( {
+			x: $.cw / 2 + 106,
+			y: row1Y,
 			lockedWidth: 199,
 			lockedHeight: 45,
 			scale: 1,
@@ -1437,32 +1424,44 @@ $.setState = function( state ) {
 				$.updateStorage();
 				this.title = 'COLOR: ' + $.definitions.shipColors[ $.storage['ship'] ].title;
 			}
-		} );
-		$.buttons.push( colorButton );
-
-		var hangarMenuButton = new $.Button( {
-			x: $.cw / 2 + 105,
-			y: hangarButtonY,
-			lockedWidth: 199,
+		} ) );
+		$.buttons.push( new $.Button( {
+			x: $.cw / 2 + 1,
+			y: row2Y,
+			lockedWidth: 299,
 			lockedHeight: 45,
-			scale: 1,
+			scale: 2,
 			title: 'MENU',
 			action: function() {
 				$.mouse.down = 0;
 				$.setState( 'menu' );
 			}
-		} );
-		$.buttons.push( hangarMenuButton );
+		} ) );
 	}
 
 	if( state == 'board' ) {
 		$.mouse.down = 0;
 		$.fetchBoard();
 
-		var boardMenuButton = new $.Button( {
-			x: $.cw / 2 + 1,
+		var nameButton = new $.Button( {
+			x: $.cw / 2 - 104,
 			y: $.ch - 52,
-			lockedWidth: 299,
+			lockedWidth: 199,
+			lockedHeight: 45,
+			scale: 1,
+			title: 'NAME: ' + ( $.storage['pilotname'] || 'SET' ),
+			action: function() {
+				$.mouse.down = 0;
+				$.promptPilotName();
+				this.title = 'NAME: ' + ( $.storage['pilotname'] || 'SET' );
+			}
+		} );
+		$.buttons.push( nameButton );
+
+		var boardMenuButton = new $.Button( {
+			x: $.cw / 2 + 106,
+			y: $.ch - 52,
+			lockedWidth: 199,
 			lockedHeight: 45,
 			scale: 2,
 			title: 'MENU',
@@ -1741,18 +1740,22 @@ $.setupStates = function() {
 
 		$.clearScreen();
 
-		var hangarCompact = ( $.ch < 640 );
+		var hangarCompact = ( $.ch < 640 ),
+			def = $.definitions.characters[ $.hangarIndex ],
+			status = $.characterStatus( def ),
+			previewY = hangarCompact ? Math.floor( $.ch * 0.42 ) : Math.floor( $.ch * 0.38 );
+
 		$.ctxmg.beginPath();
 		var hangarTitle = $.text( {
 			ctx: $.ctxmg,
 			x: $.cw / 2,
-			y: hangarCompact ? 48 : 130,
+			y: hangarCompact ? 60 : 110,
 			text: 'HANGAR',
 			hspacing: 3,
 			vspacing: 1,
 			halign: 'center',
 			valign: 'bottom',
-			scale: hangarCompact ? 5 : 9,
+			scale: hangarCompact ? 4 : 8,
 			snap: 1,
 			render: 1
 		} );
@@ -1760,6 +1763,65 @@ $.setupStates = function() {
 		gradient.addColorStop( 0, '#fff' );
 		gradient.addColorStop( 1, '#999' );
 		$.ctxmg.fillStyle = gradient;
+		$.ctxmg.fill();
+
+		// big animated ship preview, facing up
+		var unlocked = $.characterUnlocked( def );
+		$.ctxmg.save();
+		$.ctxmg.translate( $.cw / 2, previewY );
+		$.ctxmg.rotate( -$.pi / 2 );
+		def.draw( $.ctxmg, hangarCompact ? 18 : 28, unlocked ? '#fff' : 'hsla(0, 0%, 35%, 1)', $.tick );
+		$.ctxmg.restore();
+
+		$.ctxmg.beginPath();
+		$.text( {
+			ctx: $.ctxmg,
+			x: $.cw / 2,
+			y: previewY + ( hangarCompact ? 42 : 64 ),
+			text: def.title,
+			hspacing: 2,
+			vspacing: 1,
+			halign: 'center',
+			valign: 'top',
+			scale: hangarCompact ? 2 : 3,
+			snap: 1,
+			render: 1
+		} );
+		$.ctxmg.fillStyle = unlocked ? 'hsla(0, 0%, 100%, 0.95)' : 'hsla(0, 0%, 100%, 0.4)';
+		$.ctxmg.fill();
+
+		$.ctxmg.beginPath();
+		$.text( {
+			ctx: $.ctxmg,
+			x: $.cw / 2,
+			y: previewY + ( hangarCompact ? 68 : 102 ),
+			text: status.text,
+			hspacing: 1,
+			vspacing: 5,
+			halign: 'center',
+			valign: 'top',
+			scale: 1,
+			snap: 1,
+			render: 1
+		} );
+		$.ctxmg.fillStyle = status.color;
+		$.ctxmg.fill();
+
+		$.ctxmg.beginPath();
+		$.text( {
+			ctx: $.ctxmg,
+			x: $.cw / 2,
+			y: hangarTitle.ey + ( hangarCompact ? 8 : 16 ),
+			text: ( $.hangarIndex + 1 ) + ' / ' + $.definitions.characters.length,
+			hspacing: 1,
+			vspacing: 1,
+			halign: 'center',
+			valign: 'top',
+			scale: 1,
+			snap: 1,
+			render: 1
+		} );
+		$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 0.35)';
 		$.ctxmg.fill();
 
 		// advance the tick so ship previews animate (safe: PLAY/MENU reset it)
@@ -1778,7 +1840,7 @@ $.setupStates = function() {
 		var boardTitle = $.text( {
 			ctx: $.ctxmg,
 			x: $.cw / 2,
-			y: boardCompact ? 44 : 110,
+			y: boardCompact ? 60 : 110,
 			text: 'SHOOTERBOARD',
 			hspacing: 2,
 			vspacing: 1,
@@ -1837,7 +1899,7 @@ $.setupStates = function() {
 					ctx: $.ctxmg,
 					x: leftX,
 					y: rowStartY + ri * rowSpacing,
-					text: $.util.pad( ri + 1, 2 ) + '  ' + $.shortAddress( entry.address ) + '  ' + ( entry.pilot || '' ),
+					text: $.util.pad( ri + 1, 2 ) + '  ' + $.boardDisplayName( entry ) + '  ' + ( entry.pilot || '' ),
 					hspacing: 1,
 					vspacing: 1,
 					halign: 'left',

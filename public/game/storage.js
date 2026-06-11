@@ -22,6 +22,7 @@ $.setupStorage = function() {
 		'ship': 0,
 		'character': 0,
 		'bosskills': 0,
+		'pilotname': '',
 		'rounds': 0,
 		'kills': 0,
 		'bullets': 0,

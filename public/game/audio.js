@@ -1,8 +1,16 @@
 $.audio = {
 	sounds: {},
 	references: [],
+	lastPlayed: {},
 	play: function( sound ) {
 		if( !$.mute ){
+			// throttle rapid repeats of the same sound; unbounded
+			// Audio.play() spam visibly stutters mobile Safari
+			var now = Date.now();
+			if( $.audio.lastPlayed[ sound ] && now - $.audio.lastPlayed[ sound ] < 45 ) {
+				return;
+			}
+			$.audio.lastPlayed[ sound ] = now;
 			var audio = $.audio.sounds[ sound ];
 			if( audio.length > 1 ){
 				audio = $.audio.sounds[ sound ][ Math.floor( $.util.rand( 0, audio.length ) ) ];

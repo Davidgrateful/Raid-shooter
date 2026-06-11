@@ -5,6 +5,7 @@
 
 export interface BoardEntry {
   address: string;
+  name?: string;
   score: number;
   level: number;
   kills: number;
@@ -85,6 +86,22 @@ export async function submitEntry(
     const improved = changed > 0;
     if (improved) {
       await redis(['HSET', ENTRIES_KEY, entry.address, JSON.stringify(entry)]);
+    } else if (entry.name) {
+      // allow a name change to apply without beating the personal best
+      const raw = (await redis(['HGET', ENTRIES_KEY, entry.address])) as
+        | string
+        | null;
+      if (raw) {
+        try {
+          const stored = JSON.parse(raw) as BoardEntry;
+          if (stored.name !== entry.name) {
+            stored.name = entry.name;
+            await redis(['HSET', ENTRIES_KEY, entry.address, JSON.stringify(stored)]);
+          }
+        } catch {
+          // leave a corrupt row alone
+        }
+      }
     }
     const rank = (await redis(['ZREVRANK', BOARD_KEY, entry.address])) as
       | number
@@ -96,6 +113,8 @@ export async function submitEntry(
   const improved = !existing || entry.score > existing.score;
   if (improved) {
     memoryBoard.set(entry.address, entry);
+  } else if (existing && entry.name && existing.name !== entry.name) {
+    existing.name = entry.name;
   }
   return { rank: memoryRank(entry.address), improved };
 }

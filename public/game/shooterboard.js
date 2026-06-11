@@ -16,6 +16,22 @@ $.shortAddress = function( address ) {
 	return ( '0X' + address.slice( 2, 6 ) + ' ' + address.slice( -4 ) ).toUpperCase();
 };
 
+$.boardDisplayName = function( entry ) {
+	return entry.name || $.shortAddress( entry.address );
+};
+
+$.promptPilotName = function() {
+	var input = window.prompt( 'PILOT NAME (3-12 LETTERS/NUMBERS)', $.storage['pilotname'] || '' );
+	if( input === null ) {
+		return;
+	}
+	input = input.toUpperCase().replace( /[^A-Z0-9 ]/g, '' ).replace( /\s+/g, ' ' ).trim().slice( 0, 12 );
+	if( input.length >= 3 ) {
+		$.storage['pilotname'] = input;
+		$.updateStorage();
+	}
+};
+
 $.fetchSession = function() {
 	return fetch( '/api/siwe/session' )
 		.then( function( res ) { return res.json(); } )
@@ -76,7 +92,8 @@ $.submitScore = function() {
 				kills: runKills,
 				combo: runCombo,
 				pilot: runPilot,
-				time: runTime
+				time: runTime,
+				name: $.storage['pilotname'] || undefined
 			} )
 		} )
 			.then( function( res ) {

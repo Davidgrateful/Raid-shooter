@@ -26,7 +26,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'invalid_body' }, { status: 400 });
   }
 
-  const { score, level, kills, combo, pilot, time } = body as Record<string, unknown>;
+  const { score, level, kills, combo, pilot, time, name } = body as Record<string, unknown>;
+
+  // optional display name: 3-12 chars, letters/digits/spaces only
+  let displayName: string | undefined;
+  if (typeof name === 'string') {
+    const cleaned = name.toUpperCase().replace(/\s+/g, ' ').trim();
+    if (/^[A-Z0-9 ]{3,12}$/.test(cleaned)) {
+      displayName = cleaned;
+    }
+  }
   if (
     !isInt(score, 1, 5_000_000) ||
     !isInt(level, 1, 500) ||
@@ -52,6 +61,7 @@ export async function POST(req: NextRequest) {
     }
     const result = await submitEntry({
       address: session.siwe.address.toLowerCase(),
+      name: displayName,
       score,
       level,
       kills,

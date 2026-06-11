@@ -5,6 +5,11 @@ $.ParticleEmitter = function( opt ) {
 	for( var k in opt ) {
 		this[k] = opt[k];
 	}
+	// lite mode (mobile): halve particle counts and stop spawning entirely
+	// under heavy load so weaker GPUs keep their frame rate
+	if( $.perfLite ) {
+		this.count = ( $.particleEmitters.length > 60 ) ? 0 : Math.max( 1, Math.ceil( this.count / 2 ) );
+	}
 	this.particles = [];
 	for( var i = 0; i < this.count; i++ ) {
 		var radius = Math.sqrt( Math.random() ) * this.spawnRange,
