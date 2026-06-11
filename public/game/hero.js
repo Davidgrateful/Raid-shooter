@@ -118,7 +118,9 @@ $.Hero.prototype.update = function() {
 		if( this.weapon.fireRateTick < this.weapon.fireRate ){
 			this.weapon.fireRateTick += $.dt;
 		} else {
-			if ( $.vjoyLeft.active || $.mouse.down ) {
+			// touch: the right (aim) joystick fires; desktop: held mouse fires.
+			// movement-only touches (left joystick) no longer trigger fire.
+			if ( $.vjoyRight.active || ( $.mouse.down && !$.vjoyLeft.active ) || $.autofire ) {
 				$.audio.play( 'shoot' );
 				if( $.powerupTimers[ 2 ] > 0 || $.powerupTimers[ 3 ] > 0 || $.powerupTimers[ 4 ] > 0) {
 					$.audio.play( 'shootAlt' );

@@ -781,6 +781,7 @@ $.mousedowncb = function( e ) {
 	e.preventDefault();
 	$.mouse.down = 1;
 
+	var isTouch = !!e.changedTouches;
 	var touches = e.changedTouches ? e.changedTouches : [e];
 
 	for( var i = 0; i < touches.length; i++ ) {
@@ -802,7 +803,9 @@ $.mousedowncb = function( e ) {
 			}
 		}
 
-		if( !buttonHovered ) {
+		// virtual joysticks are touch-only: on desktop the mouse aims and
+		// fires directly, so spawning a joystick would hijack WASD movement
+		if( !buttonHovered && isTouch ) {
 			if( tx < $.cw / 2 && !$.vjoyLeft.active ) {
 				$.vjoyLeft.active = 1;
 				$.vjoyLeft.ox = tx;
@@ -941,16 +944,13 @@ $.updateScreen = function() {
 	$.screen.x += xSnap * $.dt;
 	$.screen.y += ySnap * $.dt;
 
-	// update rumble levels, keep X and Y changes consistent, apply rumble
+	// screen shake disabled: drain rumble level without offsetting the view
 	if( $.rumble.level > 0 ) {
 		$.rumble.level -= $.rumble.decay;
 		$.rumble.level = ( $.rumble.level < 0 ) ? 0 : $.rumble.level;
-		$.rumble.x = $.util.rand( -$.rumble.level, $.rumble.level );
-		$.rumble.y = $.util.rand( -$.rumble.level, $.rumble.level );
-	} else {
-		$.rumble.x = 0;
-		$.rumble.y = 0;
 	}
+	$.rumble.x = 0;
+	$.rumble.y = 0;
 
 	//$.screen.x -= $.rumble.x;
 	//$.screen.y -= $.rumble.y;
