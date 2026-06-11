@@ -219,6 +219,7 @@ $.reset = function() {
 
 	$.hero = new $.Hero();
 	$.resetUpgrades();
+	$.resetSector();
 
 	$.levelPops.push( new $.LevelPop( {
 		level: 1
@@ -792,6 +793,10 @@ $.spawnEnemies = function() {
 		$.spawnLullTick -= $.dt;
 		return;
 	}
+	// boss fights own the arena: no regular wave spawns
+	if( $.boss ) {
+		return;
+	}
 	var floorTick = Math.floor( $.tick );
 	for( var i = 0; i < $.level.distributionCount; i++ ) {
 		var timeCheck = $.level.distribution[ i ];
@@ -1190,6 +1195,11 @@ $.updateLevel = function() {
 		$.levelPops.push( new $.LevelPop( {
 			level: $.level.current + 1
 		} ) );
+		$.updateSector();
+		// a boss guards every fifth level
+		if( ( $.level.current + 1 ) % 5 === 0 ) {
+			$.spawnBoss();
+		}
 		$.openUpgradeDraft();
 	}
 };
@@ -1738,6 +1748,7 @@ $.setupStates = function() {
 		$.updateScreen();
 		$.updateCombo();
 		$.updateLevel();
+		$.updateHazards();
 		$.updatePowerupTimers();
 		$.spawnEnemies();
 		$.enemyOffsetMod += ( $.slow ) ? $.dt / 3 : $.dt;
@@ -1756,6 +1767,7 @@ $.setupStates = function() {
 		$.clearScreen();
 		$.ctxmg.save();
 		$.ctxmg.translate( $.screen.x - $.rumble.x, $.screen.y - $.rumble.y );
+		$.renderHazards();
 		i = $.enemies.length; while( i-- ){ $.enemies[ i ].render( i ) }
 		i = $.explosions.length; while( i-- ){ $.explosions[ i ].render( i ) }
 		i = $.powerups.length; while( i-- ){ $.powerups[ i ].render( i ) }
@@ -1797,6 +1809,7 @@ $.setupStates = function() {
 			$.ctxmg.fillStyle = 'rgba(255, 255, 255, 0.5)';
 			$.ctxmg.fill();
 		}
+		$.renderSectorOverlay();
 		$.renderInterface();
 		$.renderMinimap();
 

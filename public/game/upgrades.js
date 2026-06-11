@@ -125,6 +125,11 @@ $.chooseUpgrade = function( id ) {
 	$.spawnLullTick = 180;
 	$.lt = Date.now();
 	$.setState( 'play' );
+	// a boss kill grants a bonus second pick
+	if( $.bossDraftQueued ) {
+		$.bossDraftQueued = 0;
+		$.openUpgradeDraft();
+	}
 };
 
 /*==============================================================================
