@@ -19,27 +19,7 @@ $.init = function() {
 	$.ctxbg4 = $.cbg4.getContext( '2d' );
 	$.ctxmg = $.cmg.getContext( '2d' );
 	$.ctxfg = $.cfg.getContext( '2d' );
-	$.cw = $.cmg.width = $.cfg.width = window.innerWidth;
-	$.ch = $.cmg.height = $.cfg.height = window.innerHeight;
-	$.wrap.style.width = $.wrapInner.style.width = $.cw + 'px';
-	$.wrap.style.height = $.wrapInner.style.height = $.ch + 'px';
-	$.wrap.style.marginLeft = '0px';
-	$.wrap.style.marginTop = '0px';
-	$.ww = Math.floor( $.cw * 2 );
-	$.wh = Math.floor( $.ch * 2 );
-	$.cbg1.width = Math.floor( $.cw * 1.1 );
-	$.cbg1.height = Math.floor( $.ch * 1.1 );
-	$.cbg2.width = Math.floor( $.cw * 1.15 );
-	$.cbg2.height = Math.floor( $.ch * 1.15 );
-	$.cbg3.width = Math.floor( $.cw * 1.2 );
-	$.cbg3.height = Math.floor( $.ch * 1.2 );
-	$.cbg4.width = Math.floor( $.cw * 1.25 );
-	$.cbg4.height = Math.floor( $.ch * 1.25 );
-
-	$.screen = {
-		x: ( $.ww - $.cw ) / -2,
-		y: ( $.wh - $.ch ) / -2
-	};
+	$.setupCanvasSizes();
 
 	$.mute = $.storage['mute'];
 	$.autofire = $.storage['autofire'];
@@ -99,15 +79,6 @@ $.init = function() {
 	};
 	$.buttons = [];
 
-	$.minimap = {
-		x: 20,
-		y: $.ch - Math.floor( $.ch * 0.1 ) - 20,
-		width: Math.floor( $.cw * 0.1 ),
-		height: Math.floor( $.ch * 0.1 ),
-		scale: Math.floor( $.cw * 0.1 ) / $.ww,
-		color: 'hsla(0, 0%, 0%, 0.85)',
-		strokeColor: '#3a3a3a'
-	},
 	$.cOffset = {
 		left: 0,
 		top: 0,
@@ -138,6 +109,44 @@ $.init = function() {
 	$.renderFavicon();
 	$.setState( 'menu' );
 	$.loop();
+};
+
+/*==============================================================================
+Canvas Sizing (run at init and again when the screen changes, e.g. a phone
+rotating to landscape or entering fullscreen)
+==============================================================================*/
+$.setupCanvasSizes = function() {
+	$.cw = $.cmg.width = $.cfg.width = window.innerWidth;
+	$.ch = $.cmg.height = $.cfg.height = window.innerHeight;
+	$.wrap.style.width = $.wrapInner.style.width = $.cw + 'px';
+	$.wrap.style.height = $.wrapInner.style.height = $.ch + 'px';
+	$.wrap.style.marginLeft = '0px';
+	$.wrap.style.marginTop = '0px';
+	$.ww = Math.floor( $.cw * 2 );
+	$.wh = Math.floor( $.ch * 2 );
+	$.cbg1.width = Math.floor( $.cw * 1.1 );
+	$.cbg1.height = Math.floor( $.ch * 1.1 );
+	$.cbg2.width = Math.floor( $.cw * 1.15 );
+	$.cbg2.height = Math.floor( $.ch * 1.15 );
+	$.cbg3.width = Math.floor( $.cw * 1.2 );
+	$.cbg3.height = Math.floor( $.ch * 1.2 );
+	$.cbg4.width = Math.floor( $.cw * 1.25 );
+	$.cbg4.height = Math.floor( $.ch * 1.25 );
+
+	$.screen = {
+		x: ( $.ww - $.cw ) / -2,
+		y: ( $.wh - $.ch ) / -2
+	};
+
+	$.minimap = {
+		x: 20,
+		y: $.ch - Math.floor( $.ch * 0.1 ) - 20,
+		width: Math.floor( $.cw * 0.1 ),
+		height: Math.floor( $.ch * 0.1 ),
+		scale: Math.floor( $.cw * 0.1 ) / $.ww,
+		color: 'hsla(0, 0%, 0%, 0.85)',
+		strokeColor: '#3a3a3a'
+	};
 };
 
 /*==============================================================================
@@ -960,7 +969,7 @@ $.keyupcb = function( e ) {
 	if( e === 16 || e === 32 ){ $.keys.state.dash = 0; }
 }
 
-$.resizecb = function( e ) {
+$.updateCanvasOffset = function() {
 	var rect = $.cmg.getBoundingClientRect();
 	$.cOffset = {
 		left: rect.left,
@@ -968,6 +977,27 @@ $.resizecb = function( e ) {
 		width: rect.width,
 		height: rect.height
 	}
+}
+
+$.resizecb = function( e ) {
+	$.updateCanvasOffset();
+
+	// re-fit the game to the new screen while idle in a menu (covers phones
+	// rotating to landscape and entering/leaving fullscreen); a mid-run
+	// resize is left alone so it cannot disrupt gameplay
+	clearTimeout( $.resizeTimeout );
+	$.resizeTimeout = setTimeout( function() {
+		if( $.state === 'menu' || $.state === 'stats' || $.state === 'credits' ) {
+			$.setupCanvasSizes();
+			$.renderBackground1();
+			$.renderBackground2();
+			$.renderBackground3();
+			$.renderBackground4();
+			$.renderForeground();
+			$.setState( $.state );
+			$.updateCanvasOffset();
+		}
+	}, 250 );
 }
 
 $.blurcb = function() {
@@ -1217,9 +1247,14 @@ $.setState = function( state ) {
 
 		$.reset();
 
+		// compact layout keeps all buttons on short screens (phone landscape)
+		var menuCompact = ( $.ch < 640 ),
+			menuSpacing = menuCompact ? 6 : 25,
+			menuStartY = menuCompact ? 110 : $.ch / 2 - 24;
+
 		var playButton = new $.Button( {
 			x: $.cw / 2 + 1,
-			y: $.ch / 2 - 24,
+			y: menuStartY,
 			lockedWidth: 299,
 			lockedHeight: 49,
 			scale: 3,
@@ -1232,9 +1267,27 @@ $.setState = function( state ) {
 		} );
 		$.buttons.push( playButton );
 
+		var shipButton = new $.Button( {
+			x: $.cw / 2 + 1,
+			y: playButton.ey + menuSpacing,
+			lockedWidth: 299,
+			lockedHeight: 49,
+			scale: 2,
+			title: 'SHIP: ' + $.definitions.shipColors[ $.storage['ship'] || 0 ].title,
+			action: function() {
+				$.mouse.down = 0;
+				$.storage['ship'] = ( ( $.storage['ship'] || 0 ) + 1 ) % $.definitions.shipColors.length;
+				$.updateStorage();
+				$.hero = new $.Hero();
+				$.recomputeUpgrades();
+				this.title = 'SHIP: ' + $.definitions.shipColors[ $.storage['ship'] ].title;
+			}
+		} );
+		$.buttons.push( shipButton );
+
 		var statsButton = new $.Button( {
 			x: $.cw / 2 + 1,
-			y: playButton.ey + 25,
+			y: shipButton.ey + menuSpacing,
 			lockedWidth: 299,
 			lockedHeight: 49,
 			scale: 3,
@@ -1247,7 +1300,7 @@ $.setState = function( state ) {
 
 		var creditsButton = new $.Button( {
 			x: $.cw / 2 + 1,
-			y: statsButton.ey + 26,
+			y: statsButton.ey + menuSpacing,
 			lockedWidth: 299,
 			lockedHeight: 49,
 			scale: 3,
@@ -1257,6 +1310,24 @@ $.setState = function( state ) {
 			}
 		} ) ;
 		$.buttons.push( creditsButton );
+
+		var fullscreenButton = new $.Button( {
+			x: $.cw / 2 + 1,
+			y: creditsButton.ey + menuSpacing,
+			lockedWidth: 299,
+			lockedHeight: 49,
+			scale: 2,
+			title: 'FULLSCREEN',
+			action: function() {
+				$.mouse.down = 0;
+				if( document.fullscreenElement ) {
+					document.exitFullscreen();
+				} else if( document.documentElement.requestFullscreen ) {
+					document.documentElement.requestFullscreen();
+				}
+			}
+		} );
+		$.buttons.push( fullscreenButton );
 	}
 
 	if( state == 'stats' ) {
@@ -1448,6 +1519,11 @@ $.setState = function( state ) {
 
 	// set state
 	$.state = state;
+
+	// let the page shell (header etc) react to the game state
+	if( typeof CustomEvent === 'function' ) {
+		window.dispatchEvent( new CustomEvent( 'raidshooter:state', { detail: state } ) );
+	}
 };
 
 $.setupStates = function() {
@@ -1460,17 +1536,18 @@ $.setupStates = function() {
 		var i = $.buttons.length; while( i-- ){ $.buttons[ i ].update( i ) }
 			i = $.buttons.length; while( i-- ){ $.buttons[ i ].render( i ) }
 
+		var menuCompact = ( $.ch < 640 );
 		$.ctxmg.beginPath();
 		var title = $.text( {
 			ctx: $.ctxmg,
 			x: $.cw / 2,
-			y: $.ch / 2 - 100,
+			y: menuCompact ? 70 : $.ch / 2 - 100,
 			text: 'RAID SHOOTER',
 			hspacing: 2,
 			vspacing: 1,
 			halign: 'center',
 			valign: 'bottom',
-			scale: 10,
+			scale: menuCompact ? 6 : 10,
 			snap: 1,
 			render: 1
 		} );
@@ -1480,22 +1557,24 @@ $.setupStates = function() {
 		$.ctxmg.fillStyle = gradient;
 		$.ctxmg.fill();
 
-		$.ctxmg.beginPath();
-		var bottomInfo = $.text( {
-			ctx: $.ctxmg,
-			x: $.cw / 2,
-			y: $.ch - 172,
-			text: 'CREATED BY MELVINCYPHER 2022',
-			hspacing: 1,
-			vspacing: 1,
-			halign: 'center',
-			valign: 'bottom',
-			scale: 1,
-			snap: 1,
-			render: 1
-		} );
-		$.ctxmg.fillStyle = '#666';
-		$.ctxmg.fill();
+		if( !menuCompact ) {
+			$.ctxmg.beginPath();
+			var bottomInfo = $.text( {
+				ctx: $.ctxmg,
+				x: $.cw / 2,
+				y: $.ch - 172,
+				text: 'CREATED BY MELVINCYPHER 2022',
+				hspacing: 1,
+				vspacing: 1,
+				halign: 'center',
+				valign: 'bottom',
+				scale: 1,
+				snap: 1,
+				render: 1
+			} );
+			$.ctxmg.fillStyle = '#666';
+			$.ctxmg.fill();
+		}
 
 	};
 

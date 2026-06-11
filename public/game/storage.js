@@ -19,6 +19,7 @@ $.setupStorage = function() {
 		'score': 0,
 		'level': 0,
 		'combo': 0,
+		'ship': 0,
 		'rounds': 0,
 		'kills': 0,
 		'bullets': 0,

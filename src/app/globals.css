@@ -11,6 +11,47 @@ body {
   padding: 0;
   overflow: hidden;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, monospace;
+  /* gameplay owns all touch gestures: no scroll, no pinch, no double-tap zoom */
+  touch-action: none;
+  overscroll-behavior: none;
+}
+
+/* Landscape prompt for touch devices held in portrait */
+#rotate-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: var(--game-bg);
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  text-align: center;
+  letter-spacing: 0.25em;
+}
+
+@media (orientation: portrait) and (pointer: coarse) {
+  #rotate-overlay {
+    display: flex;
+  }
+}
+
+#rotate-overlay .phone {
+  width: 44px;
+  height: 76px;
+  border: 3px solid #fff;
+  border-radius: 8px;
+  animation: rotate-hint 1.8s ease-in-out infinite;
+}
+
+@keyframes rotate-hint {
+  0%, 25% {
+    transform: rotate(0deg);
+  }
+  60%, 100% {
+    transform: rotate(90deg);
+  }
 }
 
 /* Game container styles - match the original game's styling */

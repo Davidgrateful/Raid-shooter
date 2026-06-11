@@ -13,7 +13,8 @@ $.Hero = function() {
 	this.radius = 10;
 	this.life = 1;
 	this.takingDamage = 0;
-	this.fillStyle = '#fff';
+	var shipColor = $.definitions.shipColors[ $.storage['ship'] || 0 ] || $.definitions.shipColors[ 0 ];
+	this.fillStyle = shipColor.color;
 	this.regenRate = 0;
 	this.damageTakenMult = 1;
 	this.dashTick = 0;
@@ -38,7 +39,7 @@ $.Hero = function() {
 			damage: 1,
 			speed: 10,
 			piercing: 0,
-			strokeStyle: '#fff'
+			strokeStyle: shipColor.color
 		},
 		fireFlag: 0
 	};	
