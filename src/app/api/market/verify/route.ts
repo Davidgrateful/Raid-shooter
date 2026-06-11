@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
     ];
 
     const address = session.siwe.address.toLowerCase();
-    const priceWei = BigInt(Math.round(parseFloat(item.priceEth) * 1e6)) * 10n ** 12n;
+    const priceWei = BigInt(Math.round(parseFloat(item.priceEth) * 1e6)) * BigInt('1000000000000');
     if (
       !tx ||
       !receipt ||
