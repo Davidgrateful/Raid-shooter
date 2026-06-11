@@ -1312,9 +1312,9 @@ $.setState = function( state ) {
 		// compact layout: two columns of buttons on short screens (phone
 		// landscape), where a single stacked column runs off the bottom
 		var menuCompact = ( $.ch < 640 ),
-			menuSpacing = menuCompact ? 8 : 25,
+			menuSpacing = menuCompact ? 8 : 22,
 			menuButtonHeight = menuCompact ? 45 : 49,
-			menuStartY = menuCompact ? 112 : $.ch / 2 - 24;
+			menuStartY = menuCompact ? 112 : $.ch / 2 - 80;
 
 		$.fetchSession();
 
@@ -1327,6 +1327,10 @@ $.setState = function( state ) {
 			{ title: 'PILOT: ' + $.currentCharacter().title, scale: menuCompact ? 1 : 2, action: function() {
 				$.mouse.down = 0;
 				$.setState( 'hangar' );
+			} },
+			{ title: 'MARKET', scale: menuCompact ? 2 : 3, action: function() {
+				$.mouse.down = 0;
+				$.setState( 'market' );
 			} },
 			{ title: 'SHOOTERBOARD', scale: menuCompact ? 1 : 2, action: function() {
 				$.mouse.down = 0;
@@ -1352,14 +1356,8 @@ $.setState = function( state ) {
 		}
 
 		for( var mi = 0; mi < menuDefs.length; mi++ ) {
-			var menuX, menuY;
-			if( menuCompact ) {
-				menuX = $.cw / 2 + ( ( mi % 2 ) ? 106 : -104 );
+			var menuX = $.cw / 2 + ( ( mi % 2 ) ? ( menuCompact ? 106 : 156 ) : ( menuCompact ? -104 : -154 ) ),
 				menuY = menuStartY + Math.floor( mi / 2 ) * ( menuButtonHeight + menuSpacing );
-			} else {
-				menuX = $.cw / 2 + 1;
-				menuY = menuStartY + mi * ( menuButtonHeight + menuSpacing );
-			}
 			$.buttons.push( new $.Button( {
 				x: menuX,
 				y: menuY,
@@ -1523,9 +1521,31 @@ $.setState = function( state ) {
 				}
 			} ) );
 			$.buttons.push( new $.Button( {
-				x: $.cw / 2 - 104,
+				x: $.cw / 2 - 160,
 				y: row2Y,
-				lockedWidth: 199,
+				lockedWidth: 149,
+				lockedHeight: 45,
+				scale: 1,
+				title: 'TRAIL: ' + ( $.equippedTrail() ? $.equippedTrail().title : 'NONE' ),
+				action: function() {
+					$.mouse.down = 0;
+					// cycle through NONE plus owned trails
+					var owned = [ '' ];
+					for( var ti = 0; ti < $.definitions.trails.length; ti++ ) {
+						if( $.ownsItem( $.definitions.trails[ ti ].id ) ) {
+							owned.push( $.definitions.trails[ ti ].id );
+						}
+					}
+					var current = owned.indexOf( $.storage['trail'] || '' );
+					$.storage['trail'] = owned[ ( current + 1 ) % owned.length ];
+					$.updateStorage();
+					this.title = 'TRAIL: ' + ( $.equippedTrail() ? $.equippedTrail().title : 'NONE' );
+				}
+			} ) );
+			$.buttons.push( new $.Button( {
+				x: $.cw / 2 + 1,
+				y: row2Y,
+				lockedWidth: 149,
 				lockedHeight: 45,
 				scale: 1,
 				title: 'VIEW: GRID',
@@ -1538,11 +1558,11 @@ $.setState = function( state ) {
 				}
 			} ) );
 			$.buttons.push( new $.Button( {
-				x: $.cw / 2 + 106,
+				x: $.cw / 2 + 160,
 				y: row2Y,
-				lockedWidth: 199,
+				lockedWidth: 149,
 				lockedHeight: 45,
-				scale: 2,
+				scale: 1,
 				title: 'MENU',
 				action: function() {
 					$.mouse.down = 0;
@@ -1550,6 +1570,62 @@ $.setState = function( state ) {
 				}
 			} ) );
 		}
+	}
+
+	if( state == 'market' ) {
+		$.mouse.down = 0;
+		$.purchase = { status: '', itemId: null };
+		// fetch once; the fetch callback rebuilds this screen when it lands
+		if( !$.marketState.fetched && !$.marketState.loading ) {
+			$.fetchMarket();
+			$.fetchProfile();
+		}
+
+		var marketCompact = ( $.ch < 640 ),
+			itemWidth = marketCompact ? 259 : 419,
+			itemHeight = marketCompact ? 39 : 45,
+			itemGap = marketCompact ? 6 : 10,
+			itemStartY = marketCompact ? 86 : 180;
+
+		// item buttons are rebuilt whenever the screen is (re)entered, so
+		// titles always reflect current ownership
+		var buildItem = function( item, index ) {
+			var owned = $.ownsItem( item.id ),
+				label = item.title + '   ' + ( item.comingSoon ? 'SOON' : ( owned ? 'OWNED' : item.priceEth + ' ETH' ) ),
+				column = marketCompact ? ( index % 2 ) : 0,
+				row = marketCompact ? Math.floor( index / 2 ) : index,
+				x = marketCompact ? ( $.cw / 2 + ( column ? 136 : -134 ) ) : $.cw / 2 + 1;
+			$.buttons.push( new $.Button( {
+				x: x,
+				y: itemStartY + row * ( itemHeight + itemGap ),
+				lockedWidth: itemWidth,
+				lockedHeight: itemHeight,
+				scale: 1,
+				title: label,
+				action: function() {
+					$.mouse.down = 0;
+					if( !owned && !item.comingSoon ) {
+						$.buyItem( item );
+					}
+				}
+			} ) );
+		};
+		for( var ii = 0; ii < $.marketState.items.length; ii++ ) {
+			buildItem( $.marketState.items[ ii ], ii );
+		}
+
+		var marketMenuButton = new $.Button( {
+			x: $.cw / 2 + 1,
+			y: $.ch - ( marketCompact ? 30 : 56 ),
+			lockedWidth: 299,
+			lockedHeight: 45,
+			scale: 2,
+			title: 'MENU',
+			action: function() {
+				$.setState( 'menu' );
+			}
+		} );
+		$.buttons.push( marketMenuButton );
 	}
 
 	if( state == 'board' ) {
@@ -1812,7 +1888,7 @@ $.setupStates = function() {
 		var title = $.text( {
 			ctx: $.ctxmg,
 			x: $.cw / 2,
-			y: menuCompact ? 70 : $.ch / 2 - 100,
+			y: menuCompact ? 70 : $.ch / 2 - 150,
 			text: 'RAID SHOOTER',
 			hspacing: 2,
 			vspacing: 1,
@@ -1983,6 +2059,75 @@ $.setupStates = function() {
 
 		// advance the tick so ship previews animate (safe: PLAY/MENU reset it)
 		$.tick += 1;
+
+		var i = $.buttons.length; while( i-- ){ if( $.buttons[ i ] ) { $.buttons[ i ].update( i ) } }
+			i = $.buttons.length; while( i-- ){ if( $.buttons[ i ] ) { $.buttons[ i ].render( i ) } }
+	};
+
+	$.states['market'] = function() {
+
+		$.clearScreen();
+
+		var marketCompact = ( $.ch < 640 );
+		$.ctxmg.beginPath();
+		var marketTitle = $.text( {
+			ctx: $.ctxmg,
+			x: $.cw / 2,
+			y: marketCompact ? 60 : 120,
+			text: 'MARKET',
+			hspacing: 3,
+			vspacing: 1,
+			halign: 'center',
+			valign: 'bottom',
+			scale: marketCompact ? 4 : 8,
+			snap: 1,
+			render: 1
+		} );
+		var gradient = $.ctxmg.createLinearGradient( marketTitle.sx, marketTitle.sy, marketTitle.sx, marketTitle.ey );
+		gradient.addColorStop( 0, '#fff' );
+		gradient.addColorStop( 1, '#999' );
+		$.ctxmg.fillStyle = gradient;
+		$.ctxmg.fill();
+
+		$.ctxmg.beginPath();
+		$.text( {
+			ctx: $.ctxmg,
+			x: $.cw / 2,
+			y: marketTitle.ey + ( marketCompact ? 6 : 14 ),
+			text: $.marketState.enabled ? 'COSMETICS ONLY. NO PAY TO WIN. SETTLED ON BASE' : 'COSMETICS ONLY. NO PAY TO WIN. PAYMENTS LIVE SOON',
+			hspacing: 1,
+			vspacing: 1,
+			halign: 'center',
+			valign: 'top',
+			scale: 1,
+			snap: 1,
+			render: 1
+		} );
+		$.ctxmg.fillStyle = 'hsla(45, 100%, 65%, 0.7)';
+		$.ctxmg.fill();
+
+		var statusText = $.purchaseStatusText();
+		if( $.marketState.loading && !$.marketState.fetched ) {
+			statusText = 'LOADING';
+		}
+		if( statusText ) {
+			$.ctxmg.beginPath();
+			$.text( {
+				ctx: $.ctxmg,
+				x: $.cw / 2,
+				y: $.ch - ( marketCompact ? 58 : 92 ),
+				text: statusText,
+				hspacing: 2,
+				vspacing: 1,
+				halign: 'center',
+				valign: 'bottom',
+				scale: 1,
+				snap: 1,
+				render: 1
+			} );
+			$.ctxmg.fillStyle = ( $.purchase.status === 'done' ) ? 'hsla(45, 100%, 65%, 1)' : 'hsla(0, 0%, 100%, 0.6)';
+			$.ctxmg.fill();
+		}
 
 		var i = $.buttons.length; while( i-- ){ if( $.buttons[ i ] ) { $.buttons[ i ].update( i ) } }
 			i = $.buttons.length; while( i-- ){ if( $.buttons[ i ] ) { $.buttons[ i ].render( i ) } }

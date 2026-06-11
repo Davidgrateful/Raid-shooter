@@ -1,5 +1,5 @@
 import { cookieStorage, createStorage } from 'wagmi';
-import { mainnet, sepolia } from '@reown/appkit/networks';
+import { mainnet, sepolia, base, baseSepolia } from '@reown/appkit/networks';
 import { WagmiAdapter } from '@reown/appkit-adapter-wagmi';
 
 // Reown Cloud project ID — get one at https://cloud.reown.com
@@ -11,8 +11,8 @@ if (!projectId) {
   );
 }
 
-// Chains to support — easy to extend
-export const networks = [mainnet, sepolia] as const;
+// Chains to support — Base is the marketplace settlement chain
+export const networks = [base, baseSepolia, mainnet, sepolia] as const;
 
 // Wagmi adapter bridges Reown AppKit with wagmi hooks
 export const wagmiAdapter = new WagmiAdapter({

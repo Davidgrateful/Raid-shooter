@@ -102,6 +102,26 @@ $.Hero.prototype.update = function() {
 		}
 
 		/*==============================================================================
+		Equipped Trail (cosmetic)
+		==============================================================================*/
+		var trail = $.equippedTrail();
+		if( trail && Math.floor( $.tick ) % 3 === 0 && ( Math.abs( this.vx ) + Math.abs( this.vy ) ) > 1 ) {
+			$.particleEmitters.push( new $.ParticleEmitter( {
+				x: this.x - Math.cos( this.direction ) * this.radius,
+				y: this.y - Math.sin( this.direction ) * this.radius,
+				count: 1,
+				spawnRange: 2,
+				friction: 0.82,
+				minSpeed: 0.5,
+				maxSpeed: 2,
+				minDirection: 0,
+				maxDirection: $.twopi,
+				hue: trail.hue,
+				saturation: 100
+			} ) );
+		}
+
+		/*==============================================================================
 		Apply Forces (input is overridden while dashing, or it would clamp
 		the dash velocity back down to vmax)
 		==============================================================================*/
