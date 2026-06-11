@@ -771,6 +771,21 @@ $.spawnEnemy = function( type ) {
 	return new $.Enemy( params );
 };
 
+$.makeElite = function( enemy ) {
+	var kinds = [ 'FAST', 'ARMORED', 'REGEN' ],
+		kind = kinds[ Math.floor( $.util.rand( 0, kinds.length ) ) ];
+	enemy.elite = kind;
+	enemy.value = enemy.value * 3;
+	if( kind === 'FAST' ) {
+		enemy.speed *= 1.7;
+	} else if( kind === 'ARMORED' ) {
+		enemy.life = enemy.lifeMax = enemy.lifeMax * 3;
+		enemy.radius = Math.floor( enemy.radius * 1.15 );
+	} else {
+		enemy.regen = enemy.lifeMax * 0.004;
+	}
+};
+
 $.spawnEnemies = function() {
 	// breathing room after an upgrade draft before the next wave
 	if( $.spawnLullTick > 0 ) {
@@ -784,7 +799,12 @@ $.spawnEnemies = function() {
 			timeCheck = Math.max( 1, timeCheck - ( $.levelDiffOffset * 2) );
 		}
 		if( floorTick % timeCheck === 0 ) {
-			$.enemies.push( $.spawnEnemy( i ) );
+			var enemy = $.spawnEnemy( i );
+			// elites start appearing from level 4, getting more common with depth
+			if( $.level.current >= 3 && Math.random() < Math.min( 0.16, 0.04 + $.level.current * 0.01 ) ) {
+				$.makeElite( enemy );
+			}
+			$.enemies.push( enemy );
 		}
 	}
 };

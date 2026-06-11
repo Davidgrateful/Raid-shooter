@@ -45,6 +45,51 @@ $.Enemy.prototype.update = function( i ) {
 	this.behavior();
 
 	/*==============================================================================
+	Detonation (set by kamikaze-style behaviors)
+	==============================================================================*/
+	if( this.exploded ) {
+		if( this.inView ) {
+			$.audio.play( 'explosionAlt' );
+		}
+		$.explosions.push( new $.Explosion( {
+			x: this.x,
+			y: this.y,
+			radius: this.blastRadius,
+			hue: this.hue,
+			saturation: this.saturation
+		} ) );
+		$.particleEmitters.push( new $.ParticleEmitter( {
+			x: this.x,
+			y: this.y,
+			count: 20,
+			spawnRange: 5,
+			friction: 0.9,
+			minSpeed: 2,
+			maxSpeed: 18,
+			minDirection: 0,
+			maxDirection: $.twopi,
+			hue: this.hue,
+			saturation: this.saturation
+		} ) );
+		// the dash i-frames also dodge the blast
+		if( $.hero.life > 0 && $.hero.dashTick <= 0 && $.util.distance( this.x, this.y, $.hero.x, $.hero.y ) <= this.blastRadius + $.hero.radius ) {
+			$.hero.life -= 0.2 * $.hero.damageTakenMult;
+			$.breakCombo();
+			$.rumble.level = 10;
+			$.audio.play( 'takingDamage' );
+		}
+		$.enemies.splice( i, 1 );
+		return;
+	}
+
+	/*==============================================================================
+	Elite Regeneration
+	==============================================================================*/
+	if( this.regen && this.life < this.lifeMax ) {
+		this.life = Math.min( this.lifeMax, this.life + this.regen * $.dt );
+	}
+
+	/*==============================================================================
 	Apply Forces
 	==============================================================================*/
 	this.x += this.vx * $.dt;
@@ -154,7 +199,13 @@ $.Enemy.prototype.render = function( i ) {
 		if( this.hitFlag > 0 ) {
 			this.hitFlag -= $.dt;
 			$.util.fillCircle( $.ctxmg, this.x, this.y, this.radius, 'hsla(' + this.hue + ', ' + this.saturation + '%, 75%, ' + this.hitFlag / 10 + ')' );
-			$.util.strokeCircle( $.ctxmg, this.x, this.y, this.radius, 'hsla(' + this.hue + ', ' + this.saturation + '%, ' + $.util.rand( 60, 90) + '%, ' + this.hitFlag / 10 + ')', $.util.rand( 1, 10) );	
+			$.util.strokeCircle( $.ctxmg, this.x, this.y, this.radius, 'hsla(' + this.hue + ', ' + this.saturation + '%, ' + $.util.rand( 60, 90) + '%, ' + this.hitFlag / 10 + ')', $.util.rand( 1, 10) );
+		}
+		if( this.elite ) {
+			$.util.strokeCircle( $.ctxmg, this.x, this.y, this.radius + 5 + Math.cos( $.tick / 8 ) * 2, 'hsla(' + this.hue + ', 100%, 80%, 0.9)', 2 );
+		}
+		if( this.renderExtra ) {
+			this.renderExtra();
 		}
 		this.renderHealth();
 	}

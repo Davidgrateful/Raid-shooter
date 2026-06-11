@@ -233,6 +233,65 @@ $.definitions.enemies = [
 			this.vy = Math.sin( this.direction ) * speed;
 		}
 	},
+	{ // Kamikaze comet - charges the hero, arms, then detonates
+		value: 30,
+		speed: 2.4,
+		life: 1,
+		radius: 14,
+		hue: 15,
+		fuseTick: 0,
+		fuseMax: 26,
+		armed: 0,
+		blastRadius: 100,
+		behavior: function() {
+			var speed = this.speed;
+			if( $.slow ) {
+				speed = this.speed / $.slowEnemyDivider;
+			}
+
+			var dx = $.hero.x - this.x,
+				dy = $.hero.y - this.y,
+				dist = Math.sqrt( dx * dx + dy * dy ),
+				direction = Math.atan2( dy, dx );
+
+			if( !this.armed ) {
+				this.vx = Math.cos( direction ) * speed * 1.6;
+				this.vy = Math.sin( direction ) * speed * 1.6;
+				if( dist < 110 ) {
+					this.armed = 1;
+				}
+				if( this.inView && Math.floor( $.tick ) % 4 === 0 ) {
+					$.particleEmitters.push( new $.ParticleEmitter( {
+						x: this.x,
+						y: this.y,
+						count: 1,
+						spawnRange: this.radius / 2,
+						friction: 0.8,
+						minSpeed: 1,
+						maxSpeed: 3,
+						minDirection: 0,
+						maxDirection: $.twopi,
+						hue: this.hue
+					} ) );
+				}
+			} else {
+				this.vx = Math.cos( direction ) * speed * 0.5;
+				this.vy = Math.sin( direction ) * speed * 0.5;
+				this.fuseTick += $.dt;
+				var flash = ( Math.floor( $.tick / 3 ) % 2 );
+				this.fillStyle = flash ? 'hsla(15, 100%, 80%, 0.6)' : 'hsla(15, 100%, 50%, 0.2)';
+				this.strokeStyle = flash ? 'hsla(15, 100%, 90%, 1)' : 'hsla(15, 100%, 60%, 1)';
+				if( this.fuseTick >= this.fuseMax ) {
+					this.exploded = 1;
+				}
+			}
+		},
+		renderExtra: function() {
+			if( this.armed ) {
+				$.util.strokeCircle( $.ctxmg, this.x, this.y, this.blastRadius, 'hsla(15, 100%, 60%, ' + ( 0.15 + ( this.fuseTick / this.fuseMax ) * 0.5 ) + ')', 1 );
+			}
+		}
+	},
 	{ // Enemy 5 - stealth, hard to see - move directly hero
 		value: 30,
 		speed: 1,
@@ -271,6 +330,61 @@ $.definitions.enemies = [
 				direction = Math.atan2( dy, dx );
 			this.vx = Math.cos( direction ) * speed;
 			this.vy = Math.sin( direction ) * speed;
+		}
+	},
+	{ // Healer orb - keeps its distance and heals nearby enemies
+		value: 40,
+		speed: 1,
+		life: 3,
+		radius: 22,
+		hue: 140,
+		healRadius: 200,
+		healRate: 0.012,
+		behavior: function() {
+			var speed = this.speed;
+			if( $.slow ) {
+				speed = this.speed / $.slowEnemyDivider;
+			}
+
+			var dx = $.hero.x - this.x,
+				dy = $.hero.y - this.y,
+				dist = Math.sqrt( dx * dx + dy * dy ),
+				direction = Math.atan2( dy, dx );
+
+			if( dist < 380 ) {
+				this.vx = -Math.cos( direction ) * speed;
+				this.vy = -Math.sin( direction ) * speed;
+			} else {
+				this.vx *= 0.95;
+				this.vy *= 0.95;
+			}
+
+			for( var ei = 0; ei < $.enemies.length; ei++ ) {
+				var other = $.enemies[ ei ];
+				if( other !== this && other.life > 0 && other.life < other.lifeMax && $.util.distance( this.x, this.y, other.x, other.y ) <= this.healRadius ) {
+					other.life = Math.min( other.lifeMax, other.life + this.healRate * $.dt );
+					if( this.inView && Math.floor( $.tick ) % 10 === 0 ) {
+						$.particleEmitters.push( new $.ParticleEmitter( {
+							x: other.x,
+							y: other.y,
+							count: 1,
+							spawnRange: other.radius,
+							friction: 0.8,
+							minSpeed: 1,
+							maxSpeed: 3,
+							minDirection: 0,
+							maxDirection: $.twopi,
+							hue: 140
+						} ) );
+					}
+				}
+			}
+		},
+		renderExtra: function() {
+			$.util.strokeCircle( $.ctxmg, this.x, this.y, this.healRadius, 'hsla(140, 100%, 60%, 0.08)', 1 );
+			$.ctxmg.fillStyle = 'hsla(140, 100%, 70%, 0.9)';
+			$.ctxmg.fillRect( this.x - 2, this.y - 8, 4, 16 );
+			$.ctxmg.fillRect( this.x - 8, this.y - 2, 16, 4 );
 		}
 	},
 	{ // Enemy 7 - small weak speedy
@@ -327,6 +441,77 @@ $.definitions.enemies = [
 					lightness = $.util.rand( 50, 80 );
 				this.fillStyle ='hsla(' + hue + ', 100%, ' + lightness + '%, 0.2)';
 				this.strokeStyle = 'hsla(' + hue + ', 100%, ' + lightness + '%, 1)';
+			}
+		}
+	},
+	{ // Sniper drone - keeps range, telegraphs with a laser, fires a fast bolt
+		value: 50,
+		speed: 1.4,
+		life: 2,
+		radius: 18,
+		hue: 275,
+		aimTick: 0,
+		aimMax: 80,
+		behavior: function() {
+			var speed = this.speed;
+			if( $.slow ) {
+				speed = this.speed / $.slowEnemyDivider;
+			}
+
+			var dx = $.hero.x - this.x,
+				dy = $.hero.y - this.y,
+				dist = Math.sqrt( dx * dx + dy * dy ),
+				direction = Math.atan2( dy, dx );
+			this.aimDirection = direction;
+
+			if( dist > 520 ) {
+				this.vx = Math.cos( direction ) * speed;
+				this.vy = Math.sin( direction ) * speed;
+			} else if( dist < 320 ) {
+				this.vx = -Math.cos( direction ) * speed;
+				this.vy = -Math.sin( direction ) * speed;
+			} else {
+				this.vx = Math.cos( direction + $.pi / 2 ) * speed * 0.4;
+				this.vy = Math.sin( direction + $.pi / 2 ) * speed * 0.4;
+			}
+
+			this.aimTick += ( $.slow ) ? $.dt / $.slowEnemyDivider : $.dt;
+			if( this.aimTick >= this.aimMax ) {
+				this.aimTick = -$.util.rand( 40, 100 );
+				if( this.inView ) {
+					$.audio.play( 'shootAlt' );
+				}
+				$.enemies.push( new $.Enemy( {
+					value: 5,
+					speed: 8,
+					life: 1,
+					radius: 6,
+					hue: 275,
+					lockBounds: 1,
+					x: this.x + Math.cos( direction ) * ( this.radius + 8 ),
+					y: this.y + Math.sin( direction ) * ( this.radius + 8 ),
+					type: this.type,
+					direction: direction,
+					behavior: function() {
+						var boltSpeed = this.speed;
+						if( $.slow ) {
+							boltSpeed = this.speed / $.slowEnemyDivider;
+						}
+						this.vx = Math.cos( this.direction ) * boltSpeed;
+						this.vy = Math.sin( this.direction ) * boltSpeed;
+					}
+				} ) );
+			}
+		},
+		renderExtra: function() {
+			if( this.aimTick > this.aimMax * 0.35 ) {
+				var charge = Math.min( 1, this.aimTick / this.aimMax );
+				$.ctxmg.beginPath();
+				$.ctxmg.moveTo( this.x + Math.cos( this.aimDirection ) * this.radius, this.y + Math.sin( this.aimDirection ) * this.radius );
+				$.ctxmg.lineTo( this.x + Math.cos( this.aimDirection ) * 700, this.y + Math.sin( this.aimDirection ) * 700 );
+				$.ctxmg.lineWidth = Math.max( 0.5, charge * 1.5 );
+				$.ctxmg.strokeStyle = 'hsla(275, 100%, 70%, ' + ( 0.1 + charge * 0.5 ) + ')';
+				$.ctxmg.stroke();
 			}
 		}
 	},
