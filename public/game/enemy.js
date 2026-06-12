@@ -1,97 +1,196 @@
 /*==============================================================================
-Enemy Shapes
+Enemy Shapes - animated neon creatures
 
-Silhouette-coded bodies replacing the legacy circles: arrows chase,
-hexagons tank, petals heal, spikes explode. Drawn with the context
-translated to the enemy center and rotated to its travel direction.
+Layered glow (wide faint stroke under a hot thin stroke), pulsing cores,
+and moving parts: mandibles snap, wings flicker, armor counter-rotates,
+engines burn. Context arrives translated to the enemy and rotated to its
+travel direction; +x is forward. The passed fill/stroke follow behavior
+color animation (kamikaze flash, grower rainbow), glow layers use hue.
 ==============================================================================*/
+$.hsla = function( h, s, l, a ) {
+	return 'hsla(' + h + ', ' + s + '%, ' + l + '%, ' + a + ')';
+};
+
+$.neonStroke = function( ctx, hue, sat, stroke ) {
+	ctx.lineWidth = 6;
+	ctx.strokeStyle = $.hsla( hue, sat, 60, 0.22 );
+	ctx.stroke();
+	ctx.lineWidth = 1.8;
+	ctx.strokeStyle = stroke;
+	ctx.stroke();
+};
+
+$.coreEye = function( ctx, x, y, r, hue, sat, tick ) {
+	var pulse = 0.6 + Math.cos( tick / 6 ) * 0.25;
+	ctx.beginPath(); ctx.arc( x, y, r * 1.7, 0, $.twopi );
+	ctx.fillStyle = $.hsla( hue, sat, 70, 0.18 * pulse + 0.08 ); ctx.fill();
+	ctx.beginPath(); ctx.arc( x, y, r, 0, $.twopi );
+	ctx.fillStyle = $.hsla( hue, sat, 85, pulse ); ctx.fill();
+};
+
+$.exhaust = function( ctx, x, r, hue, tick ) {
+	var flame = r * ( 0.8 + Math.random() * 0.7 );
+	ctx.beginPath();
+	ctx.moveTo( x, r * 0.3 ); ctx.lineTo( x - flame, 0 ); ctx.lineTo( x, -r * 0.3 );
+	ctx.closePath();
+	ctx.fillStyle = $.hsla( hue, 100, 70, 0.55 );
+	ctx.fill();
+};
+
 $.enemyShapes = {
-	orb: function( ctx, r, fill, stroke ) {
+	orb: function( ctx, r, fill, stroke, tick, e ) {
 		ctx.beginPath(); ctx.arc( 0, 0, r, 0, $.twopi );
 		ctx.fillStyle = fill; ctx.fill();
-		ctx.lineWidth = 2; ctx.strokeStyle = stroke; ctx.stroke();
+		$.neonStroke( ctx, e.hue, e.saturation, stroke );
+		$.coreEye( ctx, 0, 0, r * 0.3, e.hue, e.saturation, tick );
 	},
-	shuttle: function( ctx, r, fill, stroke ) {
+	// patrol drone: angular hull, canopy slit, twin burning engines
+	shuttle: function( ctx, r, fill, stroke, tick, e ) {
+		$.exhaust( ctx, -r * 0.9, r * 0.7, e.hue, tick );
 		ctx.beginPath();
-		ctx.moveTo( r * 1.3, 0 ); ctx.lineTo( r * 0.5, r * 0.6 ); ctx.lineTo( -r * 0.9, r * 0.6 );
-		ctx.lineTo( -r * 0.9, -r * 0.6 ); ctx.lineTo( r * 0.5, -r * 0.6 );
+		ctx.moveTo( r * 1.4, 0 ); ctx.lineTo( r * 0.4, r * 0.65 ); ctx.lineTo( -r * 0.7, r * 0.45 );
+		ctx.lineTo( -r * 0.95, 0 ); ctx.lineTo( -r * 0.7, -r * 0.45 ); ctx.lineTo( r * 0.4, -r * 0.65 );
 		ctx.closePath();
 		ctx.fillStyle = fill; ctx.fill();
-		ctx.lineWidth = 2; ctx.strokeStyle = stroke; ctx.stroke();
-	},
-	slant: function( ctx, r, fill, stroke ) {
+		$.neonStroke( ctx, e.hue, e.saturation, stroke );
 		ctx.beginPath();
-		ctx.moveTo( r, -r * 0.7 ); ctx.lineTo( r * 0.3, r * 0.7 ); ctx.lineTo( -r, r * 0.7 ); ctx.lineTo( -r * 0.3, -r * 0.7 );
+		ctx.moveTo( r * 0.9, 0 ); ctx.lineTo( r * 0.1, r * 0.28 ); ctx.lineTo( r * 0.1, -r * 0.28 );
+		ctx.closePath();
+		ctx.fillStyle = $.hsla( e.hue, e.saturation, 85, 0.8 + Math.cos( tick / 9 ) * 0.2 );
+		ctx.fill();
+	},
+	// razor wing: swept blade, hot leading edge, tilting wingtips
+	slant: function( ctx, r, fill, stroke, tick, e ) {
+		var tilt = Math.cos( tick / 11 ) * r * 0.15;
+		ctx.beginPath();
+		ctx.moveTo( r * 1.2, -r * 0.15 );
+		ctx.lineTo( r * 0.1, r * 0.75 + tilt ); ctx.lineTo( -r * 1.1, r * 0.55 + tilt );
+		ctx.lineTo( -r * 0.45, -r * 0.1 );
+		ctx.lineTo( -r * 1.1, -r * 0.55 - tilt ); ctx.lineTo( r * 0.1, -r * 0.75 - tilt );
 		ctx.closePath();
 		ctx.fillStyle = fill; ctx.fill();
-		ctx.lineWidth = 2; ctx.strokeStyle = stroke; ctx.stroke();
-	},
-	chevron: function( ctx, r, fill, stroke ) {
+		$.neonStroke( ctx, e.hue, e.saturation, stroke );
 		ctx.beginPath();
-		ctx.moveTo( r * 1.2, 0 ); ctx.lineTo( -r * 0.8, r * 0.9 ); ctx.lineTo( -r * 0.2, 0 ); ctx.lineTo( -r * 0.8, -r * 0.9 );
+		ctx.moveTo( r * 1.2, -r * 0.15 ); ctx.lineTo( r * 0.1, r * 0.75 + tilt );
+		ctx.lineWidth = 2.5;
+		ctx.strokeStyle = $.hsla( e.hue, e.saturation, 90, 0.9 );
+		ctx.stroke();
+	},
+	// fang: predator head with snapping mandibles and a hunting eye
+	chevron: function( ctx, r, fill, stroke, tick, e ) {
+		var jaw = 0.35 + ( Math.cos( tick / 7 ) + 1 ) * 0.22;
+		ctx.beginPath();
+		ctx.moveTo( r * 0.9, 0 ); ctx.lineTo( -r * 0.7, r * 0.8 ); ctx.lineTo( -r * 0.25, 0 ); ctx.lineTo( -r * 0.7, -r * 0.8 );
 		ctx.closePath();
 		ctx.fillStyle = fill; ctx.fill();
-		ctx.lineWidth = 2; ctx.strokeStyle = stroke; ctx.stroke();
-	},
-	block: function( ctx, r, fill, stroke ) {
+		$.neonStroke( ctx, e.hue, e.saturation, stroke );
+		// mandibles
+		ctx.lineWidth = 2.2;
+		ctx.strokeStyle = $.hsla( e.hue, e.saturation, 80, 1 );
 		ctx.beginPath();
-		ctx.rect( -r * 0.85, -r * 0.85, r * 1.7, r * 1.7 );
+		ctx.moveTo( r * 0.5, r * 0.35 );
+		ctx.quadraticCurveTo( r * 1.25, r * jaw, r * 1.5, r * ( jaw - 0.25 ) );
+		ctx.moveTo( r * 0.5, -r * 0.35 );
+		ctx.quadraticCurveTo( r * 1.25, -r * jaw, r * 1.5, -r * ( jaw - 0.25 ) );
+		ctx.stroke();
+		$.coreEye( ctx, r * 0.05, 0, r * 0.22, e.hue, e.saturation, tick );
+	},
+	// cube brute: wireframe depth, glowing seams, caged core
+	block: function( ctx, r, fill, stroke, tick, e ) {
+		var o = r * 0.3;
+		ctx.beginPath(); ctx.rect( -r * 0.85 - o, -r * 0.85 - o, r * 1.7, r * 1.7 );
+		ctx.lineWidth = 1.2; ctx.strokeStyle = $.hsla( e.hue, e.saturation, 50, 0.45 ); ctx.stroke();
+		ctx.beginPath();
+		ctx.moveTo( -r * 0.85 - o, -r * 0.85 - o ); ctx.lineTo( -r * 0.85, -r * 0.85 );
+		ctx.moveTo( r * 0.85 - o, -r * 0.85 - o ); ctx.lineTo( r * 0.85, -r * 0.85 );
+		ctx.moveTo( -r * 0.85 - o, r * 0.85 - o ); ctx.lineTo( -r * 0.85, r * 0.85 );
+		ctx.moveTo( r * 0.85 - o, r * 0.85 - o ); ctx.lineTo( r * 0.85, r * 0.85 );
+		ctx.stroke();
+		ctx.beginPath(); ctx.rect( -r * 0.85, -r * 0.85, r * 1.7, r * 1.7 );
 		ctx.fillStyle = fill; ctx.fill();
-		ctx.lineWidth = 2; ctx.strokeStyle = stroke; ctx.stroke();
-		// seams show where it will split apart
-		ctx.lineWidth = 1;
+		$.neonStroke( ctx, e.hue, e.saturation, stroke );
+		var seam = 0.5 + ( Math.cos( tick / 8 ) + 1 ) * 0.25;
+		ctx.lineWidth = 1.5;
+		ctx.strokeStyle = $.hsla( e.hue, e.saturation, 85, seam );
 		ctx.beginPath();
 		ctx.moveTo( 0, -r * 0.85 ); ctx.lineTo( 0, r * 0.85 );
 		ctx.moveTo( -r * 0.85, 0 ); ctx.lineTo( r * 0.85, 0 );
 		ctx.stroke();
+		$.coreEye( ctx, 0, 0, r * 0.2, e.hue, e.saturation, tick );
 	},
-	tumbler: function( ctx, r, fill, stroke, tick ) {
-		ctx.rotate( tick / 30 );
-		ctx.beginPath();
-		ctx.moveTo( r, -r * 0.3 ); ctx.lineTo( r * 0.2, r * 0.9 ); ctx.lineTo( -r * 0.9, r * 0.4 ); ctx.lineTo( -r * 0.7, -r * 0.8 );
-		ctx.closePath();
-		ctx.fillStyle = fill; ctx.fill();
-		ctx.lineWidth = 2; ctx.strokeStyle = stroke; ctx.stroke();
-	},
-	comet: function( ctx, r, fill, stroke ) {
-		ctx.beginPath();
-		ctx.moveTo( r * 1.2, 0 );
-		ctx.quadraticCurveTo( 0, r * 0.95, -r, 0 );
-		ctx.quadraticCurveTo( 0, -r * 0.95, r * 1.2, 0 );
-		ctx.closePath();
-		ctx.fillStyle = fill; ctx.fill();
-		ctx.lineWidth = 2; ctx.strokeStyle = stroke; ctx.stroke();
-		// warning spikes
-		ctx.fillStyle = stroke;
-		for( var s = 0; s < 3; s++ ) {
-			var a = -$.pi * 0.6 + s * $.pi * 0.6;
+	// scrap golem: three jagged fragments orbiting a furious core
+	tumbler: function( ctx, r, fill, stroke, tick, e ) {
+		for( var f = 0; f < 3; f++ ) {
+			ctx.save();
+			ctx.rotate( tick / ( 22 + f * 9 ) + f * $.twopi / 3 );
+			ctx.translate( r * 0.55, 0 );
+			ctx.rotate( tick / 15 );
 			ctx.beginPath();
-			ctx.moveTo( Math.cos( a ) * r * 0.9 + r * 0.3, Math.sin( a ) * r * 0.9 );
-			ctx.lineTo( Math.cos( a ) * ( r * 1.5 ) + r * 0.3, Math.sin( a ) * ( r * 1.5 ) );
-			ctx.lineTo( Math.cos( a + 0.45 ) * r * 0.75 + r * 0.3, Math.sin( a + 0.45 ) * r * 0.75 );
+			ctx.moveTo( r * 0.5, 0 ); ctx.lineTo( 0, r * 0.42 ); ctx.lineTo( -r * 0.45, r * 0.08 ); ctx.lineTo( -r * 0.2, -r * 0.4 );
 			ctx.closePath();
+			ctx.fillStyle = fill; ctx.fill();
+			$.neonStroke( ctx, e.hue, e.saturation, stroke );
+			ctx.restore();
+		}
+		$.coreEye( ctx, 0, 0, r * 0.3, e.hue, e.saturation, tick );
+	},
+	// hellfire: burning core dragging a living flame tail
+	comet: function( ctx, r, fill, stroke, tick, e ) {
+		for( var t = 0; t < 3; t++ ) {
+			var flame = r * ( 1.2 + t * 0.5 + Math.random() * 0.6 );
+			ctx.beginPath();
+			ctx.moveTo( -r * 0.2, r * ( 0.55 - t * 0.14 ) );
+			ctx.lineTo( -flame, 0 );
+			ctx.lineTo( -r * 0.2, -r * ( 0.55 - t * 0.14 ) );
+			ctx.closePath();
+			ctx.fillStyle = $.hsla( e.hue + t * 12, 100, 60 + t * 10, 0.4 - t * 0.1 );
 			ctx.fill();
 		}
-	},
-	wasp: function( ctx, r, fill, stroke ) {
-		ctx.beginPath();
-		ctx.moveTo( r * 1.5, 0 ); ctx.lineTo( -r * 0.4, r * 0.5 ); ctx.lineTo( -r * 1.1, 0 ); ctx.lineTo( -r * 0.4, -r * 0.5 );
-		ctx.closePath();
+		ctx.beginPath(); ctx.arc( r * 0.25, 0, r * 0.85, 0, $.twopi );
 		ctx.fillStyle = fill; ctx.fill();
-		ctx.lineWidth = 2; ctx.strokeStyle = stroke; ctx.stroke();
-		ctx.beginPath();
-		ctx.moveTo( 0, r * 0.4 ); ctx.lineTo( -r * 0.5, r * 1.1 );
-		ctx.moveTo( 0, -r * 0.4 ); ctx.lineTo( -r * 0.5, -r * 1.1 );
-		ctx.lineWidth = 1.5; ctx.stroke();
+		$.neonStroke( ctx, e.hue, e.saturation, stroke );
+		$.coreEye( ctx, r * 0.35, 0, r * 0.32, e.hue, e.saturation, e.armed ? tick * 3 : tick );
 	},
-	sliver: function( ctx, r, fill, stroke ) {
-		ctx.beginPath();
-		ctx.moveTo( r * 1.5, 0 ); ctx.lineTo( -r * 1.2, r * 0.35 ); ctx.lineTo( -r * 1.2, -r * 0.35 );
-		ctx.closePath();
+	// stinger wasp: segmented insect, flickering wings, venom tip
+	wasp: function( ctx, r, fill, stroke, tick, e ) {
+		var wingUp = ( Math.floor( tick / 3 ) % 2 );
+		ctx.lineWidth = 1.4;
+		ctx.strokeStyle = $.hsla( e.hue, 60, 85, wingUp ? 0.7 : 0.25 );
+		ctx.beginPath(); ctx.ellipse( -r * 0.15, -r * 0.75, r * 0.7, r * 0.28, -0.5, 0, $.twopi ); ctx.stroke();
+		ctx.strokeStyle = $.hsla( e.hue, 60, 85, wingUp ? 0.25 : 0.7 );
+		ctx.beginPath(); ctx.ellipse( -r * 0.15, r * 0.75, r * 0.7, r * 0.28, 0.5, 0, $.twopi ); ctx.stroke();
+		ctx.beginPath(); ctx.ellipse( -r * 0.65, 0, r * 0.6, r * 0.42, 0, 0, $.twopi );
 		ctx.fillStyle = fill; ctx.fill();
-		ctx.lineWidth = 1.5; ctx.strokeStyle = stroke; ctx.stroke();
+		$.neonStroke( ctx, e.hue, e.saturation, stroke );
+		ctx.beginPath(); ctx.arc( r * 0.25, 0, r * 0.4, 0, $.twopi );
+		ctx.fillStyle = fill; ctx.fill();
+		$.neonStroke( ctx, e.hue, e.saturation, stroke );
+		ctx.beginPath();
+		ctx.moveTo( r * 0.6, r * 0.18 ); ctx.lineTo( r * 1.25, 0 ); ctx.lineTo( r * 0.6, -r * 0.18 );
+		ctx.closePath();
+		ctx.fillStyle = $.hsla( e.hue, 100, 80, 0.95 ); ctx.fill();
+		$.coreEye( ctx, r * 0.28, 0, r * 0.15, e.hue, e.saturation, tick );
 	},
-	heavy: function( ctx, r, fill, stroke ) {
+	// phantom: a blade that leaves afterimages of itself
+	sliver: function( ctx, r, fill, stroke, tick, e ) {
+		for( var ghost = 2; ghost >= 0; ghost-- ) {
+			var off = ghost * r * 0.55,
+				alpha = [ 1, 0.35, 0.15 ][ ghost ];
+			ctx.beginPath();
+			ctx.moveTo( r * 1.5 - off, 0 ); ctx.lineTo( -r * 1.1 - off, r * 0.38 ); ctx.lineTo( -r * 0.7 - off, 0 ); ctx.lineTo( -r * 1.1 - off, -r * 0.38 );
+			ctx.closePath();
+			ctx.fillStyle = $.hsla( e.hue, e.saturation, 60, 0.12 * alpha );
+			ctx.fill();
+			ctx.lineWidth = 1.5;
+			ctx.strokeStyle = $.hsla( e.hue, e.saturation, 55, alpha );
+			ctx.stroke();
+		}
+		$.coreEye( ctx, r * 0.25, 0, r * 0.16, e.hue, 30, tick );
+	},
+	// juggernaut: counter-rotating armor rings around a furnace core
+	heavy: function( ctx, r, fill, stroke, tick, e ) {
+		ctx.save();
+		ctx.rotate( tick / 50 );
 		ctx.beginPath();
 		for( var p = 0; p < 6; p++ ) {
 			var a = p / 6 * $.twopi;
@@ -99,67 +198,112 @@ $.enemyShapes = {
 		}
 		ctx.closePath();
 		ctx.fillStyle = fill; ctx.fill();
-		ctx.lineWidth = 3; ctx.strokeStyle = stroke; ctx.stroke();
+		$.neonStroke( ctx, e.hue, e.saturation, stroke );
+		ctx.restore();
+		ctx.save();
+		ctx.rotate( -tick / 30 );
 		ctx.beginPath();
 		for( var p = 0; p < 6; p++ ) {
-			var a = p / 6 * $.twopi;
-			if( p === 0 ) { ctx.moveTo( Math.cos( a ) * r * 0.55, Math.sin( a ) * r * 0.55 ); } else { ctx.lineTo( Math.cos( a ) * r * 0.55, Math.sin( a ) * r * 0.55 ); }
+			var a = p / 6 * $.twopi + $.pi / 6;
+			if( p === 0 ) { ctx.moveTo( Math.cos( a ) * r * 0.62, Math.sin( a ) * r * 0.62 ); } else { ctx.lineTo( Math.cos( a ) * r * 0.62, Math.sin( a ) * r * 0.62 ); }
 		}
 		ctx.closePath();
-		ctx.lineWidth = 1.5; ctx.stroke();
+		ctx.lineWidth = 2.5;
+		ctx.strokeStyle = $.hsla( e.hue, e.saturation, 75, 0.9 );
+		ctx.stroke();
+		ctx.restore();
+		$.coreEye( ctx, 0, 0, r * 0.24, e.hue, e.saturation, tick );
 	},
-	bloom: function( ctx, r, fill, stroke, tick ) {
-		ctx.rotate( tick / 50 );
-		for( var p = 0; p < 4; p++ ) {
+	// mother spore: breathing petals, drifting spores, warm green heart
+	bloom: function( ctx, r, fill, stroke, tick, e ) {
+		ctx.rotate( tick / 60 );
+		for( var p = 0; p < 5; p++ ) {
+			var breathe = 1 + Math.cos( tick / 9 + p * 1.3 ) * 0.14;
 			ctx.save();
-			ctx.rotate( p * $.pi / 2 );
+			ctx.rotate( p * $.twopi / 5 );
 			ctx.beginPath();
-			ctx.ellipse( r * 0.6, 0, r * 0.55, r * 0.3, 0, 0, $.twopi );
+			ctx.ellipse( r * 0.62 * breathe, 0, r * 0.52 * breathe, r * 0.26, 0, 0, $.twopi );
 			ctx.fillStyle = fill; ctx.fill();
 			ctx.lineWidth = 1.5; ctx.strokeStyle = stroke; ctx.stroke();
 			ctx.restore();
 		}
-		ctx.beginPath(); ctx.arc( 0, 0, r * 0.35, 0, $.twopi );
-		ctx.fillStyle = stroke; ctx.fill();
+		for( var sp = 0; sp < 3; sp++ ) {
+			var sa = tick / 14 + sp * $.twopi / 3;
+			ctx.beginPath();
+			ctx.arc( Math.cos( sa ) * r * 1.25, Math.sin( sa ) * r * 1.25, r * 0.09, 0, $.twopi );
+			ctx.fillStyle = $.hsla( e.hue, 100, 80, 0.8 );
+			ctx.fill();
+		}
+		$.coreEye( ctx, 0, 0, r * 0.3, e.hue, e.saturation, tick );
 	},
-	dartlet: function( ctx, r, fill, stroke ) {
+	// needle: a tracer round with a soul
+	dartlet: function( ctx, r, fill, stroke, tick, e ) {
+		$.exhaust( ctx, -r * 0.7, r * 0.5, e.hue, tick );
 		ctx.beginPath();
-		ctx.moveTo( r * 1.4, 0 ); ctx.lineTo( -r * 0.8, r * 0.6 ); ctx.lineTo( -r * 0.4, 0 ); ctx.lineTo( -r * 0.8, -r * 0.6 );
+		ctx.moveTo( r * 1.4, 0 ); ctx.lineTo( -r * 0.7, r * 0.5 ); ctx.lineTo( -r * 0.35, 0 ); ctx.lineTo( -r * 0.7, -r * 0.5 );
 		ctx.closePath();
 		ctx.fillStyle = fill; ctx.fill();
-		ctx.lineWidth = 1.5; ctx.strokeStyle = stroke; ctx.stroke();
+		$.neonStroke( ctx, e.hue, e.saturation, stroke );
+		$.coreEye( ctx, r * 0.15, 0, r * 0.15, e.hue, e.saturation, tick );
 	},
-	star: function( ctx, r, fill, stroke, tick ) {
-		ctx.rotate( tick / 40 );
+	// star feeder: hungry spikes that reach as it grows
+	star: function( ctx, r, fill, stroke, tick, e ) {
+		ctx.rotate( tick / 35 );
+		var reach = 1 + Math.cos( tick / 6 ) * 0.16;
 		ctx.beginPath();
 		for( var p = 0; p < 16; p++ ) {
 			var a = p / 16 * $.twopi,
-				pr = ( p % 2 ) ? r * 0.55 : r;
+				pr = ( p % 2 ) ? r * 0.5 : r * reach;
 			if( p === 0 ) { ctx.moveTo( Math.cos( a ) * pr, Math.sin( a ) * pr ); } else { ctx.lineTo( Math.cos( a ) * pr, Math.sin( a ) * pr ); }
 		}
 		ctx.closePath();
 		ctx.fillStyle = fill; ctx.fill();
-		ctx.lineWidth = 2; ctx.strokeStyle = stroke; ctx.stroke();
-	},
-	turret: function( ctx, r, fill, stroke ) {
+		$.neonStroke( ctx, e.hue, e.saturation, stroke );
 		ctx.beginPath();
-		ctx.moveTo( r * 0.9, 0 ); ctx.lineTo( 0, r * 0.9 ); ctx.lineTo( -r * 0.9, 0 ); ctx.lineTo( 0, -r * 0.9 );
+		ctx.arc( 0, 0, r * 0.3, tick / 8, tick / 8 + $.pi * 1.4 );
+		ctx.lineWidth = 2; ctx.strokeStyle = $.hsla( e.hue, e.saturation, 85, 0.9 ); ctx.stroke();
+	},
+	// deadeye: hovering gun pod, spinning sight ring, charging muzzle
+	turret: function( ctx, r, fill, stroke, tick, e ) {
+		ctx.save();
+		ctx.rotate( tick / 20 );
+		ctx.beginPath();
+		ctx.arc( 0, 0, r * 1.15, 0, $.pi * 0.6 );
+		ctx.moveTo( Math.cos( $.pi ) * r * 1.15, Math.sin( $.pi ) * r * 1.15 );
+		ctx.arc( 0, 0, r * 1.15, $.pi, $.pi * 1.6 );
+		ctx.lineWidth = 1.6;
+		ctx.strokeStyle = $.hsla( e.hue, e.saturation, 70, 0.7 );
+		ctx.stroke();
+		ctx.restore();
+		ctx.beginPath();
+		ctx.moveTo( r * 0.7, 0 ); ctx.lineTo( 0, r * 0.7 ); ctx.lineTo( -r * 0.7, 0 ); ctx.lineTo( 0, -r * 0.7 );
 		ctx.closePath();
 		ctx.fillStyle = fill; ctx.fill();
-		ctx.lineWidth = 2; ctx.strokeStyle = stroke; ctx.stroke();
+		$.neonStroke( ctx, e.hue, e.saturation, stroke );
 		ctx.fillStyle = stroke;
-		ctx.fillRect( r * 0.5, -r * 0.12, r * 1.1, r * 0.24 );
+		ctx.fillRect( r * 0.4, -r * 0.11, r * 1.15, r * 0.22 );
+		var charge = ( Math.cos( tick / 5 ) + 1 ) / 2;
+		ctx.beginPath(); ctx.arc( r * 1.55, 0, r * 0.16 + charge * r * 0.1, 0, $.twopi );
+		ctx.fillStyle = $.hsla( e.hue, 100, 80, 0.4 + charge * 0.6 ); ctx.fill();
 	},
-	crescent: function( ctx, r, fill, stroke ) {
+	// reaper moon: scythe crescent with a cold staring eye
+	crescent: function( ctx, r, fill, stroke, tick, e ) {
 		ctx.beginPath();
-		ctx.arc( 0, 0, r, -$.pi * 0.6, $.pi * 0.6 );
-		ctx.arc( -r * 0.55, 0, r * 0.8, $.pi * 0.5, -$.pi * 0.5, true );
+		ctx.arc( 0, 0, r, -$.pi * 0.62, $.pi * 0.62 );
+		ctx.arc( -r * 0.5, 0, r * 0.78, $.pi * 0.5, -$.pi * 0.5, true );
 		ctx.closePath();
 		ctx.fillStyle = fill; ctx.fill();
-		ctx.lineWidth = 2; ctx.strokeStyle = stroke; ctx.stroke();
+		$.neonStroke( ctx, e.hue, e.saturation, stroke );
+		ctx.beginPath();
+		ctx.arc( 0, 0, r, -$.pi * 0.55, $.pi * 0.55 );
+		ctx.lineWidth = 2.5;
+		ctx.strokeStyle = $.hsla( e.hue, e.saturation, 90, 0.85 );
+		ctx.stroke();
+		$.coreEye( ctx, r * 0.45, 0, r * 0.18, e.hue, e.saturation, tick );
 	},
-	hive: function( ctx, r, fill, stroke, tick ) {
-		ctx.rotate( tick / 60 );
+	// broodmother: armored womb full of pulsing eggs
+	hive: function( ctx, r, fill, stroke, tick, e ) {
+		ctx.rotate( tick / 70 );
 		ctx.beginPath();
 		for( var p = 0; p < 5; p++ ) {
 			var a = p / 5 * $.twopi;
@@ -167,26 +311,47 @@ $.enemyShapes = {
 		}
 		ctx.closePath();
 		ctx.fillStyle = fill; ctx.fill();
-		ctx.lineWidth = 2.5; ctx.strokeStyle = stroke; ctx.stroke();
-		ctx.beginPath(); ctx.arc( 0, 0, r * 0.4, 0, $.twopi );
-		ctx.lineWidth = 1.5; ctx.stroke();
+		$.neonStroke( ctx, e.hue, e.saturation, stroke );
+		for( var egg = 0; egg < 3; egg++ ) {
+			var ea = egg * $.twopi / 3 + $.pi / 2,
+				grow = 0.16 + ( ( Math.cos( tick / 10 + egg * 2 ) + 1 ) / 2 ) * 0.1;
+			ctx.beginPath();
+			ctx.arc( Math.cos( ea ) * r * 0.45, Math.sin( ea ) * r * 0.45, r * grow, 0, $.twopi );
+			ctx.fillStyle = $.hsla( e.hue, 100, 75, 0.85 );
+			ctx.fill();
+		}
 	},
-	fort: function( ctx, r, fill, stroke ) {
+	// bastion: orbital shield plates guarding a war core
+	fort: function( ctx, r, fill, stroke, tick, e ) {
 		ctx.beginPath();
-		ctx.rect( -r * 0.8, -r * 0.8, r * 1.6, r * 1.6 );
+		ctx.rect( -r * 0.7, -r * 0.7, r * 1.4, r * 1.4 );
 		ctx.fillStyle = fill; ctx.fill();
-		ctx.lineWidth = 2.5; ctx.strokeStyle = stroke; ctx.stroke();
-		ctx.fillStyle = stroke;
-		ctx.fillRect( -r * 1.05, -r * 1.05, r * 0.5, r * 0.5 );
-		ctx.fillRect( r * 0.55, -r * 1.05, r * 0.5, r * 0.5 );
-		ctx.fillRect( -r * 1.05, r * 0.55, r * 0.5, r * 0.5 );
-		ctx.fillRect( r * 0.55, r * 0.55, r * 0.5, r * 0.5 );
+		$.neonStroke( ctx, e.hue, e.saturation, stroke );
+		ctx.save();
+		ctx.rotate( tick / 25 );
+		ctx.lineWidth = 4;
+		ctx.strokeStyle = $.hsla( e.hue, e.saturation, 70, 0.85 );
+		for( var plate = 0; plate < 4; plate++ ) {
+			var pa = plate * $.pi / 2;
+			ctx.beginPath();
+			ctx.arc( 0, 0, r * 1.25, pa, pa + $.pi * 0.3 );
+			ctx.stroke();
+		}
+		ctx.restore();
+		$.coreEye( ctx, 0, 0, r * 0.26, e.hue, e.saturation, tick );
 	},
-	shard: function( ctx, r, fill, stroke ) {
+	// shard: white-hot bolt with a streaking tail
+	shard: function( ctx, r, fill, stroke, tick, e ) {
+		ctx.beginPath();
+		ctx.moveTo( -r * 0.6, 0 ); ctx.lineTo( -r * 2.6, 0 );
+		ctx.lineWidth = r * 0.5;
+		ctx.strokeStyle = $.hsla( e.hue, 100, 65, 0.25 );
+		ctx.stroke();
 		ctx.beginPath();
 		ctx.moveTo( r * 1.6, 0 ); ctx.lineTo( -r, r * 0.5 ); ctx.lineTo( -r * 0.5, 0 ); ctx.lineTo( -r, -r * 0.5 );
 		ctx.closePath();
-		ctx.fillStyle = stroke; ctx.fill();
+		ctx.fillStyle = $.hsla( e.hue, 100, 80, 1 );
+		ctx.fill();
 	}
 };
 
@@ -384,7 +549,7 @@ $.Enemy.prototype.render = function( i ) {
 		$.ctxmg.save();
 		$.ctxmg.translate( this.x, this.y );
 		$.ctxmg.rotate( facing );
-		shapeFn( $.ctxmg, this.radius, this.fillStyle, this.strokeStyle, $.tick );
+		shapeFn( $.ctxmg, this.radius, this.fillStyle, this.strokeStyle, $.tick, this );
 		$.ctxmg.restore();
 
 		if( $.slow ) {
