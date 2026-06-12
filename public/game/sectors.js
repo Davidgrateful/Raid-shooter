@@ -54,7 +54,7 @@ $.hazardDamageEnemy = function( enemy, ei, amount ) {
 };
 
 $.hazardDamageHero = function( amount ) {
-	if( $.hero.life > 0 && $.hero.dashTick <= 0 ) {
+	if( $.hero.life > 0 && $.hero.dashTick <= 0 && $.powerupTimers[ 5 ] <= 0 ) {
 		$.hero.life -= amount * $.hero.damageTakenMult;
 		$.hero.takingDamage = 1;
 		$.breakCombo();
@@ -452,7 +452,7 @@ $.spawnBoss = function() {
 
 	var boss = new $.Enemy( {
 		value: 500,
-		speed: 0.8,
+		speed: 1.15,
 		life: 40 * levelScale,
 		radius: 90,
 		hue: 30,
@@ -462,7 +462,8 @@ $.spawnBoss = function() {
 		x: coords.x,
 		y: coords.y,
 		chargeTick: 0,
-		chargeCooldown: 260,
+		chargeCooldown: 150,
+		burstTick: 0,
 		charging: 0,
 		chargeDir: 0,
 		phase: 0,
@@ -475,11 +476,43 @@ $.spawnBoss = function() {
 				dy = $.hero.y - this.y,
 				direction = Math.atan2( dy, dx );
 
+			// ranged attack: radial rock burst, faster with each phase
+			this.burstTick += $.dt;
+			if( this.burstTick > 300 - this.phase * 60 ) {
+				this.burstTick = 0;
+				if( this.inView ) {
+					$.audio.play( 'shootAlt' );
+				}
+				for( var b = 0; b < 8; b++ ) {
+					var burstDirection = direction + ( b / 8 ) * $.twopi;
+					$.enemies.push( new $.Enemy( {
+						value: 5,
+						speed: 5.5,
+						life: 1,
+						radius: 7,
+						hue: 30,
+						saturation: 40,
+						lockBounds: 1,
+						x: this.x + Math.cos( burstDirection ) * ( this.radius + 10 ),
+						y: this.y + Math.sin( burstDirection ) * ( this.radius + 10 ),
+						direction: burstDirection,
+						behavior: function() {
+							var rockSpeed = this.speed;
+							if( $.slow ) {
+								rockSpeed = this.speed / $.slowEnemyDivider;
+							}
+							this.vx = Math.cos( this.direction ) * rockSpeed;
+							this.vy = Math.sin( this.direction ) * rockSpeed;
+						}
+					} ) );
+				}
+			}
+
 			if( this.charging > 0 ) {
 				// mid-lunge
 				this.charging -= $.dt;
-				this.vx = Math.cos( this.chargeDir ) * 9;
-				this.vy = Math.sin( this.chargeDir ) * 9;
+				this.vx = Math.cos( this.chargeDir ) * 12;
+				this.vy = Math.sin( this.chargeDir ) * 12;
 			} else if( this.chargeTick > this.chargeCooldown ) {
 				// telegraph: stop and flash before lunging
 				this.vx *= 0.85;
@@ -487,8 +520,8 @@ $.spawnBoss = function() {
 				var flash = ( Math.floor( $.tick / 4 ) % 2 );
 				this.fillStyle = flash ? 'hsla(30, 80%, 70%, 0.5)' : 'hsla(30, 40%, 50%, 0.1)';
 				this.strokeStyle = flash ? 'hsla(30, 100%, 85%, 1)' : 'hsla(30, 40%, 50%, 1)';
-				if( this.chargeTick > this.chargeCooldown + 50 ) {
-					this.charging = 40;
+				if( this.chargeTick > this.chargeCooldown + 40 ) {
+					this.charging = 36;
 					this.chargeTick = 0;
 					this.chargeDir = direction;
 					this.fillStyle = 'hsla(30, 40%, 50%, 0.1)';

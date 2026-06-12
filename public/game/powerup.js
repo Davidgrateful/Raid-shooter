@@ -50,7 +50,11 @@ $.Powerup.prototype.update = function( i ) {
 	==============================================================================*/
 	if( $.hero.life > 0 && $.util.arcIntersectingRect( $.hero.x, $.hero.y, $.hero.radius + 2, this.x, this.y, this.width, this.height ) ){
 		$.audio.play( 'powerup' );
-		$.powerupTimers[ this.type ] = $.powerupDuration;
+		if( $.definitions.powerups[ this.type ].instant ) {
+			$.detonateNuke();
+		} else {
+			$.powerupTimers[ this.type ] = $.powerupDuration;
+		}
 		$.particleEmitters.push( new $.ParticleEmitter( {
 			x: this.x + this.width / 2,
 			y: this.y + this.height / 2,

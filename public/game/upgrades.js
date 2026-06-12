@@ -127,7 +127,7 @@ $.openUpgradeDraft = function() {
 $.chooseUpgrade = function( id ) {
 	$.upgrades[ id ] = ( $.upgrades[ id ] || 0 ) + 1;
 	$.recomputeUpgrades();
-	$.spawnLullTick = 180;
+	$.spawnLullTick = 120;
 	$.lt = Date.now();
 	$.setState( 'play' );
 	// a boss kill grants a bonus second pick

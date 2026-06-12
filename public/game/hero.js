@@ -245,10 +245,10 @@ $.Hero.prototype.update = function() {
 		}
 
 		/*==============================================================================
-		Check Collisions (dash grants invincibility frames)
+		Check Collisions (dash i-frames and the SHIELD powerup both protect)
 		==============================================================================*/
 		this.takingDamage = 0;
-		var ei = ( this.dashTick > 0 ) ? 0 : $.enemies.length;
+		var ei = ( this.dashTick > 0 || $.powerupTimers[ 5 ] > 0 ) ? 0 : $.enemies.length;
 		while( ei-- ) {
 			var enemy = $.enemies[ ei ];
 			if( enemy.inView && $.util.distance( this.x, this.y, enemy.x, enemy.y ) <= this.radius + enemy.radius ) {
@@ -267,7 +267,7 @@ $.Hero.prototype.update = function() {
 				} ) );
 				this.takingDamage = 1;
 				var resist = ( this.character.ability && this.character.ability.lowHpResist && this.life < 0.35 ) ? this.character.ability.lowHpResist : 1;
-				this.life -= 0.0075 * this.damageTakenMult * resist;
+				this.life -= 0.011 * this.damageTakenMult * resist;
 				$.breakCombo();
 				$.rumble.level = 3;
 				if( Math.floor( $.tick ) % 5 == 0 ){
@@ -299,5 +299,9 @@ $.Hero.prototype.render = function() {
 		$.ctxmg.rotate( this.direction );
 		this.character.draw( $.ctxmg, this.radius, fillStyle, $.tick );
 		$.ctxmg.restore();
+
+		if( $.powerupTimers[ 5 ] > 0 ) {
+			$.util.strokeCircle( $.ctxmg, this.x, this.y, this.radius + 8 + Math.cos( $.tick / 5 ) * 2, 'hsla(190, 100%, 65%, 0.8)', 2 );
+		}
 	}
 };

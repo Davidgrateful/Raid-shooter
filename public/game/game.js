@@ -217,6 +217,7 @@ $.reset = function() {
 	$.bestCombo = 0;
 	$.spawnLullTick = 0;
 	$.dashRequest = 0;
+	$.nukeFlashTick = 0;
 
 	$.hero = new $.Hero();
 	$.resetUpgrades();
@@ -1281,6 +1282,25 @@ $.updatePowerupTimers = function() {
 	} else {
 		$.hero.weapon.bullet.piercing = $.hero.weapon.basePiercing;
 	}
+
+	// SHIELD (invulnerability; checked by hero and hazard damage)
+	if( $.powerupTimers[ 5 ] > 0 ){
+		$.powerupTimers[ 5 ] -= $.dt;
+	}
+};
+
+// NUKE pickup: heavy damage to everything on the field except bosses
+$.detonateNuke = function() {
+	$.audio.play( 'explosion' );
+	$.rumble.level = 12;
+	$.nukeFlashTick = 14;
+	var ei = $.enemies.length;
+	while( ei-- ) {
+		var enemy = $.enemies[ ei ];
+		if( !enemy.isBoss ) {
+			enemy.receiveDamage( ei, 8 );
+		}
+	}
 };
 
 $.spawnPowerup = function( x, y ) {
@@ -1322,6 +1342,7 @@ $.setState = function( state ) {
 			{ title: 'PLAY', scale: menuCompact ? 2 : 3, action: function() {
 				$.reset();
 				$.audio.play( 'levelup' );
+				$.music.start();
 				$.setState( 'play' );
 			} },
 			{ title: 'PILOT: ' + $.currentCharacter().title, scale: menuCompact ? 1 : 2, action: function() {
@@ -1521,9 +1542,9 @@ $.setState = function( state ) {
 				}
 			} ) );
 			$.buttons.push( new $.Button( {
-				x: $.cw / 2 - 160,
+				x: $.cw / 2 - ( hangarCompact ? 160 : 180 ),
 				y: row2Y,
-				lockedWidth: 149,
+				lockedWidth: hangarCompact ? 149 : 169,
 				lockedHeight: 45,
 				scale: 1,
 				title: 'TRAIL: ' + ( $.equippedTrail() ? $.equippedTrail().title : 'NONE' ),
@@ -1545,7 +1566,7 @@ $.setState = function( state ) {
 			$.buttons.push( new $.Button( {
 				x: $.cw / 2 + 1,
 				y: row2Y,
-				lockedWidth: 149,
+				lockedWidth: hangarCompact ? 149 : 169,
 				lockedHeight: 45,
 				scale: 1,
 				title: 'VIEW: GRID',
@@ -1558,9 +1579,9 @@ $.setState = function( state ) {
 				}
 			} ) );
 			$.buttons.push( new $.Button( {
-				x: $.cw / 2 + 160,
+				x: $.cw / 2 + ( hangarCompact ? 160 : 180 ),
 				y: row2Y,
-				lockedWidth: 149,
+				lockedWidth: hangarCompact ? 149 : 169,
 				lockedHeight: 45,
 				scale: 1,
 				title: 'MENU',
@@ -1600,7 +1621,7 @@ $.setState = function( state ) {
 				y: itemStartY + row * ( itemHeight + itemGap ),
 				lockedWidth: itemWidth,
 				lockedHeight: itemHeight,
-				scale: 1,
+				scale: marketCompact ? 1 : 2,
 				title: label,
 				action: function() {
 					$.mouse.down = 0;
@@ -2009,13 +2030,13 @@ $.setupStates = function() {
 			$.text( {
 				ctx: $.ctxmg,
 				x: $.cw / 2,
-				y: previewY + ( hangarCompact ? 84 : 124 ),
+				y: previewY + ( hangarCompact ? 84 : 132 ),
 				text: def.ability.title + ': ' + def.ability.text,
 				hspacing: 1,
-				vspacing: 5,
+				vspacing: 8,
 				halign: 'center',
 				valign: 'top',
-				scale: 1,
+				scale: hangarCompact ? 1 : 2,
 				snap: 1,
 				render: 1
 			} );
@@ -2027,13 +2048,13 @@ $.setupStates = function() {
 		$.text( {
 			ctx: $.ctxmg,
 			x: $.cw / 2,
-			y: previewY + ( hangarCompact ? 68 : 102 ),
+			y: previewY + ( hangarCompact ? 68 : 100 ),
 			text: status.text,
 			hspacing: 1,
-			vspacing: 5,
+			vspacing: 8,
 			halign: 'center',
 			valign: 'top',
-			scale: 1,
+			scale: hangarCompact ? 1 : 2,
 			snap: 1,
 			render: 1
 		} );
@@ -2050,7 +2071,7 @@ $.setupStates = function() {
 			vspacing: 1,
 			halign: 'center',
 			valign: 'top',
-			scale: 1,
+			scale: hangarCompact ? 1 : 2,
 			snap: 1,
 			render: 1
 		} );
@@ -2121,7 +2142,7 @@ $.setupStates = function() {
 				vspacing: 1,
 				halign: 'center',
 				valign: 'bottom',
-				scale: 1,
+				scale: marketCompact ? 1 : 2,
 				snap: 1,
 				render: 1
 			} );
@@ -2457,6 +2478,11 @@ $.setupStates = function() {
 			$.ctxmg.arc( $.vjoyRight.cx, $.vjoyRight.cy, 20, 0, Math.PI * 2 );
 			$.ctxmg.fillStyle = 'rgba(255, 255, 255, 0.5)';
 			$.ctxmg.fill();
+		}
+		if( $.nukeFlashTick > 0 ) {
+			$.nukeFlashTick -= $.dt;
+			$.ctxmg.fillStyle = 'hsla(55, 100%, 70%, ' + ( $.nukeFlashTick / 14 * 0.45 ) + ')';
+			$.ctxmg.fillRect( 0, 0, $.cw, $.ch );
 		}
 		$.renderSectorOverlay();
 		$.renderInterface();

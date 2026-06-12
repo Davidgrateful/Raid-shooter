@@ -292,6 +292,62 @@ $.definitions.enemies = [
 			}
 		}
 	},
+	{ // Stinger - fast strafer that fires light bolts from range
+		value: 35,
+		speed: 2.2,
+		life: 2,
+		radius: 12,
+		hue: 320,
+		aimTick: 0,
+		aimMax: 70,
+		behavior: function() {
+			var speed = this.speed;
+			if( $.slow ) {
+				speed = this.speed / $.slowEnemyDivider;
+			}
+
+			var dx = $.hero.x - this.x,
+				dy = $.hero.y - this.y,
+				dist = Math.sqrt( dx * dx + dy * dy ),
+				direction = Math.atan2( dy, dx );
+
+			if( dist > 420 ) {
+				this.vx = Math.cos( direction ) * speed;
+				this.vy = Math.sin( direction ) * speed;
+			} else {
+				this.vx = Math.cos( direction + $.pi / 2 ) * speed * 0.8;
+				this.vy = Math.sin( direction + $.pi / 2 ) * speed * 0.8;
+			}
+
+			this.aimTick += ( $.slow ) ? $.dt / $.slowEnemyDivider : $.dt;
+			if( this.aimTick >= this.aimMax && dist < 560 ) {
+				this.aimTick = -$.util.rand( 20, 60 );
+				if( this.inView ) {
+					$.audio.play( 'shootAlt' );
+				}
+				$.enemies.push( new $.Enemy( {
+					value: 5,
+					speed: 6.5,
+					life: 1,
+					radius: 5,
+					hue: 320,
+					lockBounds: 1,
+					x: this.x + Math.cos( direction ) * ( this.radius + 6 ),
+					y: this.y + Math.sin( direction ) * ( this.radius + 6 ),
+					type: this.type,
+					direction: direction,
+					behavior: function() {
+						var boltSpeed = this.speed;
+						if( $.slow ) {
+							boltSpeed = this.speed / $.slowEnemyDivider;
+						}
+						this.vx = Math.cos( this.direction ) * boltSpeed;
+						this.vy = Math.sin( this.direction ) * boltSpeed;
+					}
+				} ) );
+			}
+		}
+	},
 	{ // Enemy 5 - stealth, hard to see - move directly hero
 		value: 30,
 		speed: 1,
@@ -665,7 +721,7 @@ $.definitions.enemies = [
 Levels
 ==============================================================================*/
 $.definitions.levels = [];
-var base = 25;
+var base = 18;
 for( var i = 0; i < $.definitions.enemies.length; i++ ){
 	var distribution = [];
 	for( var di = 0; di < i + 1; di++ ) {
@@ -712,6 +768,19 @@ $.definitions.powerups = [
 		hue: 0,
 		saturation: 100,
 		lightness: 60
+	},
+	{
+		title: 'SHIELD',
+		hue: 190,
+		saturation: 100,
+		lightness: 60
+	},
+	{
+		title: 'NUKE',
+		hue: 55,
+		saturation: 100,
+		lightness: 60,
+		instant: 1
 	}
 ];
 

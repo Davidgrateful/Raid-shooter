@@ -35,6 +35,28 @@ $.Bullet.prototype.update = function( i ) {
 	this.ey = this.y - Math.sin( this.direction ) * this.size;
 
 	/*==============================================================================
+	Limited Range (no sniping from across the arena)
+	==============================================================================*/
+	this.traveled = ( this.traveled || 0 ) + this.speed * $.dt;
+	if( this.traveled > ( this.range || 460 ) ) {
+		$.particleEmitters.push( new $.ParticleEmitter( {
+			x: this.x,
+			y: this.y,
+			count: 1,
+			spawnRange: 1,
+			friction: 0.8,
+			minSpeed: 0.5,
+			maxSpeed: 2,
+			minDirection: 0,
+			maxDirection: $.twopi,
+			hue: 0,
+			saturation: 0
+		} ) );
+		$.bullets.splice( i, 1 );
+		return;
+	}
+
+	/*==============================================================================
 	Check Collisions
 	==============================================================================*/
 	var ei = $.enemies.length;
