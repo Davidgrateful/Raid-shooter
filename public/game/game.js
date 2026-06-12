@@ -1583,15 +1583,15 @@ $.setState = function( state ) {
 
 		var marketCompact = ( $.ch < 640 ),
 			itemWidth = marketCompact ? 259 : 419,
-			itemHeight = marketCompact ? 39 : 45,
-			itemGap = marketCompact ? 6 : 10,
-			itemStartY = marketCompact ? 86 : 180;
+			itemHeight = marketCompact ? 35 : 41,
+			itemGap = marketCompact ? 5 : 8,
+			itemStartY = marketCompact ? 84 : 176;
 
 		// item buttons are rebuilt whenever the screen is (re)entered, so
 		// titles always reflect current ownership
 		var buildItem = function( item, index ) {
 			var owned = $.ownsItem( item.id ),
-				label = item.title + '   ' + ( item.comingSoon ? 'SOON' : ( owned ? 'OWNED' : item.priceEth + ' ETH' ) ),
+				label = item.title + '   ' + ( item.comingSoon ? 'SOON' : ( owned ? 'OWNED' : '$' + item.priceUsd ) ),
 				column = marketCompact ? ( index % 2 ) : 0,
 				row = marketCompact ? Math.floor( index / 2 ) : index,
 				x = marketCompact ? ( $.cw / 2 + ( column ? 136 : -134 ) ) : $.cw / 2 + 1;

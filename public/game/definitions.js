@@ -733,6 +733,13 @@ Letters
 $.definitions.letters = {
 	// blank fallback so unsupported characters render as a space
 	// instead of crashing the text renderer
+	'$': [
+		[  , 1, 1, 1, 1 ],
+		[ 1,  , 1,  ,   ],
+		[  , 1, 1, 1,   ],
+		[  ,  , 1,  , 1 ],
+		[ 1, 1, 1, 1,   ]
+	],
 	'.': [
 		[  ,  ,  ,  ,   ],
 		[  ,  ,  ,  ,   ],
