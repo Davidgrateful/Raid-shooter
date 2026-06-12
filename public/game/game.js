@@ -23,7 +23,7 @@ $.init = function() {
 
 	$.mute = $.storage['mute'];
 	$.autofire = $.storage['autofire'];
-	$.slowEnemyDivider = 3;
+	$.slowEnemyDivider = 2;
 
 	$.vjoyLeft = {
 		active: 0,
@@ -1177,13 +1177,15 @@ $.updateScreen = function() {
 /*==============================================================================
 Combo
 ==============================================================================*/
-$.registerKill = function( value ) {
+$.registerKill = function( value, radius ) {
 	$.score += value * $.comboMultiplier;
 	$.combo++;
 	$.comboTimer = $.comboTimerMax;
-	var ability = $.hero.character && $.hero.character.ability;
-	if( ability && ability.killHeal && $.hero.life > 0 ) {
-		$.hero.life = Math.min( 1, $.hero.life + ability.killHeal );
+	// kills restore hull proportional to the size of what died
+	var ability = $.hero.character && $.hero.character.ability,
+		heal = Math.min( 0.045, ( radius || 15 ) * 0.00035 ) * ( ( ability && ability.killHealMult ) || 1 );
+	if( $.hero.life > 0 ) {
+		$.hero.life = Math.min( 1, $.hero.life + heal );
 	}
 	$.bestCombo = Math.max( $.bestCombo, $.combo );
 	var multiplier = Math.min( 8, 1 + Math.floor( $.combo / 4 ) );
@@ -1298,7 +1300,7 @@ $.detonateNuke = function() {
 	while( ei-- ) {
 		var enemy = $.enemies[ ei ];
 		if( !enemy.isBoss ) {
-			enemy.receiveDamage( ei, 8 );
+			enemy.receiveDamage( ei, 6 );
 		}
 	}
 };
@@ -1321,6 +1323,22 @@ States
 $.setState = function( state ) {
 	// handle clean up between states
 	$.buttons.length = 0;
+
+	// mobile gets a thumb-reach BACK button on every sub-screen
+	if( $.isTouchDevice && ( state == 'hangar' || state == 'market' || state == 'board' || state == 'stats' || state == 'credits' || state == 'settings' ) ) {
+		$.buttons.push( new $.Button( {
+			x: 54,
+			y: 70,
+			lockedWidth: 89,
+			lockedHeight: 39,
+			scale: 1,
+			title: 'BACK',
+			action: function() {
+				$.mouse.down = 0;
+				$.setState( 'menu' );
+			}
+		} ) );
+	}
 
 	if( state == 'menu' ) {
 		$.mouse.down = 0;
@@ -1364,17 +1382,10 @@ $.setState = function( state ) {
 				$.setState( 'credits' );
 			} }
 		];
-		// iPhone Safari has no fullscreen API: skip the dead button there
-		if( document.documentElement.requestFullscreen ) {
-			menuDefs.push( { title: 'FULLSCREEN', scale: menuCompact ? 1 : 2, action: function() {
-				$.mouse.down = 0;
-				if( document.fullscreenElement ) {
-					document.exitFullscreen();
-				} else {
-					document.documentElement.requestFullscreen();
-				}
-			} } );
-		}
+		menuDefs.push( { title: 'SETTINGS', scale: menuCompact ? 2 : 3, action: function() {
+			$.mouse.down = 0;
+			$.setState( 'settings' );
+		} } );
 
 		for( var mi = 0; mi < menuDefs.length; mi++ ) {
 			var menuX = $.cw / 2 + ( ( mi % 2 ) ? ( menuCompact ? 106 : 156 ) : ( menuCompact ? -104 : -154 ) ),
@@ -1647,6 +1658,64 @@ $.setState = function( state ) {
 			}
 		} );
 		$.buttons.push( marketMenuButton );
+	}
+
+	if( state == 'settings' ) {
+		$.mouse.down = 0;
+
+		var settingsCompact = ( $.ch < 640 ),
+			settingsY = settingsCompact ? 110 : $.ch / 2 - 60,
+			settingsGap = settingsCompact ? 53 : 70;
+
+		var controlNames = { hybrid: 'HYBRID', keyboard: 'KEYBOARD', mouse: 'MOUSE' };
+		var controlsButton = new $.Button( {
+			x: $.cw / 2 + 1,
+			y: settingsY,
+			lockedWidth: 299,
+			lockedHeight: 45,
+			scale: 1,
+			title: 'CONTROLS: ' + controlNames[ $.storage['controls'] || 'hybrid' ],
+			action: function() {
+				$.mouse.down = 0;
+				var order = [ 'hybrid', 'keyboard', 'mouse' ],
+					next = order[ ( order.indexOf( $.storage['controls'] || 'hybrid' ) + 1 ) % order.length ];
+				$.storage['controls'] = next;
+				$.updateStorage();
+				this.title = 'CONTROLS: ' + controlNames[ next ];
+			}
+		} );
+		$.buttons.push( controlsButton );
+
+		if( document.documentElement.requestFullscreen ) {
+			$.buttons.push( new $.Button( {
+				x: $.cw / 2 + 1,
+				y: settingsY + settingsGap,
+				lockedWidth: 299,
+				lockedHeight: 45,
+				scale: 1,
+				title: 'FULLSCREEN',
+				action: function() {
+					$.mouse.down = 0;
+					if( document.fullscreenElement ) {
+						document.exitFullscreen();
+					} else {
+						document.documentElement.requestFullscreen();
+					}
+				}
+			} ) );
+		}
+
+		$.buttons.push( new $.Button( {
+			x: $.cw / 2 + 1,
+			y: settingsY + settingsGap * 2,
+			lockedWidth: 299,
+			lockedHeight: 45,
+			scale: 2,
+			title: 'MENU',
+			action: function() {
+				$.setState( 'menu' );
+			}
+		} ) );
 	}
 
 	if( state == 'board' ) {
@@ -2154,6 +2223,52 @@ $.setupStates = function() {
 			i = $.buttons.length; while( i-- ){ if( $.buttons[ i ] ) { $.buttons[ i ].render( i ) } }
 	};
 
+	$.states['settings'] = function() {
+
+		$.clearScreen();
+
+		var settingsCompact = ( $.ch < 640 );
+		$.ctxmg.beginPath();
+		var settingsTitle = $.text( {
+			ctx: $.ctxmg,
+			x: $.cw / 2,
+			y: settingsCompact ? 60 : 150,
+			text: 'SETTINGS',
+			hspacing: 3,
+			vspacing: 1,
+			halign: 'center',
+			valign: 'bottom',
+			scale: settingsCompact ? 4 : 8,
+			snap: 1,
+			render: 1
+		} );
+		var gradient = $.ctxmg.createLinearGradient( settingsTitle.sx, settingsTitle.sy, settingsTitle.sx, settingsTitle.ey );
+		gradient.addColorStop( 0, '#fff' );
+		gradient.addColorStop( 1, '#999' );
+		$.ctxmg.fillStyle = gradient;
+		$.ctxmg.fill();
+
+		$.ctxmg.beginPath();
+		$.text( {
+			ctx: $.ctxmg,
+			x: $.cw / 2,
+			y: $.ch - ( settingsCompact ? 16 : 40 ),
+			text: 'HYBRID: KEYS MOVE, MOUSE AIMS AND FIRES\nKEYBOARD: KEYS MOVE AND AIM, HOLD F TO FIRE\nMOUSE: SHIP FOLLOWS CURSOR, HOLD LMB TO FIRE',
+			hspacing: 1,
+			vspacing: 6,
+			halign: 'center',
+			valign: 'bottom',
+			scale: 1,
+			snap: 1,
+			render: 1
+		} );
+		$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 0.45)';
+		$.ctxmg.fill();
+
+		var i = $.buttons.length; while( i-- ){ if( $.buttons[ i ] ) { $.buttons[ i ].update( i ) } }
+			i = $.buttons.length; while( i-- ){ if( $.buttons[ i ] ) { $.buttons[ i ].render( i ) } }
+	};
+
 	$.states['board'] = function() {
 
 		$.clearScreen();
@@ -2419,6 +2534,7 @@ $.setupStates = function() {
 		$.updateCombo();
 		$.updateLevel();
 		$.updateHazards();
+		$.updateProps();
 		$.updatePowerupTimers();
 		$.spawnEnemies();
 		$.enemyOffsetMod += ( $.slow ) ? $.dt / 3 : $.dt;
@@ -2437,6 +2553,7 @@ $.setupStates = function() {
 		$.clearScreen();
 		$.ctxmg.save();
 		$.ctxmg.translate( $.screen.x - $.rumble.x, $.screen.y - $.rumble.y );
+		$.renderProps();
 		$.renderHazards();
 		i = $.enemies.length; while( i-- ){ $.enemies[ i ].render( i ) }
 		i = $.explosions.length; while( i-- ){ $.explosions[ i ].render( i ) }
@@ -2542,8 +2659,8 @@ $.setupStates = function() {
 			$.setState( 'pause' );
 		}
 
-		// always listen for autofire toggle
-		if( $.keys.pressed.f ){
+		// F toggles autofire, except in keyboard mode where F is the trigger
+		if( $.keys.pressed.f && ( $.storage['controls'] || 'hybrid' ) !== 'keyboard' ){
 			$.autofire = ~~!$.autofire;
 			$.storage['autofire'] = $.autofire;
 			$.updateStorage();

@@ -33,6 +33,71 @@ $.updateSector = function() {
 		$.asteroids.length = 0;
 		$.flare = null;
 		$.flareTimer = 480;
+		$.spawnProps();
+	}
+};
+
+// ambient drifting wreckage: pure decor, sells the sector as a real place
+$.spawnProps = function() {
+	$.props = [];
+	var hue = ( $.sector.hue >= 0 ) ? $.sector.hue : 210;
+	for( var i = 0; i < 7; i++ ) {
+		var points = [];
+		for( var p = 0; p < 7; p++ ) {
+			points.push( $.util.rand( 0.5, 1.3 ) );
+		}
+		$.props.push( {
+			x: $.util.rand( 0, $.ww ),
+			y: $.util.rand( 0, $.wh ),
+			vx: $.util.rand( -0.35, 0.35 ),
+			vy: $.util.rand( -0.35, 0.35 ),
+			radius: $.util.rand( 14, 42 ),
+			rotation: $.util.rand( 0, $.twopi ),
+			rotationSpeed: $.util.rand( -0.008, 0.008 ),
+			hue: hue,
+			points: points
+		} );
+	}
+};
+
+$.updateProps = function() {
+	if( !$.props ) {
+		return;
+	}
+	for( var i = 0; i < $.props.length; i++ ) {
+		var prop = $.props[ i ];
+		prop.x += prop.vx * $.dt;
+		prop.y += prop.vy * $.dt;
+		prop.rotation += prop.rotationSpeed * $.dt;
+		if( prop.x < -60 ) { prop.x = $.ww + 60; }
+		if( prop.x > $.ww + 60 ) { prop.x = -60; }
+		if( prop.y < -60 ) { prop.y = $.wh + 60; }
+		if( prop.y > $.wh + 60 ) { prop.y = -60; }
+	}
+};
+
+$.renderProps = function() {
+	if( !$.props ) {
+		return;
+	}
+	for( var i = 0; i < $.props.length; i++ ) {
+		var prop = $.props[ i ];
+		$.ctxmg.save();
+		$.ctxmg.translate( prop.x, prop.y );
+		$.ctxmg.rotate( prop.rotation );
+		$.ctxmg.beginPath();
+		for( var p = 0; p < prop.points.length; p++ ) {
+			var angle = ( p / prop.points.length ) * $.twopi,
+				pr = prop.radius * prop.points[ p ];
+			if( p === 0 ) { $.ctxmg.moveTo( Math.cos( angle ) * pr, Math.sin( angle ) * pr ); } else { $.ctxmg.lineTo( Math.cos( angle ) * pr, Math.sin( angle ) * pr ); }
+		}
+		$.ctxmg.closePath();
+		$.ctxmg.fillStyle = 'hsla(' + prop.hue + ', 20%, 16%, 0.55)';
+		$.ctxmg.fill();
+		$.ctxmg.strokeStyle = 'hsla(' + prop.hue + ', 25%, 30%, 0.5)';
+		$.ctxmg.lineWidth = 1;
+		$.ctxmg.stroke();
+		$.ctxmg.restore();
 	}
 };
 
@@ -178,8 +243,9 @@ $.updateHazards = function() {
 			pull = 0.12 * Math.max( 0, 1 - dist / 2200 );
 		$.hero.vx += ( dx / dist ) * pull * $.dt;
 		$.hero.vy += ( dy / dist ) * pull * $.dt;
-		if( dist < 130 ) {
-			$.hazardDamageHero( 0.004 * $.dt );
+		if( dist < 120 && $.hero.life > 0 && $.hero.dashTick <= 0 && $.powerupTimers[ 5 ] <= 0 ) {
+			// the singularity does not negotiate
+			$.hero.life = 0;
 		}
 
 		// drag enemies in and crush them at the core
@@ -448,21 +514,31 @@ $.spawnBossChunks = function( boss, count ) {
 
 $.spawnBoss = function() {
 	var coords = $.getSpawnCoordinates( 90 ),
-		levelScale = 1 + $.level.current * 0.08;
+		levelScale = 1 + $.level.current * 0.1,
+		sectorIdx = $.sectorIndex % 3;
+
+	// each sector family fields its own boss with its own attack
+	var variants = [
+		{ title: 'ASTEROID KING', hue: 30, saturation: 40, speed: 1.2, burstCount: 10, burstSpeed: 6.5, burstEvery: 240, spikes: 1 },
+		{ title: 'VOID TYRANT', hue: 270, saturation: 90, speed: 1.05, burstCount: 12, burstSpeed: 5, burstEvery: 210, pull: 1, rings: 1 },
+		{ title: 'SOLAR WARDEN', hue: 10, saturation: 100, speed: 1.45, burstCount: 5, burstSpeed: 8, burstEvery: 150, aimed: 1, flames: 1 }
+	];
+	var variant = variants[ sectorIdx ];
 
 	var boss = new $.Enemy( {
-		value: 500,
-		speed: 1.15,
-		life: 40 * levelScale,
+		value: 750,
+		speed: variant.speed,
+		life: 90 * levelScale,
 		radius: 90,
-		hue: 30,
-		saturation: 40,
+		hue: variant.hue,
+		saturation: variant.saturation,
 		isBoss: 1,
-		title: 'ASTEROID KING',
+		title: variant.title,
+		variant: variant,
 		x: coords.x,
 		y: coords.y,
 		chargeTick: 0,
-		chargeCooldown: 150,
+		chargeCooldown: 110,
 		burstTick: 0,
 		charging: 0,
 		chargeDir: 0,
@@ -474,24 +550,35 @@ $.spawnBoss = function() {
 			}
 			var dx = $.hero.x - this.x,
 				dy = $.hero.y - this.y,
+				dist = Math.max( 1, Math.sqrt( dx * dx + dy * dy ) ),
 				direction = Math.atan2( dy, dx );
 
-			// ranged attack: radial rock burst, faster with each phase
+			// VOID TYRANT drags the hero toward it
+			if( this.variant.pull && dist < 700 ) {
+				$.hero.vx += ( -dx / dist ) * -0.18 * $.dt;
+				$.hero.vy += ( -dy / dist ) * -0.18 * $.dt;
+			}
+
+			// ranged attack, faster with every phase
 			this.burstTick += $.dt;
-			if( this.burstTick > 300 - this.phase * 60 ) {
+			if( this.burstTick > this.variant.burstEvery - this.phase * 40 ) {
 				this.burstTick = 0;
 				if( this.inView ) {
 					$.audio.play( 'shootAlt' );
 				}
-				for( var b = 0; b < 8; b++ ) {
-					var burstDirection = direction + ( b / 8 ) * $.twopi;
+				var count = this.variant.burstCount + this.phase * 2;
+				for( var b = 0; b < count; b++ ) {
+					// SOLAR WARDEN fires tight aimed fans, others fire radially
+					var burstDirection = this.variant.aimed
+						? direction + ( b - ( count - 1 ) / 2 ) * 0.16
+						: direction + ( b / count ) * $.twopi;
 					$.enemies.push( new $.Enemy( {
 						value: 5,
-						speed: 5.5,
+						speed: this.variant.burstSpeed,
 						life: 1,
 						radius: 7,
-						hue: 30,
-						saturation: 40,
+						hue: this.variant.hue,
+						saturation: this.variant.saturation,
 						lockBounds: 1,
 						x: this.x + Math.cos( burstDirection ) * ( this.radius + 10 ),
 						y: this.y + Math.sin( burstDirection ) * ( this.radius + 10 ),
@@ -509,23 +596,21 @@ $.spawnBoss = function() {
 			}
 
 			if( this.charging > 0 ) {
-				// mid-lunge
 				this.charging -= $.dt;
-				this.vx = Math.cos( this.chargeDir ) * 12;
-				this.vy = Math.sin( this.chargeDir ) * 12;
+				this.vx = Math.cos( this.chargeDir ) * 13;
+				this.vy = Math.sin( this.chargeDir ) * 13;
 			} else if( this.chargeTick > this.chargeCooldown ) {
-				// telegraph: stop and flash before lunging
 				this.vx *= 0.85;
 				this.vy *= 0.85;
 				var flash = ( Math.floor( $.tick / 4 ) % 2 );
-				this.fillStyle = flash ? 'hsla(30, 80%, 70%, 0.5)' : 'hsla(30, 40%, 50%, 0.1)';
-				this.strokeStyle = flash ? 'hsla(30, 100%, 85%, 1)' : 'hsla(30, 40%, 50%, 1)';
-				if( this.chargeTick > this.chargeCooldown + 40 ) {
+				this.fillStyle = flash ? 'hsla(' + this.hue + ', 80%, 70%, 0.5)' : 'hsla(' + this.hue + ', 40%, 50%, 0.1)';
+				this.strokeStyle = flash ? 'hsla(' + this.hue + ', 100%, 85%, 1)' : 'hsla(' + this.hue + ', 40%, 50%, 1)';
+				if( this.chargeTick > this.chargeCooldown + 36 ) {
 					this.charging = 36;
 					this.chargeTick = 0;
 					this.chargeDir = direction;
-					this.fillStyle = 'hsla(30, 40%, 50%, 0.1)';
-					this.strokeStyle = 'hsla(30, 40%, 50%, 1)';
+					this.fillStyle = 'hsla(' + this.hue + ', 40%, 50%, 0.1)';
+					this.strokeStyle = 'hsla(' + this.hue + ', 40%, 50%, 1)';
 					if( this.inView ) {
 						$.audio.play( 'explosion' );
 					}
@@ -536,13 +621,46 @@ $.spawnBoss = function() {
 				this.vy = Math.sin( direction ) * speed;
 			}
 
-			// eject chunks when phases break off
+			// phases at 75/50/25 percent, each ejecting chunks
 			var lifeRatio = this.life / this.lifeMax;
-			if( ( this.phase === 0 && lifeRatio < 0.66 ) || ( this.phase === 1 && lifeRatio < 0.33 ) ) {
+			if( ( this.phase === 0 && lifeRatio < 0.75 ) || ( this.phase === 1 && lifeRatio < 0.5 ) || ( this.phase === 2 && lifeRatio < 0.25 ) ) {
 				this.phase++;
-				$.spawnBossChunks( this, 3 );
+				$.spawnBossChunks( this, 4 );
 				if( this.inView ) {
 					$.audio.play( 'explosionAlt' );
+				}
+			}
+		},
+		renderExtra: function() {
+			// distinct silhouettes per boss
+			if( this.variant.spikes ) {
+				$.ctxmg.fillStyle = this.strokeStyle;
+				for( var s = 0; s < 8; s++ ) {
+					var angle = s / 8 * $.twopi + $.tick / 60;
+					$.ctxmg.save();
+					$.ctxmg.translate( this.x + Math.cos( angle ) * this.radius, this.y + Math.sin( angle ) * this.radius );
+					$.ctxmg.rotate( angle );
+					$.ctxmg.beginPath();
+					$.ctxmg.moveTo( 22, 0 ); $.ctxmg.lineTo( -8, 12 ); $.ctxmg.lineTo( -8, -12 );
+					$.ctxmg.closePath();
+					$.ctxmg.fill();
+					$.ctxmg.restore();
+				}
+			}
+			if( this.variant.rings ) {
+				$.ctxmg.strokeStyle = 'hsla(270, 100%, 70%, 0.6)';
+				$.ctxmg.lineWidth = 3;
+				for( var ringIdx = 0; ringIdx < 2; ringIdx++ ) {
+					var swirl = $.tick / 25 + ringIdx * $.pi;
+					$.ctxmg.beginPath();
+					$.ctxmg.arc( this.x, this.y, this.radius + 18 + ringIdx * 14, swirl, swirl + $.pi * 1.2 );
+					$.ctxmg.stroke();
+				}
+			}
+			if( this.variant.flames ) {
+				for( var flameIdx = 0; flameIdx < 3; flameIdx++ ) {
+					var fa = $.tick / 18 + flameIdx * $.twopi / 3;
+					$.util.fillCircle( $.ctxmg, this.x + Math.cos( fa ) * ( this.radius + 16 ), this.y + Math.sin( fa ) * ( this.radius + 16 ), 9 + Math.cos( $.tick / 6 ) * 3, 'hsla(25, 100%, 60%, 0.7)' );
 				}
 			}
 		},
@@ -552,8 +670,8 @@ $.spawnBoss = function() {
 				x: this.x,
 				y: this.y,
 				radius: this.radius * 1.5,
-				hue: 30,
-				saturation: 40
+				hue: this.hue,
+				saturation: this.saturation
 			} ) );
 			$.boss = null;
 			$.bossDraftQueued = 1;

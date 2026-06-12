@@ -24,6 +24,7 @@ $.setupStorage = function() {
 		'bosskills': 0,
 		'pilotname': '',
 		'trail': '',
+		'controls': 'hybrid',
 		'rounds': 0,
 		'kills': 0,
 		'bullets': 0,

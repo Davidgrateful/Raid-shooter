@@ -80,7 +80,7 @@ $.Bullet.prototype.update = function( i ) {
 				this.enemiesHit.push( enemy.index );
 				enemy.receiveDamage( ei, this.damage );
 
-				if( this.enemiesHit.length > 3 ) {
+				if( this.enemiesHit.length > ( this.pierceCap || 3 ) ) {
 					$.bullets.splice( i, 1 );
 				}						
 			}

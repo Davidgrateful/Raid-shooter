@@ -33,6 +33,13 @@ $.Enemy = function( opt ) {
 		this.speed += Math.min( $.hero.vmax, $.levelDiffOffset * 0.25 );
 		this.value += $.levelDiffOffset * 5;
 	}
+
+	// limitless scaling: every level makes everything tougher and faster
+	if( $.level && $.level.current > 0 && !this.isBoss ) {
+		this.life *= 1 + $.level.current * 0.06;
+		this.lifeMax = this.life;
+		this.speed *= 1 + Math.min( 1.2, $.level.current * 0.025 );
+	}
 };
 
 /*==============================================================================
@@ -155,7 +162,7 @@ $.Enemy.prototype.receiveDamage = function( i, val ) {
 		}
 		this.death();
 		$.spawnPowerup( this.x, this.y );
-		$.registerKill( this.value );
+		$.registerKill( this.value, this.radius );
 		$.level.kills++;
 		$.kills++;
 		$.enemies.splice( i, 1 );

@@ -52,10 +52,6 @@ Update
 ==============================================================================*/
 $.Hero.prototype.update = function() {
 	if( this.life > 0 ) {
-		if( this.regenRate > 0 && this.life < 1 ) {
-			this.life = Math.min( 1, this.life + this.regenRate * $.dt );
-		}
-
 		/*==============================================================================
 		Dash
 		==============================================================================*/
@@ -125,7 +121,22 @@ $.Hero.prototype.update = function() {
 		Apply Forces (input is overridden while dashing, or it would clamp
 		the dash velocity back down to vmax)
 		==============================================================================*/
-		if( this.dashTick <= 0 ) {
+		var controlMode = $.isTouchDevice ? 'hybrid' : ( $.storage['controls'] || 'hybrid' );
+		if( this.dashTick <= 0 && controlMode === 'mouse' ) {
+			// MOUSE mode: the ship flies toward the cursor
+			var mdx = $.mouse.x - this.x,
+				mdy = $.mouse.y - this.y,
+				mdist = Math.sqrt( mdx * mdx + mdy * mdy );
+			if( mdist > 30 ) {
+				this.vx += ( mdx / mdist ) * this.accel * $.dt;
+				this.vy += ( mdy / mdist ) * this.accel * $.dt;
+				if( this.vx > this.vmax ) { this.vx = this.vmax; }
+				if( this.vx < -this.vmax ) { this.vx = -this.vmax; }
+				if( this.vy > this.vmax ) { this.vy = this.vmax; }
+				if( this.vy < -this.vmax ) { this.vy = -this.vmax; }
+			}
+		}
+		if( this.dashTick <= 0 && controlMode !== 'mouse' ) {
 			if( $.keys.state.up ) {
 				this.vy -= this.accel * $.dt;
 				if( this.vy < -this.vmax ) {
@@ -175,7 +186,13 @@ $.Hero.prototype.update = function() {
 		/*==============================================================================
 		Update Direction
 		==============================================================================*/
-		if( $.vjoyRight.active ) {
+		if( controlMode === 'keyboard' && !$.vjoyRight.active ) {
+			var kdx = $.keys.state.right - $.keys.state.left,
+				kdy = $.keys.state.down - $.keys.state.up;
+			if( kdx !== 0 || kdy !== 0 ) {
+				this.direction = Math.atan2( kdy, kdx );
+			}
+		} else if( $.vjoyRight.active ) {
 			var dx = $.vjoyRight.cx - $.vjoyRight.ox,
 				dy = $.vjoyRight.cy - $.vjoyRight.oy;
 			if( dx !== 0 || dy !== 0 ) {
@@ -197,9 +214,13 @@ $.Hero.prototype.update = function() {
 		if( this.weapon.fireRateTick < this.weapon.fireRate ){
 			this.weapon.fireRateTick += $.dt;
 		} else {
-			// touch: the right (aim) joystick fires; desktop: held mouse fires.
-			// movement-only touches (left joystick) no longer trigger fire.
-			if ( $.vjoyRight.active || ( $.mouse.down && !$.vjoyLeft.active ) || $.autofire ) {
+			// touch: the right (aim) joystick fires; desktop: depends on the
+			// control mode (hybrid holds mouse, keyboard holds F, mouse LMB)
+			var firing = $.vjoyRight.active || ( $.mouse.down && !$.vjoyLeft.active ) || $.autofire;
+			if( controlMode === 'keyboard' && !$.isTouchDevice ) {
+				firing = $.keys.state.f || $.autofire || $.vjoyRight.active;
+			}
+			if ( firing ) {
 				$.audio.play( 'shoot' );
 				if( $.powerupTimers[ 2 ] > 0 || $.powerupTimers[ 3 ] > 0 || $.powerupTimers[ 4 ] > 0) {
 					$.audio.play( 'shootAlt' );
@@ -238,7 +259,9 @@ $.Hero.prototype.update = function() {
 						size: this.weapon.bullet.size,
 						lineWidth: this.weapon.bullet.lineWidth,
 						strokeStyle: color,
-						piercing: this.weapon.bullet.piercing					
+						piercing: this.weapon.bullet.piercing,
+						pierceCap: this.weapon.pierceCap,
+						range: this.weapon.range
 					} ) );
 				}
 			}
@@ -267,7 +290,11 @@ $.Hero.prototype.update = function() {
 				} ) );
 				this.takingDamage = 1;
 				var resist = ( this.character.ability && this.character.ability.lowHpResist && this.life < 0.35 ) ? this.character.ability.lowHpResist : 1;
-				this.life -= 0.011 * this.damageTakenMult * resist;
+				this.life -= 0.011 * ( enemy.isBoss ? 2.5 : 1 ) * this.damageTakenMult * resist;
+				// enemies shove the hero on contact
+				var pushDirection = Math.atan2( this.y - enemy.y, this.x - enemy.x );
+				this.vx += Math.cos( pushDirection ) * 1.6 * $.dt;
+				this.vy += Math.sin( pushDirection ) * 1.6 * $.dt;
 				$.breakCombo();
 				$.rumble.level = 3;
 				if( Math.floor( $.tick ) % 5 == 0 ){

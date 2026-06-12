@@ -6,61 +6,55 @@ $.definitions.upgrades = [
 		id: 'rapid',
 		title: 'RAPID FIRE',
 		desc: 'SHOOT FASTER',
-		max: 5
+		max: 999
 	},
 	{
 		id: 'multi',
 		title: 'MULTI SHOT',
 		desc: '+1 BULLET PER SHOT',
-		max: 3
+		max: 999
 	},
 	{
 		id: 'heavy',
 		title: 'HEAVY ROUNDS',
 		desc: 'BULLETS HIT HARDER',
-		max: 5
+		max: 999
 	},
 	{
 		id: 'pierce',
 		title: 'PIERCING ROUNDS',
-		desc: 'SHOTS PASS THROUGH\nENEMIES',
-		max: 1
+		desc: 'SHOTS PASS THROUGH\nMORE ENEMIES',
+		max: 999
 	},
 	{
 		id: 'velocity',
 		title: 'VELOCITY ROUNDS',
 		desc: 'FASTER BULLETS',
-		max: 3
+		max: 999
 	},
 	{
 		id: 'thrusters',
 		title: 'THRUSTERS',
 		desc: 'MOVE FASTER',
-		max: 4
-	},
-	{
-		id: 'nano',
-		title: 'NANO REPAIR',
-		desc: 'SLOWLY REGEN HEALTH',
-		max: 3
+		max: 999
 	},
 	{
 		id: 'hull',
 		title: 'HARDENED HULL',
 		desc: 'TAKE LESS DAMAGE',
-		max: 4
+		max: 999
 	},
 	{
 		id: 'lucky',
 		title: 'LUCKY STAR',
 		desc: 'ENEMIES DROP\nMORE POWERUPS',
-		max: 3
+		max: 999
 	},
 	{
 		id: 'overcharge',
 		title: 'OVERCHARGE',
 		desc: 'POWERUPS LAST LONGER',
-		max: 2
+		max: 999
 	}
 ];
 
@@ -78,16 +72,20 @@ $.recomputeUpgrades = function() {
 		character = $.hero.character || $.currentCharacter(),
 		ability = character.ability || {};
 
+	var bulletStyle = character.bulletStyle || { size: 15, lineWidth: 2 };
 	weapon.baseFireRate = 5 * ( ability.fireRate || 1 ) * Math.pow( 0.85, u['rapid'] || 0 );
 	weapon.baseCount = 1 + ( u['multi'] || 0 );
 	weapon.baseBulletSpeed = 10 * ( ability.bulletSpeed || 1 ) * Math.pow( 1.2, u['velocity'] || 0 );
 	weapon.basePiercing = ( u['pierce'] || 0 ) > 0 ? 1 : 0;
+	weapon.pierceCap = 1 + 2 * ( u['pierce'] || 0 );
+	weapon.range = 540 + 50 * ( u['velocity'] || 0 );
 	weapon.spread = 0.3 + ( weapon.baseCount - 1 ) * 0.1;
 	weapon.bullet.damage = ( ability.damage || 1 ) * Math.pow( 1.4, u['heavy'] || 0 );
+	weapon.bullet.size = bulletStyle.size;
+	weapon.bullet.lineWidth = bulletStyle.lineWidth;
 
 	$.hero.vmax = 6 * character.speedMult * Math.pow( 1.12, u['thrusters'] || 0 );
 	$.hero.accel = 0.5 * character.speedMult * Math.pow( 1.12, u['thrusters'] || 0 );
-	$.hero.regenRate = ( u['nano'] || 0 ) * 0.0002;
 	$.hero.damageTakenMult = character.damageTakenMult * Math.pow( 0.85, u['hull'] || 0 );
 	$.hero.dashCooldownMax = 120 * character.dashCooldownMult;
 	$.hero.dashDuration = 14 * ( ability.dashDuration || 1 );
@@ -218,7 +216,7 @@ $.UpgradeCard.prototype.render = function( i ) {
 	$.ctxmg.fill();
 
 	var owned = $.upgrades[ this.def.id ] || 0,
-		levelText = ( owned === 0 ) ? 'NEW' : 'LV ' + ( owned + 1 ) + '/' + this.def.max;
+		levelText = ( owned === 0 ) ? 'NEW' : 'LV ' + ( owned + 1 );
 	$.ctxmg.beginPath();
 	$.text( {
 		ctx: $.ctxmg,
