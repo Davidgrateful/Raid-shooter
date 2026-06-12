@@ -33,7 +33,7 @@ export function getItem(id: string): MarketItem | undefined {
 }
 
 // Payments go live once a treasury address is configured.
-export const treasury = (process.env.NEXT_PUBLIC_BASE_TREASURY || '').toLowerCase();
+export const treasury = (process.env.NEXT_PUBLIC_BASE_TREASURY || '').trim().toLowerCase();
 export const marketEnabled = /^0x[0-9a-f]{40}$/.test(treasury);
 export const baseNetwork = process.env.NEXT_PUBLIC_BASE_NETWORK === 'base' ? 'base' : 'baseSepolia';
 export const baseRpcUrl =
