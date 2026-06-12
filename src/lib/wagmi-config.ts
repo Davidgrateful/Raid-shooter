@@ -11,8 +11,11 @@ if (!projectId) {
   );
 }
 
-// Chains to support — Base is the marketplace settlement chain
-export const networks = [base, baseSepolia, mainnet, sepolia] as const;
+// Chains to support. Mainnet stays first: it is the default at connection
+// time and universally supported by mobile wallets - defaulting to Base
+// here broke mobile connections for wallets without it configured. The
+// market switches the chain to Base only when a purchase starts.
+export const networks = [mainnet, base, baseSepolia, sepolia] as const;
 
 // Wagmi adapter bridges Reown AppKit with wagmi hooks
 export const wagmiAdapter = new WagmiAdapter({

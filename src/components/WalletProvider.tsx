@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WagmiProvider } from 'wagmi';
 import { createAppKit } from '@reown/appkit/react';
 import { wagmiAdapter, projectId, networks } from '@/lib/wagmi-config';
+import { mainnet } from '@reown/appkit/networks';
 import { useState, type ReactNode } from 'react';
 
 // Initialize Reown AppKit at module load. Supports SSR — the adapter uses
@@ -12,6 +13,7 @@ createAppKit({
   adapters: [wagmiAdapter],
   projectId: projectId || 'dev-placeholder',
   networks: [...networks],
+  defaultNetwork: mainnet,
   metadata: {
     name: 'Raid Shooter',
     description: 'Canvas-based arcade shooter with Web3 wallet integration',

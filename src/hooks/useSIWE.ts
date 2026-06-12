@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useAccount, useSignMessage } from 'wagmi';
 import { SiweMessage } from 'siwe';
 
@@ -33,8 +33,10 @@ export function useSIWE() {
       .catch(() => setState((s) => ({ ...s, loading: false })));
   }, []);
 
+  const signingRef = useRef(false);
   const signIn = useCallback(async () => {
-    if (!address || !chainId) return;
+    if (!address || !chainId || signingRef.current) return;
+    signingRef.current = true;
 
     setState((s) => ({ ...s, loading: true }));
     try {
@@ -72,6 +74,8 @@ export function useSIWE() {
       }
     } catch {
       setState((s) => ({ ...s, loading: false }));
+    } finally {
+      signingRef.current = false;
     }
   }, [address, chainId, signMessageAsync]);
 
