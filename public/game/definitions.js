@@ -85,6 +85,7 @@ Enemies
 ==============================================================================*/
 $.definitions.enemies = [	
 	{ // Enemy 0 - horizontal / vertical	
+		shape: 'shuttle',
 		value: 5,
 		speed: 1.5,
 		life: 1,
@@ -113,6 +114,7 @@ $.definitions.enemies = [
 		}
 	},	
 	{ // Enemy 1 - diagonal	
+		shape: 'slant',
 		value: 10,
 		speed: 1.5,
 		life: 2,
@@ -142,6 +144,7 @@ $.definitions.enemies = [
 		}
 	},
 	{ // Enemy 2 - move directly hero
+		shape: 'chevron',
 		value: 15,
 		speed: 1.5,
 		life: 2,
@@ -161,6 +164,7 @@ $.definitions.enemies = [
 		}
 	},
 	{ // Enemy 3 - splitter
+		shape: 'block',
 		value: 20,
 		speed: 0.5,
 		life: 3,
@@ -205,6 +209,7 @@ $.definitions.enemies = [
 		}
 	},
 	{ // Enemy 4 - wanderer
+		shape: 'tumbler',
 		value: 25,
 		speed: 2,
 		life: 4,
@@ -234,6 +239,7 @@ $.definitions.enemies = [
 		}
 	},
 	{ // Kamikaze comet - charges the hero, arms, then detonates
+		shape: 'comet',
 		value: 30,
 		speed: 2.4,
 		life: 1,
@@ -293,6 +299,7 @@ $.definitions.enemies = [
 		}
 	},
 	{ // Stinger - fast strafer that fires light bolts from range
+		shape: 'wasp',
 		value: 35,
 		speed: 2.2,
 		life: 2,
@@ -326,6 +333,7 @@ $.definitions.enemies = [
 					$.audio.play( 'shootAlt' );
 				}
 				$.enemies.push( new $.Enemy( {
+					shape: 'shard',
 					value: 5,
 					speed: 6.5,
 					life: 1,
@@ -349,6 +357,7 @@ $.definitions.enemies = [
 		}
 	},
 	{ // Enemy 5 - stealth, hard to see - move directly hero
+		shape: 'sliver',
 		value: 30,
 		speed: 1,
 		life: 3,
@@ -370,6 +379,7 @@ $.definitions.enemies = [
 		}
 	},
 	{ // Enemy 6 - big strong slow fatty
+		shape: 'heavy',
 		value: 35,
 		speed: 0.25,
 		life: 8,
@@ -389,6 +399,7 @@ $.definitions.enemies = [
 		}
 	},
 	{ // Healer orb - keeps its distance and heals nearby enemies
+		shape: 'bloom',
 		value: 40,
 		speed: 1,
 		life: 3,
@@ -444,6 +455,7 @@ $.definitions.enemies = [
 		}
 	},
 	{ // Enemy 7 - small weak speedy
+		shape: 'dartlet',
 		value: 40,
 		speed: 2.5,
 		life: 1,
@@ -464,6 +476,7 @@ $.definitions.enemies = [
 		}
 	},
 	{ // Enemy 8 - strong grower, move to hero
+		shape: 'star',
 		value: 45,
 		speed: 1.5,
 		growth: 0.1,
@@ -501,6 +514,7 @@ $.definitions.enemies = [
 		}
 	},
 	{ // Sniper drone - keeps range, telegraphs with a laser, fires a fast bolt
+		shape: 'turret',
 		value: 50,
 		speed: 1.4,
 		life: 2,
@@ -538,6 +552,7 @@ $.definitions.enemies = [
 					$.audio.play( 'shootAlt' );
 				}
 				$.enemies.push( new $.Enemy( {
+					shape: 'shard',
 					value: 5,
 					speed: 8,
 					life: 1,
@@ -572,6 +587,7 @@ $.definitions.enemies = [
 		}
 	},
 	{ // Enemy 9 - circle around hero
+		shape: 'crescent',
 		value: 50,
 		speed: 0.5,
 		angleSpeed: 0.015,
@@ -603,6 +619,7 @@ $.definitions.enemies = [
 		}
 	},
 	{ // Enemy 10 - spawner
+		shape: 'hive',
 		value: 55,
 		speed: 1,
 		life: 3,
@@ -643,6 +660,7 @@ $.definitions.enemies = [
 		}
 	},
 	{ // Enemy 11 - random location strong tower
+		shape: 'fort',
 		value: 60,
 		speed: 1.5,
 		life: 10,
@@ -670,6 +688,7 @@ $.definitions.enemies = [
 		}
 	},
 	{ // Enemy 12 - speedy random direction, no homing
+		shape: 'shard',
 		value: 65,
 		speed: 6,
 		life: 1,
