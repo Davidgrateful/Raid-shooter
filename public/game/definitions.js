@@ -740,7 +740,7 @@ $.definitions.enemies = [
 Levels
 ==============================================================================*/
 $.definitions.levels = [];
-var base = 13;
+var base = 11;
 for( var i = 0; i < $.definitions.enemies.length; i++ ){
 	var distribution = [];
 	for( var di = 0; di < i + 1; di++ ) {

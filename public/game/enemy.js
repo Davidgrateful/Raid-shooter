@@ -462,7 +462,7 @@ $.Enemy.prototype.update = function( i ) {
 			hsy = $.hero.y - this.y,
 			hsd = Math.max( 1, Math.sqrt( hsx * hsx + hsy * hsy ) ),
 			spd = Math.sqrt( this.vx * this.vx + this.vy * this.vy ) || this.speed || 1,
-			turn = 0.05;
+			turn = 0.08;
 		this.vx = this.vx * ( 1 - turn ) + ( hsx / hsd ) * spd * turn;
 		this.vy = this.vy * ( 1 - turn ) + ( hsy / hsd ) * spd * turn;
 		// straight-line movers shouldn't despawn at the wall while hunting

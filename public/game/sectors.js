@@ -564,13 +564,13 @@ $.spawnBoss = function() {
 			// continuous spiral spitter: the boss is never not shooting
 			if( this.variant.spiral ) {
 				this.spiralTick += $.dt;
-				if( this.spiralTick > 10 ) {
+				if( this.spiralTick > 8 ) {
 					this.spiralTick = 0;
 					this.spiralAngle += 0.6;
 					if( this.inView ) {
 						$.audio.play( 'shoot' );
 					}
-					var arms = 2 + this.phase;
+					var arms = 3 + this.phase;
 					for( var sp = 0; sp < arms; sp++ ) {
 						var spDir = this.spiralAngle + sp * $.twopi / arms;
 						$.enemies.push( new $.Enemy( {
