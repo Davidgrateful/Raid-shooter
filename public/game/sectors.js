@@ -541,6 +541,9 @@ $.spawnBoss = function() {
 		chargeCooldown: 70,
 		spiralTick: 0,
 		spiralAngle: 0,
+		roamX: 0,
+		roamY: 0,
+		roamTick: 999,
 		burstTick: 0,
 		charging: 0,
 		chargeDir: 0,
@@ -626,13 +629,38 @@ $.spawnBoss = function() {
 				}
 			}
 
+			// pick a fresh roam waypoint: alternate between strafing around the
+			// hero and darting to a random arena corner, so movement is varied
+			this.roamTick -= $.dt;
+			var rdx = this.roamX - this.x,
+				rdy = this.roamY - this.y,
+				rdist = Math.sqrt( rdx * rdx + rdy * rdy );
+			if( this.roamTick <= 0 || rdist < 80 ) {
+				this.roamTick = $.util.rand( 60, 130 );
+				if( Math.random() < 0.6 ) {
+					// strafe: a point on a ring around the hero
+					var ringAngle = $.util.rand( 0, $.twopi ),
+						ringDist = $.util.rand( 280, 520 );
+					this.roamX = $.hero.x + Math.cos( ringAngle ) * ringDist;
+					this.roamY = $.hero.y + Math.sin( ringAngle ) * ringDist;
+				} else {
+					// reposition anywhere in the arena
+					this.roamX = $.util.rand( $.ww * 0.2, $.ww * 0.8 );
+					this.roamY = $.util.rand( $.wh * 0.2, $.wh * 0.8 );
+				}
+				rdx = this.roamX - this.x; rdy = this.roamY - this.y;
+				rdist = Math.max( 1, Math.sqrt( rdx * rdx + rdy * rdy ) );
+			}
+			rdist = Math.max( 1, rdist );
+
 			if( this.charging > 0 ) {
 				this.charging -= $.dt;
-				this.vx = Math.cos( this.chargeDir ) * 16;
-				this.vy = Math.sin( this.chargeDir ) * 16;
+				this.vx = Math.cos( this.chargeDir ) * 17;
+				this.vy = Math.sin( this.chargeDir ) * 17;
 			} else if( this.chargeTick > this.chargeCooldown ) {
-				this.vx *= 0.85;
-				this.vy *= 0.85;
+				// telegraph: keep drifting toward the roam target (never frozen)
+				this.vx = ( rdx / rdist ) * speed * 0.5;
+				this.vy = ( rdy / rdist ) * speed * 0.5;
 				var flash = ( Math.floor( $.tick / 4 ) % 2 );
 				this.fillStyle = flash ? 'hsla(' + this.hue + ', 80%, 70%, 0.5)' : 'hsla(' + this.hue + ', 40%, 50%, 0.1)';
 				this.strokeStyle = flash ? 'hsla(' + this.hue + ', 100%, 85%, 1)' : 'hsla(' + this.hue + ', 40%, 50%, 1)';
@@ -647,9 +675,10 @@ $.spawnBoss = function() {
 					}
 				}
 			} else {
+				// roam: fly toward the waypoint at full speed
 				this.chargeTick += $.dt;
-				this.vx = Math.cos( direction ) * speed;
-				this.vy = Math.sin( direction ) * speed;
+				this.vx = ( rdx / rdist ) * speed * 1.8;
+				this.vy = ( rdy / rdist ) * speed * 1.8;
 			}
 
 			// phases at 75/50/25 percent, each ejecting chunks

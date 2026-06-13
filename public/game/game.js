@@ -805,13 +805,12 @@ $.spawnEnemies = function() {
 		$.spawnLullTick -= $.dt;
 		return;
 	}
-	// boss fights own the arena: no regular wave spawns
-	if( $.boss ) {
-		return;
-	}
 	var floorTick = Math.floor( $.tick );
+	// during a boss fight, minions keep coming but at a slower cadence so the
+	// fight stays about the boss while never feeling empty
+	var bossMult = $.boss ? 2.2 : 1;
 	for( var i = 0; i < $.level.distributionCount; i++ ) {
-		var timeCheck = $.level.distribution[ i ];
+		var timeCheck = Math.round( $.level.distribution[ i ] * bossMult );
 		if( $.levelDiffOffset > 0 ){
 			timeCheck = Math.max( 1, timeCheck - ( $.levelDiffOffset * 2) );
 		}
@@ -1211,7 +1210,7 @@ $.updateCombo = function() {
 };
 
 $.updateLevel = function() {
-	if( $.level.kills >= $.level.killsToLevel ) {
+	if( $.level.kills >= $.level.killsToLevel && !$.boss ) {
 		if( $.level.current + 1 < $.levelCount ){
 			$.level.current++;
 			$.level.kills = 0;

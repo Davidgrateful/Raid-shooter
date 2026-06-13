@@ -749,7 +749,7 @@ for( var i = 0; i < $.definitions.enemies.length; i++ ){
 		distribution.push( value );
 	}
 	$.definitions.levels.push( {
-		killsToLevel: 10 + ( i + 1 ) * 7,
+		killsToLevel: 18 + ( i + 1 ) * 13,
 		distribution: distribution
 	} );
 }
