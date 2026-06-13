@@ -1406,6 +1406,9 @@ $.setState = function( state ) {
 		$.mouse.down = 0;
 		if( !$.hangarKeep ) {
 			$.hangarIndex = $.storage['character'] || 0;
+			if( $.hangarIndex >= $.definitions.characters.length ) {
+				$.hangarIndex = 0;
+			}
 			$.hangarView = 'ship';
 			$.hangarPage = Math.floor( $.hangarIndex / 8 );
 		}

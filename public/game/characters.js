@@ -224,6 +224,8 @@ $.currentCharacter = function() {
 	var index = $.storage['character'] || 0,
 		def = $.definitions.characters[ index ];
 	if( !def || !$.characterUnlocked( def ) ) {
+		// reset a stale or locked selection so it stops silently overriding
+		$.storage['character'] = 0;
 		return $.definitions.characters[ 0 ];
 	}
 	return def;
