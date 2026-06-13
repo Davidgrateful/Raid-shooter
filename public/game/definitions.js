@@ -333,7 +333,7 @@ $.definitions.enemies = [
 					$.audio.play( 'shootAlt' );
 				}
 				$.enemies.push( new $.Enemy( {
-					shape: 'shard',
+					shape: 'shard', isBolt: 1,
 					value: 5,
 					speed: 6.5,
 					life: 1,
@@ -552,7 +552,7 @@ $.definitions.enemies = [
 					$.audio.play( 'shootAlt' );
 				}
 				$.enemies.push( new $.Enemy( {
-					shape: 'shard',
+					shape: 'shard', isBolt: 1,
 					value: 5,
 					speed: 8,
 					life: 1,

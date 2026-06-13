@@ -25,6 +25,7 @@ $.setupStorage = function() {
 		'pilotname': '',
 		'trail': '',
 		'controls': 'hybrid',
+		'music': 1,
 		'rounds': 0,
 		'kills': 0,
 		'bullets': 0,

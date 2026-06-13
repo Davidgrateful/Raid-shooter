@@ -454,6 +454,22 @@ $.Enemy.prototype.update = function( i ) {
 	}
 
 	/*==============================================================================
+	Hunt: every creature curves toward the hero (bolts and bosses excepted),
+	so nothing drifts harmlessly past - the arena always closes in
+	==============================================================================*/
+	if( !this.isBolt && !this.isBoss && $.hero.life > 0 ) {
+		var hsx = $.hero.x - this.x,
+			hsy = $.hero.y - this.y,
+			hsd = Math.max( 1, Math.sqrt( hsx * hsx + hsy * hsy ) ),
+			spd = Math.sqrt( this.vx * this.vx + this.vy * this.vy ) || this.speed || 1,
+			turn = 0.05;
+		this.vx = this.vx * ( 1 - turn ) + ( hsx / hsd ) * spd * turn;
+		this.vy = this.vy * ( 1 - turn ) + ( hsy / hsd ) * spd * turn;
+		// straight-line movers shouldn't despawn at the wall while hunting
+		this.lockBounds = 0;
+	}
+
+	/*==============================================================================
 	Apply Forces
 	==============================================================================*/
 	this.x += this.vx * $.dt;

@@ -514,21 +514,21 @@ $.spawnBossChunks = function( boss, count ) {
 
 $.spawnBoss = function() {
 	var coords = $.getSpawnCoordinates( 90 ),
-		levelScale = 1 + $.level.current * 0.1,
+		levelScale = 1 + $.level.current * 0.16,
 		sectorIdx = $.sectorIndex % 3;
 
 	// each sector family fields its own boss with its own attack
 	var variants = [
-		{ title: 'ASTEROID KING', hue: 30, saturation: 40, speed: 1.2, burstCount: 10, burstSpeed: 6.5, burstEvery: 240, spikes: 1 },
-		{ title: 'VOID TYRANT', hue: 270, saturation: 90, speed: 1.05, burstCount: 12, burstSpeed: 5, burstEvery: 210, pull: 1, rings: 1 },
-		{ title: 'SOLAR WARDEN', hue: 10, saturation: 100, speed: 1.45, burstCount: 5, burstSpeed: 8, burstEvery: 150, aimed: 1, flames: 1 }
+		{ title: 'ASTEROID KING', hue: 30, saturation: 40, speed: 1.6, burstCount: 14, burstSpeed: 7, burstEvery: 150, spikes: 1, spiral: 1 },
+		{ title: 'VOID TYRANT', hue: 270, saturation: 90, speed: 1.4, burstCount: 18, burstSpeed: 5.5, burstEvery: 130, pull: 1, rings: 1, spiral: 1 },
+		{ title: 'SOLAR WARDEN', hue: 10, saturation: 100, speed: 1.9, burstCount: 7, burstSpeed: 9, burstEvery: 90, aimed: 1, flames: 1, spiral: 1 }
 	];
 	var variant = variants[ sectorIdx ];
 
 	var boss = new $.Enemy( {
 		value: 750,
 		speed: variant.speed,
-		life: 90 * levelScale,
+		life: 170 * levelScale,
 		radius: 90,
 		hue: variant.hue,
 		saturation: variant.saturation,
@@ -538,7 +538,9 @@ $.spawnBoss = function() {
 		x: coords.x,
 		y: coords.y,
 		chargeTick: 0,
-		chargeCooldown: 110,
+		chargeCooldown: 70,
+		spiralTick: 0,
+		spiralAngle: 0,
 		burstTick: 0,
 		charging: 0,
 		chargeDir: 0,
@@ -554,9 +556,38 @@ $.spawnBoss = function() {
 				direction = Math.atan2( dy, dx );
 
 			// VOID TYRANT drags the hero toward it
-			if( this.variant.pull && dist < 700 ) {
-				$.hero.vx += ( -dx / dist ) * -0.18 * $.dt;
-				$.hero.vy += ( -dy / dist ) * -0.18 * $.dt;
+			if( this.variant.pull && dist < 900 ) {
+				$.hero.vx += ( -dx / dist ) * -0.3 * $.dt;
+				$.hero.vy += ( -dy / dist ) * -0.3 * $.dt;
+			}
+
+			// continuous spiral spitter: the boss is never not shooting
+			if( this.variant.spiral ) {
+				this.spiralTick += $.dt;
+				if( this.spiralTick > 10 ) {
+					this.spiralTick = 0;
+					this.spiralAngle += 0.6;
+					if( this.inView ) {
+						$.audio.play( 'shoot' );
+					}
+					var arms = 2 + this.phase;
+					for( var sp = 0; sp < arms; sp++ ) {
+						var spDir = this.spiralAngle + sp * $.twopi / arms;
+						$.enemies.push( new $.Enemy( {
+							shape: 'shard', isBolt: 1,
+							value: 5, speed: 4.5, life: 1, radius: 6,
+							hue: this.variant.hue, saturation: this.variant.saturation,
+							lockBounds: 1,
+							x: this.x + Math.cos( spDir ) * ( this.radius + 8 ),
+							y: this.y + Math.sin( spDir ) * ( this.radius + 8 ),
+							direction: spDir,
+							behavior: function() {
+								this.vx = Math.cos( this.direction ) * this.speed;
+								this.vy = Math.sin( this.direction ) * this.speed;
+							}
+						} ) );
+					}
+				}
 			}
 
 			// ranged attack, faster with every phase
@@ -597,8 +628,8 @@ $.spawnBoss = function() {
 
 			if( this.charging > 0 ) {
 				this.charging -= $.dt;
-				this.vx = Math.cos( this.chargeDir ) * 13;
-				this.vy = Math.sin( this.chargeDir ) * 13;
+				this.vx = Math.cos( this.chargeDir ) * 16;
+				this.vy = Math.sin( this.chargeDir ) * 16;
 			} else if( this.chargeTick > this.chargeCooldown ) {
 				this.vx *= 0.85;
 				this.vy *= 0.85;
@@ -606,7 +637,7 @@ $.spawnBoss = function() {
 				this.fillStyle = flash ? 'hsla(' + this.hue + ', 80%, 70%, 0.5)' : 'hsla(' + this.hue + ', 40%, 50%, 0.1)';
 				this.strokeStyle = flash ? 'hsla(' + this.hue + ', 100%, 85%, 1)' : 'hsla(' + this.hue + ', 40%, 50%, 1)';
 				if( this.chargeTick > this.chargeCooldown + 36 ) {
-					this.charging = 36;
+					this.charging = 42;
 					this.chargeTick = 0;
 					this.chargeDir = direction;
 					this.fillStyle = 'hsla(' + this.hue + ', 40%, 50%, 0.1)';

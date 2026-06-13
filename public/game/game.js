@@ -1667,50 +1667,71 @@ $.setState = function( state ) {
 		$.mouse.down = 0;
 
 		var settingsCompact = ( $.ch < 640 ),
-			settingsY = settingsCompact ? 110 : $.ch / 2 - 60,
-			settingsGap = settingsCompact ? 53 : 70;
+			settingsTop = settingsCompact ? 96 : $.ch / 2 - 110,
+			settingsGap = settingsCompact ? 50 : 60,
+			settingsRow = 0;
 
-		var controlNames = { hybrid: 'HYBRID', keyboard: 'KEYBOARD', mouse: 'MOUSE' };
-		var controlsButton = new $.Button( {
-			x: $.cw / 2 + 1,
-			y: settingsY,
-			lockedWidth: 299,
-			lockedHeight: 45,
-			scale: 1,
-			title: 'CONTROLS: ' + controlNames[ $.storage['controls'] || 'hybrid' ],
-			action: function() {
-				$.mouse.down = 0;
-				var order = [ 'hybrid', 'keyboard', 'mouse' ],
-					next = order[ ( order.indexOf( $.storage['controls'] || 'hybrid' ) + 1 ) % order.length ];
-				$.storage['controls'] = next;
-				$.updateStorage();
-				this.title = 'CONTROLS: ' + controlNames[ next ];
-			}
-		} );
-		$.buttons.push( controlsButton );
-
-		if( document.documentElement.requestFullscreen ) {
-			$.buttons.push( new $.Button( {
+		var settingsButton = function( title, action ) {
+			var b = new $.Button( {
 				x: $.cw / 2 + 1,
-				y: settingsY + settingsGap,
+				y: settingsTop + settingsRow * settingsGap,
 				lockedWidth: 299,
 				lockedHeight: 45,
 				scale: 1,
-				title: 'FULLSCREEN',
-				action: function() {
-					$.mouse.down = 0;
-					if( document.fullscreenElement ) {
-						document.exitFullscreen();
-					} else {
-						document.documentElement.requestFullscreen();
-					}
+				title: title,
+				action: action
+			} );
+			$.buttons.push( b );
+			settingsRow++;
+			return b;
+		};
+
+		var controlNames = { hybrid: 'HYBRID', keyboard: 'KEYBOARD', mouse: 'MOUSE' };
+		settingsButton( 'CONTROLS: ' + controlNames[ $.storage['controls'] || 'hybrid' ], function() {
+			$.mouse.down = 0;
+			var order = [ 'hybrid', 'keyboard', 'mouse' ],
+				next = order[ ( order.indexOf( $.storage['controls'] || 'hybrid' ) + 1 ) % order.length ];
+			$.storage['controls'] = next;
+			$.updateStorage();
+			this.title = 'CONTROLS: ' + controlNames[ next ];
+		} );
+
+		settingsButton( 'MUSIC: ' + ( $.storage['music'] !== 0 ? 'ON' : 'OFF' ), function() {
+			$.mouse.down = 0;
+			$.storage['music'] = ( $.storage['music'] !== 0 ) ? 0 : 1;
+			$.updateStorage();
+			if( $.storage['music'] !== 0 ) {
+				$.music.start();
+			}
+			this.title = 'MUSIC: ' + ( $.storage['music'] !== 0 ? 'ON' : 'OFF' );
+		} );
+
+		settingsButton( 'SOUND: ' + ( $.mute ? 'OFF' : 'ON' ), function() {
+			$.mouse.down = 0;
+			$.mute = ~~!$.mute;
+			var ai = $.audio.references.length;
+			while( ai-- ) {
+				$.audio.references[ ai ].volume = ~~!$.mute;
+			}
+			$.storage['mute'] = $.mute;
+			$.updateStorage();
+			this.title = 'SOUND: ' + ( $.mute ? 'OFF' : 'ON' );
+		} );
+
+		if( document.documentElement.requestFullscreen ) {
+			settingsButton( 'FULLSCREEN', function() {
+				$.mouse.down = 0;
+				if( document.fullscreenElement ) {
+					document.exitFullscreen();
+				} else {
+					document.documentElement.requestFullscreen();
 				}
-			} ) );
+			} );
 		}
 
-		$.buttons.push( new $.Button( {
+		var settingsMenuButton = new $.Button( {
 			x: $.cw / 2 + 1,
-			y: settingsY + settingsGap * 2,
+			y: settingsTop + settingsRow * settingsGap + 10,
 			lockedWidth: 299,
 			lockedHeight: 45,
 			scale: 2,
@@ -1718,7 +1739,8 @@ $.setState = function( state ) {
 			action: function() {
 				$.setState( 'menu' );
 			}
-		} ) );
+		} );
+		$.buttons.push( settingsMenuButton );
 	}
 
 	if( state == 'board' ) {
