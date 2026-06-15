@@ -394,9 +394,12 @@ $.Enemy = function( opt ) {
 	// limitless scaling: every level makes everything tougher and faster
 	if( $.level && $.level.current > 0 && !this.isBoss ) {
 		this.life *= 1 + $.level.current * 0.06;
-		this.lifeMax = this.life;
 		this.speed *= 1 + Math.min( 1.2, $.level.current * 0.025 );
 	}
+	if( $.diff && !this.isBoss ) {
+		this.life *= $.diff.enemyHp;
+	}
+	this.lifeMax = this.life;
 };
 
 /*==============================================================================
@@ -462,7 +465,7 @@ $.Enemy.prototype.update = function( i ) {
 			hsy = $.hero.y - this.y,
 			hsd = Math.max( 1, Math.sqrt( hsx * hsx + hsy * hsy ) ),
 			spd = Math.sqrt( this.vx * this.vx + this.vy * this.vy ) || this.speed || 1,
-			turn = 0.08;
+			turn = 0.08 * ( $.diff ? $.diff.hunt : 1 ) * $.introMult();
 		this.vx = this.vx * ( 1 - turn ) + ( hsx / hsd ) * spd * turn;
 		this.vy = this.vy * ( 1 - turn ) + ( hsy / hsd ) * spd * turn;
 		// straight-line movers shouldn't despawn at the wall while hunting

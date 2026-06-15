@@ -290,7 +290,7 @@ $.Hero.prototype.update = function() {
 				} ) );
 				this.takingDamage = 1;
 				var resist = ( this.character.ability && this.character.ability.lowHpResist && this.life < 0.35 ) ? this.character.ability.lowHpResist : 1;
-				this.life -= 0.011 * ( enemy.isBoss ? 2.5 : 1 ) * this.damageTakenMult * resist;
+				this.life -= 0.011 * ( enemy.isBoss ? 2.5 : 1 ) * ( $.diff ? $.diff.dmg : 1 ) * $.introMult() * this.damageTakenMult * resist;
 				// enemies shove the hero on contact
 				var pushDirection = Math.atan2( this.y - enemy.y, this.x - enemy.x );
 				this.vx += Math.cos( pushDirection ) * 1.6 * $.dt;

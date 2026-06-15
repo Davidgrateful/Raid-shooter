@@ -165,7 +165,11 @@ $.reset = function() {
 	$.gameoverExplosion = 0;
 
 	$.instructionTick = 0;
-	$.instructionTickMax = 400;
+	// first-ever run gets a longer, clearer tutorial pass; 'seen' is written
+	// when play actually begins (setState 'play'), not here - reset also runs
+	// on the menu, which would otherwise consume the first-run flag early
+	$.firstRun = !$.storage['seen'];
+	$.instructionTickMax = $.firstRun ? 800 : 400;
 
 	$.levelDiffOffset = 0;
 	$.enemyOffsetMod = 0;
@@ -216,6 +220,9 @@ $.reset = function() {
 	$.comboMultiplier = 1;
 	$.bestCombo = 0;
 	$.spawnLullTick = 0;
+
+	// difficulty multipliers chosen in settings
+	$.diff = $.difficulties[ $.storage['difficulty'] || 'normal' ] || $.difficulties.normal;
 	$.dashRequest = 0;
 	$.nukeFlashTick = 0;
 
@@ -395,6 +402,29 @@ $.renderInterface = function() {
 				$.ctxmg.fillStyle = 'hsl(' + powerup.hue + ', ' + powerup.saturation + '%, ' + powerup.lightness + '%)';
 				$.ctxmg.fillRect( powerupBar.x, powerupBar.y, ( $.powerupTimers[ i ] / $.powerupDuration ) * powerupBar.width, powerupBar.height );
 			}
+		}
+
+		/*==============================================================================
+		First-run tutorial banner
+		==============================================================================*/
+		if( $.firstRun && $.instructionTick < 360 ) {
+			var tutAlpha = Math.min( 1, $.instructionTick / 40 ) * Math.min( 1, ( 360 - $.instructionTick ) / 60 );
+			$.ctxmg.beginPath();
+			$.text( {
+				ctx: $.ctxmg,
+				x: $.cw / 2,
+				y: $.ch * 0.3,
+				text: $.isTouchDevice ? 'LEFT THUMB MOVES\nRIGHT THUMB AIMS AND FIRES\nDOUBLE TAP LEFT TO DASH' : 'MOVE TO DODGE\nMOUSE AIMS AND FIRES\nSHIFT OR SPACE TO DASH',
+				hspacing: 1,
+				vspacing: 10,
+				halign: 'center',
+				valign: 'center',
+				scale: 2,
+				snap: 1,
+				render: 1
+			} );
+			$.ctxmg.fillStyle = 'hsla(45, 100%, 70%, ' + ( tutAlpha * 0.9 ) + ')';
+			$.ctxmg.fill();
 		}
 
 		/*==============================================================================
@@ -799,6 +829,21 @@ $.makeElite = function( enemy ) {
 	}
 };
 
+/*==============================================================================
+Difficulty
+==============================================================================*/
+$.difficulties = {
+	easy:   { label: 'EASY',   spawn: 1.5,  hunt: 0.55, dmg: 0.6,  enemyHp: 0.7 },
+	normal: { label: 'NORMAL', spawn: 1.0,  hunt: 1.0,  dmg: 1.0,  enemyHp: 1.0 },
+	hard:   { label: 'HARD',   spawn: 0.78, hunt: 1.25, dmg: 1.35, enemyHp: 1.35 }
+};
+
+// eases the opening: the first couple of levels ramp in gently so a new
+// player survives long enough to learn the controls (returns ~0.45 -> 1)
+$.introMult = function() {
+	return Math.min( 1, 0.45 + ( $.level ? $.level.current : 0 ) * 0.3 );
+};
+
 $.spawnEnemies = function() {
 	// breathing room after an upgrade draft before the next wave
 	if( $.spawnLullTick > 0 ) {
@@ -808,9 +853,12 @@ $.spawnEnemies = function() {
 	var floorTick = Math.floor( $.tick );
 	// during a boss fight, minions keep coming but at a slower cadence so the
 	// fight stays about the boss while never feeling empty
-	var bossMult = $.boss ? 2.2 : 1;
+	var bossMult = $.boss ? 2.2 : 1,
+		// larger interval = slower spawns: difficulty scales it, intro ramp
+		// stretches it further during the opening levels
+		spawnScale = ( $.diff ? $.diff.spawn : 1 ) / $.introMult();
 	for( var i = 0; i < $.level.distributionCount; i++ ) {
-		var timeCheck = Math.round( $.level.distribution[ i ] * bossMult );
+		var timeCheck = Math.round( $.level.distribution[ i ] * bossMult * spawnScale );
 		if( $.levelDiffOffset > 0 ){
 			timeCheck = Math.max( 1, timeCheck - ( $.levelDiffOffset * 2) );
 		}
@@ -1685,6 +1733,15 @@ $.setState = function( state ) {
 			return b;
 		};
 
+		settingsButton( 'DIFFICULTY: ' + ( $.difficulties[ $.storage['difficulty'] || 'normal' ].label ), function() {
+			$.mouse.down = 0;
+			var order = [ 'easy', 'normal', 'hard' ],
+				next = order[ ( order.indexOf( $.storage['difficulty'] || 'normal' ) + 1 ) % order.length ];
+			$.storage['difficulty'] = next;
+			$.updateStorage();
+			this.title = 'DIFFICULTY: ' + $.difficulties[ next ].label;
+		} );
+
 		var controlNames = { hybrid: 'HYBRID', keyboard: 'KEYBOARD', mouse: 'MOUSE' };
 		settingsButton( 'CONTROLS: ' + controlNames[ $.storage['controls'] || 'hybrid' ], function() {
 			$.mouse.down = 0;
@@ -1980,6 +2037,12 @@ $.setState = function( state ) {
 
 	// set state
 	$.state = state;
+
+	// mark the tutorial seen once the player actually starts a run
+	if( state === 'play' && $.firstRun && !$.storage['seen'] ) {
+		$.storage['seen'] = 1;
+		$.updateStorage();
+	}
 
 	// let the page shell (header etc) react to the game state
 	if( typeof CustomEvent === 'function' ) {

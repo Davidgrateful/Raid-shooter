@@ -26,6 +26,8 @@ $.setupStorage = function() {
 		'trail': '',
 		'controls': 'hybrid',
 		'music': 1,
+		'difficulty': 'normal',
+		'seen': 0,
 		'rounds': 0,
 		'kills': 0,
 		'bullets': 0,
