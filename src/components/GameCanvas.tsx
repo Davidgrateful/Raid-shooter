@@ -65,7 +65,9 @@ export function GameCanvas() {
         return;
       }
       const script = document.createElement('script');
-      script.src = GAME_SCRIPTS[index];
+      // cache-bust per deploy so browsers never serve a stale game engine
+      const v = process.env.NEXT_PUBLIC_BUILD_ID || 'dev';
+      script.src = `${GAME_SCRIPTS[index]}?v=${v}`;
       script.onload = () => {
         index++;
         loadNext();
