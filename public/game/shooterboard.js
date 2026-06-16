@@ -8,6 +8,36 @@ $.session = { authenticated: false, address: null };
 $.board = { loading: 0, error: 0, fetched: 0, entries: [] };
 $.boardSubmit = { state: 'idle', rank: 0, improved: false };
 
+/*==============================================================================
+Tiers - a visible rank ladder climbed by best score. Pure function of score,
+so it works with or without a wallet (a player sees their tier from their
+local best; the board shows every ranked player's tier badge).
+==============================================================================*/
+$.definitions.tiers = [
+	{ name: 'BRONZE',   min: 0,      hue: 28 },
+	{ name: 'SILVER',   min: 5000,   hue: 0,  sat: 0, light: 75 },
+	{ name: 'GOLD',     min: 20000,  hue: 45 },
+	{ name: 'PLATINUM', min: 50000,  hue: 180 },
+	{ name: 'DIAMOND',  min: 100000, hue: 200 },
+	{ name: 'MASTER',   min: 250000, hue: 285 }
+];
+
+$.tierFor = function( score ) {
+	var tier = $.definitions.tiers[ 0 ],
+		index = 0;
+	for( var i = 0; i < $.definitions.tiers.length; i++ ) {
+		if( score >= $.definitions.tiers[ i ].min ) {
+			tier = $.definitions.tiers[ i ];
+			index = i;
+		}
+	}
+	var next = $.definitions.tiers[ index + 1 ] || null,
+		color = ( tier.sat === 0 )
+			? 'hsl(0, 0%, ' + ( tier.light || 70 ) + '%)'
+			: 'hsl(' + tier.hue + ', 90%, 60%)';
+	return { name: tier.name, color: color, min: tier.min, next: next, index: index };
+};
+
 // bitmap font has no period, so the short form uses a space: 0X12AB 34CD
 $.shortAddress = function( address ) {
 	if( !address ) {

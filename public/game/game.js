@@ -2381,6 +2381,48 @@ $.setupStates = function() {
 		$.ctxmg.fillStyle = gradient;
 		$.ctxmg.fill();
 
+		/*==============================================================================
+		Your Tier banner (from local best score - works without a wallet)
+		==============================================================================*/
+		var myBest = $.storage['score'] || 0,
+			myTier = $.tierFor( myBest ),
+			tierY = boardTitle.ey + ( boardCompact ? 12 : 22 );
+		$.ctxmg.beginPath();
+		var tierLabel = $.text( {
+			ctx: $.ctxmg,
+			x: $.cw / 2,
+			y: tierY,
+			text: 'YOUR TIER  ' + myTier.name,
+			hspacing: 1,
+			vspacing: 1,
+			halign: 'center',
+			valign: 'top',
+			scale: 2,
+			snap: 1,
+			render: 1
+		} );
+		$.ctxmg.fillStyle = myTier.color;
+		$.ctxmg.fill();
+
+		if( myTier.next ) {
+			$.ctxmg.beginPath();
+			$.text( {
+				ctx: $.ctxmg,
+				x: $.cw / 2,
+				y: tierY + ( boardCompact ? 18 : 24 ),
+				text: $.util.commas( myBest ) + ' / ' + $.util.commas( myTier.next.min ) + ' TO ' + myTier.next.name,
+				hspacing: 1,
+				vspacing: 1,
+				halign: 'center',
+				valign: 'top',
+				scale: 1,
+				snap: 1,
+				render: 1
+			} );
+			$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 0.45)';
+			$.ctxmg.fill();
+		}
+
 		var statusText = '';
 		if( $.board.loading ) {
 			statusText = 'LOADING';
@@ -2408,8 +2450,8 @@ $.setupStates = function() {
 			$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 0.5)';
 			$.ctxmg.fill();
 		} else {
-			var rowCount = Math.min( $.board.entries.length, boardCompact ? 7 : 10 ),
-				rowStartY = boardTitle.ey + ( boardCompact ? 16 : 36 ),
+			var rowCount = Math.min( $.board.entries.length, boardCompact ? 6 : 9 ),
+				rowStartY = boardTitle.ey + ( boardCompact ? 46 : 74 ),
 				rowSpacing = boardCompact ? 20 : 24,
 				leftX = Math.max( 30, $.cw / 2 - 250 ),
 				rightX = Math.min( $.cw - 30, $.cw / 2 + 250 );
@@ -2450,7 +2492,8 @@ $.setupStates = function() {
 					snap: 1,
 					render: 1
 				} );
-				$.ctxmg.fillStyle = rowColor;
+				// each player's score is shown in their tier colour
+				$.ctxmg.fillStyle = $.tierFor( entry.score ).color;
 				$.ctxmg.fill();
 			}
 		}
