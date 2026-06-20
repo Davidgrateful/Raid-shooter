@@ -1664,25 +1664,27 @@ $.setState = function( state ) {
 		}
 
 		var marketCompact = ( $.ch < 640 ),
-			itemWidth = marketCompact ? 259 : 419,
-			itemHeight = marketCompact ? 35 : 41,
-			itemGap = marketCompact ? 5 : 8,
-			itemStartY = marketCompact ? 84 : 176;
+			itemWidth = marketCompact ? 259 : 300,
+			itemHeight = marketCompact ? 35 : 44,
+			itemGap = marketCompact ? 5 : 9,
+			itemColX = marketCompact ? 136 : 158,
+			itemStartY = marketCompact ? 84 : 132;
 
 		// item buttons are rebuilt whenever the screen is (re)entered, so
-		// titles always reflect current ownership
+		// titles always reflect current ownership. Always two columns so the
+		// list stays short and the back button is never pushed off-screen
 		var buildItem = function( item, index ) {
 			var owned = $.ownsItem( item.id ),
 				label = item.title + '   ' + ( item.comingSoon ? 'SOON' : ( owned ? 'OWNED' : '$' + item.priceUsd ) ),
-				column = marketCompact ? ( index % 2 ) : 0,
-				row = marketCompact ? Math.floor( index / 2 ) : index,
-				x = marketCompact ? ( $.cw / 2 + ( column ? 136 : -134 ) ) : $.cw / 2 + 1;
+				column = index % 2,
+				row = Math.floor( index / 2 ),
+				x = $.cw / 2 + ( column ? itemColX : -itemColX + 2 );
 			$.buttons.push( new $.Button( {
 				x: x,
 				y: itemStartY + row * ( itemHeight + itemGap ),
 				lockedWidth: itemWidth,
 				lockedHeight: itemHeight,
-				scale: marketCompact ? 1 : 2,
+				scale: 1,
 				title: label,
 				action: function() {
 					$.mouse.down = 0;
@@ -1696,13 +1698,16 @@ $.setState = function( state ) {
 			buildItem( $.marketState.items[ ii ], ii );
 		}
 
+		// back button sits right below the grid, always on screen
+		var marketRows = Math.ceil( $.marketState.items.length / 2 ),
+			marketMenuY = itemStartY + marketRows * ( itemHeight + itemGap ) + ( marketCompact ? 14 : 30 );
 		var marketMenuButton = new $.Button( {
 			x: $.cw / 2 + 1,
-			y: $.ch - ( marketCompact ? 30 : 56 ),
+			y: Math.min( marketMenuY, $.ch - ( marketCompact ? 26 : 44 ) ),
 			lockedWidth: 299,
 			lockedHeight: 45,
 			scale: 2,
-			title: 'MENU',
+			title: 'BACK',
 			action: function() {
 				$.setState( 'menu' );
 			}
@@ -2099,6 +2104,25 @@ $.setupStates = function() {
 			$.ctxmg.fillStyle = '#666';
 			$.ctxmg.fill();
 		}
+
+		// live build stamp (bottom-right) so you can tell at a glance which
+		// deployed version is running - a stale build will show an old id
+		$.ctxmg.beginPath();
+		$.text( {
+			ctx: $.ctxmg,
+			x: $.cw - 12,
+			y: $.ch - 12,
+			text: 'BUILD ' + ( window.__BUILD || 'DEV' ).slice( 0, 7 ).toUpperCase(),
+			hspacing: 1,
+			vspacing: 1,
+			halign: 'right',
+			valign: 'bottom',
+			scale: 1,
+			snap: 1,
+			render: 1
+		} );
+		$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 0.25)';
+		$.ctxmg.fill();
 
 	};
 

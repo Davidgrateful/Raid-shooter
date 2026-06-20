@@ -54,6 +54,9 @@ export function GameCanvas() {
     // Initialize the global game namespace (same as `var $ = {};` in original)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (window as any).$ = {};
+    // expose the deploy build id so the menu can show which version is live
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (window as any).__BUILD = process.env.NEXT_PUBLIC_BUILD_ID || 'dev';
 
     // Load scripts sequentially
     let index = 0;
