@@ -1668,7 +1668,7 @@ $.setState = function( state ) {
 			itemHeight = marketCompact ? 35 : 44,
 			itemGap = marketCompact ? 5 : 9,
 			itemColX = marketCompact ? 136 : 158,
-			itemStartY = marketCompact ? 84 : 132;
+			itemStartY = marketCompact ? 96 : 172;
 
 		// item buttons are rebuilt whenever the screen is (re)entered, so
 		// titles always reflect current ownership. Always two columns so the
