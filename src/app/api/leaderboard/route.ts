@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getOrCreateGuestId, getSession } from '@/lib/session';
-import { checkSubmitAllowed, getTop, submitEntry } from '@/lib/leaderboard';
+import { checkSubmitAllowed, getTop, isPersistent, submitEntry } from '@/lib/leaderboard';
 
 export async function GET() {
   try {
     const entries = await getTop(50);
-    return NextResponse.json({ entries });
+    return NextResponse.json({ entries, persistent: isPersistent() });
   } catch {
     return NextResponse.json({ error: 'board_unavailable' }, { status: 503 });
   }

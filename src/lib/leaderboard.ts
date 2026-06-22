@@ -26,6 +26,14 @@ const ENTRIES_KEY = 'shooterboard:entries';
 const kvUrl = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
 const kvToken = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
 
+// Whether a shared, persistent backend is configured. Without it the board
+// uses per-instance in-memory storage, which on serverless means players
+// can't see each other's scores — surfaced to the client so the failure is
+// visible instead of silent.
+export function isPersistent(): boolean {
+  return !!(kvUrl && kvToken);
+}
+
 async function redis(command: (string | number)[]): Promise<unknown> {
   const res = await fetch(kvUrl!, {
     method: 'POST',

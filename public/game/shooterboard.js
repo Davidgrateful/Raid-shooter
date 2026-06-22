@@ -15,7 +15,7 @@ $.myKey = function() {
 	}
 	return $.session.guestId || null;
 };
-$.board = { loading: 0, error: 0, fetched: 0, entries: [] };
+$.board = { loading: 0, error: 0, fetched: 0, entries: [], persistent: 1 };
 $.boardSubmit = { state: 'idle', rank: 0, improved: false };
 
 /*==============================================================================
@@ -117,6 +117,9 @@ $.fetchBoard = function() {
 		} )
 		.then( function( data ) {
 			$.board.entries = data.entries || [];
+			// the server reports whether a shared store is configured; when
+			// it isn't, players can't see each other and we say so
+			$.board.persistent = ( data.persistent === false ) ? 0 : 1;
 			$.board.loading = 0;
 			$.board.fetched = 1;
 		} )

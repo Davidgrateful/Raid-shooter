@@ -2585,6 +2585,27 @@ $.setupStates = function() {
 			$.ctxmg.fill();
 		}
 
+		// persistence not configured: warn that scores aren't shared
+		// (in-memory storage is per-instance on serverless)
+		if( !$.board.persistent && $.board.fetched ) {
+			$.ctxmg.beginPath();
+			$.text( {
+				ctx: $.ctxmg,
+				x: $.cw / 2,
+				y: $.ch - 106,
+				text: 'DEMO MODE  /  LEADERBOARD STORAGE NOT CONFIGURED',
+				hspacing: 1,
+				vspacing: 1,
+				halign: 'center',
+				valign: 'bottom',
+				scale: 1,
+				snap: 1,
+				render: 1
+			} );
+			$.ctxmg.fillStyle = 'hsla(0, 100%, 65%, 0.8)';
+			$.ctxmg.fill();
+		}
+
 		var i = $.buttons.length; while( i-- ){ if( $.buttons[ i ] ) { $.buttons[ i ].update( i ) } }
 			i = $.buttons.length; while( i-- ){ if( $.buttons[ i ] ) { $.buttons[ i ].render( i ) } }
 	};
