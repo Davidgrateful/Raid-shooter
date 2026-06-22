@@ -1228,10 +1228,13 @@ $.registerKill = function( value, radius ) {
 	$.score += value * $.comboMultiplier;
 	$.combo++;
 	$.comboTimer = $.comboTimerMax;
-	// kills restore hull proportional to the size of what died
+	// kills only restore hull for pilots whose skill heals on kills (VAMPIRE);
+	// everyone else recovers by clearing levels, not by passive trickle
 	var ability = $.hero.character && $.hero.character.ability,
-		heal = Math.min( 0.045, ( radius || 15 ) * 0.00035 ) * ( ( ability && ability.killHealMult ) || 1 );
-	if( $.hero.life > 0 ) {
+		heal = ( ability && ability.killHealMult )
+			? Math.min( 0.045, ( radius || 15 ) * 0.00035 ) * ability.killHealMult
+			: 0;
+	if( heal > 0 && $.hero.life > 0 ) {
 		$.hero.life = Math.min( 1, $.hero.life + heal );
 	}
 	$.bestCombo = Math.max( $.bestCombo, $.combo );
@@ -1274,6 +1277,10 @@ $.updateLevel = function() {
 			//}
 		}
 		$.levelDiffOffset = $.level.current + 1 - $.levelCount;
+		// clearing a level patches the hull — the main way pilots recover
+		if( $.hero.life > 0 ) {
+			$.hero.life = Math.min( 1, $.hero.life + 0.35 );
+		}
 		$.levelPops.push( new $.LevelPop( {
 			level: $.level.current + 1
 		} ) );
