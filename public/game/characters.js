@@ -135,7 +135,7 @@ $.definitions.characters = [
 		}
 	},
 	{
-		id: 'nebulafox', ability: { title: 'VAMPIRE', text: 'DOUBLE HP FROM KILLS', killHealMult: 2 }, bulletStyle: { size: 17, lineWidth: 1.8 }, title: 'NEBULA FOX', desc: 'QUICK HUNTER,\nTWIN TAILS',
+		id: 'nebulafox', ability: { title: 'VAMPIRE', text: 'HEAL HP FROM KILLS', killHealMult: 2 }, bulletStyle: { size: 17, lineWidth: 1.8 }, title: 'NEBULA FOX', desc: 'QUICK HUNTER,\nTWIN TAILS',
 		speedMult: 1.25, damageTakenMult: 1.25, dashCooldownMult: 0.8, radius: 9,
 		unlock: { stat: 'kills', value: 1500, label: 'LIFETIME KILLS' },
 		draw: function( ctx, r, fillStyle, tick ) {
