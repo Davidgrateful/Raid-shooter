@@ -93,6 +93,18 @@ $.music = {
 		if( !this.started || !this.ctx ) {
 			return;
 		}
+		// the browser suspends the AudioContext on tab blur, pause, phone
+		// lock, etc - resume it so the music never dies mid-game
+		if( this.ctx.state === 'suspended' ) {
+			this.ctx.resume();
+			return;
+		}
+		// if our clock fell behind real time (a suspension gap, or
+		// background-tab interval throttling) re-sync instead of scheduling
+		// a silent burst of notes in the past
+		if( this.nextTime < this.ctx.currentTime ) {
+			this.nextTime = this.ctx.currentTime + 0.1;
+		}
 		while( this.nextTime < this.ctx.currentTime + 0.2 ) {
 			if( !$.mute && $.storage['music'] !== 0 ) {
 				var s = this.step % 16;
