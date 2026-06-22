@@ -1378,6 +1378,12 @@ $.setState = function( state ) {
 	// handle clean up between states
 	$.buttons.length = 0;
 
+	// the Shooterboard only needs to poll while it's actually on screen
+	if( $.boardRefreshTimer ) {
+		clearInterval( $.boardRefreshTimer );
+		$.boardRefreshTimer = null;
+	}
+
 	// mobile gets a thumb-reach BACK button on every sub-screen
 	if( $.isTouchDevice && ( state == 'hangar' || state == 'market' || state == 'board' || state == 'stats' || state == 'credits' || state == 'settings' ) ) {
 		$.buttons.push( new $.Button( {
@@ -1819,6 +1825,12 @@ $.setState = function( state ) {
 	if( state == 'board' ) {
 		$.mouse.down = 0;
 		$.fetchBoard();
+		// keep the board live while the player is looking at it
+		$.boardRefreshTimer = setInterval( function() {
+			if( !$.board.loading ) {
+				$.fetchBoard();
+			}
+		}, 10000 );
 
 		var nameButton = new $.Button( {
 			x: $.cw / 2 - 104,
@@ -2486,11 +2498,23 @@ $.setupStates = function() {
 			$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 0.5)';
 			$.ctxmg.fill();
 		} else {
-			var rowCount = Math.min( $.board.entries.length, boardCompact ? 6 : 9 ),
+			// two columns so the top 30 (guests included) fit on one
+			// screen without scrolling; narrow phones drop to one column
+			// at a smaller scale so names never collide with scores
+			var rowCount = Math.min( $.board.entries.length, 30 ),
+				narrow = ( $.cw < 480 ),
+				columns = narrow ? 1 : 2,
+				rowScale = ( boardCompact || narrow ) ? 1 : 2,
+				perColumn = Math.ceil( rowCount / columns ),
 				rowStartY = boardTitle.ey + ( boardCompact ? 46 : 74 ),
-				rowSpacing = boardCompact ? 20 : 24,
-				leftX = Math.max( 30, $.cw / 2 - 250 ),
-				rightX = Math.min( $.cw - 30, $.cw / 2 + 250 );
+				rowSpacing = narrow ? 13 : ( boardCompact ? 15 : 19 ),
+				columnGap = boardCompact ? 24 : 50,
+				totalWidth = Math.min( $.cw - 60, 720 ),
+				colWidth = narrow ? totalWidth : ( totalWidth - columnGap ) / 2,
+				col0Left = $.cw / 2 - totalWidth / 2,
+				col0Right = col0Left + colWidth,
+				col1Left = narrow ? col0Left : col0Right + columnGap,
+				col1Right = narrow ? col0Right : col1Left + colWidth;
 
 			for( var ri = 0; ri < rowCount; ri++ ) {
 				var entry = $.board.entries[ ri ],
@@ -2498,19 +2522,24 @@ $.setupStates = function() {
 					mine = ( myKey && entry.address === myKey ),
 					rowColor = mine ? 'hsla(45, 100%, 65%, 1)' : ( ri === 0 ? 'hsla(0, 0%, 100%, 1)' : 'hsla(0, 0%, 100%, 0.65)' ),
 					// wallet-verified players carry a badge glyph after their name
-					verifiedBadge = entry.verified ? ' \x01' : '';
+					verifiedBadge = entry.verified ? ' \x01' : '',
+					col = ( ri < perColumn ) ? 0 : 1,
+					row = ( ri < perColumn ) ? ri : ri - perColumn,
+					leftX = ( col === 0 ) ? col0Left : col1Left,
+					rightX = ( col === 0 ) ? col0Right : col1Right,
+					rowY = rowStartY + row * rowSpacing;
 
 				$.ctxmg.beginPath();
 				$.text( {
 					ctx: $.ctxmg,
 					x: leftX,
-					y: rowStartY + ri * rowSpacing,
-					text: $.util.pad( ri + 1, 2 ) + '  ' + $.boardDisplayName( entry ) + verifiedBadge + '  ' + ( entry.pilot || '' ),
+					y: rowY,
+					text: $.util.pad( ri + 1, 2 ) + ' ' + $.boardDisplayName( entry ) + verifiedBadge,
 					hspacing: 1,
 					vspacing: 1,
 					halign: 'left',
 					valign: 'top',
-					scale: 2,
+					scale: rowScale,
 					snap: 1,
 					render: 1
 				} );
@@ -2521,13 +2550,13 @@ $.setupStates = function() {
 				$.text( {
 					ctx: $.ctxmg,
 					x: rightX,
-					y: rowStartY + ri * rowSpacing,
+					y: rowY,
 					text: $.util.commas( entry.score ),
 					hspacing: 1,
 					vspacing: 1,
 					halign: 'right',
 					valign: 'top',
-					scale: 2,
+					scale: rowScale,
 					snap: 1,
 					render: 1
 				} );
