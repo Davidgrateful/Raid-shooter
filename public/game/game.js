@@ -2487,15 +2487,18 @@ $.setupStates = function() {
 
 			for( var ri = 0; ri < rowCount; ri++ ) {
 				var entry = $.board.entries[ ri ],
-					mine = ( $.session.authenticated && entry.address === $.session.address ),
-					rowColor = mine ? 'hsla(45, 100%, 65%, 1)' : ( ri === 0 ? 'hsla(0, 0%, 100%, 1)' : 'hsla(0, 0%, 100%, 0.65)' );
+					myKey = $.myKey(),
+					mine = ( myKey && entry.address === myKey ),
+					rowColor = mine ? 'hsla(45, 100%, 65%, 1)' : ( ri === 0 ? 'hsla(0, 0%, 100%, 1)' : 'hsla(0, 0%, 100%, 0.65)' ),
+					// wallet-verified players carry a badge glyph after their name
+					verifiedBadge = entry.verified ? ' \x01' : '';
 
 				$.ctxmg.beginPath();
 				$.text( {
 					ctx: $.ctxmg,
 					x: leftX,
 					y: rowStartY + ri * rowSpacing,
-					text: $.util.pad( ri + 1, 2 ) + '  ' + $.boardDisplayName( entry ) + '  ' + ( entry.pilot || '' ),
+					text: $.util.pad( ri + 1, 2 ) + '  ' + $.boardDisplayName( entry ) + verifiedBadge + '  ' + ( entry.pilot || '' ),
 					hspacing: 1,
 					vspacing: 1,
 					halign: 'left',
@@ -2533,7 +2536,7 @@ $.setupStates = function() {
 				ctx: $.ctxmg,
 				x: $.cw / 2,
 				y: $.ch - 86,
-				text: 'CONNECT WALLET TO CLAIM YOUR RANK',
+				text: 'PLAYING AS GUEST  /  CONNECT WALLET FOR A VERIFIED \x01 BADGE',
 				hspacing: 1,
 				vspacing: 1,
 				halign: 'center',
@@ -3024,10 +3027,7 @@ $.setupStates = function() {
 		==============================================================================*/
 		var boardText = '',
 			boardColor = 'hsla(0, 0%, 100%, 0.5)';
-		if( $.boardSubmit.state === 'guest' ) {
-			boardText = 'CONNECT WALLET TO JOIN SHOOTERBOARD';
-			boardColor = 'hsla(45, 100%, 65%, 0.8)';
-		} else if( $.boardSubmit.state === 'sending' ) {
+		if( $.boardSubmit.state === 'sending' ) {
 			boardText = 'SUBMITTING TO SHOOTERBOARD';
 		} else if( $.boardSubmit.state === 'done' ) {
 			boardText = $.boardSubmit.rank
@@ -3037,12 +3037,19 @@ $.setupStates = function() {
 		} else if( $.boardSubmit.state === 'error' ) {
 			boardText = 'SHOOTERBOARD UNAVAILABLE';
 		}
+		// a gentle nudge for guests: their score is already ranked, the
+		// wallet is purely an optional verified upgrade
+		var boardSubText = '';
+		if( $.boardSubmit.state === 'done' && !$.boardSubmit.verified ) {
+			boardSubText = 'PLAYING AS GUEST  /  CONNECT WALLET FOR A VERIFIED BADGE';
+		}
 		if( boardText ) {
+			var boardTextY = gameoverStatsValues.ey + ( goCompact ? ( buildNames.length > 0 ? 34 : 10 ) : ( buildNames.length > 0 ? 60 : 25 ) );
 			$.ctxmg.beginPath();
 			$.text( {
 				ctx: $.ctxmg,
 				x: $.cw / 2,
-				y: gameoverStatsValues.ey + ( goCompact ? ( buildNames.length > 0 ? 34 : 10 ) : ( buildNames.length > 0 ? 60 : 25 ) ),
+				y: boardTextY,
 				text: boardText,
 				hspacing: 1,
 				vspacing: 1,
@@ -3054,6 +3061,25 @@ $.setupStates = function() {
 			} );
 			$.ctxmg.fillStyle = boardColor;
 			$.ctxmg.fill();
+
+			if( boardSubText ) {
+				$.ctxmg.beginPath();
+				$.text( {
+					ctx: $.ctxmg,
+					x: $.cw / 2,
+					y: boardTextY + ( goCompact ? 12 : 16 ),
+					text: boardSubText,
+					hspacing: 1,
+					vspacing: 1,
+					halign: 'center',
+					valign: 'top',
+					scale: 1,
+					snap: 1,
+					render: 1
+				} );
+				$.ctxmg.fillStyle = 'hsla(45, 100%, 65%, 0.7)';
+				$.ctxmg.fill();
+			}
 		}
 	};
 }

@@ -4,6 +4,9 @@
 // (or UPSTASH_REDIS_REST_URL/UPSTASH_REDIS_REST_TOKEN) for persistence.
 
 export interface BoardEntry {
+  // Leaderboard member key: a wallet address for verified players, or a
+  // "guest:<id>" handle for wallet-less guests. Used as the sorted-set
+  // member and the display fallback for wallet players.
   address: string;
   name?: string;
   score: number;
@@ -13,6 +16,8 @@ export interface BoardEntry {
   pilot: string;
   time: number;
   at: number;
+  // True when the entry is backed by a connected wallet (SIWE).
+  verified?: boolean;
 }
 
 const BOARD_KEY = 'shooterboard';

@@ -3,11 +3,13 @@ import { getSession } from '@/lib/session';
 import { updateName } from '@/lib/leaderboard';
 
 // Renames an existing Shooterboard entry immediately, so a name change
-// shows up without having to beat your personal best first.
+// shows up without having to beat your personal best first. Works for both
+// wallet players and guests (whoever owns the current session identity).
 export async function POST(req: NextRequest) {
   const session = await getSession();
-  if (!session.siwe) {
-    return NextResponse.json({ error: 'wallet_required' }, { status: 401 });
+  const key = session.siwe ? session.siwe.address.toLowerCase() : session.guestId;
+  if (!key) {
+    return NextResponse.json({ error: 'no_identity' }, { status: 401 });
   }
 
   const body = await req.json().catch(() => null);
@@ -17,7 +19,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const updated = await updateName(session.siwe.address.toLowerCase(), name);
+    const updated = await updateName(key, name);
     return NextResponse.json({ ok: true, updated });
   } catch {
     return NextResponse.json({ error: 'board_unavailable' }, { status: 503 });

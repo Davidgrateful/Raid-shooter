@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSession } from '@/lib/session';
+import { getOrCreateGuestId, getSession } from '@/lib/session';
 import { checkSubmitAllowed, getTop, submitEntry } from '@/lib/leaderboard';
 
 export async function GET() {
@@ -17,9 +17,14 @@ function isInt(value: unknown, min: number, max: number): value is number {
 
 export async function POST(req: NextRequest) {
   const session = await getSession();
-  if (!session.siwe) {
-    return NextResponse.json({ error: 'wallet_required' }, { status: 401 });
-  }
+
+  // Guest play by default: a wallet is no longer required to post a score.
+  // Wallet players get a verified entry keyed by their address; everyone
+  // else gets an anonymous, device-scoped guest identity.
+  const verified = !!session.siwe;
+  const key = verified
+    ? session.siwe!.address.toLowerCase()
+    : await getOrCreateGuestId(session);
 
   const body = await req.json().catch(() => null);
   if (!body) {
@@ -28,13 +33,18 @@ export async function POST(req: NextRequest) {
 
   const { score, level, kills, combo, pilot, time, name } = body as Record<string, unknown>;
 
-  // optional display name: 3-12 chars, letters/digits/spaces only
+  // Display name: 3-12 chars, letters/digits/spaces. Optional for wallet
+  // players (they fall back to their address); required for guests, who
+  // have no readable identity to show otherwise.
   let displayName: string | undefined;
   if (typeof name === 'string') {
     const cleaned = name.toUpperCase().replace(/\s+/g, ' ').trim();
     if (/^[A-Z0-9 ]{3,12}$/.test(cleaned)) {
       displayName = cleaned;
     }
+  }
+  if (!verified && !displayName) {
+    return NextResponse.json({ error: 'name_required' }, { status: 400 });
   }
   if (
     !isInt(score, 1, 5_000_000) ||
@@ -55,12 +65,12 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const allowed = await checkSubmitAllowed(session.siwe.address.toLowerCase());
+    const allowed = await checkSubmitAllowed(key);
     if (!allowed) {
       return NextResponse.json({ error: 'rate_limited' }, { status: 429 });
     }
     const result = await submitEntry({
-      address: session.siwe.address.toLowerCase(),
+      address: key,
       name: displayName,
       score,
       level,
@@ -69,8 +79,9 @@ export async function POST(req: NextRequest) {
       pilot,
       time,
       at: Date.now(),
+      verified,
     });
-    return NextResponse.json({ ok: true, ...result });
+    return NextResponse.json({ ok: true, verified, ...result });
   } catch {
     return NextResponse.json({ error: 'board_unavailable' }, { status: 503 });
   }

@@ -1135,5 +1135,14 @@ $.definitions.letters = {
 		 [  1, 1, 1,  , 1 ],
 		 [  1,  , 1,  , 1 ],
 		 [  1, 1, 1, 1, 1 ]
+		 ],
+	// verified badge (\x01): a small seal/check shown after wallet players'
+	// names on the Shooterboard
+	'\x01': [
+		 [   ,  ,  ,  , 1 ],
+		 [   ,  ,  , 1,  ],
+		 [  1,  , 1,  ,  ],
+		 [   , 1, 1,  ,  ],
+		 [   ,  ,  ,  ,   ]
 		 ]
 };

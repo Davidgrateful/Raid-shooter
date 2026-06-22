@@ -1,10 +1,20 @@
 /*==============================================================================
 Shooterboard - the global leaderboard
 
-Anyone can view the board; a connected wallet (SIWE session) is what lets
-a player claim their rank. Scores submit automatically on game over.
+Anyone can play and rank: guests post a score with just a pilot name, while
+a connected wallet (SIWE session) earns a verified badge. Scores submit
+automatically on game over.
 ==============================================================================*/
-$.session = { authenticated: false, address: null };
+$.session = { authenticated: false, address: null, guestId: null };
+
+// The player's own leaderboard key, used to highlight their row. Wallet
+// players are keyed by address; guests by their "guest:<id>" handle.
+$.myKey = function() {
+	if( $.session.authenticated ) {
+		return $.session.address;
+	}
+	return $.session.guestId || null;
+};
 $.board = { loading: 0, error: 0, fetched: 0, entries: [] };
 $.boardSubmit = { state: 'idle', rank: 0, improved: false };
 
@@ -40,14 +50,15 @@ $.tierFor = function( score ) {
 
 // bitmap font has no period, so the short form uses a space: 0X12AB 34CD
 $.shortAddress = function( address ) {
-	if( !address ) {
+	if( !address || address.indexOf( 'guest:' ) === 0 ) {
 		return '';
 	}
 	return ( '0X' + address.slice( 2, 6 ) + ' ' + address.slice( -4 ) ).toUpperCase();
 };
 
 $.boardDisplayName = function( entry ) {
-	return entry.name || $.shortAddress( entry.address );
+	// guests always carry a name; wallet players fall back to their address
+	return entry.name || $.shortAddress( entry.address ) || 'PILOT';
 };
 
 $.promptPilotName = function() {
@@ -59,8 +70,9 @@ $.promptPilotName = function() {
 	if( input.length >= 3 ) {
 		$.storage['pilotname'] = input;
 		$.updateStorage();
-		// apply the new name to an existing board entry right away
-		if( $.session.authenticated ) {
+		// apply the new name to an existing board entry right away, for
+		// whoever owns the current identity (wallet player or ranked guest)
+		if( $.session.authenticated || $.session.guestId ) {
 			fetch( '/api/leaderboard/name', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
@@ -72,12 +84,25 @@ $.promptPilotName = function() {
 	}
 };
 
+// Every guest needs a readable name to appear on the board. If they haven't
+// set one, mint a stable default ("PILOT 1234") and remember it.
+$.ensurePilotName = function() {
+	var name = $.storage['pilotname'];
+	if( !name || name.length < 3 ) {
+		name = 'PILOT ' + Math.floor( 1000 + Math.random() * 9000 );
+		$.storage['pilotname'] = name;
+		$.updateStorage();
+	}
+	return name;
+};
+
 $.fetchSession = function() {
 	return fetch( '/api/siwe/session' )
 		.then( function( res ) { return res.json(); } )
 		.then( function( data ) {
 			$.session.authenticated = !!data.authenticated;
 			$.session.address = data.address ? data.address.toLowerCase() : null;
+			$.session.guestId = data.guestId || null;
 		} )
 		.catch( function() {} );
 };
@@ -114,15 +139,16 @@ $.submitScore = function() {
 		return;
 	}
 
-	$.boardSubmit = { state: 'sending', rank: 0, improved: false };
+	$.boardSubmit = { state: 'sending', rank: 0, improved: false, verified: false };
 
 	// re-check the session right before submitting: the player may have
 	// connected their wallet at any point during the run
 	$.fetchSession().then( function() {
-		if( !$.session.authenticated ) {
-			$.boardSubmit = { state: 'guest', rank: 0, improved: false };
-			return;
-		}
+		// guests need a readable name; wallet players keep theirs optional
+		var pilotName = $.session.authenticated
+			? ( $.storage['pilotname'] || undefined )
+			: $.ensurePilotName();
+
 		fetch( '/api/leaderboard', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
@@ -133,7 +159,7 @@ $.submitScore = function() {
 				combo: runCombo,
 				pilot: runPilot,
 				time: runTime,
-				name: $.storage['pilotname'] || undefined
+				name: pilotName
 			} )
 		} )
 			.then( function( res ) {
@@ -141,10 +167,15 @@ $.submitScore = function() {
 				return res.json();
 			} )
 			.then( function( data ) {
-				$.boardSubmit = { state: 'done', rank: data.rank || 0, improved: !!data.improved };
+				// learn our freshly-minted guest id so the board can
+				// highlight our row without another round-trip
+				if( data.verified === false && !$.session.guestId ) {
+					$.fetchSession();
+				}
+				$.boardSubmit = { state: 'done', rank: data.rank || 0, improved: !!data.improved, verified: !!data.verified };
 			} )
 			.catch( function() {
-				$.boardSubmit = { state: 'error', rank: 0, improved: false };
+				$.boardSubmit = { state: 'error', rank: 0, improved: false, verified: false };
 			} );
 	} );
 };
