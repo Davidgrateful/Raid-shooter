@@ -1719,20 +1719,24 @@ $.setState = function( state ) {
 		$.mouse.down = 0;
 
 		var settingsCompact = ( $.ch < 640 ),
-			settingsTop = settingsCompact ? 96 : $.ch / 2 - 110,
-			settingsGap = settingsCompact ? 50 : 60,
+			settingsTop = settingsCompact ? 84 : $.ch / 2 - 110,
+			settingsGap = settingsCompact ? 52 : 60,
 			settingsRow = 0;
 
+		// single column on desktop, two columns on short screens so every
+		// option (and the way back) stays on screen
 		var settingsButton = function( title, action ) {
-			var b = new $.Button( {
-				x: $.cw / 2 + 1,
-				y: settingsTop + settingsRow * settingsGap,
-				lockedWidth: 299,
-				lockedHeight: 45,
-				scale: 1,
-				title: title,
-				action: action
-			} );
+			var col = settingsCompact ? ( settingsRow % 2 ) : 0,
+				rowN = settingsCompact ? Math.floor( settingsRow / 2 ) : settingsRow,
+				b = new $.Button( {
+					x: settingsCompact ? ( $.cw / 2 + ( col ? 104 : -104 ) ) : $.cw / 2 + 1,
+					y: settingsTop + rowN * settingsGap,
+					lockedWidth: settingsCompact ? 199 : 299,
+					lockedHeight: 45,
+					scale: 1,
+					title: title,
+					action: action
+				} );
 			$.buttons.push( b );
 			settingsRow++;
 			return b;
@@ -1790,17 +1794,18 @@ $.setState = function( state ) {
 			} );
 		}
 
-		var settingsMenuButton = new $.Button( {
-			x: $.cw / 2 + 1,
-			y: settingsTop + settingsRow * settingsGap + 10,
-			lockedWidth: 299,
-			lockedHeight: 45,
-			scale: 2,
-			title: 'MENU',
-			action: function() {
-				$.setState( 'menu' );
-			}
-		} );
+		var settingsRowsUsed = settingsCompact ? Math.ceil( settingsRow / 2 ) : settingsRow,
+			settingsMenuButton = new $.Button( {
+				x: $.cw / 2 + 1,
+				y: settingsTop + settingsRowsUsed * settingsGap + ( settingsCompact ? 8 : 10 ),
+				lockedWidth: 299,
+				lockedHeight: 45,
+				scale: 2,
+				title: 'MENU',
+				action: function() {
+					$.setState( 'menu' );
+				}
+			} );
 		$.buttons.push( settingsMenuButton );
 	}
 
