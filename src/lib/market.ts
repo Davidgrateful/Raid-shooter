@@ -6,7 +6,7 @@
 export interface MarketItem {
   id: string;
   title: string;
-  kind: 'color' | 'trail';
+  kind: 'color' | 'trail' | 'character';
   priceUsd: number;
   priceEth: string;
   comingSoon?: boolean;
@@ -21,6 +21,8 @@ export const CATALOG: MarketItem[] = [
   { id: 'trail_ember', title: 'EMBER ENGINE TRAIL', kind: 'trail', priceUsd: 3, priceEth: '0.001' },
   { id: 'trail_ion', title: 'ION ENGINE TRAIL', kind: 'trail', priceUsd: 3, priceEth: '0.001' },
   { id: 'trail_void', title: 'VOID ENGINE TRAIL', kind: 'trail', priceUsd: 3, priceEth: '0.001' },
+  { id: 'pilot_solstice', title: 'SOLSTICE PILOT', kind: 'character', priceUsd: 5, priceEth: '0.00167' },
+  { id: 'pilot_crimsonwisp', title: 'CRIMSON WISP PILOT', kind: 'character', priceUsd: 5, priceEth: '0.00167' },
 ];
 
 export function getItem(id: string): MarketItem | undefined {

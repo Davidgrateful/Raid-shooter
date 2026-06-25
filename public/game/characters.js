@@ -204,6 +204,52 @@ $.definitions.characters = [
 			ctx.fillRect( -r * 1.05 - jitter, r * 0.3, r * 0.45, r * 0.45 );
 			ctx.globalAlpha = 1;
 		}
+	},
+	{
+		// premium pilot: instant unlock via the market, no grind gate.
+		// kept mid-roster power (sidegrade, not best-in-class) so paying
+		// skips the wait for a look, not a score advantage.
+		id: 'solstice', ability: { title: 'OVERDRIVE', text: 'FASTER BULLETS, LIGHTER ARMOR', bulletSpeed: 1.15 }, bulletStyle: { size: 20, lineWidth: 1.6 }, title: 'SOLSTICE', desc: 'PREMIUM PILOT\nGLASS CANNON',
+		speedMult: 1.05, damageTakenMult: 1.1, dashCooldownMult: 1, radius: 10,
+		unlock: { purchase: 'pilot_solstice' },
+		draw: function( ctx, r, fillStyle, tick ) {
+			ctx.beginPath();
+			ctx.moveTo( r * 1.8, 0 );
+			ctx.lineTo( -r * 0.2, r * 0.5 );
+			ctx.lineTo( -r * 1.2, r * 0.7 );
+			ctx.lineTo( -r * 0.6, 0 );
+			ctx.lineTo( -r * 1.2, -r * 0.7 );
+			ctx.lineTo( -r * 0.2, -r * 0.5 );
+			ctx.closePath();
+			ctx.fillStyle = fillStyle;
+			ctx.fill();
+			var glow = 0.5 + Math.sin( tick / 8 ) * 0.3;
+			ctx.beginPath();
+			ctx.arc( r * 0.7, 0, r * 0.3, 0, $.twopi );
+			ctx.fillStyle = 'hsla(35, 100%, 60%, ' + glow + ')';
+			ctx.fill();
+		}
+	},
+	{
+		// premium pilot: instant unlock via the market, no grind gate.
+		id: 'crimsonwisp', ability: { title: 'EMBER WAKE', text: 'HEAL HP FROM KILLS', killHealMult: 1.5 }, bulletStyle: { size: 15, lineWidth: 2.2 }, title: 'CRIMSON WISP', desc: 'PREMIUM PILOT\nDRIFTING EMBER HULL',
+		speedMult: 1, damageTakenMult: 1, dashCooldownMult: 1.05, radius: 10,
+		unlock: { purchase: 'pilot_crimsonwisp' },
+		draw: function( ctx, r, fillStyle, tick ) {
+			ctx.beginPath();
+			ctx.arc( r * 0.2, 0, r * 0.85, 0, $.twopi );
+			ctx.fillStyle = fillStyle;
+			ctx.fill();
+			var flicker = 0.4 + Math.cos( tick / 7 ) * 0.25;
+			ctx.beginPath();
+			ctx.moveTo( -r * 0.6, 0 );
+			ctx.lineTo( -r * 1.6, r * 0.4 );
+			ctx.lineTo( -r * 1.1, 0 );
+			ctx.lineTo( -r * 1.6, -r * 0.4 );
+			ctx.closePath();
+			ctx.fillStyle = 'hsla(10, 100%, 55%, ' + flicker + ')';
+			ctx.fill();
+		}
 	}
 ];
 
@@ -216,6 +262,9 @@ $.characterUnlocked = function( def ) {
 	}
 	if( !def.unlock ) {
 		return true;
+	}
+	if( def.unlock.purchase ) {
+		return $.ownsItem( def.unlock.purchase );
 	}
 	return ( $.storage[ def.unlock.stat ] || 0 ) >= def.unlock.value;
 };
@@ -236,6 +285,9 @@ $.characterStatus = function( def ) {
 		return { text: 'COMING SOON', color: 'hsla(0, 0%, 100%, 0.35)' };
 	}
 	if( !$.characterUnlocked( def ) ) {
+		if( def.unlock.purchase ) {
+			return { text: 'BUY IN MARKET', color: 'hsla(0, 0%, 100%, 0.35)' };
+		}
 		return {
 			text: 'LOCKED: ' + ( $.storage[ def.unlock.stat ] || 0 ) + '/' + def.unlock.value + ' ' + def.unlock.label,
 			color: 'hsla(0, 0%, 100%, 0.35)'

@@ -2225,12 +2225,14 @@ $.setupStates = function() {
 			return;
 		}
 
-		// big animated ship preview, facing up
+		// big animated ship preview, facing up - tinted with the equipped
+		// ship color so a purchased/equipped skin shows here, not just in-run
 		var unlocked = $.characterUnlocked( def );
+		var hangarShipColor = $.definitions.shipColors[ $.storage[ 'ship' ] || 0 ] || $.definitions.shipColors[ 0 ];
 		$.ctxmg.save();
 		$.ctxmg.translate( $.cw / 2, previewY );
 		$.ctxmg.rotate( -$.pi / 2 );
-		def.draw( $.ctxmg, hangarCompact ? 18 : 28, unlocked ? '#fff' : 'hsla(0, 0%, 35%, 1)', $.tick );
+		def.draw( $.ctxmg, hangarCompact ? 18 : 28, unlocked ? hangarShipColor.color : 'hsla(0, 0%, 35%, 1)', $.tick );
 		$.ctxmg.restore();
 
 		$.ctxmg.beginPath();
