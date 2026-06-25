@@ -21,7 +21,7 @@ $.init = function() {
 	$.ctxfg = $.cfg.getContext( '2d' );
 	$.setupCanvasSizes();
 
-	$.mute = $.storage['mute'];
+	$.setSoundLevel( $.storage['soundLevel'] !== undefined ? $.storage['soundLevel'] : 1 );
 	$.autofire = $.storage['autofire'];
 	$.slowEnemyDivider = 2;
 
@@ -117,8 +117,27 @@ Canvas Sizing (run at init and again when the screen changes, e.g. a phone
 rotating to landscape or entering fullscreen)
 ==============================================================================*/
 $.setupCanvasSizes = function() {
-	$.cw = $.cmg.width = $.cfg.width = window.innerWidth;
-	$.ch = $.cmg.height = $.cfg.height = window.innerHeight;
+	$.cw = window.innerWidth;
+	$.ch = window.innerHeight;
+	// the foreground overlay (cfg) is a soft gradient/vignette, fine at CSS
+	// resolution; the main canvas (cmg) carries crisp sprites/text/HUD, so
+	// render it at device pixel density (capped at 2x to bound GPU cost on
+	// the touch devices that already run in perfLite mode)
+	$.dpr = Math.min( window.devicePixelRatio || 1, 2 );
+	$.cfg.width = $.cw;
+	$.cfg.height = $.ch;
+	$.cmg.width = Math.round( $.cw * $.dpr );
+	$.cmg.height = Math.round( $.ch * $.dpr );
+	$.cmg.style.width = $.cw + 'px';
+	$.cmg.style.height = $.ch + 'px';
+	$.ctxmg.setTransform( $.dpr, 0, 0, $.dpr, 0, 0 );
+	// safe-area insets (notch / Dynamic Island / home indicator), read from
+	// the CSS env() values so HUD and on-screen buttons stay clear of them
+	var safeStyle = getComputedStyle( document.documentElement );
+	$.safeAreaTop = parseFloat( safeStyle.getPropertyValue( '--safe-top' ) ) || 0;
+	$.safeAreaBottom = parseFloat( safeStyle.getPropertyValue( '--safe-bottom' ) ) || 0;
+	$.safeAreaLeft = parseFloat( safeStyle.getPropertyValue( '--safe-left' ) ) || 0;
+	$.safeAreaRight = parseFloat( safeStyle.getPropertyValue( '--safe-right' ) ) || 0;
 	$.wrap.style.width = $.wrapInner.style.width = $.cw + 'px';
 	$.wrap.style.height = $.wrapInner.style.height = $.ch + 'px';
 	$.wrap.style.marginLeft = '0px';
@@ -499,12 +518,14 @@ $.renderInterface = function() {
 	var hudCompact = ( $.cw < 900 ),
 		hudScale = hudCompact ? 1 : 2,
 		hudBarWidth = hudCompact ? 70 : 110,
-		hudGap = hudCompact ? 18 : 40;
+		hudGap = hudCompact ? 18 : 40,
+		hudLeft = 20 + $.safeAreaLeft,
+		hudTop = 64 + $.safeAreaTop;
 	$.ctxmg.beginPath();
 	var healthText = $.text( {
 		ctx: $.ctxmg,
-		x: 20,
-		y: 64,
+		x: hudLeft,
+		y: hudTop,
 		text: 'HEALTH',
 		hspacing: 1,
 		vspacing: 1,
@@ -554,7 +575,7 @@ $.renderInterface = function() {
 	var progressText = $.text( {
 		ctx: $.ctxmg,
 		x: healthBar.x + healthBar.width + hudGap,
-		y: 64,
+		y: hudTop,
 		text: 'PROGRESS',
 		hspacing: 1,
 		vspacing: 1,
@@ -605,7 +626,7 @@ $.renderInterface = function() {
 	var scoreLabel = $.text( {
 		ctx: $.ctxmg,
 		x: progressBar.x + progressBar.width + hudGap,
-		y: 64,
+		y: hudTop,
 		text: 'SCORE',
 		hspacing: 1,
 		vspacing: 1,
@@ -622,7 +643,7 @@ $.renderInterface = function() {
 	var scoreText = $.text( {
 		ctx: $.ctxmg,
 		x: scoreLabel.ex + 10,
-		y: 64,
+		y: hudTop,
 		text: $.util.pad( $.score, 6 ),
 		hspacing: 1,
 		vspacing: 1,
@@ -639,7 +660,7 @@ $.renderInterface = function() {
 	var bestLabel = $.text( {
 		ctx: $.ctxmg,
 		x: scoreText.ex + hudGap,
-		y: 64,
+		y: hudTop,
 		text: 'BEST',
 		hspacing: 1,
 		vspacing: 1,
@@ -656,7 +677,7 @@ $.renderInterface = function() {
 	var bestText = $.text( {
 		ctx: $.ctxmg,
 		x: bestLabel.ex + 10,
-		y: 64,
+		y: hudTop,
 		text: $.util.pad( Math.max( $.storage['score'], $.score ), 6 ),
 		hspacing: 1,
 		vspacing: 1,
@@ -677,7 +698,7 @@ $.renderInterface = function() {
 		var comboText = $.text( {
 			ctx: $.ctxmg,
 			x: bestText.ex + hudGap,
-			y: 64,
+			y: hudTop,
 			text: 'COMBO ' + $.combo + ' X' + $.comboMultiplier,
 			hspacing: 1,
 			vspacing: 1,
@@ -713,8 +734,8 @@ $.renderInterface = function() {
 		$.ctxmg.beginPath();
 		$.text( {
 			ctx: $.ctxmg,
-			x: $.cw - 20,
-			y: 210,
+			x: $.cw - 20 - $.safeAreaRight,
+			y: 210 + $.safeAreaTop,
 			text: 'AUTOFIRE',
 			hspacing: 1,
 			vspacing: 1,
@@ -1789,16 +1810,10 @@ $.setState = function( state ) {
 			this.title = 'MUSIC: ' + ( $.storage['music'] !== 0 ? 'ON' : 'OFF' );
 		} );
 
-		settingsButton( 'SOUND: ' + ( $.mute ? 'OFF' : 'ON' ), function() {
+		settingsButton( 'SOUND: ' + $.soundLevelLabels[ $.soundLevel ], function() {
 			$.mouse.down = 0;
-			$.mute = ~~!$.mute;
-			var ai = $.audio.references.length;
-			while( ai-- ) {
-				$.audio.references[ ai ].volume = ~~!$.mute;
-			}
-			$.storage['mute'] = $.mute;
-			$.updateStorage();
-			this.title = 'SOUND: ' + ( $.mute ? 'OFF' : 'ON' );
+			$.cycleSoundLevel();
+			this.title = 'SOUND: ' + $.soundLevelLabels[ $.soundLevel ];
 		} );
 
 		if( document.documentElement.requestFullscreen ) {
@@ -1923,7 +1938,7 @@ $.setState = function( state ) {
 
 	if( state == 'pause' ) {
 		$.mouse.down = 0;
-		$.screenshot = $.ctxmg.getImageData( 0, 0, $.cw, $.ch );
+		$.screenshot = $.ctxmg.getImageData( 0, 0, $.cmg.width, $.cmg.height );
 		var resumeButton = new $.Button( {
 			x: $.cw / 2 + 1,
 			y: $.ch / 2 + 26,
@@ -1957,12 +1972,19 @@ $.setState = function( state ) {
 	}
 
 	if( state == 'play' && $.isTouchDevice ) {
-		// touch players have no P or M keys, give them on-screen buttons
+		// touch players have no P or M keys, give them on-screen buttons.
+		// Placed top-center in the dead zone between the move (left) and aim
+		// (right) thumb joysticks, clear of the safe-area notch/island, so
+		// aiming up-and-out never clips PAUSE or MUTE by accident.
+		var touchBarHeight = 35,
+			touchBarY = $.safeAreaTop + 20 + touchBarHeight / 2,
+			touchBarGap = 12,
+			touchBarWidth = 89;
 		$.buttons.push( new $.Button( {
-			x: $.cw - 64,
-			y: 120,
-			lockedWidth: 89,
-			lockedHeight: 35,
+			x: $.cw / 2 - touchBarGap / 2 - touchBarWidth / 2,
+			y: touchBarY,
+			lockedWidth: touchBarWidth,
+			lockedHeight: touchBarHeight,
 			scale: 1,
 			title: 'PAUSE',
 			action: function() {
@@ -1970,22 +1992,16 @@ $.setState = function( state ) {
 			}
 		} ) );
 		$.buttons.push( new $.Button( {
-			x: $.cw - 64,
-			y: 162,
-			lockedWidth: 89,
+			x: $.cw / 2 + touchBarGap / 2 + touchBarWidth / 2,
+			y: touchBarY,
+			lockedWidth: touchBarWidth,
 			lockedHeight: 35,
 			scale: 1,
-			title: $.mute ? 'UNMUTE' : 'MUTE',
+			title: $.soundLevelLabels[ $.soundLevel ],
 			action: function() {
 				$.mouse.down = 0;
-				$.mute = ~~!$.mute;
-				var ai = $.audio.references.length;
-				while( ai-- ) {
-					$.audio.references[ ai ].volume = ~~!$.mute;
-				}
-				$.storage['mute'] = $.mute;
-				$.updateStorage();
-				this.title = $.mute ? 'UNMUTE' : 'MUTE';
+				$.cycleSoundLevel();
+				this.title = $.soundLevelLabels[ $.soundLevel ];
 			}
 		} ) );
 	}
@@ -1994,7 +2010,7 @@ $.setState = function( state ) {
 		$.mouse.down = 0;
 		$.vjoyLeft.active = 0;
 		$.vjoyRight.active = 0;
-		$.screenshot = $.ctxmg.getImageData( 0, 0, $.cw, $.ch );
+		$.screenshot = $.ctxmg.getImageData( 0, 0, $.cmg.width, $.cmg.height );
 
 		var cardCount = $.upgradeChoices.length,
 			cardGap = 20,
@@ -2022,7 +2038,7 @@ $.setState = function( state ) {
 	if( state == 'gameover' ) {
 		$.mouse.down = 0;
 
-		$.screenshot = $.ctxmg.getImageData( 0, 0, $.cw, $.ch );
+		$.screenshot = $.ctxmg.getImageData( 0, 0, $.cmg.width, $.cmg.height );
 
 		// short screens (phone landscape) place the buttons side by side
 		// at the bottom; fixed tall positions would push them off-screen
@@ -3166,13 +3182,7 @@ $.loop = function() {
 
 	// always listen for mute toggle
 	if( $.keys.pressed.m ){
-		$.mute = ~~!$.mute;
-		var i = $.audio.references.length;
-		while( i-- ) {
-			$.audio.references[ i ].volume = ~~!$.mute;
-		}
-		$.storage['mute'] = $.mute;
-		$.updateStorage();
+		$.cycleSoundLevel();
 	}
 
 	// move current keys into old keys

@@ -28,6 +28,9 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  // run full-bleed under the notch/Dynamic Island instead of letterboxing
+  // beside it; the game reads env(safe-area-inset-*) to keep the HUD clear
+  viewportFit: 'cover',
 };
 
 export default function RootLayout({

@@ -45,6 +45,13 @@ $.setupStorage = function() {
 	if( $.definitions.shipColors && ( $.storage['ship'] || 0 ) >= $.definitions.shipColors.length ) {
 		$.storage['ship'] = 0;
 	}
+
+	// migrate the old binary mute flag to the 3-level sound control
+	// (FULL/LOW/MUTE) for players who already have a saved profile
+	if( $.storage['soundLevel'] === undefined ) {
+		$.storage['soundLevel'] = $.storage['mute'] ? 0 : 1;
+		$.updateStorage();
+	}
 };
 
 $.updateStorage = function() {

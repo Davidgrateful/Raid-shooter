@@ -106,7 +106,7 @@ $.music = {
 			this.nextTime = this.ctx.currentTime + 0.1;
 		}
 		while( this.nextTime < this.ctx.currentTime + 0.2 ) {
-			if( !$.mute && $.storage['music'] !== 0 ) {
+			if( $.soundLevel > 0 && $.storage['music'] !== 0 ) {
 				var s = this.step % 16;
 				// bass drives every step
 				this.note( this.nextTime, this.bass[ s ] - 12, this.stepLength * 0.9, 'square', 0.22 );
