@@ -152,6 +152,69 @@ export async function submitEntry(
   return { rank: memoryRank(entry.address), improved };
 }
 
+// Carries a guest's rank over to their wallet the moment they connect, so
+// upgrading to a verified badge never costs progress. Keeps whichever score
+// is higher (guest run or any pre-existing wallet entry) under the wallet's
+// key, then drops the now-orphaned guest row.
+export async function mergeGuestIntoWallet(
+  guestKey: string,
+  walletKey: string
+): Promise<void> {
+  if (kvUrl && kvToken) {
+    const guestRaw = (await redis(['HGET', ENTRIES_KEY, guestKey])) as
+      | string
+      | null;
+    if (!guestRaw) {
+      return;
+    }
+    let guestEntry: BoardEntry;
+    try {
+      guestEntry = JSON.parse(guestRaw) as BoardEntry;
+    } catch {
+      return;
+    }
+
+    const walletRaw = (await redis(['HGET', ENTRIES_KEY, walletKey])) as
+      | string
+      | null;
+    let walletEntry: BoardEntry | null = null;
+    if (walletRaw) {
+      try {
+        walletEntry = JSON.parse(walletRaw) as BoardEntry;
+      } catch {
+        walletEntry = null;
+      }
+    }
+
+    const winner: BoardEntry =
+      walletEntry && walletEntry.score >= guestEntry.score
+        ? walletEntry
+        : { ...guestEntry, name: walletEntry?.name ?? guestEntry.name };
+    winner.address = walletKey;
+    winner.verified = true;
+
+    await redis(['ZADD', BOARD_KEY, winner.score, walletKey]);
+    await redis(['HSET', ENTRIES_KEY, walletKey, JSON.stringify(winner)]);
+    await redis(['ZREM', BOARD_KEY, guestKey]);
+    await redis(['HDEL', ENTRIES_KEY, guestKey]);
+    return;
+  }
+
+  const guestEntry = memoryBoard.get(guestKey);
+  if (!guestEntry) {
+    return;
+  }
+  const walletEntry = memoryBoard.get(walletKey);
+  const winner: BoardEntry =
+    walletEntry && walletEntry.score >= guestEntry.score
+      ? walletEntry
+      : { ...guestEntry, name: walletEntry?.name ?? guestEntry.name };
+  winner.address = walletKey;
+  winner.verified = true;
+  memoryBoard.set(walletKey, winner);
+  memoryBoard.delete(guestKey);
+}
+
 export async function getTop(limit = 50): Promise<BoardEntry[]> {
   if (kvUrl && kvToken) {
     const addresses = (await redis([
