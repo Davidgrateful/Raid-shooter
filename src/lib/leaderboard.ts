@@ -23,8 +23,28 @@ export interface BoardEntry {
 const BOARD_KEY = 'shooterboard';
 const ENTRIES_KEY = 'shooterboard:entries';
 
-const kvUrl = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
-const kvToken = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
+// Resolve the Redis REST credentials. Prefer the canonical names, but fall
+// back to any prefixed variant (e.g. a Vercel integration that injects
+// STORAGE_KV_REST_API_URL) so a custom env prefix doesn't silently disable
+// persistence.
+function resolveEnv(suffixes: string[]): string | undefined {
+  for (const suffix of suffixes) {
+    if (process.env[suffix]) {
+      return process.env[suffix];
+    }
+  }
+  for (const suffix of suffixes) {
+    for (const [name, value] of Object.entries(process.env)) {
+      if (value && name.endsWith(suffix)) {
+        return value;
+      }
+    }
+  }
+  return undefined;
+}
+
+const kvUrl = resolveEnv(['KV_REST_API_URL', 'UPSTASH_REDIS_REST_URL']);
+const kvToken = resolveEnv(['KV_REST_API_TOKEN', 'UPSTASH_REDIS_REST_TOKEN']);
 
 // Whether a shared, persistent backend is configured. Without it the board
 // uses per-instance in-memory storage, which on serverless means players
