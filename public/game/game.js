@@ -1434,6 +1434,13 @@ $.setState = function( state ) {
 			} },
 			{ title: 'SHOOTERBOARD', scale: menuCompact ? 1 : 2, action: function() {
 				$.mouse.down = 0;
+				// a name is required before the board is shown the first time,
+				// so every row on screen — including the player's own — has a
+				// real, chosen name rather than a silent auto-generated default
+				if( !$.storage['pilotname'] ) {
+					$.promptPilotName();
+				}
+				$.ensurePilotName();
 				$.setState( 'board' );
 			} },
 			{ title: 'STATS', scale: menuCompact ? 2 : 3, action: function() {
