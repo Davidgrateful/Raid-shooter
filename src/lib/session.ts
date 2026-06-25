@@ -13,6 +13,14 @@ export interface SessionData {
   guestId?: string;
 }
 
+if (process.env.NODE_ENV === 'production' && !process.env.SESSION_SECRET) {
+  console.warn(
+    '[session] SESSION_SECRET is not set in production. Falling back to a public dev ' +
+    'password, which lets anyone forge a session cookie (including a fake wallet sign-in). ' +
+    'Set SESSION_SECRET to a random 32+ char string.'
+  );
+}
+
 const sessionOptions = {
   password: process.env.SESSION_SECRET || 'complex_password_at_least_32_characters_long_for_dev_only!!',
   cookieName: 'raid-shooter-session',

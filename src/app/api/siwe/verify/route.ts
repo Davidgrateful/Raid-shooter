@@ -27,11 +27,13 @@ export async function POST(req: NextRequest) {
     const guestId = session.guestId;
     const walletKey = fields.address.toLowerCase();
 
-    // Store auth in session
+    // Store auth in session; clear the nonce so this signed message can
+    // never be replayed to re-run verification a second time.
     session.siwe = {
       address: fields.address,
       chainId: fields.chainId,
     };
+    session.nonce = undefined;
     await session.save();
 
     if (guestId) {

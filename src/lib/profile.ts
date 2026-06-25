@@ -1,10 +1,8 @@
-// Wallet-keyed player profiles: owned market items (and later, synced
-// stats and boost state). Redis when configured, in-memory for dev,
-// mirroring the leaderboard storage.
+// Wallet-keyed player profiles: owned market items. Redis when
+// configured, in-memory for dev, mirroring the leaderboard storage.
 
 export interface PlayerProfile {
   items: string[];
-  boostUntil: number;
 }
 
 const PROFILES_KEY = 'shooterboard:profiles';
@@ -33,7 +31,7 @@ async function redis(command: (string | number)[]): Promise<unknown> {
 const memoryProfiles = new Map<string, PlayerProfile>();
 const memoryUsedTx = new Set<string>();
 
-const emptyProfile = (): PlayerProfile => ({ items: [], boostUntil: 0 });
+const emptyProfile = (): PlayerProfile => ({ items: [] });
 
 export async function getProfile(address: string): Promise<PlayerProfile> {
   if (kvUrl && kvToken) {

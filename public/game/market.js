@@ -5,7 +5,7 @@ Cosmetics never touch gameplay or score. Ownership lives in the
 wallet-keyed server profile; payments are verified server side.
 ==============================================================================*/
 $.marketState = { loading: 0, enabled: false, network: '', treasury: null, items: [], fetched: 0 };
-$.profile = { items: [], boostUntil: 0 };
+$.profile = { items: [] };
 $.purchase = { status: '', itemId: null };
 
 $.definitions.premiumColors = [
@@ -86,7 +86,6 @@ $.fetchProfile = function() {
 		.then( function( res ) { return res.json(); } )
 		.then( function( data ) {
 			$.profile.items = data.items || [];
-			$.profile.boostUntil = data.boostUntil || 0;
 			$.applyOwnedItems();
 		} )
 		.catch( function() {} );

@@ -5,7 +5,7 @@ import { getProfile } from '@/lib/profile';
 export async function GET() {
   const session = await getSession();
   if (!session.siwe) {
-    return NextResponse.json({ authenticated: false, items: [], boostUntil: 0 });
+    return NextResponse.json({ authenticated: false, items: [] });
   }
   try {
     const profile = await getProfile(session.siwe.address.toLowerCase());
