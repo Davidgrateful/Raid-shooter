@@ -53,14 +53,15 @@ export async function POST(req: NextRequest) {
     !isInt(combo, 0, 10_000) ||
     !isInt(time, 0, 86_400) ||
     typeof pilot !== 'string' ||
-    !/^[A-Z ]{1,12}$/.test(pilot)
+    !/^[A-Z0-9 ]{1,16}$/.test(pilot)
   ) {
     return NextResponse.json({ error: 'invalid_run' }, { status: 400 });
   }
 
-  // loose plausibility bounds: max enemy value is 500 (boss) at a x8
-  // multiplier, and kill rates far beyond human play are rejected
-  if (score > kills * 4200 + 10 || kills > time * 10 + 30) {
+  // loose plausibility bounds: the richest single kill is a boss (value 750,
+  // or 3x as an elite) at the x8 combo cap, so we allow generous headroom per
+  // kill and reject only kill rates far beyond human play
+  if (score > kills * 8000 + 50 || kills > time * 12 + 40) {
     return NextResponse.json({ error: 'implausible_run' }, { status: 400 });
   }
 
