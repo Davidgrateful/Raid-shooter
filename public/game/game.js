@@ -838,10 +838,11 @@ $.difficulties = {
 	extreme: { label: 'EXTREME', spawn: 0.58, hunt: 1.55, dmg: 1.75, enemyHp: 1.6 }
 };
 
-// eases the opening: the first couple of levels ramp in gently so a new
-// player survives long enough to learn the controls (returns ~0.45 -> 1)
+// eases the opening: with EXTREME as the only difficulty, the ramp now
+// stretches over the first several levels so new players get a real runway
+// before the full spawn rate, hunting, and damage hit (returns ~0.35 -> 1)
 $.introMult = function() {
-	return Math.min( 1, 0.45 + ( $.level ? $.level.current : 0 ) * 0.3 );
+	return Math.min( 1, 0.35 + ( $.level ? $.level.current : 0 ) * 0.16 );
 };
 
 $.spawnEnemies = function() {
