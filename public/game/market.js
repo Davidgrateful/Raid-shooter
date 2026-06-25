@@ -113,6 +113,10 @@ $.buyItem = function( item ) {
 
 window.addEventListener( 'raidshooter:purchase', function( e ) {
 	$.purchase = { status: e.detail.status, itemId: e.detail.itemId };
+	if( e.detail.message ) {
+		// the raw wallet/RPC error, for support debugging - never shown in-game
+		console.warn( '[market]', e.detail.status, e.detail.message );
+	}
 	if( e.detail.status === 'done' ) {
 		$.audio.play( 'levelup' );
 		$.fetchProfile();
@@ -132,6 +136,8 @@ $.purchaseStatusText = function() {
 		case 'done': return 'PURCHASED';
 		case 'failed': return 'PAYMENT NOT VERIFIED';
 		case 'cancelled': return 'CANCELLED';
+		case 'insufficient_funds': return 'NOT ENOUGH ETH ON BASE';
+		case 'wrong_network': return 'SWITCH TO BASE FAILED';
 	}
 	return '';
 };

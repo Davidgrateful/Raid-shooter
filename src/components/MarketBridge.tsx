@@ -55,8 +55,22 @@ export function MarketBridge() {
         } else {
           report('failed');
         }
-      } catch {
-        report('cancelled');
+      } catch (err) {
+        // surface the real failure instead of a blanket "cancelled" so a
+        // wallet rejection, an empty balance, and an RPC hiccup don't all
+        // look identical to the player (or to us, debugging this).
+        const message = err instanceof Error ? err.message : String(err);
+        console.error('[market] purchase failed:', message);
+        const lower = message.toLowerCase();
+        let reason = 'failed';
+        if (lower.includes('reject') || lower.includes('denied') || lower.includes('user rejected')) {
+          reason = 'cancelled';
+        } else if (lower.includes('insufficient')) {
+          reason = 'insufficient_funds';
+        } else if (lower.includes('chain') || lower.includes('network')) {
+          reason = 'wrong_network';
+        }
+        report(reason, { message });
       }
     };
     window.addEventListener('raidshooter:buy', onBuy);
