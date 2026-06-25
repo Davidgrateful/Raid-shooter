@@ -222,7 +222,7 @@ $.reset = function() {
 	$.spawnLullTick = 0;
 
 	// difficulty multipliers chosen in settings
-	$.diff = $.difficulties[ $.storage['difficulty'] || 'normal' ] || $.difficulties.normal;
+	$.diff = $.difficulties.extreme;
 	$.dashRequest = 0;
 	$.nukeFlashTick = 0;
 
@@ -833,9 +833,9 @@ $.makeElite = function( enemy ) {
 Difficulty
 ==============================================================================*/
 $.difficulties = {
-	easy:   { label: 'EASY',   spawn: 1.5,  hunt: 0.55, dmg: 0.6,  enemyHp: 0.7 },
-	normal: { label: 'NORMAL', spawn: 1.0,  hunt: 1.0,  dmg: 1.0,  enemyHp: 1.0 },
-	hard:   { label: 'HARD',   spawn: 0.78, hunt: 1.25, dmg: 1.35, enemyHp: 1.35 }
+	// One setting only: Raid Shooter runs at a single, punishing difficulty.
+	// Faster spawns, relentless hunters, heavier hits, tankier enemies.
+	extreme: { label: 'EXTREME', spawn: 0.58, hunt: 1.55, dmg: 1.75, enemyHp: 1.6 }
 };
 
 // eases the opening: the first couple of levels ramp in gently so a new
@@ -1755,13 +1755,10 @@ $.setState = function( state ) {
 			return b;
 		};
 
-		settingsButton( 'DIFFICULTY: ' + ( $.difficulties[ $.storage['difficulty'] || 'normal' ].label ), function() {
+		// Difficulty is fixed at EXTREME — no selector. Shown read-only so
+		// players know what they're walking into.
+		settingsButton( 'DIFFICULTY: EXTREME', function() {
 			$.mouse.down = 0;
-			var order = [ 'easy', 'normal', 'hard' ],
-				next = order[ ( order.indexOf( $.storage['difficulty'] || 'normal' ) + 1 ) % order.length ];
-			$.storage['difficulty'] = next;
-			$.updateStorage();
-			this.title = 'DIFFICULTY: ' + $.difficulties[ next ].label;
 		} );
 
 		var controlNames = { hybrid: 'HYBRID', keyboard: 'KEYBOARD', mouse: 'MOUSE' };

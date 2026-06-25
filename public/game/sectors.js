@@ -16,6 +16,7 @@ $.resetSector = function() {
 	$.asteroids = [];
 	$.flare = null;
 	$.flareTimer = 480;
+	$.blackhole = null;
 	$.boss = null;
 	$.bossDraftQueued = 0;
 	$.bossAnnounceTick = 0;
@@ -33,6 +34,7 @@ $.updateSector = function() {
 		$.asteroids.length = 0;
 		$.flare = null;
 		$.flareTimer = 480;
+		$.blackhole = null;
 		$.spawnProps();
 	}
 };
@@ -132,6 +134,32 @@ $.hazardDamageHero = function( amount ) {
 /*==============================================================================
 Hazard Update
 ==============================================================================*/
+
+// Pick a fresh spot for the singularity, kept off the edges and away from
+// wherever the hero currently is so it never materialises right on top of them.
+$.relocateBlackhole = function() {
+	var margin = 260,
+		x = $.ww / 2,
+		y = $.wh / 2,
+		tries = 0;
+	do {
+		x = $.util.rand( margin, $.ww - margin );
+		y = $.util.rand( margin, $.wh - margin );
+		tries++;
+	} while( tries < 10 && Math.sqrt( ( x - $.hero.x ) * ( x - $.hero.x ) + ( y - $.hero.y ) * ( y - $.hero.y ) ) < 340 );
+	$.blackhole.x = x;
+	$.blackhole.y = y;
+	$.blackhole.phase = 'active';
+	$.blackhole.timer = $.util.rand( 240, 420 );
+};
+
+// Lazily create the moving black hole the first time its sector needs it.
+// It fades in (telegraph), holds, collapses, vanishes, then jumps elsewhere.
+$.initBlackhole = function() {
+	$.blackhole = { x: $.ww / 2, y: $.wh / 2, phase: 'active', timer: 0, alpha: 0 };
+	$.relocateBlackhole();
+};
+
 $.updateHazards = function() {
 	if( $.sectorAnnounceTick > 0 ) {
 		$.sectorAnnounceTick -= $.dt;
@@ -233,47 +261,82 @@ $.updateHazards = function() {
 	Black Hole Zone
 	==============================================================================*/
 	if( hazard === 'blackhole' ) {
-		var cx = $.ww / 2,
-			cy = $.wh / 2;
-
-		// pull the hero inward
-		var dx = cx - $.hero.x,
-			dy = cy - $.hero.y,
-			dist = Math.max( 1, Math.sqrt( dx * dx + dy * dy ) ),
-			pull = 0.12 * Math.max( 0, 1 - dist / 2200 );
-		$.hero.vx += ( dx / dist ) * pull * $.dt;
-		$.hero.vy += ( dy / dist ) * pull * $.dt;
-		if( dist < 120 && $.hero.life > 0 && $.hero.dashTick <= 0 && $.powerupTimers[ 5 ] <= 0 ) {
-			// the singularity does not negotiate
-			$.hero.life = 0;
+		if( !$.blackhole ) {
+			$.initBlackhole();
 		}
+		var bh = $.blackhole;
+		bh.timer -= $.dt;
 
-		// drag enemies in and crush them at the core
-		var ei = $.enemies.length;
-		while( ei-- ) {
-			var enemy = $.enemies[ ei ];
-			if( enemy.isBoss ) {
-				continue;
+		// life cycle: fade in -> hold -> collapse (fade out) -> hidden gap ->
+		// reappear somewhere new. alpha drives both the visuals and how much
+		// the singularity actually pulls/kills, so a forming hole telegraphs
+		// before it bites.
+		if( bh.phase === 'active' ) {
+			bh.alpha = Math.min( 1, bh.alpha + 0.025 * $.dt );
+			if( bh.timer <= 0 ) {
+				bh.phase = 'collapsing';
+				bh.timer = 40;
+				$.audio.play( 'explosionAlt' );
 			}
-			var edx = cx - enemy.x,
-				edy = cy - enemy.y,
-				edist = Math.max( 1, Math.sqrt( edx * edx + edy * edy ) ),
-				epull = 0.5 * Math.max( 0, 1 - edist / 2200 );
-			enemy.x += ( edx / edist ) * epull * $.dt;
-			enemy.y += ( edy / edist ) * epull * $.dt;
-			if( edist < 110 ) {
-				$.hazardDamageEnemy( enemy, ei, 0.05 * $.dt );
+		} else if( bh.phase === 'collapsing' ) {
+			bh.alpha = Math.max( 0, bh.alpha - 0.05 * $.dt );
+			if( bh.timer <= 0 ) {
+				bh.phase = 'gone';
+				bh.alpha = 0;
+				bh.timer = $.util.rand( 60, 150 );
+			}
+		} else {
+			bh.alpha = 0;
+			if( bh.timer <= 0 ) {
+				$.relocateBlackhole();
 			}
 		}
 
-		// bend bullets toward the singularity
-		for( var bi = 0; bi < $.bullets.length; bi++ ) {
-			var bullet = $.bullets[ bi ],
-				toCenter = Math.atan2( cy - bullet.y, cx - bullet.x ),
-				diff = toCenter - bullet.direction;
-			while( diff > $.pi ) { diff -= $.twopi; }
-			while( diff < -$.pi ) { diff += $.twopi; }
-			bullet.direction += diff * 0.0035 * $.dt;
+		var cx = bh.x,
+			cy = bh.y,
+			strength = bh.alpha;
+
+		if( strength > 0.02 ) {
+			// pull the hero inward (scaled by how formed the hole is)
+			var dx = cx - $.hero.x,
+				dy = cy - $.hero.y,
+				dist = Math.max( 1, Math.sqrt( dx * dx + dy * dy ) ),
+				pull = 0.12 * strength * Math.max( 0, 1 - dist / 2200 );
+			$.hero.vx += ( dx / dist ) * pull * $.dt;
+			$.hero.vy += ( dy / dist ) * pull * $.dt;
+			// core only kills once the hole is mostly formed
+			if( strength > 0.6 && dist < 120 && $.hero.life > 0 && $.hero.dashTick <= 0 && $.powerupTimers[ 5 ] <= 0 ) {
+				// the singularity does not negotiate
+				$.hero.life = 0;
+			}
+
+			// drag enemies in and crush them at the core
+			var ei = $.enemies.length;
+			while( ei-- ) {
+				var enemy = $.enemies[ ei ];
+				if( enemy.isBoss ) {
+					continue;
+				}
+				var edx = cx - enemy.x,
+					edy = cy - enemy.y,
+					edist = Math.max( 1, Math.sqrt( edx * edx + edy * edy ) ),
+					epull = 0.5 * strength * Math.max( 0, 1 - edist / 2200 );
+				enemy.x += ( edx / edist ) * epull * $.dt;
+				enemy.y += ( edy / edist ) * epull * $.dt;
+				if( strength > 0.6 && edist < 110 ) {
+					$.hazardDamageEnemy( enemy, ei, 0.05 * $.dt );
+				}
+			}
+
+			// bend bullets toward the singularity
+			for( var bi = 0; bi < $.bullets.length; bi++ ) {
+				var bullet = $.bullets[ bi ],
+					toCenter = Math.atan2( cy - bullet.y, cx - bullet.x ),
+					diff = toCenter - bullet.direction;
+				while( diff > $.pi ) { diff -= $.twopi; }
+				while( diff < -$.pi ) { diff += $.twopi; }
+				bullet.direction += diff * 0.0035 * strength * $.dt;
+			}
 		}
 	}
 
@@ -351,13 +414,15 @@ $.renderHazards = function() {
 		}
 	}
 
-	if( hazard === 'blackhole' ) {
-		var cx = $.ww / 2,
-			cy = $.wh / 2;
-		$.util.fillCircle( $.ctxmg, cx, cy, 200, 'hsla(260, 100%, 60%, 0.06)' );
-		$.util.fillCircle( $.ctxmg, cx, cy, 110, 'hsla(0, 0%, 0%, 0.95)' );
-		$.util.strokeCircle( $.ctxmg, cx, cy, 118, 'hsla(260, 100%, 65%, 0.7)', 3 );
-		$.ctxmg.strokeStyle = 'hsla(280, 100%, 75%, 0.5)';
+	if( hazard === 'blackhole' && $.blackhole && $.blackhole.alpha > 0.01 ) {
+		var bh = $.blackhole,
+			cx = bh.x,
+			cy = bh.y,
+			a = bh.alpha;
+		$.util.fillCircle( $.ctxmg, cx, cy, 200, 'hsla(260, 100%, 60%, ' + ( 0.06 * a ) + ')' );
+		$.util.fillCircle( $.ctxmg, cx, cy, 110, 'hsla(0, 0%, 0%, ' + ( 0.95 * a ) + ')' );
+		$.util.strokeCircle( $.ctxmg, cx, cy, 118, 'hsla(260, 100%, 65%, ' + ( 0.7 * a ) + ')', 3 );
+		$.ctxmg.strokeStyle = 'hsla(280, 100%, 75%, ' + ( 0.5 * a ) + ')';
 		$.ctxmg.lineWidth = 2;
 		for( var s = 0; s < 3; s++ ) {
 			var swirl = $.tick / 30 + ( s * $.twopi / 3 );
