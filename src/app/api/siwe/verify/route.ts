@@ -45,8 +45,8 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ ok: true, address: fields.address });
-  } catch (e) {
-    const message = e instanceof Error ? e.message : 'Verification failed';
-    return NextResponse.json({ ok: false, error: message }, { status: 400 });
+  } catch {
+    // generic message to the client; full error details stay server-side
+    return NextResponse.json({ ok: false, error: 'verification_failed' }, { status: 400 });
   }
 }

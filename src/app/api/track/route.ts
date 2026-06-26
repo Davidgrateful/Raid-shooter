@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession, getOrCreateGuestId } from '@/lib/session';
 import { trackRunStart, trackRunEnd } from '@/lib/stats';
+import { rateLimit, clientIp } from '@/lib/ratelimit';
 
 // Fire-and-forget run telemetry from the game client. Identifies the player
 // by wallet (if signed in) or their device-scoped guest id, so we count
@@ -12,6 +13,12 @@ export async function POST(req: NextRequest) {
     body = await req.json();
   } catch {
     return NextResponse.json({ ok: false }, { status: 400 });
+  }
+
+  // cap telemetry writes so a script can't inflate stats or run up Redis
+  // ops/cost - a normal run only fires ~2 events
+  if (!(await rateLimit('track', clientIp(req), 40, 60_000))) {
+    return NextResponse.json({ ok: false }, { status: 429 });
   }
 
   const session = await getSession();

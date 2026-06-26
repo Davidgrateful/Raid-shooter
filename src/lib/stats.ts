@@ -105,8 +105,15 @@ export async function trackRunStart(
 ): Promise<void> {
   const day = dayKey(new Date());
   const pilot = cleanId(loadout?.pilot, 'unknown');
-  // chosen call sign, trimmed; empty when the player hasn't set one yet
-  const name = (loadout?.name || '').toString().trim().slice(0, 16);
+  // chosen call sign, restricted to the same charset the game enforces so a
+  // direct API POST can't smuggle markup/control chars into the dashboard
+  const name = (loadout?.name || '')
+    .toString()
+    .toUpperCase()
+    .replace(/[^A-Z0-9 ]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 16);
   // empty drone means "no drone equipped" - tracked as a NONE bucket so we
   // can show the equip rate honestly
   const drone = loadout?.drone ? cleanId(loadout.drone, 'unknown') : 'none';

@@ -3,6 +3,7 @@ import { getSession } from '@/lib/session';
 import { getItem, marketEnabled, treasury, baseRpcUrl } from '@/lib/market';
 import { claimTx, grantItem } from '@/lib/profile';
 import { trackPurchase } from '@/lib/stats';
+import { rateLimit, clientIp } from '@/lib/ratelimit';
 
 async function rpc(method: string, params: unknown[]): Promise<unknown> {
   const res = await fetch(baseRpcUrl, {
@@ -28,6 +29,12 @@ export async function POST(req: NextRequest) {
   const session = await getSession();
   if (!session.siwe) {
     return NextResponse.json({ error: 'wallet_required' }, { status: 401 });
+  }
+
+  // each verify makes two RPC calls; cap per wallet so a loop can't hammer
+  // the (possibly paid) RPC endpoint
+  if (!(await rateLimit('verify', session.siwe.address.toLowerCase(), 20, 60_000))) {
+    return NextResponse.json({ error: 'rate_limited' }, { status: 429 });
   }
 
   const body = await req.json().catch(() => null);
