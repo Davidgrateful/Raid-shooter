@@ -7,7 +7,7 @@ import { trackRunStart, trackRunEnd } from '@/lib/stats';
 // every player and every run - not just score submitters. No personal data
 // is stored, only counters and an opaque id in anonymous sets.
 export async function POST(req: NextRequest) {
-  let body: { event?: string; durationSec?: number; pilot?: string; drone?: string };
+  let body: { event?: string; durationSec?: number; pilot?: string; drone?: string; name?: string };
   try {
     body = await req.json();
   } catch {
@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
 
   try {
     if (body.event === 'run_start') {
-      await trackRunStart(playerId, { pilot: body.pilot, drone: body.drone });
+      await trackRunStart(playerId, { pilot: body.pilot, drone: body.drone, name: body.name });
     } else if (body.event === 'run_end') {
       await trackRunEnd(playerId, Number(body.durationSec) || 0);
     } else {

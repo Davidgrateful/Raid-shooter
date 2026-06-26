@@ -170,6 +170,7 @@ export default function AdminPage() {
 // ---- team players table with moderation (derank / ban) ----
 interface PlayerRow {
   id: string;
+  name: string | null;
   wallet: string | null;
   isWallet: boolean;
   games: number;
@@ -178,6 +179,7 @@ interface PlayerRow {
   banned: boolean;
 }
 
+// short, stable handle for the wallet/guest id (the technical key)
 function shortId(p: PlayerRow): string {
   if (p.wallet) return `${p.wallet.slice(0, 6)}…${p.wallet.slice(-4)}`;
   return p.id.startsWith('guest:') ? `guest ${p.id.slice(6, 12)}` : p.id;
@@ -244,7 +246,8 @@ function PlayersTable({ token }: { token: string }) {
             <table className="w-full text-sm">
               <thead className="bg-white/[0.03] text-left text-xs uppercase tracking-wider text-white/40">
                 <tr>
-                  <th className="px-3 py-2">Player</th>
+                  <th className="px-3 py-2">Call sign</th>
+                  <th className="px-3 py-2">ID</th>
                   <th className="px-3 py-2 text-right">Games</th>
                   <th className="px-3 py-2 text-right">Spent</th>
                   <th className="px-3 py-2 text-right">Last seen</th>
@@ -255,9 +258,16 @@ function PlayersTable({ token }: { token: string }) {
                 {players.map((p) => (
                   <tr key={p.id} className={p.banned ? 'bg-red-500/[0.06]' : ''}>
                     <td className="px-3 py-2">
-                      <span className="font-mono text-white/80">{shortId(p)}</span>
-                      {p.isWallet ? <span className="ml-2 rounded bg-cyan-500/15 px-1.5 py-0.5 text-[10px] text-cyan-300">WALLET</span> : <span className="ml-2 text-[10px] text-white/30">guest</span>}
+                      {p.name ? (
+                        <span className="font-medium text-white/90">{p.name}</span>
+                      ) : (
+                        <span className="italic text-amber-300/70">unnamed</span>
+                      )}
                       {p.banned && <span className="ml-2 rounded bg-red-500/20 px-1.5 py-0.5 text-[10px] text-red-300">BANNED</span>}
+                    </td>
+                    <td className="px-3 py-2">
+                      <span className="font-mono text-xs text-white/50">{shortId(p)}</span>
+                      {p.isWallet ? <span className="ml-2 rounded bg-cyan-500/15 px-1.5 py-0.5 text-[10px] text-cyan-300">WALLET</span> : <span className="ml-2 text-[10px] text-white/30">guest</span>}
                     </td>
                     <td className="px-3 py-2 text-right tabular-nums text-white/70">{fmtNum(p.games)}</td>
                     <td className="px-3 py-2 text-right tabular-nums text-emerald-300/90">{fmtUsd(p.spendUsd)}</td>

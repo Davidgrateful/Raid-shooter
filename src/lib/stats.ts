@@ -30,6 +30,7 @@ const RECENT_BUYS_MAX = 50;
 const PLAYER_GAMES = 'stats:player:games'; // hash playerId -> games played
 const PLAYER_SPEND = 'stats:player:spend'; // hash playerId -> USD spent
 const PLAYER_SEEN = 'stats:player:seen'; // hash playerId -> last seen epoch ms
+const PLAYER_NAME = 'stats:player:name'; // hash playerId -> chosen call sign
 
 // keys partitioned by UTC day so daily-active / charts are cheap to read
 function dayKey(d: Date): string {
@@ -72,6 +73,7 @@ const mem = {
   playerGames: new Map<string, number>(),
   playerSpend: new Map<string, number>(),
   playerSeen: new Map<string, number>(),
+  playerName: new Map<string, string>(),
 };
 
 export interface RecentBuy {
@@ -99,10 +101,12 @@ function cleanId(s: string | undefined, fallback: string): string {
 
 export async function trackRunStart(
   playerId: string,
-  loadout?: { pilot?: string; drone?: string }
+  loadout?: { pilot?: string; drone?: string; name?: string }
 ): Promise<void> {
   const day = dayKey(new Date());
   const pilot = cleanId(loadout?.pilot, 'unknown');
+  // chosen call sign, trimmed; empty when the player hasn't set one yet
+  const name = (loadout?.name || '').toString().trim().slice(0, 16);
   // empty drone means "no drone equipped" - tracked as a NONE bucket so we
   // can show the equip rate honestly
   const drone = loadout?.drone ? cleanId(loadout.drone, 'unknown') : 'none';
@@ -123,6 +127,9 @@ export async function trackRunStart(
     }
     ops.push(redisCommand(['HINCRBY', PLAYER_GAMES, playerId, 1]));
     ops.push(redisCommand(['HSET', PLAYER_SEEN, playerId, Date.now()]));
+    if (name) {
+      ops.push(redisCommand(['HSET', PLAYER_NAME, playerId, name]));
+    }
     await Promise.all(ops);
     return;
   }
@@ -136,6 +143,7 @@ export async function trackRunStart(
   if (drone !== 'none') mem.runsWithDrone += 1;
   mem.playerGames.set(playerId, (mem.playerGames.get(playerId) || 0) + 1);
   mem.playerSeen.set(playerId, Date.now());
+  if (name) mem.playerName.set(playerId, name);
 }
 
 // Recorded only after a payment is server-verified, so revenue can't be
@@ -448,6 +456,7 @@ function round2(n: number): number {
 
 export interface PlayerRow {
   id: string; // "wallet:0x…" or "guest:…"
+  name: string | null; // chosen call sign, or null if not set yet
   wallet: string | null; // full address for wallet players, else null
   isWallet: boolean;
   games: number;
@@ -462,32 +471,38 @@ export async function getPlayersList(limit = 200): Promise<PlayerRow[]> {
   let gamePairs: [string, string][];
   let spendPairs: [string, string][];
   let seenPairs: [string, string][];
+  let namePairs: [string, string][];
 
   if (isKvConfigured()) {
-    const [g, s, sn] = await Promise.all([
+    const [g, s, sn, nm] = await Promise.all([
       redisCommand(['HGETALL', PLAYER_GAMES]),
       redisCommand(['HGETALL', PLAYER_SPEND]),
       redisCommand(['HGETALL', PLAYER_SEEN]),
+      redisCommand(['HGETALL', PLAYER_NAME]),
     ]);
     gamePairs = hashToPairs(g);
     spendPairs = hashToPairs(s);
     seenPairs = hashToPairs(sn);
+    namePairs = hashToPairs(nm);
   } else {
     gamePairs = [...mem.playerGames.entries()].map(([k, v]) => [k, String(v)]);
     spendPairs = [...mem.playerSpend.entries()].map(([k, v]) => [k, String(v)]);
     seenPairs = [...mem.playerSeen.entries()].map(([k, v]) => [k, String(v)]);
+    namePairs = [...mem.playerName.entries()].map(([k, v]) => [k, v]);
   }
 
   const games = new Map(gamePairs.map(([k, v]) => [k, num(v)]));
   const spend = new Map(spendPairs.map(([k, v]) => [k, flt(v)]));
   const seen = new Map(seenPairs.map(([k, v]) => [k, num(v)]));
+  const names = new Map(namePairs.map(([k, v]) => [k, v]));
 
-  const ids = new Set<string>([...games.keys(), ...spend.keys(), ...seen.keys()]);
+  const ids = new Set<string>([...games.keys(), ...spend.keys(), ...seen.keys(), ...names.keys()]);
   const rows: PlayerRow[] = [];
   for (const id of ids) {
     const isWallet = id.startsWith('wallet:');
     rows.push({
       id,
+      name: names.get(id) || null,
       wallet: isWallet ? id.slice('wallet:'.length) : null,
       isWallet,
       games: games.get(id) || 0,

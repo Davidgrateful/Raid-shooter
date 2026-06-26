@@ -142,6 +142,9 @@ $.trackRun = function( event, durationSec ) {
 			var drone = $.equippedDrone && $.equippedDrone();
 			payload.pilot = pilot ? pilot.id : 'unknown';
 			payload.drone = drone ? drone.id : '';
+			// the chosen call sign, so the team dashboard can identify a
+			// player who's started playing even before they hit the board
+			payload.name = $.storage['pilotname'] || '';
 		}
 		fetch( '/api/track', {
 			method: 'POST',
