@@ -1569,11 +1569,24 @@ $.setState = function( state ) {
 
 		var menuDefs = [
 			{ title: 'PLAY', scale: menuCompact ? 2 : 3, action: function() {
+				$.mouse.down = 0;
+				// first-time players choose a call sign before their first
+				// run, so their very first score lands on the board under a
+				// name they picked - not a silent auto-generated default
+				if( !$.storage['pilotname'] ) {
+					$.promptPilotName();
+					$.ensurePilotName();
+				}
 				$.reset();
 				$.trackRun( 'run_start' );
 				$.audio.play( 'levelup' );
 				$.music.start();
 				$.setState( 'play' );
+			} },
+			{ title: 'CALL SIGN: ' + ( $.storage['pilotname'] || 'SET NAME' ), scale: menuCompact ? 1 : 2, action: function() {
+				$.mouse.down = 0;
+				$.promptPilotName();
+				this.title = 'CALL SIGN: ' + ( $.storage['pilotname'] || 'SET NAME' );
 			} },
 			{ title: 'PILOT: ' + $.currentCharacter().title, scale: menuCompact ? 1 : 2, action: function() {
 				$.mouse.down = 0;
@@ -2168,20 +2181,26 @@ $.setState = function( state ) {
 			}
 		}, 10000 );
 
-		var nameButton = new $.Button( {
+		// scrolls the list straight to the player's own row (set each frame
+		// by the board renderer); falls back to setting a call sign if the
+		// player isn't ranked yet
+		var jumpButton = new $.Button( {
 			x: $.cw / 2 - 104,
 			y: $.ch - 52,
 			lockedWidth: 199,
 			lockedHeight: 45,
 			scale: 1,
-			title: 'NAME: ' + ( $.storage['pilotname'] || 'SET' ),
+			title: 'JUMP TO ME',
 			action: function() {
 				$.mouse.down = 0;
-				$.promptPilotName();
-				this.title = 'NAME: ' + ( $.storage['pilotname'] || 'SET' );
+				if( typeof $.boardMyScrollTarget === 'number' && $.boardMyScrollTarget >= 0 ) {
+					$.scroll.y = $.boardMyScrollTarget;
+				} else {
+					$.promptPilotName();
+				}
 			}
 		} );
-		$.buttons.push( nameButton );
+		$.buttons.push( jumpButton );
 
 		var boardMenuButton = new $.Button( {
 			x: $.cw / 2 + 106,
@@ -2845,6 +2864,42 @@ $.setupStates = function() {
 			$.ctxmg.fill();
 		}
 
+		/*==============================================================================
+		Your live rank banner - so a player can always spot where they stand,
+		even when their own row has scrolled out of the top-100 list below
+		==============================================================================*/
+		var myKeyTop = $.myKey(),
+			myIndexTop = -1;
+		if( myKeyTop ) {
+			for( var mq = 0; mq < $.board.entries.length; mq++ ) {
+				if( $.board.entries[ mq ].address === myKeyTop ) { myIndexTop = mq; break; }
+			}
+		}
+		if( !$.board.loading && !$.board.error && $.board.entries.length ) {
+			var rankY = tierY + ( boardCompact ? 36 : 48 ),
+				rankText = ( myIndexTop >= 0 )
+					? 'YOU  RANK ' + ( myIndexTop + 1 ) + ' OF ' + $.board.entries.length + '  ' + $.util.commas( $.board.entries[ myIndexTop ].score )
+					: 'YOU  UNRANKED  /  PLAY TO CLAIM A RANK';
+			$.ctxmg.beginPath();
+			var rankMeasure = $.text( {
+				ctx: $.ctxmg, x: $.cw / 2, y: rankY, text: rankText,
+				hspacing: 1, vspacing: 1, halign: 'center', valign: 'top',
+				scale: boardCompact ? 1 : 2, snap: 1, render: 0
+			} );
+			// soft pill behind the banner so it reads as "this is you"
+			$.ctxmg.fillStyle = ( myIndexTop >= 0 ) ? 'hsla(45, 100%, 60%, 0.12)' : 'hsla(0, 0%, 100%, 0.06)';
+			$.roundRect( rankMeasure.sx - 14, rankMeasure.sy - 5, rankMeasure.width + 28, rankMeasure.height + 10, 6 );
+			$.ctxmg.fill();
+			$.ctxmg.beginPath();
+			$.text( {
+				ctx: $.ctxmg, x: $.cw / 2, y: rankY, text: rankText,
+				hspacing: 1, vspacing: 1, halign: 'center', valign: 'top',
+				scale: boardCompact ? 1 : 2, snap: 1, render: 1
+			} );
+			$.ctxmg.fillStyle = ( myIndexTop >= 0 ) ? 'hsla(45, 100%, 70%, 1)' : 'hsla(0, 0%, 100%, 0.6)';
+			$.ctxmg.fill();
+		}
+
 		var statusText = '';
 		if( $.board.loading ) {
 			statusText = 'LOADING';
@@ -2881,7 +2936,8 @@ $.setupStates = function() {
 				columns = narrow ? 1 : 2,
 				rowScale = ( boardCompact || narrow ) ? 1 : 2,
 				perColumn = Math.ceil( rowCount / columns ),
-				rowStartY = boardTitle.ey + ( boardCompact ? 46 : 74 ),
+				// pushed down to clear the YOUR-TIER and YOU-RANK banners
+					rowStartY = boardTitle.ey + ( boardCompact ? 70 : 104 ),
 				rowSpacing = narrow ? 13 : ( boardCompact ? 15 : 19 ),
 				columnGap = boardCompact ? 24 : 50,
 				totalWidth = Math.min( $.cw - 60, 720 ),
@@ -2900,11 +2956,16 @@ $.setupStates = function() {
 			$.ctxmg.rect( 0, boardClipTop, $.cw, Math.max( 0, boardClipBottom - boardClipTop ) );
 			$.ctxmg.clip();
 
+			// medal colours for the podium - top 3 stand out from the pack
+			var medalColors = [ 'hsla(45, 100%, 62%, 1)', 'hsla(0, 0%, 80%, 1)', 'hsla(28, 75%, 55%, 1)' ];
+			$.boardMyScrollTarget = -1;
+
 			for( var ri = 0; ri < rowCount; ri++ ) {
 				var entry = $.board.entries[ ri ],
 					myKey = $.myKey(),
 					mine = ( myKey && entry.address === myKey ),
-					rowColor = mine ? 'hsla(45, 100%, 65%, 1)' : ( ri === 0 ? 'hsla(0, 0%, 100%, 1)' : 'hsla(0, 0%, 100%, 0.65)' ),
+					medal = ( ri < 3 ) ? medalColors[ ri ] : null,
+					rowColor = mine ? 'hsla(45, 100%, 70%, 1)' : ( medal ? medal : 'hsla(0, 0%, 100%, 0.65)' ),
 					// wallet-verified players carry a badge glyph after their name
 					verifiedBadge = entry.verified ? ' \x01' : '',
 					col = ( ri < perColumn ) ? 0 : 1,
@@ -2912,6 +2973,28 @@ $.setupStates = function() {
 					leftX = ( col === 0 ) ? col0Left : col1Left,
 					rightX = ( col === 0 ) ? col0Right : col1Right,
 					rowY = rowStartY + row * rowSpacing - $.scroll.y;
+
+				// remember how far to scroll to bring the player's own row to
+				// the top of the list, for the JUMP TO ME button
+				if( mine ) {
+					$.boardMyScrollTarget = Math.max( 0, Math.min(
+						$.scroll.max,
+						rowStartY + row * rowSpacing - boardClipTop - rowSpacing
+					) );
+				}
+
+				// highlight bar behind the player's own row so it pops
+				if( mine ) {
+					$.ctxmg.beginPath();
+					$.ctxmg.fillStyle = 'hsla(45, 100%, 60%, 0.16)';
+					$.roundRect( leftX - 8, rowY - 3, ( rightX - leftX ) + 16, rowSpacing - 2, 4 );
+					$.ctxmg.fill();
+				}
+
+				// small medal dot for the podium ranks
+				if( medal ) {
+					$.util.fillCircle( $.ctxmg, leftX - ( boardCompact ? 8 : 12 ), rowY + rowSpacing / 2 - 4, boardCompact ? 3 : 4, medal );
+				}
 
 				$.ctxmg.beginPath();
 				$.text( {

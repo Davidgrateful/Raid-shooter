@@ -51,10 +51,23 @@ $.util.circle = function( ctx, x, y, radius ) {
 	ctx.arc( x, y, radius, 0, $.twopi, false );
 };
 
-$.util.fillCircle = function( ctx, x, y, radius, fillStyle ) {  
+$.util.fillCircle = function( ctx, x, y, radius, fillStyle ) {
 	$.util.circle( ctx, x, y, radius );
 	ctx.fillStyle = fillStyle;
 	ctx.fill();
+};
+
+// Adds a rounded-rect subpath to $.ctxmg (caller handles beginPath/fill),
+// for UI pills and highlight bars on the menu canvas.
+$.roundRect = function( x, y, w, h, r ) {
+	var ctx = $.ctxmg;
+	r = Math.min( r, w / 2, h / 2 );
+	ctx.moveTo( x + r, y );
+	ctx.arcTo( x + w, y, x + w, y + h, r );
+	ctx.arcTo( x + w, y + h, x, y + h, r );
+	ctx.arcTo( x, y + h, x, y, r );
+	ctx.arcTo( x, y, x + w, y, r );
+	ctx.closePath();
 };
 
 $.util.strokeCircle = function( ctx, x, y, radius, strokeStyle, lineWidth ) {
