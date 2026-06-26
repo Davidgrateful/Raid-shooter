@@ -129,6 +129,20 @@ $.fetchBoard = function() {
 		} );
 };
 
+// Fire-and-forget run telemetry. Counts every run (and every player, via
+// the server session) for the dev stats dashboard - never blocks gameplay
+// and swallows all errors so a flaky network can't disrupt a run.
+$.trackRun = function( event, durationSec ) {
+	try {
+		fetch( '/api/track', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify( { event: event, durationSec: durationSec || 0 } ),
+			keepalive: true
+		} ).catch( function() {} );
+	} catch( e ) {}
+};
+
 $.submitScore = function() {
 	var runScore = $.score,
 		runLevel = $.level.current + 1,

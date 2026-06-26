@@ -1570,6 +1570,7 @@ $.setState = function( state ) {
 		var menuDefs = [
 			{ title: 'PLAY', scale: menuCompact ? 2 : 3, action: function() {
 				$.reset();
+				$.trackRun( 'run_start' );
 				$.audio.play( 'levelup' );
 				$.music.start();
 				$.setState( 'play' );
@@ -2368,6 +2369,7 @@ $.setState = function( state ) {
 			title: 'PLAY AGAIN',
 			action: function() {
 				$.reset();
+				$.trackRun( 'run_start' );
 				$.audio.play( 'levelup' );
 				$.setState( 'play' );
 			}
@@ -2397,6 +2399,8 @@ $.setState = function( state ) {
 		$.storage['time'] += Math.floor( $.elapsed );
 		$.updateStorage();
 
+		// run length in seconds (elapsed counts at 60fps), for playtime stats
+		$.trackRun( 'run_end', Math.floor( ( $.elapsed * ( 1000 / 60 ) ) / 1000 ) );
 		$.submitScore();
 	}
 

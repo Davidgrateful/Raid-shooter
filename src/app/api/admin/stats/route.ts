@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { timingSafeEqual } from 'crypto';
 import { getAllEntries, isPersistent, type BoardEntry } from '@/lib/leaderboard';
+import { getTrackingStats } from '@/lib/stats';
 
 // Dev-only player stats, aggregated from the leaderboard. Gated behind
 // ADMIN_STATS_TOKEN so it's never public. Note: the board stores ONE entry
@@ -45,7 +46,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const entries: BoardEntry[] = await getAllEntries();
+  const [entries, tracking] = await Promise.all([
+    getAllEntries() as Promise<BoardEntry[]>,
+    getTrackingStats(14),
+  ]);
   const now = Date.now();
   const DAY = 86_400_000;
 
@@ -71,32 +75,38 @@ export async function GET(req: NextRequest) {
     // if false, you're reading per-instance memory and numbers reset on
     // every redeploy/cold start - wire up KV for stable stats
     note: isPersistent()
-      ? 'Numbers describe best-run-per-player, not raw sessions.'
+      ? 'tracking = every player/run; leaderboard = best-run-per-submitter.'
       : 'WARNING: no persistent store - these reset on redeploy.',
 
-    players: {
-      total: entries.length,
-      verified: entries.filter((e) => e.verified).length,
-      guests: entries.filter((e) => !e.verified).length,
+    // counts EVERY player and run (incl. guests who never submit a score)
+    tracking,
+
+    // derived from the leaderboard: best run per score-submitter only
+    leaderboard: {
+      players: {
+        total: entries.length,
+        verified: entries.filter((e) => e.verified).length,
+        guests: entries.filter((e) => !e.verified).length,
+      },
+      activity: {
+        lastDay: within(DAY),
+        last7Days: within(7 * DAY),
+        last30Days: within(30 * DAY),
+        newestRunAt: entries.reduce((m, e) => Math.max(m, e.at || 0), 0) || null,
+      },
+      runTimeSeconds: {
+        // per best-run; not lifetime playtime
+        average: avg(times),
+        median: median(times),
+        longest: times.length ? Math.max(...times) : 0,
+        combinedBestRuns: totalSeconds,
+      },
+      score: {
+        top: scores.length ? Math.max(...scores) : 0,
+        average: avg(scores),
+        median: median(scores),
+      },
+      topPilots,
     },
-    activity: {
-      lastDay: within(DAY),
-      last7Days: within(7 * DAY),
-      last30Days: within(30 * DAY),
-      newestRunAt: entries.reduce((m, e) => Math.max(m, e.at || 0), 0) || null,
-    },
-    runTimeSeconds: {
-      // per best-run; not lifetime playtime
-      average: avg(times),
-      median: median(times),
-      longest: times.length ? Math.max(...times) : 0,
-      combinedBestRuns: totalSeconds,
-    },
-    score: {
-      top: scores.length ? Math.max(...scores) : 0,
-      average: avg(scores),
-      median: median(scores),
-    },
-    topPilots,
   });
 }
