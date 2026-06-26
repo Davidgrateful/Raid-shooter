@@ -213,6 +213,31 @@ export async function getTop(limit = 50): Promise<BoardEntry[]> {
     .slice(0, limit);
 }
 
+// Every stored entry (one per address: their best run). Used by the admin
+// stats endpoint to aggregate - the board only keeps a player's best run,
+// so these numbers describe best-runs, not every session played.
+export async function getAllEntries(): Promise<BoardEntry[]> {
+  if (kvUrl && kvToken) {
+    const addresses = (await redis(['ZRANGE', BOARD_KEY, 0, -1, 'REV'])) as string[];
+    if (!addresses || addresses.length === 0) {
+      return [];
+    }
+    const raw = (await redis(['HMGET', ENTRIES_KEY, ...addresses])) as (string | null)[];
+    const entries: BoardEntry[] = [];
+    for (const item of raw) {
+      if (item) {
+        try {
+          entries.push(JSON.parse(item) as BoardEntry);
+        } catch {
+          // skip corrupt rows rather than failing the whole board
+        }
+      }
+    }
+    return entries;
+  }
+  return [...memoryBoard.values()].sort((a, b) => b.score - a.score);
+}
+
 export async function updateName(
   address: string,
   name: string
