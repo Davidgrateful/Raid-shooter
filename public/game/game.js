@@ -1903,7 +1903,7 @@ $.setState = function( state ) {
 		var marketCompact = ( $.ch < 640 ),
 			// kept clear of the mobile top-left BACK button (~y70) on short screens
 			tabsY = marketCompact ? 110 : 162,
-			itemStartY = tabsY + ( marketCompact ? 28 : 42 );
+			tabHalfHeight = marketCompact ? 14 : 18;
 
 		// PILOTS / DRONES show a ship icon plus an ability line, so they get
 		// a single wide column; BOOSTS (skins, trails, consumables) are
@@ -1919,6 +1919,13 @@ $.setState = function( state ) {
 			itemWidth = columns === 1 ? maxRowWidth : ( maxRowWidth - colGap ) / 2,
 			itemColX = columns === 1 ? 0 : ( itemWidth + colGap ) / 2,
 			itemHeight = richTab ? ( smallText ? 52 : 64 ) : ( smallText ? 44 : 54 );
+
+		// Top of the scrollable strip: below the tabs with a clear gap. The
+		// first row is then centered half a card lower so its full top edge
+		// sits inside the clip - otherwise the card's top half was sliced
+		// off and it bled up into the tab row.
+		var listTop = tabsY + tabHalfHeight + ( marketCompact ? 14 : 18 ),
+			itemStartY = listTop + itemHeight / 2;
 
 		var bucketOf = function( item ) {
 			if( item.kind === 'character' || item.kind === 'drone' ) { return item.kind; }
@@ -2061,7 +2068,7 @@ $.setState = function( state ) {
 			marketContentBottom = itemStartY + marketRows * ( itemHeight + itemGap ),
 			marketListBottom = $.ch - ( marketCompact ? 62 : 100 );
 		$.setScrollMax( marketContentBottom, marketListBottom );
-		$.marketListClip = { top: itemStartY - itemGap, bottom: marketListBottom };
+		$.marketListClip = { top: listTop, bottom: marketListBottom };
 		$.scrollClip = $.marketListClip;
 	}
 
