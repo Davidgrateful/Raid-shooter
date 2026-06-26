@@ -167,6 +167,122 @@ export default function AdminPage() {
   return <Dashboard {...{ token, setToken, stats, error, loading, load, t, lb, mk, lo, maxRuns, maxPilot, maxRev, maxItemRev, maxPilotRuns, maxDroneRuns }} />;
 }
 
+// ---- team players table with moderation (derank / ban) ----
+interface PlayerRow {
+  id: string;
+  wallet: string | null;
+  isWallet: boolean;
+  games: number;
+  spendUsd: number;
+  lastSeen: number | null;
+  banned: boolean;
+}
+
+function shortId(p: PlayerRow): string {
+  if (p.wallet) return `${p.wallet.slice(0, 6)}…${p.wallet.slice(-4)}`;
+  return p.id.startsWith('guest:') ? `guest ${p.id.slice(6, 12)}` : p.id;
+}
+
+function PlayersTable({ token }: { token: string }) {
+  const [players, setPlayers] = useState<PlayerRow[] | null>(null);
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState('');
+
+  async function loadPlayers() {
+    setBusy(true);
+    setErr('');
+    try {
+      const res = await fetch(`/api/admin/players?key=${encodeURIComponent(token)}`, { cache: 'no-store' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `Failed (${res.status})`);
+      setPlayers(data.players);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Failed to load players.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function moderate(p: PlayerRow, action: 'derank' | 'ban' | 'unban') {
+    const verb = action === 'ban' ? 'BAN' : action === 'unban' ? 'unban' : 'derank';
+    if (action !== 'unban' && !confirm(`${verb} ${shortId(p)}? ${action === 'ban' ? 'They will be removed AND blocked from re-ranking.' : 'Removes their score from the board.'}`)) return;
+    setBusy(true);
+    setNote('');
+    try {
+      const res = await fetch(`/api/admin/derank?key=${encodeURIComponent(token)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: p.id, action }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `Failed (${res.status})`);
+      setNote(`✓ ${action} applied to ${shortId(p)}.`);
+      await loadPlayers();
+    } catch (e) {
+      setNote(e instanceof Error ? e.message : 'Action failed.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section>
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-cyan-300/80">Players</h2>
+        <button onClick={loadPlayers} disabled={busy} className="rounded-md bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20 disabled:opacity-40">
+          {players ? 'Refresh' : 'Load players'}
+        </button>
+      </div>
+      {err && <div className="mb-3 rounded-md border border-red-500/30 bg-red-500/10 p-2 text-sm text-red-300">{err}</div>}
+      {note && <div className="mb-3 rounded-md border border-white/15 bg-white/[0.05] p-2 text-sm text-white/80">{note}</div>}
+      {players && (
+        players.length === 0 ? (
+          <div className="rounded-md border border-white/10 bg-white/[0.02] p-3 text-sm text-white/40">No players tracked yet.</div>
+        ) : (
+          <div className="overflow-x-auto rounded-lg border border-white/10">
+            <table className="w-full text-sm">
+              <thead className="bg-white/[0.03] text-left text-xs uppercase tracking-wider text-white/40">
+                <tr>
+                  <th className="px-3 py-2">Player</th>
+                  <th className="px-3 py-2 text-right">Games</th>
+                  <th className="px-3 py-2 text-right">Spent</th>
+                  <th className="px-3 py-2 text-right">Last seen</th>
+                  <th className="px-3 py-2 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {players.map((p) => (
+                  <tr key={p.id} className={p.banned ? 'bg-red-500/[0.06]' : ''}>
+                    <td className="px-3 py-2">
+                      <span className="font-mono text-white/80">{shortId(p)}</span>
+                      {p.isWallet ? <span className="ml-2 rounded bg-cyan-500/15 px-1.5 py-0.5 text-[10px] text-cyan-300">WALLET</span> : <span className="ml-2 text-[10px] text-white/30">guest</span>}
+                      {p.banned && <span className="ml-2 rounded bg-red-500/20 px-1.5 py-0.5 text-[10px] text-red-300">BANNED</span>}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums text-white/70">{fmtNum(p.games)}</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-emerald-300/90">{fmtUsd(p.spendUsd)}</td>
+                    <td className="px-3 py-2 text-right text-white/40">{p.lastSeen ? fmtAgo(p.lastSeen) : '—'}</td>
+                    <td className="px-3 py-2 text-right">
+                      <div className="flex justify-end gap-1.5">
+                        <button onClick={() => moderate(p, 'derank')} disabled={busy} className="rounded bg-white/10 px-2 py-1 text-xs hover:bg-white/20 disabled:opacity-40">Derank</button>
+                        {p.banned ? (
+                          <button onClick={() => moderate(p, 'unban')} disabled={busy} className="rounded bg-emerald-500/20 px-2 py-1 text-xs text-emerald-300 hover:bg-emerald-500/30 disabled:opacity-40">Unban</button>
+                        ) : (
+                          <button onClick={() => moderate(p, 'ban')} disabled={busy} className="rounded bg-red-500/15 px-2 py-1 text-xs text-red-300 hover:bg-red-500/25 disabled:opacity-40">Ban</button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )
+      )}
+    </section>
+  );
+}
+
 // ---- admin write actions (player lookup / grant / reset) ----
 function AdminActions({ token }: { token: string }) {
   const [lookupId, setLookupId] = useState('');
@@ -493,6 +609,8 @@ function Dashboard(p: DashboardProps) {
                 </>
               )}
             </section>
+
+            <PlayersTable token={token} />
 
             <AdminActions token={token} />
 

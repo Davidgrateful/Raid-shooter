@@ -26,6 +26,11 @@ const ITEM_REVENUE = 'stats:items:revenue'; // hash itemId -> USD
 const RECENT_BUYS = 'stats:recentbuys'; // capped list of latest verified buys
 const RECENT_BUYS_MAX = 50;
 
+// per-player rollups for the team players table
+const PLAYER_GAMES = 'stats:player:games'; // hash playerId -> games played
+const PLAYER_SPEND = 'stats:player:spend'; // hash playerId -> USD spent
+const PLAYER_SEEN = 'stats:player:seen'; // hash playerId -> last seen epoch ms
+
 // keys partitioned by UTC day so daily-active / charts are cheap to read
 function dayKey(d: Date): string {
   return (
@@ -64,6 +69,9 @@ const mem = {
   dayPurchases: new Map<string, number>(),
   dayRevenue: new Map<string, number>(),
   recentBuys: [] as RecentBuy[],
+  playerGames: new Map<string, number>(),
+  playerSpend: new Map<string, number>(),
+  playerSeen: new Map<string, number>(),
 };
 
 export interface RecentBuy {
@@ -113,6 +121,8 @@ export async function trackRunStart(
     if (drone !== 'none') {
       ops.push(redisCommand(['INCR', RUNS_WITH_DRONE]));
     }
+    ops.push(redisCommand(['HINCRBY', PLAYER_GAMES, playerId, 1]));
+    ops.push(redisCommand(['HSET', PLAYER_SEEN, playerId, Date.now()]));
     await Promise.all(ops);
     return;
   }
@@ -124,6 +134,8 @@ export async function trackRunStart(
   mem.pilots.set(pilot, (mem.pilots.get(pilot) || 0) + 1);
   mem.drones.set(drone, (mem.drones.get(drone) || 0) + 1);
   if (drone !== 'none') mem.runsWithDrone += 1;
+  mem.playerGames.set(playerId, (mem.playerGames.get(playerId) || 0) + 1);
+  mem.playerSeen.set(playerId, Date.now());
 }
 
 // Recorded only after a payment is server-verified, so revenue can't be
@@ -150,6 +162,7 @@ export async function trackPurchase(
       // newest first, trimmed to the cap so the list can't grow unbounded
       redisCommand(['LPUSH', RECENT_BUYS, JSON.stringify(buy)]),
       redisCommand(['LTRIM', RECENT_BUYS, 0, RECENT_BUYS_MAX - 1]),
+      redisCommand(['HINCRBYFLOAT', PLAYER_SPEND, playerId, usd]),
     ]);
     return;
   }
@@ -162,6 +175,7 @@ export async function trackPurchase(
   mem.dayRevenue.set(day, (mem.dayRevenue.get(day) || 0) + usd);
   mem.recentBuys.unshift(buy);
   mem.recentBuys = mem.recentBuys.slice(0, RECENT_BUYS_MAX);
+  mem.playerSpend.set(playerId, (mem.playerSpend.get(playerId) || 0) + usd);
 }
 
 export async function getRecentBuys(limit = 20): Promise<RecentBuy[]> {
@@ -430,4 +444,58 @@ export async function getMarketStats(days = 14): Promise<MarketStats> {
 
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
+}
+
+export interface PlayerRow {
+  id: string; // "wallet:0x…" or "guest:…"
+  wallet: string | null; // full address for wallet players, else null
+  isWallet: boolean;
+  games: number;
+  spendUsd: number;
+  lastSeen: number | null;
+}
+
+// The team players table: every known player with games played, USD spent,
+// wallet, and last-seen. Sorted by spend then games so the most valuable
+// players surface first. Admin-only, so full wallets are returned.
+export async function getPlayersList(limit = 200): Promise<PlayerRow[]> {
+  let gamePairs: [string, string][];
+  let spendPairs: [string, string][];
+  let seenPairs: [string, string][];
+
+  if (isKvConfigured()) {
+    const [g, s, sn] = await Promise.all([
+      redisCommand(['HGETALL', PLAYER_GAMES]),
+      redisCommand(['HGETALL', PLAYER_SPEND]),
+      redisCommand(['HGETALL', PLAYER_SEEN]),
+    ]);
+    gamePairs = hashToPairs(g);
+    spendPairs = hashToPairs(s);
+    seenPairs = hashToPairs(sn);
+  } else {
+    gamePairs = [...mem.playerGames.entries()].map(([k, v]) => [k, String(v)]);
+    spendPairs = [...mem.playerSpend.entries()].map(([k, v]) => [k, String(v)]);
+    seenPairs = [...mem.playerSeen.entries()].map(([k, v]) => [k, String(v)]);
+  }
+
+  const games = new Map(gamePairs.map(([k, v]) => [k, num(v)]));
+  const spend = new Map(spendPairs.map(([k, v]) => [k, flt(v)]));
+  const seen = new Map(seenPairs.map(([k, v]) => [k, num(v)]));
+
+  const ids = new Set<string>([...games.keys(), ...spend.keys(), ...seen.keys()]);
+  const rows: PlayerRow[] = [];
+  for (const id of ids) {
+    const isWallet = id.startsWith('wallet:');
+    rows.push({
+      id,
+      wallet: isWallet ? id.slice('wallet:'.length) : null,
+      isWallet,
+      games: games.get(id) || 0,
+      spendUsd: round2(spend.get(id) || 0),
+      lastSeen: seen.get(id) || null,
+    });
+  }
+
+  rows.sort((a, b) => b.spendUsd - a.spendUsd || b.games - a.games);
+  return rows.slice(0, Math.max(1, Math.min(1000, limit)));
 }

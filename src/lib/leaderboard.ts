@@ -24,6 +24,7 @@ import { isKvConfigured, kvUrl, kvToken, redisCommand } from '@/lib/kv';
 
 const BOARD_KEY = 'shooterboard';
 const ENTRIES_KEY = 'shooterboard:entries';
+const BANNED_KEY = 'shooterboard:banned';
 
 // Whether a shared, persistent backend is configured. Without it the board
 // uses per-instance in-memory storage, which on serverless means players
@@ -71,6 +72,11 @@ export async function checkSubmitAllowed(address: string): Promise<boolean> {
 export async function submitEntry(
   entry: BoardEntry
 ): Promise<{ rank: number; improved: boolean }> {
+  // banned players (caught cheating) silently can't post - the client gets
+  // a normal-looking response so there's nothing to probe or work around
+  if (await isBanned(entry.address)) {
+    return { rank: 0, improved: false };
+  }
   if (kvUrl && kvToken) {
     const changed = (await redis([
       'ZADD',
@@ -211,6 +217,59 @@ export async function getTop(limit = 50): Promise<BoardEntry[]> {
   return [...memoryBoard.values()]
     .sort((a, b) => b.score - a.score)
     .slice(0, limit);
+}
+
+// In-memory ban set mirror (per instance; ephemeral on serverless)
+const memoryBanned = new Set<string>();
+
+// Whether a player is banned from the board (caught cheating). Banned keys
+// can't submit and their scores are stripped on derank.
+export async function isBanned(address: string): Promise<boolean> {
+  if (kvUrl && kvToken) {
+    const r = (await redis(['SISMEMBER', BANNED_KEY, address])) as number;
+    return r === 1;
+  }
+  return memoryBanned.has(address);
+}
+
+// Remove a single player's score from the board (derank). Returns true if
+// an entry was actually removed.
+export async function removeEntry(address: string): Promise<boolean> {
+  if (kvUrl && kvToken) {
+    const removed = (await redis(['ZREM', BOARD_KEY, address])) as number;
+    await redis(['HDEL', ENTRIES_KEY, address]);
+    return removed > 0;
+  }
+  return memoryBoard.delete(address);
+}
+
+// Derank AND block future submissions. Used when a player is caught
+// cheating - they're removed and can't repost a forged score.
+export async function banPlayer(address: string): Promise<void> {
+  if (kvUrl && kvToken) {
+    await redis(['SADD', BANNED_KEY, address]);
+  } else {
+    memoryBanned.add(address);
+  }
+  await removeEntry(address);
+}
+
+// All banned keys, for annotating the admin players table.
+export async function getBanned(): Promise<string[]> {
+  if (kvUrl && kvToken) {
+    const r = (await redis(['SMEMBERS', BANNED_KEY])) as string[];
+    return r || [];
+  }
+  return [...memoryBanned];
+}
+
+// Lift a ban so the player can rank again.
+export async function unbanPlayer(address: string): Promise<void> {
+  if (kvUrl && kvToken) {
+    await redis(['SREM', BANNED_KEY, address]);
+  } else {
+    memoryBanned.delete(address);
+  }
 }
 
 // A single player's stored best-run entry, or null. For the admin player
