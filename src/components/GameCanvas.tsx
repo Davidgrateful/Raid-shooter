@@ -33,6 +33,7 @@ const GAME_SCRIPTS = [
   '/game/button.js',
   '/game/upgrades.js',
   '/game/characters.js',
+  '/game/drones.js',
   '/game/sectors.js',
   '/game/shooterboard.js',
   '/game/market.js',

@@ -373,3 +373,47 @@ $.GridCard.prototype.render = function( i ) {
 	$.ctxmg.fillStyle = unlocked ? 'hsla(0, 0%, 100%, 0.85)' : 'hsla(0, 0%, 100%, 0.3)';
 	$.ctxmg.fill();
 };
+
+/*==============================================================================
+Pilot Levels - free, grind-only progression per pilot (max level 10).
+Deliberately slow: kills earn tiny XP, and each level needs much more than
+the last, so reaching level 10 takes a long, dedicated run history. Levels
+are never sold and never granted by the market - only played for.
+==============================================================================*/
+$.pilotLevelThresholds = [ 0, 400, 1000, 2000, 3600, 6000, 9500, 14500, 21500, 31000 ];
+$.pilotMaxLevel = 10;
+
+$.pilotXp = function( id ) {
+	return ( $.storage['pilotxp'] && $.storage['pilotxp'][ id ] ) || 0;
+};
+
+$.pilotLevel = function( id ) {
+	var xp = $.pilotXp( id ),
+		level = 1;
+	for( var i = 1; i < $.pilotLevelThresholds.length; i++ ) {
+		if( xp >= $.pilotLevelThresholds[ i ] ) {
+			level = i + 1;
+		}
+	}
+	return Math.min( $.pilotMaxLevel, level );
+};
+
+// each level trims a sliver of damage taken - capped low so a maxed pilot
+// is a nice-to-have, not a different game from a fresh one
+$.pilotLevelDamageMult = function( id ) {
+	return 1 - ( $.pilotLevel( id ) - 1 ) * 0.01;
+};
+
+$.pilotXpToNext = function( id ) {
+	var level = $.pilotLevel( id );
+	if( level >= $.pilotMaxLevel ) {
+		return null;
+	}
+	return { xp: $.pilotXp( id ), next: $.pilotLevelThresholds[ level ] };
+};
+
+// kills are tallied during the run and committed to storage once, at
+// gameover, alongside the rest of the run's stat bookkeeping
+$.gainPilotXp = function( id, amount ) {
+	$.storage['pilotxp'][ id ] = ( $.storage['pilotxp'][ id ] || 0 ) + amount;
+};

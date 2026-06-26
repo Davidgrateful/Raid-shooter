@@ -24,6 +24,8 @@ $.setupStorage = function() {
 		'bosskills': 0,
 		'pilotname': '',
 		'trail': '',
+		'drone': '',
+		'pilotxp': {},
 		'controls': 'hybrid',
 		'music': 1,
 		'difficulty': 'extreme',
@@ -50,6 +52,16 @@ $.setupStorage = function() {
 	// (FULL/LOW/MUTE) for players who already have a saved profile
 	if( $.storage['soundLevel'] === undefined ) {
 		$.storage['soundLevel'] = $.storage['mute'] ? 0 : 1;
+		$.updateStorage();
+	}
+
+	// returning players saved before drones/pilot levels existed
+	if( $.storage['drone'] === undefined ) {
+		$.storage['drone'] = '';
+		$.updateStorage();
+	}
+	if( $.storage['pilotxp'] === undefined ) {
+		$.storage['pilotxp'] = {};
 		$.updateStorage();
 	}
 };

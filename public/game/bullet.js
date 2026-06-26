@@ -80,6 +80,23 @@ $.Bullet.prototype.update = function( i ) {
 				this.enemiesHit.push( enemy.index );
 				enemy.receiveDamage( ei, this.damage );
 
+				// Volt Mite drone: zap one nearby enemy for partial damage
+				if( this.chain ) {
+					var nearest = null, nearestIndex = -1, nearestDist = 140;
+					for( var ci = $.enemies.length - 1; ci >= 0; ci-- ) {
+						if( ci === ei ) { continue; }
+						var d = $.util.distance( enemy.x, enemy.y, $.enemies[ ci ].x, $.enemies[ ci ].y );
+						if( d < nearestDist ) {
+							nearest = $.enemies[ ci ];
+							nearestIndex = ci;
+							nearestDist = d;
+						}
+					}
+					if( nearest ) {
+						nearest.receiveDamage( nearestIndex, this.damage * 0.4 );
+					}
+				}
+
 				if( this.enemiesHit.length > ( this.pierceCap || 3 ) ) {
 					$.bullets.splice( i, 1 );
 				}						

@@ -52,6 +52,11 @@ Update
 ==============================================================================*/
 $.Hero.prototype.update = function() {
 	if( this.life > 0 ) {
+		// Medic Wisp drone: a slow passive trickle, not a heal button
+		if( $.equippedDrone() && $.equippedDrone().id === 'drone_medicwisp' ) {
+			this.life = Math.min( 1, this.life + 0.0004 * $.dt );
+		}
+
 		/*==============================================================================
 		Dash
 		==============================================================================*/
@@ -259,9 +264,10 @@ $.Hero.prototype.update = function() {
 						size: this.weapon.bullet.size,
 						lineWidth: this.weapon.bullet.lineWidth,
 						strokeStyle: color,
-						piercing: this.weapon.bullet.piercing,
+						piercing: this.weapon.bullet.piercing || ( $.equippedDrone() && $.equippedDrone().id === 'drone_needlefinch' ),
 						pierceCap: this.weapon.pierceCap,
-						range: this.weapon.range
+						range: this.weapon.range,
+						chain: !!( $.equippedDrone() && $.equippedDrone().id === 'drone_voltmite' )
 					} ) );
 				}
 			}
@@ -290,7 +296,9 @@ $.Hero.prototype.update = function() {
 				} ) );
 				this.takingDamage = 1;
 				var resist = ( this.character.ability && this.character.ability.lowHpResist && this.life < 0.35 ) ? this.character.ability.lowHpResist : 1;
-				this.life -= 0.011 * ( enemy.isBoss ? 2.5 : 1 ) * ( $.diff ? $.diff.dmg : 1 ) * $.introMult() * this.damageTakenMult * resist;
+				var droneResist = ( $.equippedDrone() && $.equippedDrone().id === 'drone_aegis' ) ? 0.85 : 1;
+				var levelResist = $.pilotLevelDamageMult( this.character.id );
+				this.life -= 0.011 * ( enemy.isBoss ? 2.5 : 1 ) * ( $.diff ? $.diff.dmg : 1 ) * $.introMult() * this.damageTakenMult * resist * droneResist * levelResist;
 				// enemies shove the hero on contact
 				var pushDirection = Math.atan2( this.y - enemy.y, this.x - enemy.x );
 				this.vx += Math.cos( pushDirection ) * 1.6 * $.dt;

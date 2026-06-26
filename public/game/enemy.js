@@ -472,6 +472,19 @@ $.Enemy.prototype.update = function( i ) {
 		this.lockBounds = 0;
 	}
 
+	// Grav Beetle drone: nearby enemies get reeled toward the hero a little
+	// harder, bunching them up for easier kills instead of letting them spread
+	if( !this.isBoss && $.hero.life > 0 && $.equippedDrone() && $.equippedDrone().id === 'drone_gravbeetle' ) {
+		var gsx = $.hero.x - this.x,
+			gsy = $.hero.y - this.y,
+			gsd = Math.sqrt( gsx * gsx + gsy * gsy );
+		if( gsd > 1 && gsd < 220 ) {
+			var pull = 0.02 * $.dt;
+			this.vx += ( gsx / gsd ) * pull;
+			this.vy += ( gsy / gsd ) * pull;
+		}
+	}
+
 	/*==============================================================================
 	Apply Forces
 	==============================================================================*/

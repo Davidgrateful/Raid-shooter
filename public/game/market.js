@@ -39,6 +39,19 @@ $.equippedTrail = function() {
 	return null;
 };
 
+$.equippedDrone = function() {
+	var id = $.storage['drone'];
+	if( !id || !$.ownsItem( id ) ) {
+		return null;
+	}
+	for( var i = 0; i < $.definitions.drones.length; i++ ) {
+		if( $.definitions.drones[ i ].id === id ) {
+			return $.definitions.drones[ i ];
+		}
+	}
+	return null;
+};
+
 // owned premium colors join the regular color cycle
 $.applyOwnedItems = function() {
 	for( var i = 0; i < $.definitions.premiumColors.length; i++ ) {
@@ -58,6 +71,9 @@ $.applyOwnedItems = function() {
 	}
 	if( $.storage['trail'] && !$.ownsItem( $.storage['trail'] ) ) {
 		$.storage['trail'] = '';
+	}
+	if( $.storage['drone'] && !$.ownsItem( $.storage['drone'] ) ) {
+		$.storage['drone'] = '';
 	}
 };
 

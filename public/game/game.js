@@ -1295,6 +1295,9 @@ $.registerKill = function( value, radius ) {
 	if( heal > 0 && $.hero.life > 0 ) {
 		$.hero.life = Math.min( 1, $.hero.life + heal );
 	}
+	if( $.hero.character ) {
+		$.gainPilotXp( $.hero.character.id, 1 );
+	}
 	$.bestCombo = Math.max( $.bestCombo, $.combo );
 	var multiplier = Math.min( 8, 1 + Math.floor( $.combo / 4 ) );
 	if( multiplier > $.comboMultiplier ) {
@@ -1727,6 +1730,28 @@ $.setState = function( state ) {
 				action: function() {
 					$.mouse.down = 0;
 					$.setState( 'menu' );
+				}
+			} ) );
+			$.buttons.push( new $.Button( {
+				x: $.cw / 2,
+				y: row2Y + ( hangarCompact ? 38 : 52 ),
+				lockedWidth: hangarCompact ? 308 : 348,
+				lockedHeight: 45,
+				scale: 1,
+				title: 'DRONE: ' + ( $.equippedDrone() ? $.equippedDrone().title : 'NONE' ),
+				action: function() {
+					$.mouse.down = 0;
+					// cycle through NONE plus owned drones - one equipped at a time
+					var owned = [ '' ];
+					for( var di = 0; di < $.definitions.drones.length; di++ ) {
+						if( $.ownsItem( $.definitions.drones[ di ].id ) ) {
+							owned.push( $.definitions.drones[ di ].id );
+						}
+					}
+					var current = owned.indexOf( $.storage['drone'] || '' );
+					$.storage['drone'] = owned[ ( current + 1 ) % owned.length ];
+					$.updateStorage();
+					this.title = 'DRONE: ' + ( $.equippedDrone() ? $.equippedDrone().title : 'NONE' );
 				}
 			} ) );
 		}
@@ -2313,6 +2338,29 @@ $.setupStates = function() {
 				render: 1
 			} );
 			$.ctxmg.fillStyle = 'hsla(190, 100%, 70%, 0.8)';
+			$.ctxmg.fill();
+		}
+
+		// pilot level - free, grind-only, capped at 10; deliberately slow
+		if( unlocked ) {
+			var pilotLevel = $.pilotLevel( def.id ),
+				toNext = $.pilotXpToNext( def.id ),
+				levelText = 'LEVEL ' + pilotLevel + '/' + $.pilotMaxLevel + ( toNext ? '  (' + toNext.xp + '/' + toNext.next + ' XP)' : '  (MAX)' );
+			$.ctxmg.beginPath();
+			$.text( {
+				ctx: $.ctxmg,
+				x: $.cw / 2,
+				y: previewY + ( hangarCompact ? ( def.ability ? 104 : 84 ) : ( def.ability ? 162 : 132 ) ),
+				text: levelText,
+				hspacing: 1,
+				vspacing: 1,
+				halign: 'center',
+				valign: 'top',
+				scale: 1,
+				snap: 1,
+				render: 1
+			} );
+			$.ctxmg.fillStyle = 'hsla(45, 100%, 70%, 0.85)';
 			$.ctxmg.fill();
 		}
 
