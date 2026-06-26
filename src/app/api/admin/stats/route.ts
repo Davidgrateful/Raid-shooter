@@ -1,27 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { timingSafeEqual } from 'crypto';
 import { getAllEntries, isPersistent, type BoardEntry } from '@/lib/leaderboard';
-import { getTrackingStats } from '@/lib/stats';
+import { getTrackingStats, getLoadoutStats, getMarketStats } from '@/lib/stats';
+import { marketEnabled, baseNetwork } from '@/lib/market';
+import { adminGate } from '@/lib/admin-auth';
 
-// Dev-only player stats, aggregated from the leaderboard. Gated behind
-// ADMIN_STATS_TOKEN so it's never public. Note: the board stores ONE entry
-// per address (their best run), so these describe best-runs and unique
-// score-submitters - not raw session counts or total playtime. For true
-// DAU/session/retention numbers we'd need per-run event logging.
-
-function authorized(req: NextRequest): boolean {
-  const expected = process.env.ADMIN_STATS_TOKEN;
-  if (!expected) {
-    return false;
-  }
-  const header = req.headers.get('authorization') || '';
-  const bearer = header.startsWith('Bearer ') ? header.slice(7) : '';
-  const provided = bearer || req.nextUrl.searchParams.get('key') || '';
-  if (provided.length !== expected.length) {
-    return false;
-  }
-  return timingSafeEqual(Buffer.from(provided), Buffer.from(expected));
-}
+// Dev-only stats dashboard data, gated behind ADMIN_STATS_TOKEN. Combines
+// run/session tracking (every player), market revenue, loadout usage, the
+// leaderboard, and live market config - everything about the game in one
+// place, with no secrets ever returned.
 
 function median(nums: number[]): number {
   if (nums.length === 0) return 0;
@@ -36,20 +22,16 @@ function avg(nums: number[]): number {
 }
 
 export async function GET(req: NextRequest) {
-  if (!process.env.ADMIN_STATS_TOKEN) {
-    return NextResponse.json(
-      { error: 'ADMIN_STATS_TOKEN is not set. Set it in your env to enable this endpoint.' },
-      { status: 503 }
-    );
-  }
-  if (!authorized(req)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const denied = adminGate(req);
+  if (denied) return denied;
 
-  const [entries, tracking] = await Promise.all([
+  const [entries, tracking, market] = await Promise.all([
     getAllEntries() as Promise<BoardEntry[]>,
     getTrackingStats(14),
+    getMarketStats(14),
   ]);
+  // loadout rates are relative to total runs, so compute after tracking
+  const loadout = await getLoadoutStats(tracking.runsAllTime);
   const now = Date.now();
   const DAY = 86_400_000;
 
@@ -80,6 +62,34 @@ export async function GET(req: NextRequest) {
 
     // counts EVERY player and run (incl. guests who never submit a score)
     tracking,
+
+    // revenue + conversion, recorded only from server-verified payments
+    market: {
+      ...market,
+      // share of unique players who have ever paid
+      conversionPct:
+        tracking.uniquePlayersAllTime > 0
+          ? Math.round((market.uniqueBuyers / tracking.uniquePlayersAllTime) * 1000) / 10
+          : 0,
+      revenuePerBuyerUsd:
+        market.uniqueBuyers > 0
+          ? Math.round((market.revenueUsdAllTime / market.uniqueBuyers) * 100) / 100
+          : 0,
+    },
+
+    // which pilots/drones players actually run with, across every run
+    loadout,
+
+    // live storefront config (no secrets) so you can see at a glance
+    // whether payments are actually live
+    config: {
+      paymentsEnabled: marketEnabled,
+      network: baseNetwork,
+      treasurySet: !!(process.env.NEXT_PUBLIC_BASE_TREASURY || '').trim(),
+      customRpc: !!process.env.BASE_RPC_URL,
+      walletConnectConfigured: !!process.env.NEXT_PUBLIC_REOWN_PROJECT_ID,
+      sessionSecretSet: !!process.env.SESSION_SECRET,
+    },
 
     // derived from the leaderboard: best run per score-submitter only
     leaderboard: {

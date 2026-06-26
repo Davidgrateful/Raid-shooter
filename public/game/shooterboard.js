@@ -134,10 +134,19 @@ $.fetchBoard = function() {
 // and swallows all errors so a flaky network can't disrupt a run.
 $.trackRun = function( event, durationSec ) {
 	try {
+		var payload = { event: event, durationSec: durationSec || 0 };
+		// on run start, record the loadout the player chose so the dashboard
+		// can show pilot picks and drone equip rate across every run
+		if( event === 'run_start' ) {
+			var pilot = $.currentCharacter && $.currentCharacter();
+			var drone = $.equippedDrone && $.equippedDrone();
+			payload.pilot = pilot ? pilot.id : 'unknown';
+			payload.drone = drone ? drone.id : '';
+		}
 		fetch( '/api/track', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify( { event: event, durationSec: durationSec || 0 } ),
+			body: JSON.stringify( payload ),
 			keepalive: true
 		} ).catch( function() {} );
 	} catch( e ) {}

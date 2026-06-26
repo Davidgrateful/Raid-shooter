@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/session';
 import { getItem, marketEnabled, treasury, baseRpcUrl } from '@/lib/market';
 import { claimTx, grantItem } from '@/lib/profile';
+import { trackPurchase } from '@/lib/stats';
 
 async function rpc(method: string, params: unknown[]): Promise<unknown> {
   const res = await fetch(baseRpcUrl, {
@@ -64,6 +65,14 @@ export async function POST(req: NextRequest) {
     }
 
     const profile = await grantItem(address, item);
+    // record revenue only after the payment is verified and granted; price
+    // comes from the catalog, never the client. Non-blocking - a stats
+    // hiccup must not fail a paid purchase.
+    try {
+      await trackPurchase(`wallet:${address}`, { id: item.id, priceUsd: item.priceUsd });
+    } catch {
+      // swallow: the player already got their item
+    }
     return NextResponse.json({ ok: true, items: profile.items, consumables: profile.consumables });
   } catch {
     return NextResponse.json({ error: 'verification_unavailable' }, { status: 503 });

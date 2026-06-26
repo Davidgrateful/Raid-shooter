@@ -213,6 +213,35 @@ export async function getTop(limit = 50): Promise<BoardEntry[]> {
     .slice(0, limit);
 }
 
+// A single player's stored best-run entry, or null. For the admin player
+// lookup / purchase-issue diagnosis.
+export async function getEntry(address: string): Promise<BoardEntry | null> {
+  if (kvUrl && kvToken) {
+    const raw = (await redis(['HGET', ENTRIES_KEY, address])) as string | null;
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw) as BoardEntry;
+    } catch {
+      return null;
+    }
+  }
+  return memoryBoard.get(address) || null;
+}
+
+// Wipe the entire leaderboard (scores + entries). Irreversible - the admin
+// route requires an explicit confirmation before calling this.
+export async function resetBoard(): Promise<number> {
+  if (kvUrl && kvToken) {
+    const count = (await redis(['ZCARD', BOARD_KEY])) as number;
+    await redis(['DEL', BOARD_KEY]);
+    await redis(['DEL', ENTRIES_KEY]);
+    return count || 0;
+  }
+  const count = memoryBoard.size;
+  memoryBoard.clear();
+  return count;
+}
+
 // Every stored entry (one per address: their best run). Used by the admin
 // stats endpoint to aggregate - the board only keeps a player's best run,
 // so these numbers describe best-runs, not every session played.
