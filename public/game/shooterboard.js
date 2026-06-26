@@ -186,6 +186,12 @@ $.submitScore = function() {
 			? ( $.storage['pilotname'] || undefined )
 			: $.ensurePilotName();
 
+		// guests attach a Turnstile token for bot defense (no-op unless the
+		// site key is configured; wallet players are exempt server-side)
+		var captchaToken = ( !$.session.authenticated && typeof window !== 'undefined' )
+			? window.__turnstileToken
+			: undefined;
+
 		fetch( '/api/leaderboard', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
@@ -196,7 +202,8 @@ $.submitScore = function() {
 				combo: runCombo,
 				pilot: runPilot,
 				time: runTime,
-				name: pilotName
+				name: pilotName,
+				turnstileToken: captchaToken
 			} )
 		} )
 			.then( function( res ) {
@@ -204,6 +211,11 @@ $.submitScore = function() {
 				return res.json();
 			} )
 			.then( function( data ) {
+				// a Turnstile token is single-use - request a fresh one for
+				// the next submission
+				if( typeof window !== 'undefined' && window.__turnstileReset ) {
+					window.__turnstileReset();
+				}
 				// learn our freshly-minted guest id so the board can
 				// highlight our row without another round-trip
 				if( data.verified === false && !$.session.guestId ) {

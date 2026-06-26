@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getOrCreateGuestId, getSession } from '@/lib/session';
 import { checkSubmitAllowed, getTop, isPersistent, submitEntry } from '@/lib/leaderboard';
+import { verifyTurnstile } from '@/lib/turnstile';
+import { clientIp } from '@/lib/ratelimit';
 
 export async function GET() {
   try {
@@ -45,6 +47,16 @@ export async function POST(req: NextRequest) {
   }
   if (!verified && !displayName) {
     return NextResponse.json({ error: 'name_required' }, { status: 400 });
+  }
+
+  // Bot defense for guest scores: wallet players already proved identity by
+  // signing, so they're exempt; guests must pass a Turnstile challenge. A
+  // no-op until TURNSTILE_SECRET_KEY is configured.
+  if (!verified) {
+    const ok = await verifyTurnstile((body as Record<string, unknown>).turnstileToken as string | undefined, clientIp(req));
+    if (!ok) {
+      return NextResponse.json({ error: 'captcha_failed' }, { status: 403 });
+    }
   }
   if (
     !isInt(score, 1, 5_000_000) ||
