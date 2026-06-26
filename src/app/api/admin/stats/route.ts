@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAllEntries, isPersistent, type BoardEntry } from '@/lib/leaderboard';
-import { getTrackingStats, getLoadoutStats, getMarketStats } from '@/lib/stats';
+import { getTrackingStats, getLoadoutStats, getMarketStats, getRecentBuys } from '@/lib/stats';
 import { marketEnabled, baseNetwork } from '@/lib/market';
 import { adminGate } from '@/lib/admin-auth';
 
@@ -25,10 +25,11 @@ export async function GET(req: NextRequest) {
   const denied = adminGate(req);
   if (denied) return denied;
 
-  const [entries, tracking, market] = await Promise.all([
+  const [entries, tracking, market, recentBuys] = await Promise.all([
     getAllEntries() as Promise<BoardEntry[]>,
     getTrackingStats(14),
     getMarketStats(14),
+    getRecentBuys(20),
   ]);
   // loadout rates are relative to total runs, so compute after tracking
   const loadout = await getLoadoutStats(tracking.runsAllTime);
@@ -75,6 +76,7 @@ export async function GET(req: NextRequest) {
         market.uniqueBuyers > 0
           ? Math.round((market.revenueUsdAllTime / market.uniqueBuyers) * 100) / 100
           : 0,
+      recentBuys,
     },
 
     // which pilots/drones players actually run with, across every run

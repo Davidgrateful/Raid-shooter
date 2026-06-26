@@ -23,6 +23,8 @@ const REVENUE_TOTAL = 'stats:revenue:total'; // USD
 const BUYERS_ALL = 'stats:buyers:all';
 const ITEM_UNITS = 'stats:items:units'; // hash itemId -> units sold
 const ITEM_REVENUE = 'stats:items:revenue'; // hash itemId -> USD
+const RECENT_BUYS = 'stats:recentbuys'; // capped list of latest verified buys
+const RECENT_BUYS_MAX = 50;
 
 // keys partitioned by UTC day so daily-active / charts are cheap to read
 function dayKey(d: Date): string {
@@ -61,7 +63,25 @@ const mem = {
   itemRevenue: new Map<string, number>(),
   dayPurchases: new Map<string, number>(),
   dayRevenue: new Map<string, number>(),
+  recentBuys: [] as RecentBuy[],
 };
+
+export interface RecentBuy {
+  itemId: string;
+  priceUsd: number;
+  buyer: string; // short, masked wallet (never the full address)
+  at: number; // epoch ms
+}
+
+// wallet:0xabc...123 -> 0xabc…f012, so the feed is useful without exposing
+// full addresses in a dashboard someone might screenshot
+function maskBuyer(playerId: string): string {
+  const addr = playerId.replace(/^wallet:/, '');
+  if (/^0x[0-9a-fA-F]{40}$/.test(addr)) {
+    return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
+  }
+  return playerId.startsWith('guest:') ? 'guest' : addr.slice(0, 10);
+}
 
 // sanitize ids before they become Redis hash fields / set members
 function cleanId(s: string | undefined, fallback: string): string {
@@ -115,6 +135,7 @@ export async function trackPurchase(
   const day = dayKey(new Date());
   const id = cleanId(item.id, 'unknown');
   const usd = Math.max(0, Number(item.priceUsd) || 0);
+  const buy: RecentBuy = { itemId: id, priceUsd: usd, buyer: maskBuyer(playerId), at: Date.now() };
   if (isKvConfigured()) {
     await Promise.all([
       redisCommand(['INCR', PURCHASES_TOTAL]),
@@ -126,6 +147,9 @@ export async function trackPurchase(
       redisCommand(['EXPIRE', `stats:purchases:${day}`, DAY_TTL]),
       redisCommand(['INCRBYFLOAT', `stats:revenue:${day}`, usd]),
       redisCommand(['EXPIRE', `stats:revenue:${day}`, DAY_TTL]),
+      // newest first, trimmed to the cap so the list can't grow unbounded
+      redisCommand(['LPUSH', RECENT_BUYS, JSON.stringify(buy)]),
+      redisCommand(['LTRIM', RECENT_BUYS, 0, RECENT_BUYS_MAX - 1]),
     ]);
     return;
   }
@@ -136,6 +160,25 @@ export async function trackPurchase(
   mem.itemRevenue.set(id, (mem.itemRevenue.get(id) || 0) + usd);
   mem.dayPurchases.set(day, (mem.dayPurchases.get(day) || 0) + 1);
   mem.dayRevenue.set(day, (mem.dayRevenue.get(day) || 0) + usd);
+  mem.recentBuys.unshift(buy);
+  mem.recentBuys = mem.recentBuys.slice(0, RECENT_BUYS_MAX);
+}
+
+export async function getRecentBuys(limit = 20): Promise<RecentBuy[]> {
+  const n = Math.max(1, Math.min(RECENT_BUYS_MAX, limit));
+  if (isKvConfigured()) {
+    const raw = (await redisCommand(['LRANGE', RECENT_BUYS, 0, n - 1])) as string[];
+    const out: RecentBuy[] = [];
+    for (const item of raw || []) {
+      try {
+        out.push(JSON.parse(item) as RecentBuy);
+      } catch {
+        // skip a corrupt row
+      }
+    }
+    return out;
+  }
+  return mem.recentBuys.slice(0, n);
 }
 
 export async function trackRunEnd(playerId: string, durationSec: number): Promise<void> {

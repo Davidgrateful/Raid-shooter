@@ -36,6 +36,7 @@ interface Stats {
     revenuePerBuyerUsd: number;
     topItems: { id: string; units: number; revenueUsd: number }[];
     dailyRevenueUsd: { date: string; revenueUsd: number; purchases: number }[];
+    recentBuys: { itemId: string; priceUsd: number; buyer: string; at: number }[];
   };
   loadout: {
     pilots: { id: string; runs: number }[];
@@ -78,6 +79,15 @@ function fmtDay(d: string): string {
 }
 function fmtUsd(n: number): string {
   return `$${(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+function fmtAgo(ts: number): string {
+  const s = Math.max(0, Math.floor((Date.now() - ts) / 1000));
+  if (s < 60) return `${s}s ago`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
 }
 
 function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
@@ -384,6 +394,24 @@ function Dashboard(p: DashboardProps) {
                     ))}
                   </div>
                 </>
+              )}
+
+              <h3 className="mt-5 mb-2 text-xs uppercase tracking-wider text-white/40">Recent purchases</h3>
+              {mk.recentBuys.length === 0 ? (
+                <div className="rounded-md border border-white/10 bg-white/[0.02] p-3 text-sm text-white/40">
+                  No verified purchases yet.
+                </div>
+              ) : (
+                <div className="divide-y divide-white/5 overflow-hidden rounded-lg border border-white/10">
+                  {mk.recentBuys.map((b, i) => (
+                    <div key={i} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
+                      <span className="truncate font-medium text-white/80">{b.itemId}</span>
+                      <span className="shrink-0 font-mono text-xs text-white/40">{b.buyer}</span>
+                      <span className="shrink-0 w-16 text-right text-emerald-300/90 tabular-nums">{fmtUsd(b.priceUsd)}</span>
+                      <span className="shrink-0 w-20 text-right text-white/40">{fmtAgo(b.at)}</span>
+                    </div>
+                  ))}
+                </div>
               )}
             </section>
 
