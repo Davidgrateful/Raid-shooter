@@ -1729,6 +1729,11 @@ $.setState = function( state ) {
 				action: function() {
 					$.mouse.down = 0;
 					$.hangarIndex = ( $.hangarIndex - 1 + $.definitions.characters.length ) % $.definitions.characters.length;
+					// rebuild so the control rows re-stack below the new
+					// pilot's measured text height - a taller pilot (two-line
+					// desc + ability + level) needs its rows pushed down
+					$.hangarKeep = 1;
+					$.setState( 'hangar' );
 				}
 			} ) );
 			$.buttons.push( new $.Button( {
@@ -1741,6 +1746,10 @@ $.setState = function( state ) {
 				action: function() {
 					$.mouse.down = 0;
 					$.hangarIndex = ( $.hangarIndex + 1 ) % $.definitions.characters.length;
+					// rebuild so the control rows re-stack below the new
+					// pilot's measured text height (see PREV above)
+					$.hangarKeep = 1;
+					$.setState( 'hangar' );
 				}
 			} ) );
 
