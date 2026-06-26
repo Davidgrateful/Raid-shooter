@@ -38,7 +38,7 @@ $.definitions.characters = [
 	{
 		id: 'nova', ability: { title: 'SLIPSTREAM', text: 'LONGER DASH', dashDuration: 1.4 }, bulletStyle: { size: 22, lineWidth: 1.5 }, title: 'NOVA', desc: 'FAST AND FRAGILE,\nRAPID DASH',
 		speedMult: 1.25, damageTakenMult: 1.33, dashCooldownMult: 0.7, radius: 9,
-		unlock: { stat: 'kills', value: 250, label: 'LIFETIME KILLS' },
+		unlock: { stat: 'kills', value: 250, label: 'LIFETIME KILLS', purchase: 'pilot_nova' },
 		draw: function( ctx, r, fillStyle, tick ) {
 			ctx.beginPath();
 			ctx.moveTo( r * 2.1, 0 );
@@ -55,7 +55,7 @@ $.definitions.characters = [
 	{
 		id: 'tankrex', ability: { title: 'BULWARK', text: 'RESIST WHEN BADLY HURT', lowHpResist: 0.65 }, bulletStyle: { size: 11, lineWidth: 4 }, title: 'TANK REX', desc: 'SLOW AND ARMORED',
 		speedMult: 0.8, damageTakenMult: 0.7, dashCooldownMult: 1.3, radius: 13,
-		unlock: { stat: 'bosskills', value: 1, label: 'BOSSES DEFEATED' },
+		unlock: { stat: 'bosskills', value: 1, label: 'BOSSES DEFEATED', purchase: 'pilot_tankrex' },
 		draw: function( ctx, r, fillStyle, tick ) {
 			ctx.beginPath();
 			for( var p = 0; p < 6; p++ ) {
@@ -77,7 +77,7 @@ $.definitions.characters = [
 	{
 		id: 'astravane', ability: { title: 'TAILWIND', text: 'LONGER COMBO WINDOW', combo: 1.35 }, bulletStyle: { size: 18, lineWidth: 2 }, title: 'ASTRA VANE', desc: 'SWIFT KITE,\nLIGHT ARMOR',
 		speedMult: 1.2, damageTakenMult: 1.2, dashCooldownMult: 0.85, radius: 9,
-		unlock: { stat: 'kills', value: 750, label: 'LIFETIME KILLS' },
+		unlock: { stat: 'kills', value: 750, label: 'LIFETIME KILLS', purchase: 'pilot_astravane' },
 		draw: function( ctx, r, fillStyle, tick ) {
 			ctx.beginPath();
 			ctx.moveTo( r * 1.8, 0 );
@@ -116,7 +116,7 @@ $.definitions.characters = [
 	{
 		id: 'runepilot', ability: { title: 'SCAVENGER', text: 'MORE POWERUP DROPS', drop: 1.4 }, bulletStyle: { size: 15, lineWidth: 2.5 }, title: 'RUNE PILOT', desc: 'GLYPHS ORBIT\nTHE HULL',
 		speedMult: 1, damageTakenMult: 0.95, dashCooldownMult: 1, radius: 10,
-		unlock: { stat: 'level', value: 8, label: 'BEST LEVEL' },
+		unlock: { stat: 'level', value: 8, label: 'BEST LEVEL', purchase: 'pilot_runepilot' },
 		draw: function( ctx, r, fillStyle, tick ) {
 			ctx.beginPath();
 			ctx.moveTo( r * 1.3, 0 ); ctx.lineTo( 0, r * 0.85 ); ctx.lineTo( -r * 1.1, 0 ); ctx.lineTo( 0, -r * 0.85 );
@@ -137,7 +137,7 @@ $.definitions.characters = [
 	{
 		id: 'nebulafox', ability: { title: 'VAMPIRE', text: 'HEAL HP FROM KILLS', killHealMult: 2 }, bulletStyle: { size: 17, lineWidth: 1.8 }, title: 'NEBULA FOX', desc: 'QUICK HUNTER,\nTWIN TAILS',
 		speedMult: 1.25, damageTakenMult: 1.25, dashCooldownMult: 0.8, radius: 9,
-		unlock: { stat: 'kills', value: 1500, label: 'LIFETIME KILLS' },
+		unlock: { stat: 'kills', value: 1500, label: 'LIFETIME KILLS', purchase: 'pilot_nebulafox' },
 		draw: function( ctx, r, fillStyle, tick ) {
 			ctx.beginPath();
 			ctx.moveTo( r * 1.6, 0 );
@@ -263,8 +263,11 @@ $.characterUnlocked = function( def ) {
 	if( !def.unlock ) {
 		return true;
 	}
-	if( def.unlock.purchase ) {
-		return $.ownsItem( def.unlock.purchase );
+	if( def.unlock.purchase && $.ownsItem( def.unlock.purchase ) ) {
+		return true;
+	}
+	if( !def.unlock.stat ) {
+		return false;
 	}
 	return ( $.storage[ def.unlock.stat ] || 0 ) >= def.unlock.value;
 };
@@ -285,11 +288,12 @@ $.characterStatus = function( def ) {
 		return { text: 'COMING SOON', color: 'hsla(0, 0%, 100%, 0.35)' };
 	}
 	if( !$.characterUnlocked( def ) ) {
-		if( def.unlock.purchase ) {
+		if( !def.unlock.stat ) {
 			return { text: 'BUY IN MARKET', color: 'hsla(0, 0%, 100%, 0.35)' };
 		}
 		return {
-			text: 'LOCKED: ' + ( $.storage[ def.unlock.stat ] || 0 ) + '/' + def.unlock.value + ' ' + def.unlock.label,
+			text: 'LOCKED: ' + ( $.storage[ def.unlock.stat ] || 0 ) + '/' + def.unlock.value + ' ' + def.unlock.label +
+				( def.unlock.purchase ? ' / OR BUY IN MARKET' : '' ),
 			color: 'hsla(0, 0%, 100%, 0.35)'
 		};
 	}

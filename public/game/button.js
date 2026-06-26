@@ -111,7 +111,7 @@ $.Button.prototype.render = function( i ) {
 			y: this.cy,
 			text: this.title,
 			hspacing: 1,
-			vspacing: 0,
+			vspacing: this.vspacing || 0,
 			halign: 'center',
 			valign: 'center',
 			scale: this.scale,

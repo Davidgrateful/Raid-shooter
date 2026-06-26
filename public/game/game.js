@@ -1745,14 +1745,22 @@ $.setState = function( state ) {
 			} ) );
 
 			// the control rows below the ship preview stack downward from
-			// the preview's own bottom edge (not up from the screen bottom),
-			// so on short/mobile screens they can never be pushed off-screen
-			// - if they still don't fit, the whole stack scrolls
-			var hangarRowGap = hangarCompact ? 48 : 58,
-				hangarRowsTop = arrowY + ( hangarCompact ? 78 : 104 ),
+			// the preview text block's own bottom edge (not a fixed offset
+			// from the arrows), so a pilot with an ability line (and the
+			// level line once unlocked) never gets its text clipped by the
+			// SELECT/COLOR row above it - if they still don't fit, the
+			// whole stack scrolls
+			var previewDef = $.definitions.characters[ $.hangarIndex ],
+				previewTextBottom = arrowY + ( hangarCompact ?
+					( previewDef.ability ? 104 : 84 ) :
+					( previewDef.ability ? 162 : 132 ) ),
+				hangarRowGap = hangarCompact ? 48 : 58,
+				hangarRowsTop = previewTextBottom + ( hangarCompact ? 26 : 40 ),
 				hr0 = hangarRowsTop,
 				hr1 = hr0 + hangarRowGap,
-				hr2 = hr1 + hangarRowGap;
+				// the drone row is taller (two lines, for its passive text)
+				// so it needs a bigger gap above it than the other rows
+				hr2 = hr1 + hangarRowGap + ( hangarCompact ? 16 : 22 );
 
 			$.buttons.push( new $.Button( {
 				x: $.cw / 2 - 104,
@@ -1838,13 +1846,19 @@ $.setState = function( state ) {
 					$.setState( 'menu' );
 				}
 			} ) );
+			var droneButtonTitle = function() {
+				var equipped = $.equippedDrone();
+				return 'DRONE: ' + ( equipped ? equipped.title : 'NONE' ) +
+					'\n' + ( equipped ? equipped.desc : 'EQUIP ONE FOR A PASSIVE BONUS' );
+			};
 			$.buttons.push( new $.Button( {
 				x: $.cw / 2,
 				y: hr2,
 				lockedWidth: hangarCompact ? 308 : 348,
-				lockedHeight: 45,
+				lockedHeight: hangarCompact ? 56 : 64,
 				scale: 1,
-				title: 'DRONE: ' + ( $.equippedDrone() ? $.equippedDrone().title : 'NONE' ),
+				vspacing: 6,
+				title: droneButtonTitle(),
 				scrollable: 1,
 				action: function() {
 					$.mouse.down = 0;
@@ -1858,13 +1872,13 @@ $.setState = function( state ) {
 					var current = owned.indexOf( $.storage['drone'] || '' );
 					$.storage['drone'] = owned[ ( current + 1 ) % owned.length ];
 					$.updateStorage();
-					this.title = 'DRONE: ' + ( $.equippedDrone() ? $.equippedDrone().title : 'NONE' );
+					this.title = droneButtonTitle();
 				}
 			} ) );
 
 			$.hangarClip = { top: hangarRowsTop - 30, bottom: $.ch - ( hangarCompact ? 10 : 16 ) };
 			$.scrollClip = $.hangarClip;
-			$.setScrollMax( hr2 + 30, $.hangarClip.bottom );
+			$.setScrollMax( hr2 + ( hangarCompact ? 50 : 60 ), $.hangarClip.bottom );
 		}
 	}
 
@@ -1972,19 +1986,22 @@ $.setState = function( state ) {
 					icon = { draw: charDef.draw, color: owned ? shipColor.color : 'hsla(0, 0%, 55%, 1)', r: smallText ? 13 : 16 };
 				}
 			} else if( item.kind === 'drone' ) {
+				var droneDef = null;
+				for( var dii = 0; dii < $.definitions.drones.length; dii++ ) {
+					if( $.definitions.drones[ dii ].id === item.id ) {
+						droneDef = $.definitions.drones[ dii ];
+						break;
+					}
+				}
 				icon = {
-					draw: function( ctx, r, fillStyle ) {
+					draw: ( droneDef && droneDef.draw ) || function( ctx, r, fillStyle ) {
 						ctx.beginPath();
 						ctx.arc( 0, 0, r, 0, $.twopi );
 						ctx.fillStyle = fillStyle;
 						ctx.fill();
-						ctx.beginPath();
-						ctx.arc( 0, 0, r * 0.45, 0, $.twopi );
-						ctx.fillStyle = 'hsla(0, 0%, 5%, 1)';
-						ctx.fill();
 					},
 					color: owned ? 'hsla(190, 100%, 65%, 1)' : 'hsla(0, 0%, 55%, 1)',
-					r: smallText ? 11 : 14
+					r: smallText ? 13 : 16
 				};
 			}
 

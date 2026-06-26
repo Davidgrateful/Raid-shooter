@@ -33,6 +33,28 @@ export const CATALOG: MarketItem[] = [
     id: 'pilot_crimsonwisp', title: 'CRIMSON WISP PILOT', kind: 'character', priceUsd: 1, priceEth: '0.00033',
     ability: 'EMBER WAKE: HEAL HP FROM KILLS',
   },
+  // unlock shortcuts for free pilots - same stats as the grind-unlocked
+  // version, just skips the stat gate; never a power advantage, only convenience
+  {
+    id: 'pilot_nova', title: 'NOVA PILOT', kind: 'character', priceUsd: 0.5, priceEth: '0.00017',
+    ability: 'SLIPSTREAM: LONGER DASH',
+  },
+  {
+    id: 'pilot_tankrex', title: 'TANK REX PILOT', kind: 'character', priceUsd: 0.5, priceEth: '0.00017',
+    ability: 'BULWARK: RESIST WHEN BADLY HURT',
+  },
+  {
+    id: 'pilot_astravane', title: 'ASTRA VANE PILOT', kind: 'character', priceUsd: 0.5, priceEth: '0.00017',
+    ability: 'TAILWIND: LONGER COMBO WINDOW',
+  },
+  {
+    id: 'pilot_runepilot', title: 'RUNE PILOT', kind: 'character', priceUsd: 0.5, priceEth: '0.00017',
+    ability: 'SCAVENGER: MORE POWERUP DROPS',
+  },
+  {
+    id: 'pilot_nebulafox', title: 'NEBULA FOX PILOT', kind: 'character', priceUsd: 0.5, priceEth: '0.00017',
+    ability: 'VAMPIRE: HEAL HP FROM KILLS',
+  },
   {
     id: 'consumable_health', title: 'HEALTH PACK', kind: 'consumable', priceUsd: 0.5, priceEth: '0.00017', stack: 3,
   },

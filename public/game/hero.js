@@ -338,5 +338,18 @@ $.Hero.prototype.render = function() {
 		if( $.powerupTimers[ 5 ] > 0 ) {
 			$.util.strokeCircle( $.ctxmg, this.x, this.y, this.radius + 8 + Math.cos( $.tick / 5 ) * 2, 'hsla(190, 100%, 65%, 0.8)', 2 );
 		}
+
+		// equipped drone orbits the hull, drawn in its own market shape
+		var drone = $.equippedDrone();
+		if( drone && drone.draw ) {
+			var orbitR = this.radius + 22,
+				orbitAngle = $.tick / 40,
+				dx = this.x + Math.cos( orbitAngle ) * orbitR,
+				dy = this.y + Math.sin( orbitAngle ) * orbitR;
+			$.ctxmg.save();
+			$.ctxmg.translate( dx, dy );
+			drone.draw( $.ctxmg, 7, 'hsla(190, 100%, 70%, 0.95)', $.tick );
+			$.ctxmg.restore();
+		}
 	}
 };
