@@ -63,8 +63,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'tx_already_claimed' }, { status: 400 });
     }
 
-    const profile = await grantItem(address, item.id);
-    return NextResponse.json({ ok: true, items: profile.items });
+    const profile = await grantItem(address, item);
+    return NextResponse.json({ ok: true, items: profile.items, consumables: profile.consumables });
   } catch {
     return NextResponse.json({ error: 'verification_unavailable' }, { status: 503 });
   }

@@ -6,10 +6,14 @@
 export interface MarketItem {
   id: string;
   title: string;
-  kind: 'color' | 'trail' | 'character';
+  kind: 'color' | 'trail' | 'character' | 'consumable';
   priceUsd: number;
   priceEth: string;
   comingSoon?: boolean;
+  // how many charges one purchase grants (consumables only, default 1)
+  stack?: number;
+  // shown alongside character items in the storefront
+  ability?: string;
 }
 
 // priceEth approximates priceUsd at deploy time - adjust as ETH moves.
@@ -21,8 +25,23 @@ export const CATALOG: MarketItem[] = [
   { id: 'trail_ember', title: 'EMBER ENGINE TRAIL', kind: 'trail', priceUsd: 3, priceEth: '0.001' },
   { id: 'trail_ion', title: 'ION ENGINE TRAIL', kind: 'trail', priceUsd: 3, priceEth: '0.001' },
   { id: 'trail_void', title: 'VOID ENGINE TRAIL', kind: 'trail', priceUsd: 3, priceEth: '0.001' },
-  { id: 'pilot_solstice', title: 'SOLSTICE PILOT', kind: 'character', priceUsd: 5, priceEth: '0.00167' },
-  { id: 'pilot_crimsonwisp', title: 'CRIMSON WISP PILOT', kind: 'character', priceUsd: 5, priceEth: '0.00167' },
+  {
+    id: 'pilot_solstice', title: 'SOLSTICE PILOT', kind: 'character', priceUsd: 5, priceEth: '0.00167',
+    ability: 'OVERDRIVE: FASTER BULLETS, LIGHTER ARMOR',
+  },
+  {
+    id: 'pilot_crimsonwisp', title: 'CRIMSON WISP PILOT', kind: 'character', priceUsd: 5, priceEth: '0.00167',
+    ability: 'EMBER WAKE: HEAL HP FROM KILLS',
+  },
+  {
+    id: 'consumable_health', title: 'HEALTH PACK x3', kind: 'consumable', priceUsd: 1, priceEth: '0.00033', stack: 3,
+  },
+  {
+    id: 'consumable_shield', title: 'SHIELD CHARGE x3', kind: 'consumable', priceUsd: 2, priceEth: '0.00067', stack: 3,
+  },
+  {
+    id: 'consumable_revive', title: 'REVIVE TOKEN', kind: 'consumable', priceUsd: 3, priceEth: '0.001', stack: 1,
+  },
 ];
 
 export function getItem(id: string): MarketItem | undefined {

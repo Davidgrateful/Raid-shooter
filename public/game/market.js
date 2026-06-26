@@ -5,8 +5,9 @@ Cosmetics never touch gameplay or score. Ownership lives in the
 wallet-keyed server profile; payments are verified server side.
 ==============================================================================*/
 $.marketState = { loading: 0, enabled: false, network: '', treasury: null, items: [], fetched: 0 };
-$.profile = { items: [] };
+$.profile = { items: [], consumables: {} };
 $.purchase = { status: '', itemId: null };
+$.runAssisted = false;
 
 $.definitions.premiumColors = [
 	{ id: 'color_gold', title: 'GOLD', color: 'hsl(45, 100%, 60%)' },
@@ -86,9 +87,32 @@ $.fetchProfile = function() {
 		.then( function( res ) { return res.json(); } )
 		.then( function( data ) {
 			$.profile.items = data.items || [];
+			$.profile.consumables = data.consumables || {};
 			$.applyOwnedItems();
 		} )
 		.catch( function() {} );
+};
+
+$.consumableCount = function( id ) {
+	return $.profile.consumables[ id ] || 0;
+};
+
+// spends one charge server-side first so a refresh can't duplicate it,
+// then runs the in-run effect; flags the run as unranked either way
+// once a charge has actually been used, to keep Shooterboard credible
+$.useConsumable = function( id, effect ) {
+	if( $.consumableCount( id ) <= 0 || !$.session.authenticated ) {
+		return false;
+	}
+	$.profile.consumables[ id ]--;
+	$.runAssisted = true;
+	effect();
+	fetch( '/api/consumable/use', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify( { itemId: id } )
+	} ).catch( function() {} );
+	return true;
 };
 
 $.buyItem = function( item ) {

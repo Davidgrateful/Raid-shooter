@@ -142,6 +142,14 @@ $.submitScore = function() {
 		return;
 	}
 
+	// a run that used a paid consumable (extra health/shield/revive) still
+	// counts for the player, but doesn't post to Shooterboard - keeps the
+	// global ranking a measure of skill, not spend
+	if( $.runAssisted ) {
+		$.boardSubmit = { state: 'assisted', rank: 0, improved: false, verified: false };
+		return;
+	}
+
 	$.boardSubmit = { state: 'sending', rank: 0, improved: false, verified: false };
 
 	// re-check the session right before submitting: the player may have

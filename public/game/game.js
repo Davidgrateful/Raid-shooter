@@ -232,6 +232,7 @@ $.reset = function() {
 	$.bulletsFired = 0;
 	$.powerupsCollected = 0;
 	$.score = 0;
+	$.runAssisted = false;
 
 	$.combo = 0;
 	$.comboTimer = 0;
@@ -421,6 +422,28 @@ $.renderInterface = function() {
 				$.ctxmg.fillStyle = 'hsl(' + powerup.hue + ', ' + powerup.saturation + '%, ' + powerup.lightness + '%)';
 				$.ctxmg.fillRect( powerupBar.x, powerupBar.y, ( $.powerupTimers[ i ] / $.powerupDuration ) * powerupBar.width, powerupBar.height );
 			}
+		}
+
+		/*==============================================================================
+		Consumables - only shown to players who actually own one
+		==============================================================================*/
+		if( $.session.authenticated && ( $.consumableCount( 'consumable_health' ) > 0 || $.consumableCount( 'consumable_shield' ) > 0 ) ) {
+			$.ctxmg.beginPath();
+			$.text( {
+				ctx: $.ctxmg,
+				x: $.minimap.x,
+				y: $.minimap.y + $.minimap.height + 14,
+				text: '1: HEALTH x' + $.consumableCount( 'consumable_health' ) + '\n2: SHIELD x' + $.consumableCount( 'consumable_shield' ),
+				hspacing: 1,
+				vspacing: 10,
+				halign: 'left',
+				valign: 'top',
+				scale: 1,
+				snap: 1,
+				render: 1
+			} );
+			$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 0.6)';
+			$.ctxmg.fill();
 		}
 
 		/*==============================================================================
@@ -1078,6 +1101,19 @@ $.keydowncb = function( e ) {
 	if( e === 77 ){ $.keys.state.m = 1; }
 	if( e === 80 ){ $.keys.state.p = 1; }
 	if( e === 16 || e === 32 ){ $.keys.state.dash = 1; }
+	// 1/2: consume a purchased Health Pack / Shield Charge mid-run
+	if( $.state === 'play' && $.hero && $.hero.life > 0 ) {
+		if( e === 49 ) {
+			$.useConsumable( 'consumable_health', function() {
+				$.hero.life = Math.min( 1, $.hero.life + 0.5 );
+			} );
+		}
+		if( e === 50 ) {
+			$.useConsumable( 'consumable_shield', function() {
+				$.powerupTimers[ 5 ] = $.powerupDuration;
+			} );
+		}
+	}
 }
 
 $.keyupcb = function( e ) {
@@ -1716,8 +1752,17 @@ $.setState = function( state ) {
 		// titles always reflect current ownership. Always two columns so the
 		// list stays short and the back button is never pushed off-screen
 		var buildItem = function( item, index ) {
-			var owned = $.ownsItem( item.id ),
-				label = item.title + '   ' + ( item.comingSoon ? 'SOON' : ( owned ? 'OWNED' : '$' + item.priceUsd ) ),
+			// consumables stack, so they're always re-buyable and show a count
+			// instead of a one-time OWNED lock; other kinds show an ability
+			// line (characters) or just OWNED once purchased
+			var stackable = ( item.kind === 'consumable' ),
+				owned = !stackable && $.ownsItem( item.id ),
+				status = item.comingSoon
+					? 'SOON'
+					: stackable
+						? ( 'x' + $.consumableCount( item.id ) + '  $' + item.priceUsd )
+						: ( owned ? 'OWNED' : '$' + item.priceUsd ),
+				label = item.title + '   ' + status + ( item.ability ? '\n' + item.ability : '' ),
 				column = index % 2,
 				row = Math.floor( index / 2 ),
 				x = $.cw / 2 + ( column ? itemColX : -itemColX + 2 );
@@ -1726,11 +1771,11 @@ $.setState = function( state ) {
 				y: itemStartY + row * ( itemHeight + itemGap ),
 				lockedWidth: itemWidth,
 				lockedHeight: itemHeight,
-				scale: 1,
+				scale: item.ability ? 0.82 : 1,
 				title: label,
 				action: function() {
 					$.mouse.down = 0;
-					if( !owned && !item.comingSoon ) {
+					if( ( stackable || !owned ) && !item.comingSoon ) {
 						$.buyItem( item );
 					}
 				}
@@ -2851,6 +2896,16 @@ $.setupStates = function() {
 		var bi = $.buttons.length; while( bi-- ){ if( $.buttons[ bi ] ) { $.buttons[ bi ].update( bi ) } }
 			bi = $.buttons.length; while( bi-- ){ if( $.buttons[ bi ] ) { $.buttons[ bi ].render( bi ) } }
 
+		// a revive token auto-spends the instant life hits zero, once per
+		// run, restoring half HP and a moment of invulnerability instead of
+		// letting the death sequence start
+		if( $.hero.life <= 0 && $.consumableCount( 'consumable_revive' ) > 0 ) {
+			$.useConsumable( 'consumable_revive', function() {
+				$.hero.life = 0.5;
+				$.powerupTimers[ 5 ] = $.powerupDuration;
+			} );
+		}
+
 		// handle gameover
 		if( $.hero.life <= 0 ) {
 			var alpha = ( ( $.gameoverTick / $.gameoverTickMax ) * 0.8 );
@@ -3116,6 +3171,8 @@ $.setupStates = function() {
 			boardColor = 'hsla(45, 100%, 65%, 1)';
 		} else if( $.boardSubmit.state === 'error' ) {
 			boardText = 'SHOOTERBOARD UNAVAILABLE';
+		} else if( $.boardSubmit.state === 'assisted' ) {
+			boardText = 'RUN NOT RANKED  /  CONSUMABLE USED';
 		}
 		// a gentle nudge for guests: their score is already ranked, the
 		// wallet is purely an optional verified upgrade
