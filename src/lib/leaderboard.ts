@@ -20,56 +20,20 @@ export interface BoardEntry {
   verified?: boolean;
 }
 
+import { isKvConfigured, kvUrl, kvToken, redisCommand } from '@/lib/kv';
+
 const BOARD_KEY = 'shooterboard';
 const ENTRIES_KEY = 'shooterboard:entries';
-
-// Resolve the Redis REST credentials. Prefer the canonical names, but fall
-// back to any prefixed variant (e.g. a Vercel integration that injects
-// STORAGE_KV_REST_API_URL) so a custom env prefix doesn't silently disable
-// persistence.
-function resolveEnv(suffixes: string[]): string | undefined {
-  for (const suffix of suffixes) {
-    if (process.env[suffix]) {
-      return process.env[suffix];
-    }
-  }
-  for (const suffix of suffixes) {
-    for (const [name, value] of Object.entries(process.env)) {
-      if (value && name.endsWith(suffix)) {
-        return value;
-      }
-    }
-  }
-  return undefined;
-}
-
-const kvUrl = resolveEnv(['KV_REST_API_URL', 'UPSTASH_REDIS_REST_URL']);
-const kvToken = resolveEnv(['KV_REST_API_TOKEN', 'UPSTASH_REDIS_REST_TOKEN']);
 
 // Whether a shared, persistent backend is configured. Without it the board
 // uses per-instance in-memory storage, which on serverless means players
 // can't see each other's scores — surfaced to the client so the failure is
 // visible instead of silent.
 export function isPersistent(): boolean {
-  return !!(kvUrl && kvToken);
+  return isKvConfigured();
 }
 
-async function redis(command: (string | number)[]): Promise<unknown> {
-  const res = await fetch(kvUrl!, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${kvToken}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(command),
-    cache: 'no-store',
-  });
-  if (!res.ok) {
-    throw new Error(`Redis command failed: ${res.status}`);
-  }
-  const data = (await res.json()) as { result: unknown };
-  return data.result;
-}
+const redis = redisCommand;
 
 // In-memory fallback (per server instance; fine for dev, ephemeral on serverless)
 const memoryBoard = new Map<string, BoardEntry>();

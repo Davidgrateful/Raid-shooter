@@ -1745,15 +1745,13 @@ $.setState = function( state ) {
 			} ) );
 
 			// the control rows below the ship preview stack downward from
-			// the preview text block's own bottom edge (not a fixed offset
-			// from the arrows), so a pilot with an ability line (and the
-			// level line once unlocked) never gets its text clipped by the
-			// SELECT/COLOR row above it - if they still don't fit, the
-			// whole stack scrolls
+			// the preview text block's own measured bottom edge (not a
+			// fixed offset from the arrows), so a pilot with a two-line
+			// desc, an ability line, and/or the level line never gets its
+			// text clipped by the SELECT/COLOR row above it - if they
+			// still don't fit, the whole stack scrolls
 			var previewDef = $.definitions.characters[ $.hangarIndex ],
-				previewTextBottom = arrowY + ( hangarCompact ?
-					( previewDef.ability ? 104 : 84 ) :
-					( previewDef.ability ? 162 : 132 ) ),
+				previewTextBottom = $.hangarPreviewLayout( previewDef, hangarCompact, arrowY ).bottom,
 				hangarRowGap = hangarCompact ? 48 : 58,
 				hangarRowsTop = previewTextBottom + ( hangarCompact ? 26 : 40 ),
 				hr0 = hangarRowsTop,
@@ -2472,13 +2470,50 @@ $.setupStates = function() {
 
 	};
 
+	// stacks the ship preview's title/status/ability/level lines top to
+	// bottom, measuring each line's real height instead of guessing fixed
+	// offsets - a two-line desc (e.g. "FAST AND FRAGILE,\nRAPID DASH") or a
+	// long ability string would silently collide with the next line under
+	// fixed offsets, and that collision only showed up at certain window
+	// sizes (compact desktop windows), not on a tall mobile screen
+	$.hangarPreviewLayout = function( def, hangarCompact, previewY ) {
+		var unlocked = $.characterUnlocked( def ),
+			status = $.characterStatus( def ),
+			gap = hangarCompact ? 6 : 10,
+			blocks = [],
+			y = previewY + ( hangarCompact ? 34 : 50 );
+
+		var add = function( text, scale, vspacing, color ) {
+			var measured = $.text( {
+				ctx: $.ctxmg, x: 0, y: 0, text: text,
+				hspacing: 1, vspacing: vspacing,
+				halign: 'left', valign: 'top', scale: scale, snap: 1, render: 0
+			} );
+			blocks.push( { text: text, scale: scale, vspacing: vspacing, color: color, y: y } );
+			y += measured.height + gap;
+		};
+
+		add( def.title, hangarCompact ? 2 : 3, 1, unlocked ? 'hsla(0, 0%, 100%, 0.95)' : 'hsla(0, 0%, 100%, 0.4)' );
+		add( status.text, hangarCompact ? 1 : 2, 8, status.color );
+		if( def.ability ) {
+			add( def.ability.title + ': ' + def.ability.text, hangarCompact ? 1 : 2, 8, 'hsla(190, 100%, 70%, 0.8)' );
+		}
+		if( unlocked ) {
+			var pilotLevel = $.pilotLevel( def.id ),
+				toNext = $.pilotXpToNext( def.id ),
+				levelText = 'LEVEL ' + pilotLevel + '/' + $.pilotMaxLevel + ( toNext ? '  (' + toNext.xp + '/' + toNext.next + ' XP)' : '  (MAX)' );
+			add( levelText, 1, 1, 'hsla(45, 100%, 70%, 0.85)' );
+		}
+
+		return { blocks: blocks, bottom: y - gap };
+	};
+
 	$.states['hangar'] = function() {
 
 		$.clearScreen();
 
 		var hangarCompact = ( $.ch < 640 ),
 			def = $.definitions.characters[ $.hangarIndex ],
-			status = $.characterStatus( def ),
 			previewY = hangarCompact ? Math.floor( $.ch * 0.42 ) : Math.floor( $.ch * 0.38 ),
 			gridView = ( $.hangarView === 'grid' );
 
@@ -2536,81 +2571,26 @@ $.setupStates = function() {
 		def.draw( $.ctxmg, hangarCompact ? 18 : 28, unlocked ? hangarShipColor.color : 'hsla(0, 0%, 35%, 1)', $.tick );
 		$.ctxmg.restore();
 
-		$.ctxmg.beginPath();
-		$.text( {
-			ctx: $.ctxmg,
-			x: $.cw / 2,
-			y: previewY + ( hangarCompact ? 42 : 64 ),
-			text: def.title,
-			hspacing: 2,
-			vspacing: 1,
-			halign: 'center',
-			valign: 'top',
-			scale: hangarCompact ? 2 : 3,
-			snap: 1,
-			render: 1
-		} );
-		$.ctxmg.fillStyle = unlocked ? 'hsla(0, 0%, 100%, 0.95)' : 'hsla(0, 0%, 100%, 0.4)';
-		$.ctxmg.fill();
-
-		if( def.ability ) {
+		var previewLayout = $.hangarPreviewLayout( def, hangarCompact, previewY );
+		for( var pli = 0; pli < previewLayout.blocks.length; pli++ ) {
+			var block = previewLayout.blocks[ pli ];
 			$.ctxmg.beginPath();
 			$.text( {
 				ctx: $.ctxmg,
 				x: $.cw / 2,
-				y: previewY + ( hangarCompact ? 84 : 132 ),
-				text: def.ability.title + ': ' + def.ability.text,
+				y: block.y,
+				text: block.text,
 				hspacing: 1,
-				vspacing: 8,
+				vspacing: block.vspacing,
 				halign: 'center',
 				valign: 'top',
-				scale: hangarCompact ? 1 : 2,
+				scale: block.scale,
 				snap: 1,
 				render: 1
 			} );
-			$.ctxmg.fillStyle = 'hsla(190, 100%, 70%, 0.8)';
+			$.ctxmg.fillStyle = block.color;
 			$.ctxmg.fill();
 		}
-
-		// pilot level - free, grind-only, capped at 10; deliberately slow
-		if( unlocked ) {
-			var pilotLevel = $.pilotLevel( def.id ),
-				toNext = $.pilotXpToNext( def.id ),
-				levelText = 'LEVEL ' + pilotLevel + '/' + $.pilotMaxLevel + ( toNext ? '  (' + toNext.xp + '/' + toNext.next + ' XP)' : '  (MAX)' );
-			$.ctxmg.beginPath();
-			$.text( {
-				ctx: $.ctxmg,
-				x: $.cw / 2,
-				y: previewY + ( hangarCompact ? ( def.ability ? 104 : 84 ) : ( def.ability ? 162 : 132 ) ),
-				text: levelText,
-				hspacing: 1,
-				vspacing: 1,
-				halign: 'center',
-				valign: 'top',
-				scale: 1,
-				snap: 1,
-				render: 1
-			} );
-			$.ctxmg.fillStyle = 'hsla(45, 100%, 70%, 0.85)';
-			$.ctxmg.fill();
-		}
-
-		$.ctxmg.beginPath();
-		$.text( {
-			ctx: $.ctxmg,
-			x: $.cw / 2,
-			y: previewY + ( hangarCompact ? 68 : 100 ),
-			text: status.text,
-			hspacing: 1,
-			vspacing: 8,
-			halign: 'center',
-			valign: 'top',
-			scale: hangarCompact ? 1 : 2,
-			snap: 1,
-			render: 1
-		} );
-		$.ctxmg.fillStyle = status.color;
-		$.ctxmg.fill();
 
 		$.ctxmg.beginPath();
 		$.text( {

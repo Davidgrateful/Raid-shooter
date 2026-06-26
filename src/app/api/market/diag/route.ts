@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { isKvConfigured } from '@/lib/kv';
 
 // Diagnostic for the onchain market config - never returns the full
 // treasury address or secrets, just enough to tell what's misconfigured
@@ -19,5 +20,9 @@ export async function GET() {
     rpcUrlSet: !!process.env.BASE_RPC_URL,
     reownProjectIdSet: !!process.env.NEXT_PUBLIC_REOWN_PROJECT_ID,
     sessionSecretSet: !!process.env.SESSION_SECRET,
+    // if false, purchased items live in a per-instance in-memory map and
+    // are lost on every cold start/redeploy - this is the #1 cause of
+    // "my purchase disappeared" reports
+    profilesPersistent: isKvConfigured(),
   });
 }
