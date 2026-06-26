@@ -1119,6 +1119,11 @@ $.mouseupcb = function( e ) {
 			$.mousescreen();
 			for( var ti = 0; ti < $.buttons.length; ti++ ) {
 				var tb = $.buttons[ ti ];
+				// scrolled-off rows are clipped from view, so ignore taps on them
+				if( tb.scrollable && $.scrollClip &&
+					( tb.cy < $.scrollClip.top || tb.cy > $.scrollClip.bottom ) ) {
+					continue;
+				}
 				if( $.util.pointInRect( $.mouse.sx, $.mouse.sy, tb.sx, tb.sy, tb.width, tb.height ) ) {
 					$.audio.play( 'click' );
 					tb.action();
@@ -1520,6 +1525,9 @@ $.setState = function( state ) {
 	$.scroll.y = 0;
 	$.scroll.max = 0;
 	$.scroll.dragging = 0;
+	// cleared so a clip from the previous screen can't suppress taps here;
+	// market/hangar set their own each build
+	$.scrollClip = null;
 
 	// the Shooterboard only needs to poll while it's actually on screen
 	if( $.boardRefreshTimer ) {
@@ -1855,6 +1863,7 @@ $.setState = function( state ) {
 			} ) );
 
 			$.hangarClip = { top: hangarRowsTop - 30, bottom: $.ch - ( hangarCompact ? 10 : 16 ) };
+			$.scrollClip = $.hangarClip;
 			$.setScrollMax( hr2 + 30, $.hangarClip.bottom );
 		}
 	}
@@ -2011,6 +2020,7 @@ $.setState = function( state ) {
 			marketListBottom = $.ch - ( marketCompact ? 62 : 100 );
 		$.setScrollMax( marketContentBottom, marketListBottom );
 		$.marketListClip = { top: itemStartY - itemGap, bottom: marketListBottom };
+		$.scrollClip = $.marketListClip;
 	}
 
 	if( state == 'settings' ) {

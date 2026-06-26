@@ -49,6 +49,14 @@ $.Button.prototype.update = function( i ) {
 	/*==============================================================================
 	Check Hover State
 	==============================================================================*/
+	// a scrolled button whose center has left the visible list strip is
+	// hidden behind the clip, so it must not be hoverable/clickable either
+	if( this.scrollable && $.scrollClip &&
+		( this.cy < $.scrollClip.top || this.cy > $.scrollClip.bottom ) ) {
+		this.hovering = 0;
+		this.ohovering = 0;
+		return;
+	}
 	if( $.util.pointInRect( $.mouse.sx, $.mouse.sy, this.sx, this.sy, this.width, this.height ) ){
 		this.hovering = 1;
 		if( !this.ohovering ) {
