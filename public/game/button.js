@@ -5,11 +5,13 @@ $.Button = function( opt ) {
 	for( var k in opt ) {
 		this[k] = opt[k];
 	}
+	// card buttons lay out their own fields (name/subtitle/note) and carry
+	// no single title, so the measuring pass below would choke on undefined
 	var text = $.text( {
 		ctx: $.ctxmg,
 		x: 0,
 		y: 0,
-		text: this.title,
+		text: this.title || '',
 		hspacing: 1,
 		vspacing: 0,
 		halign: 'center',
@@ -96,29 +98,33 @@ $.Button.prototype.render = function( i ) {
 		$.ctxmg.strokeRect( Math.floor( this.sx ) + 1.5, Math.floor( this.sy ) + 1.5, this.width - 3, this.height - 3, 1 );
 	}
 
-	$.ctxmg.beginPath();
-	$.text( {
-		ctx: $.ctxmg,
-		x: this.cx + this.textOffsetX,
-		y: this.cy,
-		text: this.title,
-		hspacing: 1,
-		vspacing: 0,
-		halign: 'center',
-		valign: 'center',
-		scale: this.scale,
-		snap: 1,
-		render: true
-	} );
-
-	$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 0.7)';
-	if( this.hovering ) {
-		$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 1)';
-	}
-	$.ctxmg.fill();
-
 	$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 0.07)';
 	$.ctxmg.fillRect( Math.floor( this.sx ) + 2, Math.floor( this.sy ) + 2, this.width - 4, Math.floor( ( this.height - 4 ) / 2 ) );
+
+	if( this.card ) {
+		this.renderCard();
+	} else {
+		$.ctxmg.beginPath();
+		$.text( {
+			ctx: $.ctxmg,
+			x: this.cx + this.textOffsetX,
+			y: this.cy,
+			text: this.title,
+			hspacing: 1,
+			vspacing: 0,
+			halign: 'center',
+			valign: 'center',
+			scale: this.scale,
+			snap: 1,
+			render: true
+		} );
+
+		$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 0.7)';
+		if( this.hovering ) {
+			$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 1)';
+		}
+		$.ctxmg.fill();
+	}
 
 	if( this.icon ) {
 		$.ctxmg.save();
@@ -126,5 +132,79 @@ $.Button.prototype.render = function( i ) {
 		$.ctxmg.rotate( -$.pi / 2 );
 		this.icon.draw( $.ctxmg, this.icon.r || 12, this.icon.color, $.tick || 0 );
 		$.ctxmg.restore();
+	}
+};
+
+/*==============================================================================
+Card Render - storefront-style row: name (left), ability (left, dim),
+price/status (right). Keeps fields in tidy columns instead of one cramped
+centered string, so a long list reads as an organized list.
+==============================================================================*/
+$.Button.prototype.renderCard = function() {
+	var pad = 10,
+		iconArea = this.icon ? ( this.iconAreaWidth || 40 ) : 0,
+		leftX = Math.floor( this.sx ) + iconArea + pad,
+		rightX = Math.floor( this.ex ) - pad,
+		nameScale = this.nameScale || 1,
+		subScale = this.subScale || 1;
+
+	// price / OWNED / SOON, right-aligned and vertically centered
+	if( this.note ) {
+		$.ctxmg.beginPath();
+		$.text( {
+			ctx: $.ctxmg,
+			x: rightX,
+			y: this.cy,
+			text: this.note,
+			hspacing: 1,
+			vspacing: 0,
+			halign: 'right',
+			valign: 'center',
+			scale: this.noteScale || 1,
+			snap: 1,
+			render: true
+		} );
+		$.ctxmg.fillStyle = this.noteColor || 'hsla(45, 100%, 65%, 1)';
+		$.ctxmg.fill();
+	}
+
+	// name on top, ability beneath when present; name centers vertically
+	// when it stands alone so single-line rows don't float high
+	var hasSub = !!this.subtitle,
+		nameY = hasSub ? this.sy + this.height * 0.34 : this.cy;
+	$.ctxmg.beginPath();
+	$.text( {
+		ctx: $.ctxmg,
+		x: leftX,
+		y: nameY,
+		text: this.name,
+		hspacing: 1,
+		vspacing: 0,
+		halign: 'left',
+		valign: 'center',
+		scale: nameScale,
+		snap: 1,
+		render: true
+	} );
+	$.ctxmg.fillStyle = this.hovering ? 'hsla(0, 0%, 100%, 1)' : 'hsla(0, 0%, 100%, 0.9)';
+	$.ctxmg.fill();
+
+	if( hasSub ) {
+		$.ctxmg.beginPath();
+		$.text( {
+			ctx: $.ctxmg,
+			x: leftX,
+			y: this.sy + this.height * 0.7,
+			text: this.subtitle,
+			hspacing: 1,
+			vspacing: 0,
+			halign: 'left',
+			valign: 'center',
+			scale: subScale,
+			snap: 1,
+			render: true
+		} );
+		$.ctxmg.fillStyle = this.subColor || 'hsla(190, 100%, 72%, 0.75)';
+		$.ctxmg.fill();
 	}
 };

@@ -1880,18 +1880,24 @@ $.setState = function( state ) {
 		$.marketTab = $.marketTab || 'character';
 
 		var marketCompact = ( $.ch < 640 ),
-			tabsY = marketCompact ? 90 : 162,
-			itemStartY = tabsY + ( marketCompact ? 30 : 42 );
+			// kept clear of the mobile top-left BACK button (~y70) on short screens
+			tabsY = marketCompact ? 110 : 162,
+			itemStartY = tabsY + ( marketCompact ? 28 : 42 );
 
 		// PILOTS / DRONES show a ship icon plus an ability line, so they get
 		// a single wide column; BOOSTS (skins, trails, consumables) are
-		// simple buy-only rows and stay two-up to keep the list short
-		var richTab = ( $.marketTab !== 'boost' ),
-			itemWidth = richTab ? ( marketCompact ? 320 : 420 ) : ( marketCompact ? 259 : 300 ),
-			itemHeight = richTab ? ( marketCompact ? 50 : 64 ) : ( marketCompact ? 35 : 44 ),
-			itemGap = marketCompact ? 7 : 11,
-			itemColX = marketCompact ? 136 : 158,
-			columns = richTab ? 1 : 2;
+		// simple buy-only rows and go two-up on wide screens, one-up on
+		// narrow ones so a row never runs off the side of a phone
+		var narrow = ( $.cw < 560 ),
+			richTab = ( $.marketTab !== 'boost' ),
+			smallText = ( marketCompact || narrow ),
+			columns = ( richTab || narrow ) ? 1 : 2,
+			itemGap = marketCompact ? 8 : 12,
+			colGap = 16,
+			maxRowWidth = Math.min( $.cw - 36, columns === 1 ? ( richTab ? 460 : 380 ) : 720 ),
+			itemWidth = columns === 1 ? maxRowWidth : ( maxRowWidth - colGap ) / 2,
+			itemColX = columns === 1 ? 0 : ( itemWidth + colGap ) / 2,
+			itemHeight = richTab ? ( smallText ? 52 : 64 ) : ( smallText ? 44 : 54 );
 
 		var bucketOf = function( item ) {
 			if( item.kind === 'character' || item.kind === 'drone' ) { return item.kind; }
@@ -1930,22 +1936,26 @@ $.setState = function( state ) {
 		}
 
 		// item buttons are rebuilt whenever the screen is (re)entered, so
-		// titles always reflect current ownership
+		// every row's price/ownership reflects the current profile
 		var buildItem = function( item, index ) {
-			// consumables stack, so they're always re-buyable and show a count
-			// instead of a one-time OWNED lock; other kinds show an ability
-			// line (characters/drones) or just OWNED once purchased
+			// consumables stack and stay re-buyable, showing how many are in
+			// stock; everything else is a one-time unlock that reads OWNED
 			var stackable = ( item.kind === 'consumable' ),
 				owned = !stackable && $.ownsItem( item.id ),
-				status = item.comingSoon
-					? 'SOON'
-					: stackable
-						? ( 'x' + $.consumableCount( item.id ) + '  $' + item.priceUsd )
-						: ( owned ? 'OWNED' : '$' + item.priceUsd ),
-				label = item.title + '   ' + status + ( item.ability ? '\n' + item.ability : '' ),
+				note = item.comingSoon ? 'SOON' : ( owned ? 'OWNED' : $.usd( item.priceUsd ) ),
+				noteColor = item.comingSoon
+					? 'hsla(0, 0%, 100%, 0.4)'
+					: ( owned ? 'hsla(140, 70%, 60%, 1)' : 'hsla(45, 100%, 65%, 1)' ),
+				// pilots/drones explain themselves with their ability line;
+				// consumables show stock; plain skins/trails need no subtitle
+				subtitle = item.ability
+					? item.ability.replace( /^PASSIVE:\s*/, '' )
+					: ( stackable
+						? ( ( item.stack > 1 ? 'PACK OF ' + item.stack + ' / ' : '' ) + 'IN STOCK: ' + $.consumableCount( item.id ) )
+						: '' ),
 				column = index % columns,
 				row = Math.floor( index / columns ),
-				x = ( columns === 1 ) ? $.cw / 2 : $.cw / 2 + ( column ? itemColX : -itemColX + 2 );
+				x = ( columns === 1 ) ? $.cw / 2 : $.cw / 2 + ( column ? itemColX : -itemColX );
 
 			var icon = null;
 			if( item.kind === 'character' ) {
@@ -1959,7 +1969,7 @@ $.setState = function( state ) {
 				}
 				if( charDef ) {
 					var shipColor = $.definitions.shipColors[ $.storage[ 'ship' ] || 0 ] || $.definitions.shipColors[ 0 ];
-					icon = { draw: charDef.draw, color: owned ? shipColor.color : 'hsla(0, 0%, 45%, 1)', r: marketCompact ? 14 : 18 };
+					icon = { draw: charDef.draw, color: owned ? shipColor.color : 'hsla(0, 0%, 55%, 1)', r: smallText ? 13 : 16 };
 				}
 			} else if( item.kind === 'drone' ) {
 				icon = {
@@ -1973,8 +1983,8 @@ $.setState = function( state ) {
 						ctx.fillStyle = 'hsla(0, 0%, 5%, 1)';
 						ctx.fill();
 					},
-					color: owned ? 'hsla(190, 100%, 65%, 1)' : 'hsla(0, 0%, 45%, 1)',
-					r: marketCompact ? 12 : 15
+					color: owned ? 'hsla(190, 100%, 65%, 1)' : 'hsla(0, 0%, 55%, 1)',
+					r: smallText ? 11 : 14
 				};
 			}
 
@@ -1983,10 +1993,18 @@ $.setState = function( state ) {
 				y: itemStartY + row * ( itemHeight + itemGap ),
 				lockedWidth: itemWidth,
 				lockedHeight: itemHeight,
-				scale: item.ability ? 0.82 : 1,
-				title: label,
+				scale: 1,
+				card: 1,
+				name: item.title,
+				subtitle: subtitle,
+				note: note,
+				noteColor: noteColor,
+				subColor: stackable ? 'hsla(45, 100%, 70%, 0.7)' : 'hsla(190, 100%, 72%, 0.75)',
+				nameScale: smallText ? 1 : 2,
+				subScale: 1,
+				noteScale: smallText ? 1 : 2,
 				icon: icon,
-				iconAreaWidth: marketCompact ? 36 : 46,
+				iconAreaWidth: icon ? ( smallText ? 34 : 44 ) : 0,
 				scrollable: 1,
 				action: function() {
 					$.mouse.down = 0;
@@ -2643,7 +2661,7 @@ $.setupStates = function() {
 			ctx: $.ctxmg,
 			x: $.cw / 2,
 			y: marketTitle.ey + ( marketCompact ? 6 : 14 ),
-			text: $.marketState.enabled ? 'COSMETICS ONLY. NO PAY TO WIN. SETTLED ON BASE' : 'COSMETICS ONLY. NO PAY TO WIN. PAYMENTS LIVE SOON',
+			text: $.marketState.enabled ? 'PILOTS / DRONES / BOOSTS. SETTLED ON BASE' : 'PILOTS / DRONES / BOOSTS. PAYMENTS LIVE SOON',
 			hspacing: 1,
 			vspacing: 1,
 			halign: 'center',

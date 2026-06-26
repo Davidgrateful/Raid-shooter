@@ -34,10 +34,10 @@ export const CATALOG: MarketItem[] = [
     ability: 'EMBER WAKE: HEAL HP FROM KILLS',
   },
   {
-    id: 'consumable_health', title: 'HEALTH PACK x3', kind: 'consumable', priceUsd: 0.5, priceEth: '0.00017', stack: 3,
+    id: 'consumable_health', title: 'HEALTH PACK', kind: 'consumable', priceUsd: 0.5, priceEth: '0.00017', stack: 3,
   },
   {
-    id: 'consumable_shield', title: 'SHIELD CHARGE x3', kind: 'consumable', priceUsd: 0.75, priceEth: '0.00025', stack: 3,
+    id: 'consumable_shield', title: 'SHIELD CHARGE', kind: 'consumable', priceUsd: 0.75, priceEth: '0.00025', stack: 3,
   },
   {
     id: 'consumable_revive', title: 'REVIVE TOKEN', kind: 'consumable', priceUsd: 1, priceEth: '0.00033', stack: 1,

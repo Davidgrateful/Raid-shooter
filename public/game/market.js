@@ -113,6 +113,11 @@ $.consumableCount = function( id ) {
 	return $.profile.consumables[ id ] || 0;
 };
 
+// consistent storefront price, e.g. 0.9 -> "$0.90", 1 -> "$1.00"
+$.usd = function( n ) {
+	return '$' + Number( n ).toFixed( 2 );
+};
+
 // spends one charge server-side first so a refresh can't duplicate it,
 // then runs the in-run effect; flags the run as unranked either way
 // once a charge has actually been used, to keep Shooterboard credible
