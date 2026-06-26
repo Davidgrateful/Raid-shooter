@@ -80,6 +80,11 @@ $.init = function() {
 	};
 	$.buttons = [];
 
+	// generic vertical scroll for tall menu screens (market/board/hangar);
+	// drag-to-scroll on touch, wheel on desktop - see applyButtonScroll()
+	$.scroll = { y: 0, max: 0, dragging: 0, startY: 0, startScroll: 0, moved: 0 };
+	$.scrollableStates = { market: 1, board: 1, hangar: 1 };
+
 	$.cOffset = {
 		left: 0,
 		top: 0,
@@ -928,11 +933,32 @@ $.eventInsideUi = function( e ) {
 	return !!( t && t.closest && t.closest( 'header, w3m-modal, appkit-modal, wcm-modal, [role=dialog], nextjs-portal' ) );
 };
 
+// mouse wheel scrolls the current menu screen when its content overflows
+$.wheelcb = function( e ) {
+	if( $.eventInsideUi( e ) ) {
+		return;
+	}
+	if( !$.scrollableStates[ $.state ] || $.scroll.max <= 0 ) {
+		return;
+	}
+	e.preventDefault();
+	$.scroll.y = Math.max( 0, Math.min( $.scroll.max, $.scroll.y + e.deltaY ) );
+};
+
 $.mousemovecb = function( e ) {
 	if( $.eventInsideUi( e ) ) {
 		return;
 	}
 	e.preventDefault();
+
+	// touch drag-to-scroll on tall menu screens
+	if( $.scroll.dragging ) {
+		var dty = ( e.changedTouches ? e.changedTouches[ 0 ] : e ).pageY;
+		var ddelta = $.scroll.startY - dty;
+		$.scroll.moved = Math.max( $.scroll.moved, Math.abs( ddelta ) );
+		$.scroll.y = Math.max( 0, Math.min( $.scroll.max, $.scroll.startScroll + ddelta ) );
+		return;
+	}
 
 	var touches = e.changedTouches ? e.changedTouches : [e];
 
@@ -1010,6 +1036,17 @@ $.mousedowncb = function( e ) {
 	var isTouch = !!e.changedTouches;
 	var touches = e.changedTouches ? e.changedTouches : [e];
 
+	// scrollable menu screens: track the gesture as a drag instead of firing
+	// a button tap immediately, so a swipe-to-scroll doesn't also click
+	// whatever happens to be under the finger at touch-start
+	if( isTouch && $.scrollableStates[ $.state ] && $.scroll.max > 0 ) {
+		$.scroll.dragging = 1;
+		$.scroll.startY = touches[ 0 ].pageY;
+		$.scroll.startScroll = $.scroll.y;
+		$.scroll.moved = 0;
+		return;
+	}
+
 	for( var i = 0; i < touches.length; i++ ) {
 		var tx = touches[i].pageX;
 		var ty = touches[i].pageY;
@@ -1071,6 +1108,26 @@ $.mouseupcb = function( e ) {
 		e.preventDefault();
 	}
 	$.mouse.down = 0;
+
+	if( $.scroll.dragging ) {
+		var wasTap = ( $.scroll.moved < 8 );
+		$.scroll.dragging = 0;
+		if( wasTap ) {
+			var tapTouches = e.changedTouches ? e.changedTouches : [{ identifier: 0 }];
+			$.mouse.ax = tapTouches[ 0 ].pageX;
+			$.mouse.ay = tapTouches[ 0 ].pageY;
+			$.mousescreen();
+			for( var ti = 0; ti < $.buttons.length; ti++ ) {
+				var tb = $.buttons[ ti ];
+				if( $.util.pointInRect( $.mouse.sx, $.mouse.sy, tb.sx, tb.sy, tb.width, tb.height ) ) {
+					$.audio.play( 'click' );
+					tb.action();
+					break;
+				}
+			}
+		}
+		return;
+	}
 
 	var touches = e.changedTouches ? e.changedTouches : [{ identifier: 0 }];
 
@@ -1169,6 +1226,7 @@ $.bindEvents = function() {
 	window.addEventListener( 'mousemove', $.mousemovecb, { passive: false } );
 	window.addEventListener( 'mousedown', $.mousedowncb, { passive: false } );
 	window.addEventListener( 'mouseup', $.mouseupcb, { passive: false } );
+	window.addEventListener( 'wheel', $.wheelcb, { passive: false } );
 	window.addEventListener( 'touchstart', $.mousedowncb, { passive: false } );
 	window.addEventListener( 'touchmove', $.mousemovecb, { passive: false } );
 	window.addEventListener( 'touchend', $.mouseupcb, { passive: false } );
@@ -1435,9 +1493,33 @@ $.spawnPowerup = function( x, y ) {
 /*==============================================================================
 States
 ==============================================================================*/
+// scrollable buttons keep their layout position in by/bsy/bcy/bey and get
+// shifted by the live scroll offset every frame - call before update/render
+$.applyButtonScroll = function() {
+	for( var i = 0; i < $.buttons.length; i++ ) {
+		var b = $.buttons[ i ];
+		if( b && b.scrollable ) {
+			b.sy = b.bsy - $.scroll.y;
+			b.cy = b.bcy - $.scroll.y;
+			b.ey = b.bey - $.scroll.y;
+			b.y = b.by - $.scroll.y;
+		}
+	}
+};
+
+// call after pushing a state's buttons (and knowing its lowest scrollable
+// content edge) so dragging/wheel has the right range from frame one
+$.setScrollMax = function( contentBottom, viewportBottom ) {
+	$.scroll.max = Math.max( 0, contentBottom - viewportBottom );
+	$.scroll.y = Math.min( $.scroll.y, $.scroll.max );
+};
+
 $.setState = function( state ) {
 	// handle clean up between states
 	$.buttons.length = 0;
+	$.scroll.y = 0;
+	$.scroll.max = 0;
+	$.scroll.dragging = 0;
 
 	// the Shooterboard only needs to poll while it's actually on screen
 	if( $.boardRefreshTimer ) {
@@ -1653,13 +1735,25 @@ $.setState = function( state ) {
 					$.hangarIndex = ( $.hangarIndex + 1 ) % $.definitions.characters.length;
 				}
 			} ) );
+
+			// the control rows below the ship preview stack downward from
+			// the preview's own bottom edge (not up from the screen bottom),
+			// so on short/mobile screens they can never be pushed off-screen
+			// - if they still don't fit, the whole stack scrolls
+			var hangarRowGap = hangarCompact ? 48 : 58,
+				hangarRowsTop = arrowY + ( hangarCompact ? 78 : 104 ),
+				hr0 = hangarRowsTop,
+				hr1 = hr0 + hangarRowGap,
+				hr2 = hr1 + hangarRowGap;
+
 			$.buttons.push( new $.Button( {
 				x: $.cw / 2 - 104,
-				y: row1Y,
+				y: hr0,
 				lockedWidth: 199,
 				lockedHeight: 45,
 				scale: 2,
 				title: 'SELECT',
+				scrollable: 1,
 				action: function() {
 					$.mouse.down = 0;
 					var def = $.definitions.characters[ $.hangarIndex ];
@@ -1671,11 +1765,12 @@ $.setState = function( state ) {
 			} ) );
 			$.buttons.push( new $.Button( {
 				x: $.cw / 2 + 106,
-				y: row1Y,
+				y: hr0,
 				lockedWidth: 199,
 				lockedHeight: 45,
 				scale: 1,
 				title: 'COLOR: ' + $.definitions.shipColors[ $.storage['ship'] || 0 ].title,
+				scrollable: 1,
 				action: function() {
 					$.mouse.down = 0;
 					$.storage['ship'] = ( ( $.storage['ship'] || 0 ) + 1 ) % $.definitions.shipColors.length;
@@ -1685,11 +1780,12 @@ $.setState = function( state ) {
 			} ) );
 			$.buttons.push( new $.Button( {
 				x: $.cw / 2 - ( hangarCompact ? 160 : 180 ),
-				y: row2Y,
+				y: hr1,
 				lockedWidth: hangarCompact ? 149 : 169,
 				lockedHeight: 45,
 				scale: 1,
 				title: 'TRAIL: ' + ( $.equippedTrail() ? $.equippedTrail().title : 'NONE' ),
+				scrollable: 1,
 				action: function() {
 					$.mouse.down = 0;
 					// cycle through NONE plus owned trails
@@ -1707,11 +1803,12 @@ $.setState = function( state ) {
 			} ) );
 			$.buttons.push( new $.Button( {
 				x: $.cw / 2 + 1,
-				y: row2Y,
+				y: hr1,
 				lockedWidth: hangarCompact ? 149 : 169,
 				lockedHeight: 45,
 				scale: 1,
 				title: 'VIEW: GRID',
+				scrollable: 1,
 				action: function() {
 					$.mouse.down = 0;
 					$.hangarView = 'grid';
@@ -1722,11 +1819,12 @@ $.setState = function( state ) {
 			} ) );
 			$.buttons.push( new $.Button( {
 				x: $.cw / 2 + ( hangarCompact ? 160 : 180 ),
-				y: row2Y,
+				y: hr1,
 				lockedWidth: hangarCompact ? 149 : 169,
 				lockedHeight: 45,
 				scale: 1,
 				title: 'MENU',
+				scrollable: 1,
 				action: function() {
 					$.mouse.down = 0;
 					$.setState( 'menu' );
@@ -1734,11 +1832,12 @@ $.setState = function( state ) {
 			} ) );
 			$.buttons.push( new $.Button( {
 				x: $.cw / 2,
-				y: row2Y + ( hangarCompact ? 38 : 52 ),
+				y: hr2,
 				lockedWidth: hangarCompact ? 308 : 348,
 				lockedHeight: 45,
 				scale: 1,
 				title: 'DRONE: ' + ( $.equippedDrone() ? $.equippedDrone().title : 'NONE' ),
+				scrollable: 1,
 				action: function() {
 					$.mouse.down = 0;
 					// cycle through NONE plus owned drones - one equipped at a time
@@ -1754,6 +1853,9 @@ $.setState = function( state ) {
 					this.title = 'DRONE: ' + ( $.equippedDrone() ? $.equippedDrone().title : 'NONE' );
 				}
 			} ) );
+
+			$.hangarClip = { top: hangarRowsTop - 30, bottom: $.ch - ( hangarCompact ? 10 : 16 ) };
+			$.setScrollMax( hr2 + 30, $.hangarClip.bottom );
 		}
 	}
 
@@ -1766,20 +1868,64 @@ $.setState = function( state ) {
 			$.fetchProfile();
 		}
 
+		$.marketTab = $.marketTab || 'character';
+
 		var marketCompact = ( $.ch < 640 ),
-			itemWidth = marketCompact ? 259 : 300,
-			itemHeight = marketCompact ? 35 : 44,
-			itemGap = marketCompact ? 5 : 9,
+			tabsY = marketCompact ? 90 : 162,
+			itemStartY = tabsY + ( marketCompact ? 30 : 42 );
+
+		// PILOTS / DRONES show a ship icon plus an ability line, so they get
+		// a single wide column; BOOSTS (skins, trails, consumables) are
+		// simple buy-only rows and stay two-up to keep the list short
+		var richTab = ( $.marketTab !== 'boost' ),
+			itemWidth = richTab ? ( marketCompact ? 320 : 420 ) : ( marketCompact ? 259 : 300 ),
+			itemHeight = richTab ? ( marketCompact ? 50 : 64 ) : ( marketCompact ? 35 : 44 ),
+			itemGap = marketCompact ? 7 : 11,
 			itemColX = marketCompact ? 136 : 158,
-			itemStartY = marketCompact ? 96 : 172;
+			columns = richTab ? 1 : 2;
+
+		var bucketOf = function( item ) {
+			if( item.kind === 'character' || item.kind === 'drone' ) { return item.kind; }
+			return 'boost';
+		};
+
+		var filteredItems = [];
+		for( var fi = 0; fi < $.marketState.items.length; fi++ ) {
+			if( bucketOf( $.marketState.items[ fi ] ) === $.marketTab ) {
+				filteredItems.push( $.marketState.items[ fi ] );
+			}
+		}
+
+		// three fixed (non-scrolling) tab buttons across the top of the list
+		var tabDefs = [
+			{ id: 'character', title: 'PILOTS' },
+			{ id: 'drone', title: 'DRONES' },
+			{ id: 'boost', title: 'BOOSTS' }
+		];
+		for( var ti = 0; ti < tabDefs.length; ti++ ) {
+			(function( tab ) {
+				$.buttons.push( new $.Button( {
+					x: $.cw / 2 + ( ti - 1 ) * ( marketCompact ? 108 : 140 ),
+					y: tabsY,
+					lockedWidth: marketCompact ? 102 : 132,
+					lockedHeight: marketCompact ? 28 : 36,
+					scale: marketCompact ? 1 : 1.4,
+					title: ( $.marketTab === tab.id ? '> ' : '' ) + tab.title,
+					action: function() {
+						$.mouse.down = 0;
+						$.marketTab = tab.id;
+						$.setState( 'market' );
+					}
+				} ) );
+			})( tabDefs[ ti ] );
+		}
 
 		// item buttons are rebuilt whenever the screen is (re)entered, so
-		// titles always reflect current ownership. Always two columns so the
-		// list stays short and the back button is never pushed off-screen
+		// titles always reflect current ownership
 		var buildItem = function( item, index ) {
 			// consumables stack, so they're always re-buyable and show a count
 			// instead of a one-time OWNED lock; other kinds show an ability
-			// line (characters) or just OWNED once purchased
+			// line (characters/drones) or just OWNED once purchased
 			var stackable = ( item.kind === 'consumable' ),
 				owned = !stackable && $.ownsItem( item.id ),
 				status = item.comingSoon
@@ -1788,9 +1934,41 @@ $.setState = function( state ) {
 						? ( 'x' + $.consumableCount( item.id ) + '  $' + item.priceUsd )
 						: ( owned ? 'OWNED' : '$' + item.priceUsd ),
 				label = item.title + '   ' + status + ( item.ability ? '\n' + item.ability : '' ),
-				column = index % 2,
-				row = Math.floor( index / 2 ),
-				x = $.cw / 2 + ( column ? itemColX : -itemColX + 2 );
+				column = index % columns,
+				row = Math.floor( index / columns ),
+				x = ( columns === 1 ) ? $.cw / 2 : $.cw / 2 + ( column ? itemColX : -itemColX + 2 );
+
+			var icon = null;
+			if( item.kind === 'character' ) {
+				var charId = item.id.replace( /^pilot_/, '' ),
+					charDef = null;
+				for( var ci = 0; ci < $.definitions.characters.length; ci++ ) {
+					if( $.definitions.characters[ ci ].id === charId ) {
+						charDef = $.definitions.characters[ ci ];
+						break;
+					}
+				}
+				if( charDef ) {
+					var shipColor = $.definitions.shipColors[ $.storage[ 'ship' ] || 0 ] || $.definitions.shipColors[ 0 ];
+					icon = { draw: charDef.draw, color: owned ? shipColor.color : 'hsla(0, 0%, 45%, 1)', r: marketCompact ? 14 : 18 };
+				}
+			} else if( item.kind === 'drone' ) {
+				icon = {
+					draw: function( ctx, r, fillStyle ) {
+						ctx.beginPath();
+						ctx.arc( 0, 0, r, 0, $.twopi );
+						ctx.fillStyle = fillStyle;
+						ctx.fill();
+						ctx.beginPath();
+						ctx.arc( 0, 0, r * 0.45, 0, $.twopi );
+						ctx.fillStyle = 'hsla(0, 0%, 5%, 1)';
+						ctx.fill();
+					},
+					color: owned ? 'hsla(190, 100%, 65%, 1)' : 'hsla(0, 0%, 45%, 1)',
+					r: marketCompact ? 12 : 15
+				};
+			}
+
 			$.buttons.push( new $.Button( {
 				x: x,
 				y: itemStartY + row * ( itemHeight + itemGap ),
@@ -1798,6 +1976,9 @@ $.setState = function( state ) {
 				lockedHeight: itemHeight,
 				scale: item.ability ? 0.82 : 1,
 				title: label,
+				icon: icon,
+				iconAreaWidth: marketCompact ? 36 : 46,
+				scrollable: 1,
 				action: function() {
 					$.mouse.down = 0;
 					if( ( stackable || !owned ) && !item.comingSoon ) {
@@ -1806,16 +1987,15 @@ $.setState = function( state ) {
 				}
 			} ) );
 		};
-		for( var ii = 0; ii < $.marketState.items.length; ii++ ) {
-			buildItem( $.marketState.items[ ii ], ii );
+		for( var ii = 0; ii < filteredItems.length; ii++ ) {
+			buildItem( filteredItems[ ii ], ii );
 		}
 
-		// back button sits right below the grid, always on screen
-		var marketRows = Math.ceil( $.marketState.items.length / 2 ),
-			marketMenuY = itemStartY + marketRows * ( itemHeight + itemGap ) + ( marketCompact ? 14 : 30 );
+		// BACK is a fixed footer button so it's always reachable regardless
+		// of scroll position; the list itself scrolls beneath the tabs
 		var marketMenuButton = new $.Button( {
 			x: $.cw / 2 + 1,
-			y: Math.min( marketMenuY, $.ch - ( marketCompact ? 26 : 44 ) ),
+			y: $.ch - ( marketCompact ? 26 : 44 ),
 			lockedWidth: 299,
 			lockedHeight: 45,
 			scale: 2,
@@ -1825,6 +2005,12 @@ $.setState = function( state ) {
 			}
 		} );
 		$.buttons.push( marketMenuButton );
+
+		var marketRows = Math.ceil( filteredItems.length / columns ),
+			marketContentBottom = itemStartY + marketRows * ( itemHeight + itemGap ),
+			marketListBottom = $.ch - ( marketCompact ? 62 : 100 );
+		$.setScrollMax( marketContentBottom, marketListBottom );
+		$.marketListClip = { top: itemStartY - itemGap, bottom: marketListBottom };
 	}
 
 	if( state == 'settings' ) {
@@ -2401,8 +2587,20 @@ $.setupStates = function() {
 		// advance the tick so ship previews animate (safe: PLAY/MENU reset it)
 		$.tick += 1;
 
+		$.applyButtonScroll();
 		var i = $.buttons.length; while( i-- ){ if( $.buttons[ i ] ) { $.buttons[ i ].update( i ) } }
-			i = $.buttons.length; while( i-- ){ if( $.buttons[ i ] ) { $.buttons[ i ].render( i ) } }
+
+		i = $.buttons.length;
+		while( i-- ) { if( $.buttons[ i ] && !$.buttons[ i ].scrollable ) { $.buttons[ i ].render( i ); } }
+
+		var hclip = $.hangarClip || { top: 0, bottom: $.ch };
+		$.ctxmg.save();
+		$.ctxmg.beginPath();
+		$.ctxmg.rect( 0, hclip.top, $.cw, Math.max( 0, hclip.bottom - hclip.top ) );
+		$.ctxmg.clip();
+		i = $.buttons.length;
+		while( i-- ) { if( $.buttons[ i ] && $.buttons[ i ].scrollable ) { $.buttons[ i ].render( i ); } }
+		$.ctxmg.restore();
 	};
 
 	$.states['market'] = function() {
@@ -2470,8 +2668,23 @@ $.setupStates = function() {
 			$.ctxmg.fill();
 		}
 
+		$.applyButtonScroll();
 		var i = $.buttons.length; while( i-- ){ if( $.buttons[ i ] ) { $.buttons[ i ].update( i ) } }
-			i = $.buttons.length; while( i-- ){ if( $.buttons[ i ] ) { $.buttons[ i ].render( i ) } }
+
+		// fixed chrome (tabs, BACK) renders normally; the scrollable item
+		// list is clipped to the strip between the tabs and the footer so
+		// it can't be dragged up over the title or down past BACK
+		i = $.buttons.length;
+		while( i-- ) { if( $.buttons[ i ] && !$.buttons[ i ].scrollable ) { $.buttons[ i ].render( i ); } }
+
+		var clip = $.marketListClip || { top: 0, bottom: $.ch };
+		$.ctxmg.save();
+		$.ctxmg.beginPath();
+		$.ctxmg.rect( 0, clip.top, $.cw, Math.max( 0, clip.bottom - clip.top ) );
+		$.ctxmg.clip();
+		i = $.buttons.length;
+		while( i-- ) { if( $.buttons[ i ] && $.buttons[ i ].scrollable ) { $.buttons[ i ].render( i ); } }
+		$.ctxmg.restore();
 	};
 
 	$.states['settings'] = function() {
@@ -2614,10 +2827,11 @@ $.setupStates = function() {
 			$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 0.5)';
 			$.ctxmg.fill();
 		} else {
-			// two columns so the top 30 (guests included) fit on one
-			// screen without scrolling; narrow phones drop to one column
-			// at a smaller scale so names never collide with scores
-			var rowCount = Math.min( $.board.entries.length, 30 ),
+			// two columns so rows fit two-up; narrow phones drop to one
+			// column at a smaller scale so names never collide with scores.
+			// the full top 100 is listed - the list scrolls rather than
+			// truncating to whatever fits on one screen
+			var rowCount = Math.min( $.board.entries.length, 100 ),
 				narrow = ( $.cw < 480 ),
 				columns = narrow ? 1 : 2,
 				rowScale = ( boardCompact || narrow ) ? 1 : 2,
@@ -2630,7 +2844,16 @@ $.setupStates = function() {
 				col0Left = $.cw / 2 - totalWidth / 2,
 				col0Right = col0Left + colWidth,
 				col1Left = narrow ? col0Left : col0Right + columnGap,
-				col1Right = narrow ? col0Right : col1Left + colWidth;
+				col1Right = narrow ? col0Right : col1Left + colWidth,
+				boardClipTop = rowStartY - rowSpacing,
+				boardClipBottom = $.ch - ( boardCompact ? 100 : 130 );
+
+			$.setScrollMax( rowStartY + perColumn * rowSpacing + 10, boardClipBottom );
+
+			$.ctxmg.save();
+			$.ctxmg.beginPath();
+			$.ctxmg.rect( 0, boardClipTop, $.cw, Math.max( 0, boardClipBottom - boardClipTop ) );
+			$.ctxmg.clip();
 
 			for( var ri = 0; ri < rowCount; ri++ ) {
 				var entry = $.board.entries[ ri ],
@@ -2643,7 +2866,7 @@ $.setupStates = function() {
 					row = ( ri < perColumn ) ? ri : ri - perColumn,
 					leftX = ( col === 0 ) ? col0Left : col1Left,
 					rightX = ( col === 0 ) ? col0Right : col1Right,
-					rowY = rowStartY + row * rowSpacing;
+					rowY = rowStartY + row * rowSpacing - $.scroll.y;
 
 				$.ctxmg.beginPath();
 				$.text( {
@@ -2680,6 +2903,8 @@ $.setupStates = function() {
 				$.ctxmg.fillStyle = $.tierFor( entry.score ).color;
 				$.ctxmg.fill();
 			}
+
+			$.ctxmg.restore();
 		}
 
 		if( !$.session.authenticated && !$.board.loading ) {
