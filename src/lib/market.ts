@@ -14,6 +14,9 @@ export interface MarketItem {
   stack?: number;
   // shown alongside character items in the storefront
   ability?: string;
+  // reward-only items are never listed for sale; they're granted to
+  // tournament winners from the admin, which keeps them exclusive
+  reward?: boolean;
 }
 
 // priceEth approximates priceUsd at deploy time - adjust as ETH moves.
@@ -87,11 +90,23 @@ export const CATALOG: MarketItem[] = [
     id: 'drone_medicwisp', title: 'MEDIC WISP DRONE', kind: 'drone', priceUsd: 0.9, priceEth: '0.0003',
     ability: 'PASSIVE: SLOWLY REGENERATES HULL',
   },
+  // ---- reward-only, never for sale (granted to tournament winners) ----
+  {
+    id: 'trail_champion', title: 'CHAMPION TRAIL', kind: 'trail', priceUsd: 0, priceEth: '0', reward: true,
+  },
+  {
+    id: 'drone_champion', title: 'CHAMPION CREST DRONE', kind: 'drone', priceUsd: 0, priceEth: '0', reward: true,
+    ability: 'PASSIVE: WINNERS-ONLY COSMETIC CREST',
+  },
 ];
 
 export function getItem(id: string): MarketItem | undefined {
   return CATALOG.find((item) => item.id === id);
 }
+
+// The catalog the public storefront should show - reward-only items are
+// hidden so they stay exclusive to tournament winners.
+export const PUBLIC_CATALOG = CATALOG.filter((item) => !item.reward);
 
 // Payments go live once a treasury address is configured.
 export const treasury = (process.env.NEXT_PUBLIC_BASE_TREASURY || '').trim().toLowerCase();

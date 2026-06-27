@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminGate } from '@/lib/admin-auth';
 import { listSponsors, upsertSponsor, deleteSponsor, type Sponsor } from '@/lib/sponsors';
+import { getAdMetrics } from '@/lib/admetrics';
 
 // Admin CRUD for sponsors/partners. The operator drives this entirely from
 // the dashboard - no code changes needed to add or remove a partner.
 export async function GET(req: NextRequest) {
   const denied = adminGate(req);
   if (denied) return denied;
-  const sponsors = await listSponsors();
-  return NextResponse.json({ sponsors });
+  const [sponsors, metrics] = await Promise.all([listSponsors(), getAdMetrics()]);
+  return NextResponse.json({ sponsors, metrics });
 }
 
 export async function POST(req: NextRequest) {

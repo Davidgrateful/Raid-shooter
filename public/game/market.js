@@ -19,7 +19,9 @@ $.definitions.premiumColors = [
 $.definitions.trails = [
 	{ id: 'trail_ember', title: 'EMBER', hue: 25 },
 	{ id: 'trail_ion', title: 'ION', hue: 190 },
-	{ id: 'trail_void', title: 'VOID', hue: 285 }
+	{ id: 'trail_void', title: 'VOID', hue: 285 },
+	// reward-only: granted to tournament champions, never sold
+	{ id: 'trail_champion', title: 'CHAMPION', hue: 45 }
 ];
 
 $.ownsItem = function( id ) {

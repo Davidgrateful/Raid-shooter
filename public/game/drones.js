@@ -80,5 +80,24 @@ $.definitions.drones = [
 			ctx.fillRect( -r * 0.16, -r * 0.6, r * 0.32, r * 1.2 );
 			ctx.fillRect( -r * 0.6, -r * 0.16, r * 1.2, r * 0.32 );
 		}
+	},
+	{
+		// reward-only champion crest: a small gold crown. Never sold - granted
+		// to tournament winners from the admin so it reads as a flex in-game.
+		id: 'drone_champion', title: 'CHAMPION CREST', desc: 'WINNERS-ONLY COSMETIC CREST',
+		reward: true,
+		draw: function( ctx, r, fillStyle, tick ) {
+			ctx.beginPath();
+			ctx.moveTo( -r, r * 0.6 );
+			ctx.lineTo( -r, -r * 0.4 );
+			ctx.lineTo( -r * 0.5, r * 0.1 );
+			ctx.lineTo( 0, -r * 0.7 );
+			ctx.lineTo( r * 0.5, r * 0.1 );
+			ctx.lineTo( r, -r * 0.4 );
+			ctx.lineTo( r, r * 0.6 );
+			ctx.closePath();
+			ctx.fillStyle = 'hsla(45, 100%, 60%, 1)';
+			ctx.fill();
+		}
 	}
 ];
