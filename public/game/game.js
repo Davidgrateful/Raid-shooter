@@ -1588,6 +1588,11 @@ $.setState = function( state ) {
 				$.promptPilotName();
 				this.title = 'CALL SIGN: ' + ( $.storage['pilotname'] || 'SET NAME' );
 			} },
+			{ title: 'HOW TO PLAY', scale: menuCompact ? 1 : 2, action: function() {
+				$.mouse.down = 0;
+				$.howtoIndex = 0;
+				$.setState( 'howto' );
+			} },
 			{ title: 'PILOT: ' + $.currentCharacter().title, scale: menuCompact ? 1 : 2, action: function() {
 				$.mouse.down = 0;
 				$.setState( 'hangar' );
@@ -2271,6 +2276,65 @@ $.setState = function( state ) {
 		$.buttons.push( menuButton );
 	}
 
+	if( state == 'howto' ) {
+		$.mouse.down = 0;
+		if( typeof $.howtoIndex !== 'number' ) { $.howtoIndex = 0; }
+
+		var htCompact = ( $.ch < 640 ),
+			htCount = $.howtoSlideCount(),
+			htBtnY = htCompact ? $.ch - 34 : $.ch - 60,
+			htLast = ( $.howtoIndex >= htCount - 1 );
+
+		// PREV (only past the first slide)
+		if( $.howtoIndex > 0 ) {
+			$.buttons.push( new $.Button( {
+				x: $.cw / 2 - ( htCompact ? 150 : 220 ),
+				y: htBtnY,
+				lockedWidth: htCompact ? 96 : 150,
+				lockedHeight: htCompact ? 40 : 49,
+				scale: htCompact ? 1 : 2,
+				title: 'PREV',
+				action: function() {
+					$.mouse.down = 0;
+					$.howtoIndex = Math.max( 0, $.howtoIndex - 1 );
+					$.setState( 'howto' );
+				}
+			} ) );
+		}
+
+		// NEXT, or DONE on the last slide -> back to menu
+		$.buttons.push( new $.Button( {
+			x: $.cw / 2 + ( htCompact ? 150 : 220 ),
+			y: htBtnY,
+			lockedWidth: htCompact ? 96 : 150,
+			lockedHeight: htCompact ? 40 : 49,
+			scale: htCompact ? 1 : 2,
+			title: htLast ? 'PLAY' : 'NEXT',
+			action: function() {
+				$.mouse.down = 0;
+				if( $.howtoIndex >= $.howtoSlideCount() - 1 ) {
+					$.setState( 'menu' );
+				} else {
+					$.howtoIndex += 1;
+					$.setState( 'howto' );
+				}
+			}
+		} ) );
+
+		// MENU/BACK, centered at the bottom
+		$.buttons.push( new $.Button( {
+			x: $.cw / 2 + 1,
+			y: htCompact ? $.ch - 34 : $.ch - 60,
+			lockedWidth: htCompact ? 130 : 180,
+			lockedHeight: htCompact ? 40 : 49,
+			scale: htCompact ? 1 : 2,
+			title: 'MENU',
+			action: function() {
+				$.setState( 'menu' );
+			}
+		} ) );
+	}
+
 	if( state == 'pause' ) {
 		$.mouse.down = 0;
 		$.screenshot = $.ctxmg.getImageData( 0, 0, $.cmg.width, $.cmg.height );
@@ -2395,9 +2459,26 @@ $.setState = function( state ) {
 		} );
 		$.buttons.push( resumeButton );
 
+		// SHARE: opens a rank card image for this run (the /api/card OG image)
+		// so the player can post it. Uses the native share sheet on mobile,
+		// falls back to opening the image in a new tab on desktop.
+		var shareButton = new $.Button( {
+			x: goCompact ? $.cw / 2 + 1 : $.cw / 2 + 1,
+			y: goCompact ? $.ch - 82 : resumeButton.ey + 25,
+			lockedWidth: goCompact ? 299 : 299,
+			lockedHeight: goCompact ? 38 : 49,
+			scale: goCompact ? 1 : 2,
+			title: 'SHARE MY RANK',
+			action: function() {
+				$.mouse.down = 0;
+				$.shareRunCard();
+			}
+		} );
+		$.buttons.push( shareButton );
+
 		var menuButton = new $.Button( {
 			x: goCompact ? $.cw / 2 + 106 : $.cw / 2 + 1,
-			y: goCompact ? $.ch - 34 : resumeButton.ey + 25,
+			y: goCompact ? $.ch - 34 : shareButton.ey + 25,
 			lockedWidth: goCompact ? 199 : 299,
 			lockedHeight: goCompact ? 45 : 49,
 			scale: goCompact ? 2 : 3,
@@ -3147,6 +3228,185 @@ $.setupStates = function() {
 		} );
 		$.ctxmg.fillStyle = '#fff';
 		$.ctxmg.fill();
+
+		var i = $.buttons.length; while( i-- ){ if( $.buttons[ i ] ) { $.buttons[ i ].render( i ) } }
+			i = $.buttons.length; while( i-- ){ if( $.buttons[ i ] ) { $.buttons[ i ].update( i ) } }
+	};
+
+	/*==============================================================================
+	How To Play - a slide deck explaining controls and the game, illustrated
+	with the game's own art (ship / asteroid / drone / tier dots)
+	==============================================================================*/
+	// small filled triangle, pointing in a cardinal direction, for the
+	// movement arrows on the controls slide
+	function htArrow( cx, cy, dir, s, color ) {
+		$.ctxmg.beginPath();
+		if( dir === 'up' ) { $.ctxmg.moveTo( cx, cy - s ); $.ctxmg.lineTo( cx - s * 0.7, cy ); $.ctxmg.lineTo( cx + s * 0.7, cy ); }
+		else if( dir === 'down' ) { $.ctxmg.moveTo( cx, cy + s ); $.ctxmg.lineTo( cx - s * 0.7, cy ); $.ctxmg.lineTo( cx + s * 0.7, cy ); }
+		else if( dir === 'left' ) { $.ctxmg.moveTo( cx - s, cy ); $.ctxmg.lineTo( cx, cy - s * 0.7 ); $.ctxmg.lineTo( cx, cy + s * 0.7 ); }
+		else { $.ctxmg.moveTo( cx + s, cy ); $.ctxmg.lineTo( cx, cy - s * 0.7 ); $.ctxmg.lineTo( cx, cy + s * 0.7 ); }
+		$.ctxmg.closePath();
+		$.ctxmg.fillStyle = color;
+		$.ctxmg.fill();
+	}
+
+	// a jagged asteroid silhouette centered at (cx,cy)
+	function htAsteroid( cx, cy, r, color ) {
+		var pts = [ 1, 0.7, 1.05, 0.55, 0.8, 0.95, 1, 1.1, 0.65, 0.85, 1.1 ];
+		$.ctxmg.beginPath();
+		for( var a = 0; a < 11; a++ ) {
+			var ang = ( a / 11 ) * $.twopi,
+				rr = r * pts[ a ],
+				x = cx + Math.cos( ang ) * rr,
+				y = cy + Math.sin( ang ) * rr;
+			if( a === 0 ) { $.ctxmg.moveTo( x, y ); } else { $.ctxmg.lineTo( x, y ); }
+		}
+		$.ctxmg.closePath();
+		$.ctxmg.fillStyle = color;
+		$.ctxmg.fill();
+	}
+
+	$.howtoSlideData = function() {
+		var accent = 'hsla(190, 100%, 70%, 1)',
+			ship0 = $.definitions.characters[ 0 ],
+			ship1 = $.definitions.characters[ 1 ] || ship0,
+			drone = ( $.definitions.drones && $.definitions.drones[ 1 ] ) || null;
+		return [
+			{
+				title: 'CONTROLS',
+				lines: 'MOVE:  WASD OR ARROWS\nAIM AND FIRE:  MOUSE\nDASH:  SHIFT OR SPACE\nON PHONE:  DRAG TO MOVE,  TAP TO FIRE',
+				draw: function( cx, cy, r ) {
+					$.ctxmg.save();
+					$.ctxmg.translate( cx, cy );
+					ship0.draw( $.ctxmg, r * 0.55, 'hsla(0, 0%, 96%, 1)', $.tick );
+					$.ctxmg.restore();
+					var d = r * 1.5, a = r * 0.34;
+					htArrow( cx, cy - d, 'up', a, accent );
+					htArrow( cx, cy + d, 'down', a, accent );
+					htArrow( cx - d, cy, 'left', a, accent );
+					htArrow( cx + d, cy, 'right', a, accent );
+				}
+			},
+			{
+				title: 'THE MISSION',
+				lines: 'SURVIVE ENDLESS WAVES\nOF ASTEROIDS AND DRONES\nDEFEAT THE ASTEROID KING\nEVERY HIT DRAINS YOUR HULL',
+				draw: function( cx, cy, r ) {
+					htAsteroid( cx + r * 0.9, cy + r * 0.4, r * 0.75, 'hsla(0, 0%, 42%, 1)' );
+					htAsteroid( cx - r * 0.6, cy - r * 0.5, r * 0.45, 'hsla(0, 0%, 55%, 1)' );
+					$.ctxmg.save();
+					$.ctxmg.translate( cx - r * 0.4, cy + r * 0.5 );
+					$.ctxmg.rotate( -0.5 );
+					$.definitions.characters[ 0 ].draw( $.ctxmg, r * 0.42, 'hsla(190, 100%, 75%, 1)', $.tick );
+					$.ctxmg.restore();
+				}
+			},
+			{
+				title: 'SCORE AND COMBO',
+				lines: 'CHAIN KILLS TO RAISE COMBO\nHIGHER COMBO,  MORE SCORE\nKEEP KILLING BEFORE\nTHE COMBO TIMER RESETS',
+				draw: function( cx, cy, r ) {
+					// a segmented combo meter filling toward x8
+					var segs = 8, w = r * 0.34, gap = r * 0.12, totalW = segs * w + ( segs - 1 ) * gap,
+						x0 = cx - totalW / 2, h = r * 0.7;
+					for( var s = 0; s < segs; s++ ) {
+						$.ctxmg.beginPath();
+						$.ctxmg.rect( x0 + s * ( w + gap ), cy - h / 2, w, h );
+						$.ctxmg.fillStyle = ( s < 6 )
+							? 'hsla(' + ( 45 + s * 8 ) + ', 100%, 60%, 1)'
+							: 'hsla(0, 0%, 100%, 0.15)';
+						$.ctxmg.fill();
+					}
+					$.ctxmg.beginPath();
+					$.text( { ctx: $.ctxmg, x: cx, y: cy - h, text: 'X8', hspacing: 1, vspacing: 1, halign: 'center', valign: 'bottom', scale: 3, snap: 1, render: 1 } );
+					$.ctxmg.fillStyle = 'hsla(45, 100%, 65%, 1)';
+					$.ctxmg.fill();
+				}
+			},
+			{
+				title: 'PILOTS AND DRONES',
+				lines: 'EACH PILOT HAS AN ABILITY\nEQUIP A DRONE FOR A\nPASSIVE COMBAT BONUS\nDRAFT UPGRADES EACH WAVE',
+				draw: function( cx, cy, r ) {
+					$.ctxmg.save();
+					$.ctxmg.translate( cx, cy );
+					ship1.draw( $.ctxmg, r * 0.55, 'hsla(0, 0%, 96%, 1)', $.tick );
+					$.ctxmg.restore();
+					if( drone && drone.draw ) {
+						var ang = $.tick / 30,
+							dx = cx + Math.cos( ang ) * r * 1.3,
+							dy = cy + Math.sin( ang ) * r * 1.3;
+						$.ctxmg.save();
+						$.ctxmg.translate( dx, dy );
+						drone.draw( $.ctxmg, r * 0.3, 'hsla(190, 100%, 70%, 1)', $.tick );
+						$.ctxmg.restore();
+					}
+				}
+			},
+			{
+				title: 'CLIMB THE RANKS',
+				lines: 'TOP THE SHOOTERBOARD\nEARN TIERS BRONZE TO MASTER\nMARKET ITEMS ARE COSMETIC\nAND NEVER AFFECT YOUR SCORE',
+				draw: function( cx, cy, r ) {
+					var tiers = $.definitions.tiers, n = tiers.length,
+						gap = r * 0.62, x0 = cx - ( ( n - 1 ) * gap ) / 2;
+					for( var t = 0; t < n; t++ ) {
+						$.util.fillCircle( $.ctxmg, x0 + t * gap, cy, r * ( 0.16 + t * 0.03 ), $.tierFor( tiers[ t ].min ).color );
+					}
+				}
+			}
+		];
+	};
+
+	$.howtoSlideCount = function() {
+		return $.howtoSlideData().length;
+	};
+
+	$.states['howto'] = function() {
+		$.clearScreen();
+
+		var htCompact = ( $.ch < 640 ),
+			slides = $.howtoSlideData(),
+			idx = Math.max( 0, Math.min( slides.length - 1, $.howtoIndex || 0 ) ),
+			slide = slides[ idx ];
+
+		// page title
+		$.ctxmg.beginPath();
+		var htTitle = $.text( {
+			ctx: $.ctxmg, x: $.cw / 2, y: htCompact ? 50 : 90,
+			text: 'HOW TO PLAY', hspacing: 2, vspacing: 1,
+			halign: 'center', valign: 'bottom', scale: htCompact ? 4 : 7, snap: 1, render: 1
+		} );
+		var g = $.ctxmg.createLinearGradient( htTitle.sx, htTitle.sy, htTitle.sx, htTitle.ey );
+		g.addColorStop( 0, '#fff' ); g.addColorStop( 1, '#999' );
+		$.ctxmg.fillStyle = g; $.ctxmg.fill();
+
+		// slide subtitle (accent)
+		$.ctxmg.beginPath();
+		var htSub = $.text( {
+			ctx: $.ctxmg, x: $.cw / 2, y: htTitle.ey + ( htCompact ? 10 : 20 ),
+			text: slide.title, hspacing: 1, vspacing: 1,
+			halign: 'center', valign: 'top', scale: htCompact ? 2 : 3, snap: 1, render: 1
+		} );
+		$.ctxmg.fillStyle = 'hsla(190, 100%, 70%, 1)'; $.ctxmg.fill();
+
+		// illustration (drawn from real game art)
+		var illoY = htCompact ? Math.floor( $.ch * 0.40 ) : Math.floor( $.ch * 0.40 ),
+			illoR = htCompact ? 26 : 42;
+		slide.draw( $.cw / 2, illoY, illoR );
+
+		// body lines
+		$.ctxmg.beginPath();
+		$.text( {
+			ctx: $.ctxmg, x: $.cw / 2, y: illoY + ( htCompact ? 64 : 96 ),
+			text: slide.lines, hspacing: 1, vspacing: htCompact ? 8 : 14,
+			halign: 'center', valign: 'top', scale: htCompact ? 1 : 2, snap: 1, render: 1
+		} );
+		$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 0.8)'; $.ctxmg.fill();
+
+		// page dots
+		var dotN = slides.length, dotGap = 22, dotY = htCompact ? $.ch - 66 : $.ch - 104,
+			dotX0 = $.cw / 2 - ( ( dotN - 1 ) * dotGap ) / 2;
+		for( var d2 = 0; d2 < dotN; d2++ ) {
+			$.util.fillCircle( $.ctxmg, dotX0 + d2 * dotGap, dotY, d2 === idx ? 5 : 3,
+				d2 === idx ? 'hsla(190, 100%, 70%, 1)' : 'hsla(0, 0%, 100%, 0.3)' );
+		}
 
 		var i = $.buttons.length; while( i-- ){ if( $.buttons[ i ] ) { $.buttons[ i ].render( i ) } }
 			i = $.buttons.length; while( i-- ){ if( $.buttons[ i ] ) { $.buttons[ i ].update( i ) } }

@@ -229,5 +229,33 @@ $.submitScore = function() {
 	} );
 };
 
+// Builds a shareable rank-card image URL for the run just finished and opens
+// the native share sheet (mobile) or the image in a new tab (desktop).
+$.shareRunCard = function() {
+	try {
+		var pilot = ( $.hero && $.hero.character && $.hero.character.title ) || 'NOVA',
+			nm = $.storage['pilotname'] || 'PILOT',
+			rank = ( $.boardSubmit && $.boardSubmit.rank ) || 0,
+			tier = $.tierFor ? $.tierFor( $.score || 0 ).name : '',
+			params = 'name=' + encodeURIComponent( nm ) +
+				'&pilot=' + encodeURIComponent( pilot ) +
+				'&score=' + ( $.score | 0 ) +
+				'&kills=' + ( $.kills | 0 ) +
+				'&combo=' + ( $.bestCombo | 0 ) +
+				'&level=' + ( ( $.level.current + 1 ) | 0 ) +
+				( tier ? '&tier=' + encodeURIComponent( tier ) : '' ) +
+				( rank ? '&rank=' + rank : '' ),
+			url = window.location.origin + '/api/card?' + params,
+			text = 'I SCORED ' + $.util.commas( $.score || 0 ) + ' ON RAID SHOOTER';
+		if( navigator.share ) {
+			navigator.share( { title: 'RAID SHOOTER', text: text, url: url } ).catch( function() {} );
+		} else {
+			window.open( url, '_blank' );
+		}
+	} catch( e ) {
+		// sharing is best-effort - never let it interrupt the game
+	}
+};
+
 // know the wallet state as soon as the game loads
 $.fetchSession();

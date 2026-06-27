@@ -2,20 +2,31 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { WalletProvider } from '@/components/WalletProvider';
 
+// Absolute base so OG/Twitter image URLs resolve on the real domain instead
+// of localhost. Set NEXT_PUBLIC_SITE_URL in prod; falls back to the Vercel
+// deployment URL, then localhost for dev.
+const siteUrl =
+  process.env.NEXT_PUBLIC_SITE_URL ||
+  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
+
 export const metadata: Metadata = {
-  title: 'Raid Shooter',
+  metadataBase: new URL(siteUrl),
+  title: 'Raid Shooter — free arcade raids on Base',
   description:
-    'Free arcade twin-stick raid shooter: draft upgrades, chain combos, survive hazard sectors, defeat the Asteroid King, and claim your rank on Shooterboard with your wallet.',
+    'Free arcade twin-stick raid shooter: draft upgrades, chain combos, survive hazard sectors, defeat the Asteroid King, and climb the Shooterboard. Skill tops the leaderboard; cosmetics settle on Base.',
+  applicationName: 'Raid Shooter',
   openGraph: {
-    title: 'Raid Shooter',
+    title: 'Raid Shooter — free arcade raids on Base',
     description:
-      'Instant arcade raids in your browser. Build your ship, chain combos, beat the boss, claim your rank.',
-    images: ['/og.png'],
+      'Instant arcade raids in your browser. Build your ship, chain combos, beat the boss, claim your rank. Skill-based leaderboard, cosmetics on Base.',
+    url: siteUrl,
+    siteName: 'Raid Shooter',
+    images: [{ url: '/og.png', width: 1200, height: 630, alt: 'Raid Shooter' }],
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Raid Shooter',
+    title: 'Raid Shooter — free arcade raids on Base',
     description:
       'Instant arcade raids in your browser. Build your ship, chain combos, beat the boss, claim your rank.',
     images: ['/og.png'],
