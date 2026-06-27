@@ -58,6 +58,7 @@ interface Stats {
     runTimeSeconds: { average: number; median: number; longest: number; combinedBestRuns: number };
     score: { top: number; average: number; median: number };
     topPilots: { pilot: string; count: number }[];
+    top: { name: string | null; address: string; score: number; level: number; kills: number; pilot: string; verified: boolean; at: number | null }[];
   };
 }
 
@@ -566,51 +567,189 @@ function ConfigPill({ ok, label, warn }: { ok: boolean; label: string; warn?: bo
   return <span className={`rounded-full border px-3 py-1 text-xs ${color}`}>{ok ? '● ' : '○ '}{label}</span>;
 }
 
+// ---- live leaderboard (top ranked players) ----
+function LeaderboardView({ rows }: { rows: Stats['leaderboard']['top'] }) {
+  if (!rows || rows.length === 0) {
+    return <div className="rounded-lg border border-white/10 bg-white/[0.02] p-3 text-sm text-white/40">No ranked players yet.</div>;
+  }
+  return (
+    <div className="overflow-x-auto rounded-xl border border-white/10 bg-white/[0.02]">
+      <table className="w-full text-sm">
+        <thead className="bg-white/[0.03] text-left text-xs uppercase tracking-wider text-white/40">
+          <tr>
+            <th className="px-3 py-2 w-10">#</th>
+            <th className="px-3 py-2">Pilot</th>
+            <th className="px-3 py-2 text-right">Score</th>
+            <th className="px-3 py-2 text-right">Wave</th>
+            <th className="px-3 py-2 text-right">Kills</th>
+            <th className="px-3 py-2">Ship</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-white/5">
+          {rows.map((r, i) => {
+            const medal = i === 0 ? 'text-amber-300' : i === 1 ? 'text-slate-200' : i === 2 ? 'text-orange-400' : 'text-white/40';
+            const name = r.name || (r.address.startsWith('0x') ? `${r.address.slice(0, 6)}…${r.address.slice(-4)}` : 'guest');
+            return (
+              <tr key={r.address + i} className={i < 3 ? 'bg-white/[0.02]' : ''}>
+                <td className={`px-3 py-2 font-bold tabular-nums ${medal}`}>{i + 1}</td>
+                <td className="px-3 py-2 text-white/90">{name} {r.verified && <span className="ml-1 rounded bg-cyan-500/15 px-1.5 py-0.5 text-[10px] text-cyan-300">✓</span>}</td>
+                <td className="px-3 py-2 text-right font-semibold tabular-nums text-white">{fmtNum(r.score)}</td>
+                <td className="px-3 py-2 text-right tabular-nums text-white/60">{r.level}</td>
+                <td className="px-3 py-2 text-right tabular-nums text-white/60">{fmtNum(r.kills)}</td>
+                <td className="px-3 py-2 text-white/50">{r.pilot}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// ---- announcements ("make content" shown in-game) ----
+interface Announcement { id: string; title: string; body: string; active: boolean; createdAt: number }
+function AnnouncementsManager({ token }: { token: string }) {
+  const [list, setList] = useState<Announcement[] | null>(null);
+  const [form, setForm] = useState<{ id?: string; title: string; body: string; active: boolean } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const inputCls = 'w-full rounded-md border border-white/15 bg-white/[0.05] px-3 py-2 text-sm outline-none focus:border-cyan-400/60';
+
+  async function load() {
+    setBusy(true);
+    try { const r = await fetch(`/api/admin/announcements?key=${encodeURIComponent(token)}`, { cache: 'no-store' }); const d = await r.json(); if (r.ok) setList(d.announcements); } finally { setBusy(false); }
+  }
+  async function save() {
+    if (!form) return; setBusy(true);
+    try { await fetch(`/api/admin/announcements?key=${encodeURIComponent(token)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) }); setForm(null); await load(); } finally { setBusy(false); }
+  }
+  async function remove(id: string) {
+    if (!confirm('Delete this announcement?')) return; setBusy(true);
+    try { await fetch(`/api/admin/announcements?key=${encodeURIComponent(token)}&id=${encodeURIComponent(id)}`, { method: 'DELETE' }); await load(); } finally { setBusy(false); }
+  }
+
+  return (
+    <div>
+      <div className="mb-3 flex items-center justify-between">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-white/50">Announcements (shown in-game)</h3>
+        <div className="flex gap-2">
+          {list && <button onClick={() => setForm({ title: '', body: '', active: true })} className="rounded-md bg-cyan-500/80 px-3 py-1.5 text-xs font-semibold text-black hover:bg-cyan-400">+ New</button>}
+          <button onClick={load} disabled={busy} className="rounded-md bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20 disabled:opacity-40">{list ? 'Refresh' : 'Load'}</button>
+        </div>
+      </div>
+      {form && (
+        <div className="mb-3 space-y-2 rounded-lg border border-cyan-500/20 bg-cyan-500/[0.04] p-3">
+          <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Title" className={inputCls} />
+          <textarea value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} placeholder="Body" rows={3} className={inputCls} />
+          <label className="flex items-center gap-2 text-sm text-white/80"><input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} /> active</label>
+          <div className="flex gap-2"><button onClick={save} disabled={busy || !form.title} className="rounded-md bg-emerald-500/80 px-4 py-2 text-sm font-semibold text-black hover:bg-emerald-400 disabled:opacity-40">Save</button><button onClick={() => setForm(null)} className="rounded-md bg-white/10 px-4 py-2 text-sm hover:bg-white/20">Cancel</button></div>
+        </div>
+      )}
+      {list && (list.length === 0 ? <div className="rounded-md border border-white/10 bg-white/[0.02] p-3 text-sm text-white/40">No announcements.</div> : (
+        <div className="space-y-2">
+          {list.map((a) => (
+            <div key={a.id} className="flex items-start justify-between gap-3 rounded-lg border border-white/10 bg-white/[0.02] p-3">
+              <div><div className="text-sm font-medium text-white/90">{a.title} {!a.active && <span className="text-[10px] text-white/30">(hidden)</span>}</div><div className="text-xs text-white/50">{a.body}</div></div>
+              <div className="flex shrink-0 gap-1.5"><button onClick={() => setForm({ id: a.id, title: a.title, body: a.body, active: a.active })} className="rounded bg-white/10 px-2 py-1 text-xs hover:bg-white/20">Edit</button><button onClick={() => remove(a.id)} className="rounded bg-red-500/15 px-2 py-1 text-xs text-red-300 hover:bg-red-500/25">Delete</button></div>
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ---- player feedback inbox ----
+interface FeedbackItem { id: string; text: string; from: string; at: number }
+function FeedbackInbox({ token }: { token: string }) {
+  const [list, setList] = useState<FeedbackItem[] | null>(null);
+  const [busy, setBusy] = useState(false);
+  async function load() {
+    setBusy(true);
+    try { const r = await fetch(`/api/admin/feedback?key=${encodeURIComponent(token)}`, { cache: 'no-store' }); const d = await r.json(); if (r.ok) setList(d.feedback); } finally { setBusy(false); }
+  }
+  return (
+    <div>
+      <div className="mb-3 flex items-center justify-between">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-white/50">Player feedback inbox</h3>
+        <button onClick={load} disabled={busy} className="rounded-md bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20 disabled:opacity-40">{list ? 'Refresh' : 'Load'}</button>
+      </div>
+      {list && (list.length === 0 ? <div className="rounded-md border border-white/10 bg-white/[0.02] p-3 text-sm text-white/40">No feedback yet.</div> : (
+        <div className="space-y-2">
+          {list.map((f) => (
+            <div key={f.id} className="rounded-lg border border-white/10 bg-white/[0.02] p-3">
+              <div className="text-sm text-white/85">{f.text}</div>
+              <div className="mt-1 flex gap-3 text-[11px] text-white/35"><span className="font-mono">{f.from}</span><span>{fmtAgo(f.at)}</span></div>
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+const TABS = ['Overview', 'Leaderboard', 'Players', 'Sponsors', 'Content', 'Actions'] as const;
+type Tab = (typeof TABS)[number];
+
 function Dashboard(p: DashboardProps) {
   const { token, setToken, stats, error, loading, load, t, lb, mk, lo } = p;
   const { maxRuns, maxPilot, maxRev, maxItemRev, maxPilotRuns, maxDroneRuns } = p;
+  const [tab, setTab] = useState<Tab>('Overview');
+
+  const persistentWarn = stats && !stats.persistent;
 
   return (
-    <div className="fixed inset-0 overflow-y-auto bg-[#080808] text-white">
-      <div className="mx-auto max-w-4xl p-6">
-        <h1 className="text-xl font-bold tracking-wide">RAID SHOOTER — DEV STATS</h1>
-        <p className="mt-1 text-sm text-white/40">
-          Live numbers from your players. Token stays on this device only.
-        </p>
-
-        <div className="mt-4 flex flex-wrap gap-2">
+    <div className="fixed inset-0 overflow-y-auto bg-gradient-to-b from-[#0a0c12] via-[#080808] to-[#050608] text-white">
+      {/* premium branded header */}
+      <header className="sticky top-0 z-10 border-b border-white/10 bg-[#0a0c12]/80 backdrop-blur-md">
+        <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-4 px-6 py-3">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.png" alt="Raid Shooter" className="h-8 w-auto" />
+          <div className="mr-auto">
+            <div className="text-sm font-bold tracking-[0.2em] text-white">TEAM CONSOLE</div>
+            <div className="text-[11px] text-white/35">Manage the live game · token stays on this device</div>
+          </div>
           <input
             type="password"
             value={token}
             onChange={(e) => setToken(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && load(token)}
             placeholder="ADMIN_STATS_TOKEN"
-            className="flex-1 min-w-[220px] rounded-md border border-white/15 bg-white/[0.05] px-3 py-2 text-sm outline-none focus:border-cyan-400/60"
+            className="min-w-[180px] rounded-lg border border-white/15 bg-white/[0.05] px-3 py-2 text-sm outline-none focus:border-cyan-400/60"
           />
-          <button
-            onClick={() => load(token)}
-            disabled={loading || !token}
-            className="rounded-md bg-cyan-500/80 px-5 py-2 text-sm font-semibold text-black hover:bg-cyan-400 disabled:opacity-40"
-          >
-            {loading ? 'Loading…' : 'Load'}
+          <button onClick={() => load(token)} disabled={loading || !token} className="rounded-lg bg-cyan-500/90 px-4 py-2 text-sm font-semibold text-black hover:bg-cyan-400 disabled:opacity-40">
+            {loading ? 'Loading…' : stats ? 'Refresh' : 'Load'}
           </button>
         </div>
-
-        {error && (
-          <div className="mt-4 rounded-md border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">
-            {error}
+        {/* tab nav */}
+        {stats && (
+          <div className="mx-auto flex max-w-5xl gap-1 overflow-x-auto px-4">
+            {TABS.map((tb) => (
+              <button key={tb} onClick={() => setTab(tb)}
+                className={`relative whitespace-nowrap px-4 py-2.5 text-sm font-medium transition-colors ${tab === tb ? 'text-white' : 'text-white/40 hover:text-white/70'}`}>
+                {tb}
+                {tab === tb && <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-cyan-400" />}
+              </button>
+            ))}
           </div>
+        )}
+      </header>
+
+      <div className="mx-auto max-w-5xl px-6 py-6">
+        {error && (
+          <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">{error}</div>
         )}
 
         {stats && t && lb && mk && lo && (
-          <div className="mt-6 space-y-8">
-            {!stats.persistent && (
-              <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-300">
+          <div className="space-y-8">
+            {persistentWarn && (
+              <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-300">
                 ⚠️ No persistent store connected — these numbers reset on every redeploy. Wire up KV
                 (KV_REST_API_URL / KV_REST_API_TOKEN).
               </div>
             )}
 
+            {/* ===== OVERVIEW ===== */}
+            {tab === 'Overview' && (<>
             {/* live storefront / config conditions */}
             <section>
               <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-cyan-300/80">
@@ -731,18 +870,21 @@ function Dashboard(p: DashboardProps) {
                 ))}
               </div>
             </section>
+            </>)}
 
+            {/* ===== LEADERBOARD ===== */}
+            {tab === 'Leaderboard' && (
             <section>
               <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-cyan-300/80">
-                Leaderboard · score submitters only
+                Shooterboard · top 25
               </h2>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
                 <Stat label="Submitters" value={fmtNum(lb.players.total)} sub={`${lb.players.verified} wallet · ${lb.players.guests} guest`} />
                 <Stat label="Top score" value={fmtNum(lb.score.top)} sub={`avg ${fmtNum(lb.score.average)}`} />
                 <Stat label="Median run" value={fmtDuration(lb.runTimeSeconds.median)} sub={`longest ${fmtDuration(lb.runTimeSeconds.longest)}`} />
                 <Stat label="Active (30d)" value={fmtNum(lb.activity.last30Days)} sub={`${lb.activity.lastDay} today`} />
               </div>
-
+              <LeaderboardView rows={lb.top} />
               {lb.topPilots.length > 0 && (
                 <>
                   <h3 className="mt-5 mb-2 text-xs uppercase tracking-wider text-white/40">Most-played pilots</h3>
@@ -754,12 +896,24 @@ function Dashboard(p: DashboardProps) {
                 </>
               )}
             </section>
+            )}
 
-            <PlayersTable token={token} />
+            {/* ===== PLAYERS ===== */}
+            {tab === 'Players' && <PlayersTable token={token} />}
 
-            <SponsorsManager token={token} />
+            {/* ===== SPONSORS ===== */}
+            {tab === 'Sponsors' && <SponsorsManager token={token} />}
 
-            <AdminActions token={token} />
+            {/* ===== CONTENT ===== */}
+            {tab === 'Content' && (
+              <section className="space-y-8">
+                <AnnouncementsManager token={token} />
+                <FeedbackInbox token={token} />
+              </section>
+            )}
+
+            {/* ===== ACTIONS ===== */}
+            {tab === 'Actions' && <AdminActions token={token} />}
 
             <p className="pb-8 text-xs text-white/30">
               {stats.note}

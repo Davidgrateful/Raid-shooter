@@ -119,6 +119,20 @@ export async function GET(req: NextRequest) {
         median: median(scores),
       },
       topPilots,
+      // top 25 ranked players so the team can see the live board in console
+      top: [...entries]
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 25)
+        .map((e) => ({
+          name: e.name || null,
+          address: e.address,
+          score: e.score,
+          level: e.level,
+          kills: e.kills,
+          pilot: e.pilot,
+          verified: !!e.verified,
+          at: e.at || null,
+        })),
     },
   });
 }
