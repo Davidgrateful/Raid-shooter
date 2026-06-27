@@ -257,5 +257,25 @@ $.shareRunCard = function() {
 	}
 };
 
+// Active sponsors/partners (operator-managed). Sets the loading-screen
+// "POWERED BY" slot; the HTML partners bar reads the same endpoint.
+$.sponsors = [];
+$.fetchSponsors = function() {
+	fetch( '/api/sponsors' )
+		.then( function( r ) { return r.json(); } )
+		.then( function( d ) {
+			$.sponsors = d.sponsors || [];
+			var loaders = $.sponsors.filter( function( s ) {
+				return s.slots && s.slots.indexOf( 'loading' ) >= 0;
+			} );
+			if( loaders.length ) {
+				// bitmap font is uppercase + a limited glyph set
+				$.loadingSponsor = ( loaders[ 0 ].name || '' ).toUpperCase().replace( /[^A-Z0-9 $.]/g, '' ).slice( 0, 18 );
+			}
+		} )
+		.catch( function() {} );
+};
+$.fetchSponsors();
+
 // know the wallet state as soon as the game loads
 $.fetchSession();

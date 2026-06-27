@@ -293,6 +293,141 @@ function PlayersTable({ token }: { token: string }) {
   );
 }
 
+// ---- sponsor / partnership manager (self-serve) ----
+const SLOTS = ['loading', 'menu', 'partners'] as const;
+type Slot = (typeof SLOTS)[number];
+interface Sponsor {
+  id: string;
+  name: string;
+  tagline?: string;
+  logoUrl?: string;
+  accentColor?: string;
+  socials?: { twitter?: string; telegram?: string; website?: string };
+  slots: Slot[];
+  active: boolean;
+  order: number;
+}
+const emptySponsor = (): Sponsor => ({ id: '', name: '', tagline: '', logoUrl: '', accentColor: '', socials: {}, slots: ['loading', 'partners'], active: true, order: 0 });
+
+function SponsorsManager({ token }: { token: string }) {
+  const [list, setList] = useState<Sponsor[] | null>(null);
+  const [form, setForm] = useState<Sponsor | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState('');
+  const inputCls = 'rounded-md border border-white/15 bg-white/[0.05] px-3 py-2 text-sm outline-none focus:border-cyan-400/60';
+
+  async function load() {
+    setBusy(true); setMsg('');
+    try {
+      const res = await fetch(`/api/admin/sponsors?key=${encodeURIComponent(token)}`, { cache: 'no-store' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `Failed (${res.status})`);
+      setList(data.sponsors);
+    } catch (e) { setMsg(e instanceof Error ? e.message : 'Failed to load.'); }
+    finally { setBusy(false); }
+  }
+
+  async function save() {
+    if (!form) return;
+    setBusy(true); setMsg('');
+    try {
+      const res = await fetch(`/api/admin/sponsors?key=${encodeURIComponent(token)}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `Failed (${res.status})`);
+      setMsg(`✓ Saved ${data.sponsor.name}.`);
+      setForm(null);
+      await load();
+    } catch (e) { setMsg(e instanceof Error ? e.message : 'Save failed.'); }
+    finally { setBusy(false); }
+  }
+
+  async function remove(s: Sponsor) {
+    if (!confirm(`Delete partner "${s.name}"?`)) return;
+    setBusy(true); setMsg('');
+    try {
+      const res = await fetch(`/api/admin/sponsors?key=${encodeURIComponent(token)}&id=${encodeURIComponent(s.id)}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error(`Failed (${res.status})`);
+      await load();
+    } catch (e) { setMsg(e instanceof Error ? e.message : 'Delete failed.'); }
+    finally { setBusy(false); }
+  }
+
+  function toggleSlot(slot: Slot) {
+    if (!form) return;
+    const has = form.slots.includes(slot);
+    setForm({ ...form, slots: has ? form.slots.filter((x) => x !== slot) : [...form.slots, slot] });
+  }
+
+  return (
+    <section>
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-amber-300/80">Sponsors &amp; Partners</h2>
+        <div className="flex gap-2">
+          {list && <button onClick={() => setForm(emptySponsor())} className="rounded-md bg-cyan-500/80 px-3 py-1.5 text-xs font-semibold text-black hover:bg-cyan-400">+ Add partner</button>}
+          <button onClick={load} disabled={busy} className="rounded-md bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20 disabled:opacity-40">{list ? 'Refresh' : 'Load'}</button>
+        </div>
+      </div>
+      {msg && <div className="mb-3 rounded-md border border-white/15 bg-white/[0.05] p-2 text-sm text-white/80">{msg}</div>}
+
+      {/* editor */}
+      {form && (
+        <div className="mb-4 rounded-lg border border-cyan-500/20 bg-cyan-500/[0.04] p-4">
+          <div className="grid gap-2 sm:grid-cols-2">
+            <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Partner name (e.g. $PEPE)" className={inputCls} />
+            <input value={form.tagline || ''} onChange={(e) => setForm({ ...form, tagline: e.target.value })} placeholder="Tagline (optional)" className={inputCls} />
+            <input value={form.logoUrl || ''} onChange={(e) => setForm({ ...form, logoUrl: e.target.value })} placeholder="Logo image URL (https://…)" className={inputCls} />
+            <input value={form.accentColor || ''} onChange={(e) => setForm({ ...form, accentColor: e.target.value })} placeholder="Accent color #hex (optional)" className={inputCls} />
+            <input value={form.socials?.twitter || ''} onChange={(e) => setForm({ ...form, socials: { ...form.socials, twitter: e.target.value } })} placeholder="X / Twitter URL" className={inputCls} />
+            <input value={form.socials?.telegram || ''} onChange={(e) => setForm({ ...form, socials: { ...form.socials, telegram: e.target.value } })} placeholder="Telegram URL" className={inputCls} />
+            <input value={form.socials?.website || ''} onChange={(e) => setForm({ ...form, socials: { ...form.socials, website: e.target.value } })} placeholder="Website URL" className={inputCls} />
+            <input type="number" value={form.order} onChange={(e) => setForm({ ...form, order: parseInt(e.target.value, 10) || 0 })} placeholder="Sort order" className={inputCls} />
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-4 text-sm">
+            <span className="text-white/40">Show in:</span>
+            {SLOTS.map((slot) => (
+              <label key={slot} className="flex items-center gap-1.5 text-white/80">
+                <input type="checkbox" checked={form.slots.includes(slot)} onChange={() => toggleSlot(slot)} /> {slot}
+              </label>
+            ))}
+            <label className="flex items-center gap-1.5 text-white/80">
+              <input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} /> active
+            </label>
+          </div>
+          <div className="mt-3 flex gap-2">
+            <button onClick={save} disabled={busy || !form.name} className="rounded-md bg-emerald-500/80 px-4 py-2 text-sm font-semibold text-black hover:bg-emerald-400 disabled:opacity-40">Save</button>
+            <button onClick={() => setForm(null)} className="rounded-md bg-white/10 px-4 py-2 text-sm hover:bg-white/20">Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {/* list */}
+      {list && (list.length === 0 ? (
+        <div className="rounded-md border border-white/10 bg-white/[0.02] p-3 text-sm text-white/40">No partners yet. Add one to show it in the game.</div>
+      ) : (
+        <div className="space-y-2">
+          {list.map((s) => (
+            <div key={s.id} className="flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-white/[0.02] p-3">
+              <div className="flex items-center gap-3">
+                {s.logoUrl ? <img src={s.logoUrl} alt="" className="h-8 w-8 rounded object-contain" /> : <div className="h-8 w-8 rounded bg-white/10" />}
+                <div>
+                  <div className="text-sm font-medium text-white/90">{s.name} {!s.active && <span className="ml-1 text-[10px] text-white/30">(inactive)</span>}</div>
+                  <div className="text-xs text-white/40">{s.slots.join(' · ') || 'no slots'}</div>
+                </div>
+              </div>
+              <div className="flex gap-1.5">
+                <button onClick={() => setForm({ ...emptySponsor(), ...s, socials: s.socials || {} })} className="rounded bg-white/10 px-2 py-1 text-xs hover:bg-white/20">Edit</button>
+                <button onClick={() => remove(s)} className="rounded bg-red-500/15 px-2 py-1 text-xs text-red-300 hover:bg-red-500/25">Delete</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      ))}
+    </section>
+  );
+}
+
 // ---- admin write actions (player lookup / grant / reset) ----
 function AdminActions({ token }: { token: string }) {
   const [lookupId, setLookupId] = useState('');
@@ -621,6 +756,8 @@ function Dashboard(p: DashboardProps) {
             </section>
 
             <PlayersTable token={token} />
+
+            <SponsorsManager token={token} />
 
             <AdminActions token={token} />
 
