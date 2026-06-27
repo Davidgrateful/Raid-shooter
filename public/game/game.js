@@ -1172,6 +1172,10 @@ $.mouseupcb = function( e ) {
 				}
 			}
 		}
+		// scrollable screens (hangar/market/board) return here, so park the
+		// cursor off-screen too - else the tapped card stays highlighted on
+		// touch (the "stuck on the pilot" report)
+		$.mouse.ax = $.mouse.ay = $.mouse.sx = $.mouse.sy = -99999;
 		return;
 	}
 
