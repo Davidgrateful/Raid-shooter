@@ -964,7 +964,9 @@ Events
 // must not be hijacked by the game, or those buttons never receive taps
 $.eventInsideUi = function( e ) {
 	var t = e.target;
-	return !!( t && t.closest && t.closest( 'header, w3m-modal, appkit-modal, wcm-modal, [role=dialog], nextjs-portal' ) );
+	// [data-game-ui] marks our React HTML overlays (feedback, partners, news,
+	// modals) so the canvas event handlers leave their taps/clicks alone
+	return !!( t && t.closest && t.closest( 'header, w3m-modal, appkit-modal, wcm-modal, [role=dialog], nextjs-portal, [data-game-ui]' ) );
 };
 
 // mouse wheel scrolls the current menu screen when its content overflows
@@ -1189,6 +1191,16 @@ $.mouseupcb = function( e ) {
 		if( $.vjoyRight.active && $.vjoyRight.id === tid ) {
 			$.vjoyRight.active = 0;
 		}
+	}
+
+	// touch has no "move away", so park the cursor off-screen after a tap -
+	// otherwise the last-touched menu button stays highlighted/hovered (the
+	// "stuck on the pilot button" report)
+	if( e.changedTouches ) {
+		$.mouse.ax = -99999;
+		$.mouse.ay = -99999;
+		$.mouse.sx = -99999;
+		$.mouse.sy = -99999;
 	}
 };
 

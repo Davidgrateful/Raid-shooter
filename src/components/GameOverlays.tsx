@@ -47,7 +47,7 @@ export function GameOverlays() {
     <>
       {/* news banner */}
       {news && !dismissed && (
-        <div style={{ position: 'fixed', top: 8, left: '50%', transform: 'translateX(-50%)', zIndex: 45, maxWidth: '92vw' }}>
+        <div data-game-ui="" style={{ position: 'fixed', top: 8, left: '50%', transform: 'translateX(-50%)', zIndex: 45, maxWidth: '92vw' }}>
           <div className="flex items-center gap-3 rounded-full border border-cyan-400/30 bg-black/70 px-4 py-1.5 text-sm text-white/90 backdrop-blur-md">
             <span className="rounded-full bg-cyan-400/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-cyan-300">News</span>
             <button onClick={() => setOpen(true)} className="max-w-[60vw] truncate font-medium hover:text-white">{news.title}</button>
@@ -58,7 +58,7 @@ export function GameOverlays() {
 
       {/* news expanded modal */}
       {open && news && (
-        <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 60 }} className="flex items-center justify-center bg-black/60 p-6">
+        <div data-game-ui="" onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 60 }} className="flex items-center justify-center bg-black/60 p-6">
           <div onClick={(e) => e.stopPropagation()} className="max-w-md rounded-2xl border border-white/10 bg-[#0b0e16] p-6 text-white">
             <div className="text-lg font-bold text-cyan-300">{news.title}</div>
             <p className="mt-2 whitespace-pre-wrap text-sm text-white/80">{news.body}</p>
@@ -68,14 +68,14 @@ export function GameOverlays() {
       )}
 
       {/* feedback button */}
-      <button onClick={() => setFbOpen(true)} style={{ position: 'fixed', left: 12, bottom: 12, zIndex: 45 }}
+      <button data-game-ui="" onClick={() => setFbOpen(true)} style={{ position: 'fixed', left: 12, bottom: 12, zIndex: 45 }}
         className="rounded-full border border-white/10 bg-black/50 px-3 py-1.5 text-xs text-white/70 backdrop-blur-sm hover:border-cyan-400/40 hover:text-white">
         ✉ Feedback
       </button>
 
       {/* feedback modal */}
       {fbOpen && (
-        <div onClick={() => !fbBusy && setFbOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 60 }} className="flex items-center justify-center bg-black/60 p-6">
+        <div data-game-ui="" onClick={() => !fbBusy && setFbOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 60 }} className="flex items-center justify-center bg-black/60 p-6">
           <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0b0e16] p-6 text-white">
             <div className="text-base font-semibold">Send feedback to the team</div>
             <p className="mt-1 text-xs text-white/40">Bugs, ideas, anything. We read every message.</p>
