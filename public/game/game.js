@@ -158,10 +158,11 @@ $.setupCanvasSizes = function() {
 	$.cw = window.innerWidth;
 	$.ch = window.innerHeight;
 	// the foreground overlay (cfg) is a soft gradient/vignette, fine at CSS
-	// resolution; the main canvas (cmg) carries crisp sprites/text/HUD, so
-	// render it at device pixel density (capped at 2x to bound GPU cost on
-	// the touch devices that already run in perfLite mode)
-	$.dpr = Math.min( window.devicePixelRatio || 1, 2 );
+	// resolution; the main canvas (cmg) carries crisp sprites/text/HUD. On
+	// retina iPhones a 3x/2x backing store quadruples fill cost and was the
+	// main cause of in-game lag, so touch devices cap at 1.5x (still sharp,
+	// ~45% less pixel work) while desktop keeps 2x.
+	$.dpr = Math.min( window.devicePixelRatio || 1, $.isTouchDevice ? 1.5 : 2 );
 	$.cfg.width = $.cw;
 	$.cfg.height = $.ch;
 	$.cmg.width = Math.round( $.cw * $.dpr );
@@ -1288,6 +1289,14 @@ $.updateDelta = function() {
 	$.dt = ( $.dt > 10 ) ? 10 : $.dt;
 	$.lt = now;
 	$.elapsed += $.dt;
+
+	// adaptive quality: keep a smoothed FPS estimate and flip $.lowfx when a
+	// device can't hold ~48fps, so particle-heavy effects throttle back on
+	// weaker phones (and recover automatically when the load drops)
+	var instFps = $.dt > 0 ? 60 / $.dt : 60;
+	$.fps = $.fps ? $.fps * 0.9 + instFps * 0.1 : instFps;
+	if( !$.lowfx && $.fps < 45 ) { $.lowfx = 1; }
+	else if( $.lowfx && $.fps > 54 ) { $.lowfx = 0; }
 };
 
 $.updateScreen = function() {
@@ -2585,6 +2594,55 @@ $.setState = function( state ) {
 	}
 };
 
+// Ambient drifting ships for the menu/loading background - dormant, purely
+// decorative pilots flying by to make the screens feel alive and space-like.
+// Built lazily, count scaled down on weaker phones, and only ever drawn on
+// non-gameplay screens so they can't affect the in-run frame rate.
+$.ambientShips = null;
+$.initAmbientShips = function() {
+	var n = $.perfLite ? 16 : 30,
+		chars = $.definitions.characters,
+		drones = $.definitions.drones || [];
+	$.ambientShips = [];
+	for( var i = 0; i < n; i++ ) {
+		var ang = Math.random() * $.twopi,
+			spd = 0.12 + Math.random() * 0.55,
+			useDrone = drones.length && Math.random() < 0.25;
+		$.ambientShips.push( {
+			x: Math.random() * $.cw,
+			y: Math.random() * $.ch,
+			vx: Math.cos( ang ) * spd,
+			vy: Math.sin( ang ) * spd,
+			rot: ang,
+			scale: 3.5 + Math.random() * 11,
+			alpha: 0.05 + Math.random() * 0.18,
+			drone: useDrone,
+			def: useDrone ? drones[ Math.floor( Math.random() * drones.length ) ]
+				: chars[ Math.floor( Math.random() * chars.length ) ]
+		} );
+	}
+};
+$.renderAmbientShips = function() {
+	var want = $.perfLite ? 16 : 30;
+	if( !$.ambientShips || $.ambientShips.length !== want ) { $.initAmbientShips(); }
+	var ctx = $.ctxmg, m = 40;
+	for( var i = 0; i < $.ambientShips.length; i++ ) {
+		var s = $.ambientShips[ i ];
+		s.x += s.vx;
+		s.y += s.vy;
+		if( s.x < -m ) { s.x = $.cw + m; } else if( s.x > $.cw + m ) { s.x = -m; }
+		if( s.y < -m ) { s.y = $.ch + m; } else if( s.y > $.ch + m ) { s.y = -m; }
+		ctx.save();
+		ctx.globalAlpha = s.alpha;
+		ctx.translate( s.x, s.y );
+		ctx.rotate( s.rot );
+		// drones are drawn upright; ship hulls point along their heading
+		s.def.draw( ctx, s.scale, s.drone ? 'hsla(190, 60%, 70%, 1)' : 'hsla(210, 35%, 72%, 1)', $.tick );
+		ctx.restore();
+	}
+	ctx.globalAlpha = 1;
+};
+
 $.setupStates = function() {
 	// Branded boot screen: logo fades in, a pilot ship streaks across, a
 	// progress bar fills, then it hands off to the menu. Tap to skip. Has a
@@ -2594,7 +2652,8 @@ $.setupStates = function() {
 		$.ctxmg.globalAlpha = 1;
 
 		var loadCompact = ( $.ch < 640 ),
-			dur = 105,
+			// ~6s at 60fps so players actually take in the splash; tap skips
+			dur = 360,
 			elapsed = $.tick - ( $.loadingStart || 0 ),
 			p = Math.max( 0, Math.min( 1, elapsed / dur ) ),
 			cx = $.cw / 2,
@@ -2606,6 +2665,9 @@ $.setupStates = function() {
 		glow.addColorStop( 1, 'hsla(205, 60%, 10%, 0)' );
 		$.ctxmg.fillStyle = glow;
 		$.ctxmg.fillRect( 0, 0, $.cw, $.ch );
+
+		// dormant ships drifting in the background
+		$.renderAmbientShips();
 
 		// logo (fade + slight rise), fallback to bitmap title
 		var logoAlpha = Math.min( 1, elapsed / 28 ),
@@ -2673,6 +2735,11 @@ $.setupStates = function() {
 
 		$.clearScreen();
 		$.updateScreen();
+
+		// dormant ships drifting behind the menu for a lively, space feel
+		$.renderAmbientShips();
+		// keep the drift animation alive on the menu (play/menu reset tick)
+		$.tick += 1;
 
 		var i = $.buttons.length; while( i-- ){ if( $.buttons[ i ] ) { $.buttons[ i ].update( i ) } }
 			i = $.buttons.length; while( i-- ){ if( $.buttons[ i ] ) { $.buttons[ i ].render( i ) } }

@@ -8,7 +8,12 @@ $.ParticleEmitter = function( opt ) {
 	// lite mode (mobile): halve particle counts and stop spawning entirely
 	// under heavy load so weaker GPUs keep their frame rate
 	if( $.perfLite ) {
-		this.count = ( $.particleEmitters.length > 60 ) ? 0 : Math.max( 1, Math.ceil( this.count / 2 ) );
+		this.count = ( $.particleEmitters.length > 50 ) ? 0 : Math.max( 1, Math.ceil( this.count / 2 ) );
+	}
+	// adaptive: when the measured frame rate drops, throttle hard on any
+	// device (recovers automatically once fps climbs back)
+	if( $.lowfx ) {
+		this.count = ( $.particleEmitters.length > 24 ) ? 0 : Math.max( 1, Math.ceil( this.count / 3 ) );
 	}
 	this.particles = [];
 	for( var i = 0; i < this.count; i++ ) {
