@@ -987,7 +987,7 @@ $.mousemovecb = function( e ) {
 
 	// touch drag-to-scroll on tall menu screens
 	if( $.scroll.dragging ) {
-		var dty = ( e.changedTouches ? e.changedTouches[ 0 ] : e ).pageY;
+		var dty = ( e.changedTouches ? e.changedTouches[ 0 ] : e ).clientY;
 		var ddelta = $.scroll.startY - dty;
 		$.scroll.moved = Math.max( $.scroll.moved, Math.abs( ddelta ) );
 		$.scroll.y = Math.max( 0, Math.min( $.scroll.max, $.scroll.startScroll + ddelta ) );
@@ -997,8 +997,8 @@ $.mousemovecb = function( e ) {
 	var touches = e.changedTouches ? e.changedTouches : [e];
 
 	for( var i = 0; i < touches.length; i++ ) {
-		var tx = touches[i].pageX;
-		var ty = touches[i].pageY;
+		var tx = touches[i].clientX;
+		var ty = touches[i].clientY;
 		var tid = e.changedTouches ? touches[i].identifier : 0;
 
 		// Move Left Joystick (Movement)
@@ -1067,6 +1067,11 @@ $.mousedowncb = function( e ) {
 	e.preventDefault();
 	$.mouse.down = 1;
 
+	// refresh the canvas offset at tap time so UI hit-testing stays accurate
+	// even when the mobile address bar / safe area shifts the layout without
+	// firing a resize - a common cause of "buttons in the wrong place"
+	$.updateCanvasOffset();
+
 	var isTouch = !!e.changedTouches;
 	var touches = e.changedTouches ? e.changedTouches : [e];
 
@@ -1075,15 +1080,15 @@ $.mousedowncb = function( e ) {
 	// whatever happens to be under the finger at touch-start
 	if( isTouch && $.scrollableStates[ $.state ] && $.scroll.max > 0 ) {
 		$.scroll.dragging = 1;
-		$.scroll.startY = touches[ 0 ].pageY;
+		$.scroll.startY = touches[ 0 ].clientY;
 		$.scroll.startScroll = $.scroll.y;
 		$.scroll.moved = 0;
 		return;
 	}
 
 	for( var i = 0; i < touches.length; i++ ) {
-		var tx = touches[i].pageX;
-		var ty = touches[i].pageY;
+		var tx = touches[i].clientX;
+		var ty = touches[i].clientY;
 		var tid = e.changedTouches ? touches[i].identifier : 0;
 
 		$.mouse.ax = tx;
@@ -1148,8 +1153,8 @@ $.mouseupcb = function( e ) {
 		$.scroll.dragging = 0;
 		if( wasTap ) {
 			var tapTouches = e.changedTouches ? e.changedTouches : [{ identifier: 0 }];
-			$.mouse.ax = tapTouches[ 0 ].pageX;
-			$.mouse.ay = tapTouches[ 0 ].pageY;
+			$.mouse.ax = tapTouches[ 0 ].clientX;
+			$.mouse.ay = tapTouches[ 0 ].clientY;
 			$.mousescreen();
 			for( var ti = 0; ti < $.buttons.length; ti++ ) {
 				var tb = $.buttons[ ti ];
