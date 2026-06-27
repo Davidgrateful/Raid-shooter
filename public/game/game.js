@@ -1,10 +1,43 @@
 /*==============================================================================
 Init
 ==============================================================================*/
+// Lightweight image loader/cache for the (otherwise fully procedural)
+// engine. Images load async; callers check $.imageReady() before drawing and
+// fall back to the bitmap-font rendering until then (or if a load fails).
+$.images = {};
+$.loadImage = function( key, src ) {
+	var img = new Image();
+	img.src = src;
+	$.images[ key ] = img;
+	return img;
+};
+$.imageReady = function( key ) {
+	var img = $.images[ key ];
+	return !!( img && img.complete && img.naturalWidth > 0 );
+};
+
+// Draws the brand logo centered on cx, bottom-aligned to bottomY, scaled to
+// targetH (clamped to the viewport width). Returns false if the image isn't
+// loaded yet so callers can fall back to the bitmap-font title.
+$.drawLogo = function( ctx, cx, bottomY, targetH ) {
+	if( !$.imageReady( 'logo' ) ) { return false; }
+	var img = $.images[ 'logo' ],
+		aspect = img.naturalWidth / img.naturalHeight,
+		h = targetH,
+		w = h * aspect,
+		maxW = $.cw - 40;
+	if( w > maxW ) { w = maxW; h = w / aspect; }
+	ctx.drawImage( img, cx - w / 2, bottomY - h, w, h );
+	return true;
+};
+
 $.init = function() {
 
 
 	$.setupStorage();
+
+	// brand logo, cache-busted per deploy like the engine scripts
+	$.loadImage( 'logo', '/logo.png?v=' + ( window.__BUILD || 'dev' ) );
 	$.wrap = document.getElementById( 'wrap' );
 	$.wrapInner = document.getElementById( 'wrap-inner' );
 	$.cbg1 = document.getElementById( 'cbg1' );
@@ -113,7 +146,7 @@ $.init = function() {
 	$.renderBackground4();
 	$.renderForeground();
 	$.renderFavicon();
-	$.setState( 'menu' );
+	$.setState( 'loading' );
 	$.loop();
 };
 
@@ -1551,6 +1584,12 @@ $.setState = function( state ) {
 		} ) );
 	}
 
+	if( state == 'loading' ) {
+		$.mouse.down = 0;
+		$.loadingStart = $.tick;
+		$.reset();
+	}
+
 	if( state == 'menu' ) {
 		$.mouse.down = 0;
 		$.mouse.ax = 0;
@@ -2547,6 +2586,88 @@ $.setState = function( state ) {
 };
 
 $.setupStates = function() {
+	// Branded boot screen: logo fades in, a pilot ship streaks across, a
+	// progress bar fills, then it hands off to the menu. Tap to skip. Has a
+	// sponsor slot ("POWERED BY ...") driven by $.loadingSponsor if set.
+	$.states['loading'] = function() {
+		$.clearScreen();
+		$.ctxmg.globalAlpha = 1;
+
+		var loadCompact = ( $.ch < 640 ),
+			dur = 105,
+			elapsed = $.tick - ( $.loadingStart || 0 ),
+			p = Math.max( 0, Math.min( 1, elapsed / dur ) ),
+			cx = $.cw / 2,
+			cy = $.ch / 2;
+
+		// soft radial glow so the splash reads against the dark starfield
+		var glow = $.ctxmg.createRadialGradient( cx, cy - 10, 0, cx, cy - 10, Math.max( $.cw, $.ch ) * 0.42 );
+		glow.addColorStop( 0, 'hsla(205, 60%, 22%, 0.55)' );
+		glow.addColorStop( 1, 'hsla(205, 60%, 10%, 0)' );
+		$.ctxmg.fillStyle = glow;
+		$.ctxmg.fillRect( 0, 0, $.cw, $.ch );
+
+		// logo (fade + slight rise), fallback to bitmap title
+		var logoAlpha = Math.min( 1, elapsed / 28 ),
+			logoBottom = cy - ( loadCompact ? 20 : 30 ) - ( 1 - logoAlpha ) * 14;
+		$.ctxmg.globalAlpha = logoAlpha;
+		if( !$.drawLogo( $.ctxmg, cx, logoBottom, loadCompact ? 58 : 110 ) ) {
+			$.ctxmg.beginPath();
+			$.text( {
+				ctx: $.ctxmg, x: cx, y: logoBottom, text: 'RAID SHOOTER',
+				hspacing: 2, vspacing: 1, halign: 'center', valign: 'bottom',
+				scale: loadCompact ? 6 : 10, snap: 1, render: 1
+			} );
+			$.ctxmg.fillStyle = '#fff'; $.ctxmg.fill();
+		}
+		$.ctxmg.globalAlpha = 1;
+
+		// a pilot ship streaks across, leaving a short trail
+		var shipDef = $.definitions.characters[ $.storage['character'] || 0 ] || $.definitions.characters[ 0 ],
+			shipY = cy + ( loadCompact ? 16 : 24 ),
+			travel = -120 + p * ( $.cw + 240 ),
+			shipX = travel;
+		for( var t = 0; t < 6; t++ ) {
+			$.util.fillCircle( $.ctxmg, shipX - 14 - t * 13, shipY, 3 - t * 0.4, 'hsla(190, 100%, 70%, ' + ( 0.28 - t * 0.04 ) + ')' );
+		}
+		$.ctxmg.save();
+		$.ctxmg.translate( shipX, shipY );
+		shipDef.draw( $.ctxmg, loadCompact ? 13 : 17, 'hsla(0, 0%, 96%, 1)', $.tick );
+		$.ctxmg.restore();
+
+		// progress bar
+		var barW = Math.min( $.cw - 80, loadCompact ? 300 : 440 ),
+			barH = loadCompact ? 6 : 8,
+			barX = cx - barW / 2,
+			barY = cy + ( loadCompact ? 70 : 96 );
+		$.ctxmg.beginPath();
+		$.roundRect( barX, barY, barW, barH, barH / 2 );
+		$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 0.12)'; $.ctxmg.fill();
+		$.ctxmg.beginPath();
+		$.roundRect( barX, barY, Math.max( barH, barW * p ), barH, barH / 2 );
+		$.ctxmg.fillStyle = 'hsla(190, 100%, 65%, 1)'; $.ctxmg.fill();
+
+		// label / sponsor slot
+		$.ctxmg.beginPath();
+		$.text( {
+			ctx: $.ctxmg, x: cx, y: barY + ( loadCompact ? 18 : 24 ),
+			text: $.loadingSponsor ? ( 'POWERED BY ' + $.loadingSponsor ) : 'LOADING',
+			hspacing: 1, vspacing: 1, halign: 'center', valign: 'top',
+			scale: 1, snap: 1, render: 1
+		} );
+		$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 0.45)'; $.ctxmg.fill();
+
+		// advance the tick so the bar fills and the ship animates (menu/play
+		// reset it on entry, so borrowing it here is safe)
+		$.tick += 1;
+
+		// hand off to the menu when done, or let the player tap to skip
+		if( elapsed >= dur || ( elapsed > 14 && $.mouse.down ) ) {
+			$.mouse.down = 0;
+			$.setState( 'menu' );
+		}
+	};
+
 	$.states['menu'] = function() {
 
 
@@ -2556,26 +2677,31 @@ $.setupStates = function() {
 		var i = $.buttons.length; while( i-- ){ if( $.buttons[ i ] ) { $.buttons[ i ].update( i ) } }
 			i = $.buttons.length; while( i-- ){ if( $.buttons[ i ] ) { $.buttons[ i ].render( i ) } }
 
-		var menuCompact = ( $.ch < 640 );
-		$.ctxmg.beginPath();
-		var title = $.text( {
-			ctx: $.ctxmg,
-			x: $.cw / 2,
-			y: menuCompact ? 70 : $.ch / 2 - 150,
-			text: 'RAID SHOOTER',
-			hspacing: 2,
-			vspacing: 1,
-			halign: 'center',
-			valign: 'bottom',
-			scale: menuCompact ? 6 : 10,
-			snap: 1,
-			render: 1
-		} );
-		gradient = $.ctxmg.createLinearGradient( title.sx, title.sy, title.sx, title.ey );
-		gradient.addColorStop( 0, '#fff' );
-		gradient.addColorStop( 1, '#999' );
-		$.ctxmg.fillStyle = gradient;
-		$.ctxmg.fill();
+		var menuCompact = ( $.ch < 640 ),
+			logoBottomY = menuCompact ? 74 : $.ch / 2 - 150;
+
+		// brand logo image when loaded; bitmap-font title as the fallback
+		if( !$.drawLogo( $.ctxmg, $.cw / 2, logoBottomY, menuCompact ? 60 : 116 ) ) {
+			$.ctxmg.beginPath();
+			var title = $.text( {
+				ctx: $.ctxmg,
+				x: $.cw / 2,
+				y: logoBottomY,
+				text: 'RAID SHOOTER',
+				hspacing: 2,
+				vspacing: 1,
+				halign: 'center',
+				valign: 'bottom',
+				scale: menuCompact ? 6 : 10,
+				snap: 1,
+				render: 1
+			} );
+			gradient = $.ctxmg.createLinearGradient( title.sx, title.sy, title.sx, title.ey );
+			gradient.addColorStop( 0, '#fff' );
+			gradient.addColorStop( 1, '#999' );
+			$.ctxmg.fillStyle = gradient;
+			$.ctxmg.fill();
+		}
 
 		if( !menuCompact ) {
 			$.ctxmg.beginPath();
