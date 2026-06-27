@@ -42,11 +42,19 @@ Render
 ==============================================================================*/
 $.Particle.prototype.render = function( i ) {
 	if( this.inView ) {
+		// Color is computed once (lazily) and cached. The old code rebuilt an
+		// hsla() string and called the RNG on every particle every frame, which
+		// on a high-DPI desktop (dpr=2) was a measurable hot-path cost. The
+		// brightness was a per-frame random flicker (50-100%); we lock in one
+		// random lightness at first render so it still varies between particles.
+		if( this.strokeStyle === undefined ) {
+			this.strokeStyle = 'hsla(' + this.hue + ', ' + this.saturation + '%, ' + $.util.rand( 50, 100 ) + '%, 1)';
+		}
 		$.ctxmg.beginPath();
 		$.ctxmg.moveTo( this.x, this.y );
 		$.ctxmg.lineTo( this.ex, this.ey );
 		$.ctxmg.lineWidth = this.lineWidth;
-		$.ctxmg.strokeStyle = 'hsla(' + this.hue + ', ' + this.saturation + '%, ' + $.util.rand( 50, 100 ) + '%, 1)';
+		$.ctxmg.strokeStyle = this.strokeStyle;
 		$.ctxmg.stroke();
 	}
 }

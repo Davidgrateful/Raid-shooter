@@ -162,7 +162,18 @@ $.setupCanvasSizes = function() {
 	// retina iPhones a 3x/2x backing store quadruples fill cost and was the
 	// main cause of in-game lag, so touch devices cap at 1.5x (still sharp,
 	// ~45% less pixel work) while desktop keeps 2x.
-	$.dpr = Math.min( window.devicePixelRatio || 1, $.isTouchDevice ? 1.5 : 2 );
+	var maxDpr = $.isTouchDevice ? 1.5 : 2;
+	// On desktop a large/high-DPI monitor (1440p or 4K) at a flat 2x backing
+	// store means 8M+ pixels cleared and refilled every frame of gameplay -
+	// the main cause of "PC version is lagging" on otherwise capable machines.
+	// Cap the backing store to a fixed pixel budget so big windows scale dpr
+	// down (still >=1, so it stays crisp) instead of paying full 2x fill cost.
+	if( !$.isTouchDevice ) {
+		var pixelBudget = 4500000;
+		var fit = Math.sqrt( pixelBudget / Math.max( 1, $.cw * $.ch ) );
+		maxDpr = Math.min( maxDpr, Math.max( 1, fit ) );
+	}
+	$.dpr = Math.min( window.devicePixelRatio || 1, maxDpr );
 	$.cfg.width = $.cw;
 	$.cfg.height = $.ch;
 	$.cmg.width = Math.round( $.cw * $.dpr );
