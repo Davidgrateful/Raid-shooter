@@ -1563,12 +1563,16 @@ $.setState = function( state ) {
 		var menuCompact = ( $.ch < 640 ),
 			menuSpacing = menuCompact ? 8 : 22,
 			menuButtonHeight = menuCompact ? 45 : 49,
-			menuStartY = menuCompact ? 112 : $.ch / 2 - 80;
+			menuStartY = menuCompact ? 112 : $.ch / 2 - 110;
 
 		$.fetchSession();
 
+		// Trimmed top level: PLAY and SETTINGS are full-width bookends, with
+		// the four core destinations in a 2x2 grid between them. Secondary
+		// items (call sign, stats, credits) live inside SETTINGS now, so the
+		// menu is 4 rows on every device instead of an overflowing 5.
 		var menuDefs = [
-			{ title: 'PLAY', scale: menuCompact ? 2 : 3, action: function() {
+			{ title: 'PLAY', full: 1, scale: menuCompact ? 2 : 3, action: function() {
 				$.mouse.down = 0;
 				// first-time players choose a call sign before their first
 				// run, so their very first score lands on the board under a
@@ -1583,21 +1587,11 @@ $.setState = function( state ) {
 				$.music.start();
 				$.setState( 'play' );
 			} },
-			{ title: 'CALL SIGN: ' + ( $.storage['pilotname'] || 'SET NAME' ), scale: menuCompact ? 1 : 2, action: function() {
-				$.mouse.down = 0;
-				$.promptPilotName();
-				this.title = 'CALL SIGN: ' + ( $.storage['pilotname'] || 'SET NAME' );
-			} },
-			{ title: 'HOW TO PLAY', scale: menuCompact ? 1 : 2, action: function() {
-				$.mouse.down = 0;
-				$.howtoIndex = 0;
-				$.setState( 'howto' );
-			} },
 			{ title: 'PILOT: ' + $.currentCharacter().title, scale: menuCompact ? 1 : 2, action: function() {
 				$.mouse.down = 0;
 				$.setState( 'hangar' );
 			} },
-			{ title: 'MARKET', scale: menuCompact ? 2 : 3, action: function() {
+			{ title: 'MARKET', scale: menuCompact ? 1 : 2, action: function() {
 				$.mouse.down = 0;
 				$.setState( 'market' );
 			} },
@@ -1612,30 +1606,43 @@ $.setState = function( state ) {
 				$.ensurePilotName();
 				$.setState( 'board' );
 			} },
-			{ title: 'STATS', scale: menuCompact ? 2 : 3, action: function() {
-				$.setState( 'stats' );
+			{ title: 'HOW TO PLAY', scale: menuCompact ? 1 : 2, action: function() {
+				$.mouse.down = 0;
+				$.howtoIndex = 0;
+				$.setState( 'howto' );
 			} },
-			{ title: 'CREDITS', scale: menuCompact ? 2 : 3, action: function() {
-				$.setState( 'credits' );
+			{ title: 'SETTINGS', full: 1, scale: menuCompact ? 2 : 3, action: function() {
+				$.mouse.down = 0;
+				$.setState( 'settings' );
 			} }
 		];
-		menuDefs.push( { title: 'SETTINGS', scale: menuCompact ? 2 : 3, action: function() {
-			$.mouse.down = 0;
-			$.setState( 'settings' );
-		} } );
 
+		// responsive row-based layout: full-width rows for PLAY/SETTINGS,
+		// paired half-width rows for everything else; vertical metrics scale
+		// with the viewport so it never overlaps the logo or runs off-screen
+		var rowPitch = menuButtonHeight + menuSpacing,
+			halfX = menuCompact ? 106 : 156,
+			halfW = menuCompact ? 199 : 299,
+			fullW = Math.min( $.cw - 40, menuCompact ? 420 : 620 ),
+			my = menuStartY,
+			mcol = 0;
 		for( var mi = 0; mi < menuDefs.length; mi++ ) {
-			var menuX = $.cw / 2 + ( ( mi % 2 ) ? ( menuCompact ? 106 : 156 ) : ( menuCompact ? -104 : -154 ) ),
-				menuY = menuStartY + Math.floor( mi / 2 ) * ( menuButtonHeight + menuSpacing );
-			$.buttons.push( new $.Button( {
-				x: menuX,
-				y: menuY,
-				lockedWidth: menuCompact ? 199 : 299,
-				lockedHeight: menuButtonHeight,
-				scale: menuDefs[ mi ].scale,
-				title: menuDefs[ mi ].title,
-				action: menuDefs[ mi ].action
-			} ) );
+			var d = menuDefs[ mi ];
+			if( d.full ) {
+				if( mcol === 1 ) { my += rowPitch; mcol = 0; }
+				$.buttons.push( new $.Button( {
+					x: $.cw / 2, y: my, lockedWidth: fullW, lockedHeight: menuButtonHeight,
+					scale: d.scale, title: d.title, action: d.action
+				} ) );
+				my += rowPitch;
+			} else {
+				$.buttons.push( new $.Button( {
+					x: $.cw / 2 + ( mcol ? halfX : -halfX ), y: my,
+					lockedWidth: halfW, lockedHeight: menuButtonHeight,
+					scale: d.scale, title: d.title, action: d.action
+				} ) );
+				if( mcol === 1 ) { my += rowPitch; mcol = 0; } else { mcol = 1; }
+			}
 		}
 	}
 
@@ -2099,15 +2106,17 @@ $.setState = function( state ) {
 			settingsGap = settingsCompact ? 52 : 60,
 			settingsRow = 0;
 
-		// single column on desktop, two columns on short screens so every
-		// option (and the way back) stays on screen
+		// two columns on every device so the longer options list (now incl.
+		// call sign, stats, credits moved off the main menu) always fits
+		var settingsColX = settingsCompact ? 104 : 156,
+			settingsColW = settingsCompact ? 199 : 299;
 		var settingsButton = function( title, action ) {
-			var col = settingsCompact ? ( settingsRow % 2 ) : 0,
-				rowN = settingsCompact ? Math.floor( settingsRow / 2 ) : settingsRow,
+			var col = settingsRow % 2,
+				rowN = Math.floor( settingsRow / 2 ),
 				b = new $.Button( {
-					x: settingsCompact ? ( $.cw / 2 + ( col ? 104 : -104 ) ) : $.cw / 2 + 1,
+					x: $.cw / 2 + ( col ? settingsColX : -settingsColX ),
 					y: settingsTop + rowN * settingsGap,
-					lockedWidth: settingsCompact ? 199 : 299,
+					lockedWidth: settingsColW,
 					lockedHeight: 45,
 					scale: 1,
 					title: title,
@@ -2117,6 +2126,14 @@ $.setState = function( state ) {
 			settingsRow++;
 			return b;
 		};
+
+		// Call sign lives here now (was its own menu bar) - first run still
+		// prompts for it, this is where you change it later.
+		settingsButton( 'CALL SIGN: ' + ( $.storage['pilotname'] || 'SET NAME' ), function() {
+			$.mouse.down = 0;
+			$.promptPilotName();
+			this.title = 'CALL SIGN: ' + ( $.storage['pilotname'] || 'SET NAME' );
+		} );
 
 		// Difficulty is fixed at EXTREME — no selector. Shown read-only so
 		// players know what they're walking into.
@@ -2161,7 +2178,17 @@ $.setState = function( state ) {
 			} );
 		}
 
-		var settingsRowsUsed = settingsCompact ? Math.ceil( settingsRow / 2 ) : settingsRow,
+		// secondary destinations moved off the main menu to keep it short
+		settingsButton( 'STATS', function() {
+			$.mouse.down = 0;
+			$.setState( 'stats' );
+		} );
+		settingsButton( 'CREDITS', function() {
+			$.mouse.down = 0;
+			$.setState( 'credits' );
+		} );
+
+		var settingsRowsUsed = Math.ceil( settingsRow / 2 ),
 			settingsMenuButton = new $.Button( {
 				x: $.cw / 2 + 1,
 				y: settingsTop + settingsRowsUsed * settingsGap + ( settingsCompact ? 8 : 10 ),
