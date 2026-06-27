@@ -2943,6 +2943,22 @@ $.setupStates = function() {
 		def.draw( $.ctxmg, hangarCompact ? 18 : 28, unlocked ? hangarShipColor.color : 'hsla(0, 0%, 35%, 1)', $.tick );
 		$.ctxmg.restore();
 
+		// the equipped drone hovers beside the pilot, drawn in its own market
+		// shape, so a purchased/equipped drone is visible on the character in
+		// the hangar - not just during a live run
+		var hangarDrone = $.equippedDrone && $.equippedDrone();
+		if( hangarDrone && hangarDrone.draw ) {
+			var shipR = hangarCompact ? 18 : 28,
+				orbitR = shipR + ( hangarCompact ? 22 : 34 ),
+				orbitAngle = $.tick / 40,
+				ddx = $.cw / 2 + Math.cos( orbitAngle ) * orbitR,
+				ddy = previewY + Math.sin( orbitAngle ) * orbitR * 0.55;
+			$.ctxmg.save();
+			$.ctxmg.translate( ddx, ddy );
+			hangarDrone.draw( $.ctxmg, hangarCompact ? 9 : 12, 'hsla(190, 100%, 70%, 0.95)', $.tick );
+			$.ctxmg.restore();
+		}
+
 		var previewLayout = $.hangarPreviewLayout( def, hangarCompact, previewY );
 		for( var pli = 0; pli < previewLayout.blocks.length; pli++ ) {
 			var block = previewLayout.blocks[ pli ];
