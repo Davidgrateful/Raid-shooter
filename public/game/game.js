@@ -1305,6 +1305,21 @@ $.bindEvents = function() {
 	window.addEventListener( 'keyup', $.keyupcb );
 	window.addEventListener( 'resize', $.resizecb );
 	window.addEventListener( 'blur', $.blurcb );
+
+	// Browsers block audio until the user interacts with the page, so the
+	// background music can't autoplay on the very first loading intro. Unlock
+	// it on the first gesture of any kind: the moment the player taps, clicks
+	// or presses a key, the music kicks in - usually still during the boot
+	// screen - and stays on for the menu and the run.
+	var unlockMusic = function() {
+		$.music.start();
+		window.removeEventListener( 'pointerdown', unlockMusic );
+		window.removeEventListener( 'touchstart', unlockMusic );
+		window.removeEventListener( 'keydown', unlockMusic );
+	};
+	window.addEventListener( 'pointerdown', unlockMusic );
+	window.addEventListener( 'touchstart', unlockMusic );
+	window.addEventListener( 'keydown', unlockMusic );
 };
 
 /*==============================================================================

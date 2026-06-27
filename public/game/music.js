@@ -116,8 +116,17 @@ $.music = {
 				if( s % 4 === 2 ) {
 					this.hat( this.nextTime );
 				}
-				// lead only during combat, every other bar
-				if( $.state === 'play' && this.bar % 2 === 1 && this.lead[ s ] ) {
+				// melody: the loading intro and menu get a continuous bright
+				// arpeggio (a proper "title theme"); combat keeps its sparser
+				// every-other-bar build so the lead lands when the action does
+				var introState = ( $.state === 'loading' || $.state === 'menu' );
+				if( introState && this.lead[ s ] ) {
+					this.note( this.nextTime, this.lead[ s ], this.stepLength * 2.2, 'triangle', 0.13 );
+					// a soft octave-down sawtooth pad fills out the boot screen
+					if( s % 4 === 0 ) {
+						this.note( this.nextTime, this.lead[ s ] - 12, this.stepLength * 4, 'sawtooth', 0.05 );
+					}
+				} else if( $.state === 'play' && this.bar % 2 === 1 && this.lead[ s ] ) {
 					this.note( this.nextTime, this.lead[ s ], this.stepLength * 1.8, 'triangle', 0.1 );
 				}
 			}
