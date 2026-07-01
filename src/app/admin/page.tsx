@@ -696,7 +696,19 @@ function FeedbackInbox({ token }: { token: string }) {
 
 // ---- tournament rewards: seasons, prize tables, grants & USDC payouts ----
 interface PrizeTier { fromRank: number; toRank: number; itemId?: string; usd?: number }
-interface Season { id: string; name: string; sponsorId?: string; prizes: PrizeTier[]; status: 'draft' | 'active' | 'ended'; createdAt: number }
+interface Season { id: string; name: string; sponsorId?: string; prizes: PrizeTier[]; status: 'draft' | 'active' | 'ended'; createdAt: number; endsAt?: number }
+
+// <input type="datetime-local"> speaks "YYYY-MM-DDTHH:MM" in local time
+function msToLocalInput(ms?: number): string {
+  if (!ms) return '';
+  const d = new Date(ms - new Date().getTimezoneOffset() * 60000);
+  return d.toISOString().slice(0, 16);
+}
+function localInputToMs(v: string): number | undefined {
+  if (!v) return undefined;
+  const ms = new Date(v).getTime();
+  return Number.isFinite(ms) ? ms : undefined;
+}
 interface WinnerRow { rank: number; address: string; name?: string; score: number; verified: boolean; itemId?: string; usd?: number; granted?: boolean; paid?: boolean; txHash?: string; note?: string }
 interface PayoutBatch { id: string; seasonId: string; createdAt: number; status: string; tokenSymbol: string; network: string; rows: WinnerRow[]; totalUsd: number }
 
@@ -810,7 +822,17 @@ function RewardsManager({ token }: { token: string }) {
             <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as Season['status'] })} className={inputCls}>
               <option value="draft">draft</option><option value="active">active</option><option value="ended">ended</option>
             </select>
+            <label className="flex items-center gap-2 text-sm text-white/60">
+              Ends
+              <input
+                type="datetime-local"
+                value={msToLocalInput(form.endsAt)}
+                onChange={(e) => setForm({ ...form, endsAt: localInputToMs(e.target.value) })}
+                className={`flex-1 ${inputCls}`}
+              />
+            </label>
           </div>
+          <div className="mt-1 text-[11px] text-white/35">The end time drives the in-game countdown (&quot;ENDS IN 2 DAYS&quot;). Leave empty for no countdown.</div>
           <div className="mt-3 text-xs font-semibold uppercase tracking-wider text-white/50">Prize table (rank → reward)</div>
           <div className="mt-2 space-y-2">
             {form.prizes.map((p, i) => (
@@ -846,7 +868,7 @@ function RewardsManager({ token }: { token: string }) {
             <div key={s.id} className="rounded-lg border border-white/10 bg-white/[0.02] p-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
-                  <div className="text-sm font-medium text-white/90">{s.name} <span className={`ml-1 rounded px-1.5 py-0.5 text-[10px] ${s.status === 'active' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-white/10 text-white/40'}`}>{s.status}</span></div>
+                  <div className="text-sm font-medium text-white/90">{s.name} <span className={`ml-1 rounded px-1.5 py-0.5 text-[10px] ${s.status === 'active' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-white/10 text-white/40'}`}>{s.status}</span>{s.endsAt ? <span className="ml-2 text-[11px] text-amber-300/70">ends {new Date(s.endsAt).toLocaleString()}</span> : null}</div>
                   <div className="text-[11px] text-white/40">{s.prizes.map((p) => `#${p.fromRank}${p.toRank !== p.fromRank ? `-${p.toRank}` : ''}: ${[p.itemId, p.usd ? `${p.usd} ${tokenInfo?.symbol || 'USDC'}` : null].filter(Boolean).join(' + ')}`).join('  ·  ')}</div>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
