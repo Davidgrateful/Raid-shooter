@@ -41,6 +41,32 @@ $.equippedTrail = function() {
 	return null;
 };
 
+// Tournament reward celebration: when a reward-only cosmetic appears in the
+// player's profile (granted from the admin after a cup), congratulate them
+// once on the menu. Seen-state lives in local storage per item.
+$.rewardTitles = {
+	trail_champion: 'THE CHAMPION TRAIL',
+	drone_champion: 'THE CHAMPION CREST DRONE'
+};
+$.rewardCelebration = function() {
+	var seen = $.storage['rewardseen'] || [];
+	for( var i = 0; i < $.profile.items.length; i++ ) {
+		var id = $.profile.items[ i ];
+		if( $.rewardTitles[ id ] && seen.indexOf( id ) === -1 ) {
+			return { id: id, title: $.rewardTitles[ id ] };
+		}
+	}
+	return null;
+};
+$.markRewardSeen = function( id ) {
+	var seen = $.storage['rewardseen'] || [];
+	if( seen.indexOf( id ) === -1 ) {
+		seen.push( id );
+		$.storage['rewardseen'] = seen;
+		$.updateStorage();
+	}
+};
+
 $.equippedDrone = function() {
 	var id = $.storage['drone'];
 	if( !id || !$.ownsItem( id ) ) {

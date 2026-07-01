@@ -222,6 +222,21 @@ $.submitScore = function() {
 					$.fetchSession();
 				}
 				$.boardSubmit = { state: 'done', rank: data.rank || 0, improved: !!data.improved, verified: !!data.verified };
+
+				// near-miss hook: how far is this run from the next rank up?
+				// (top 50 only - deeper ranks aren't in the public feed)
+				if( data.rank > 1 && data.rank <= 50 ) {
+					fetch( '/api/leaderboard' )
+						.then( function( r ) { return r.json(); } )
+						.then( function( board ) {
+							var above = board.entries && board.entries[ data.rank - 2 ];
+							if( above && above.score > runScore ) {
+								$.boardSubmit.gap = ( above.score - runScore ) + 1;
+								$.boardSubmit.nextRank = data.rank - 1;
+							}
+						} )
+						.catch( function() {} );
+				}
 			} )
 			.catch( function() {
 				$.boardSubmit = { state: 'error', rank: 0, improved: false, verified: false };

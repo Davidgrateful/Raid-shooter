@@ -232,6 +232,7 @@ $.reset = function() {
 	$.gameoverTick = 0;
 	$.gameoverTickMax = 200;
 	$.gameoverExplosion = 0;
+	$.dailyPopTick = 0;
 
 	$.instructionTick = 0;
 	// first-ever run gets a longer, clearer tutorial pass; 'seen' is written
@@ -1663,6 +1664,10 @@ $.setState = function( state ) {
 		$.fetchSession();
 		// refresh the live tournament banner whenever the menu is entered
 		if( $.fetchSeason ) { $.fetchSeason(); }
+		// tournament reward won since last visit? start the one-time
+		// congratulation (marked seen after it has been displayed once)
+		$.celebration = $.rewardCelebration ? $.rewardCelebration() : null;
+		$.celebrationStart = $.tick;
 
 		// Trimmed top level: PLAY and SETTINGS are full-width bookends, with
 		// the four core destinations in a 2x2 grid between them. Secondary
@@ -2613,6 +2618,11 @@ $.setState = function( state ) {
 		} );
 		$.buttons.push( menuButton );
 
+		// best-run celebration + daily challenge settle BEFORE the storage
+		// update below folds this run into the records
+		$.runWasBest = $.score > 0 && $.score > ( $.storage['score'] || 0 );
+		$.dailyResult = $.dailySettle();
+
 		$.storage['score'] = Math.max( $.storage['score'], $.score );
 		$.storage['level'] = Math.max( $.storage['level'], $.level.current );
 		$.storage['combo'] = Math.max( $.storage['combo'] || 0, $.bestCombo );
@@ -2842,6 +2852,54 @@ $.setupStates = function() {
 			} );
 			$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 0.65)';
 			$.ctxmg.fill();
+		}
+
+		// daily challenge: one shared goal per day, bonus XP on completion
+		if( $.dailyChallenge ) {
+			var daily = $.dailyChallenge(),
+				dailyDone = $.dailyDone(),
+				dailyText = dailyDone
+					? 'DAILY CHALLENGE COMPLETE  +' + daily.xp + ' XP EARNED'
+					: 'DAILY: ' + daily.text + '  +' + daily.xp + ' XP',
+				dailyY = menuCompact ? 4 : $.ch - 196;
+			$.ctxmg.beginPath();
+			$.text( {
+				ctx: $.ctxmg, x: $.cw / 2, y: dailyY,
+				text: dailyText,
+				hspacing: 1, vspacing: 1, halign: 'center', valign: 'top',
+				scale: 1, snap: 1, render: 1
+			} );
+			$.ctxmg.fillStyle = dailyDone ? 'hsla(150, 100%, 60%, 0.8)' : 'hsla(190, 100%, 70%, 0.8)';
+			$.ctxmg.fill();
+		}
+
+		// one-time "you won a tournament reward" congratulation strip
+		if( $.celebration ) {
+			var celTick = $.tick - $.celebrationStart,
+				celY = menuCompact ? 16 : 30;
+			$.ctxmg.beginPath();
+			$.text( {
+				ctx: $.ctxmg, x: $.cw / 2, y: celY,
+				text: 'YOU WON ' + $.celebration.title,
+				hspacing: 2, vspacing: 1, halign: 'center', valign: 'top',
+				scale: menuCompact ? 1 : 2, snap: 1, render: 1
+			} );
+			$.ctxmg.fillStyle = 'hsla(45, 100%, 60%, ' + ( 0.7 + Math.sin( $.tick / 12 ) * 0.3 ) + ')';
+			$.ctxmg.fill();
+			$.ctxmg.beginPath();
+			$.text( {
+				ctx: $.ctxmg, x: $.cw / 2, y: celY + ( menuCompact ? 10 : 18 ),
+				text: 'TOURNAMENT REWARD UNLOCKED, EQUIP IT IN THE HANGAR',
+				hspacing: 1, vspacing: 1, halign: 'center', valign: 'top',
+				scale: 1, snap: 1, render: 1
+			} );
+			$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 0.7)';
+			$.ctxmg.fill();
+			// after ~9s of display, mark it seen so it never nags again
+			if( celTick > 540 ) {
+				$.markRewardSeen( $.celebration.id );
+				$.celebration = null;
+			}
 		}
 
 		if( !menuCompact ) {
@@ -3875,6 +3933,11 @@ $.setupStates = function() {
 		}
 		$.renderSectorOverlay();
 		$.renderInterface();
+
+		// daily challenge: detect the moment the goal is hit and flash the
+		// completion banner (screen-space, after the world transform restore)
+		$.dailyLiveCheck();
+		$.dailyRenderPop();
 		$.renderMinimap();
 
 		// on-screen buttons (touch pause); action can clear $.buttons mid-loop
@@ -4066,11 +4129,56 @@ $.setupStates = function() {
 		$.ctxmg.fillStyle = gradient;
 		$.ctxmg.fill();
 
+		// run highlights live in the gap between the title and the stats:
+		// NEW BEST (pulsing gold), daily challenge payoff, and the near-miss
+		// hook ("N POINTS BEHIND NO.X" - the line that triggers one more run)
+		var goHighlightY = gameoverTitle.ey + ( goCompact ? 2 : 14 ),
+			goStatsShift = 0;
+		if( $.runWasBest ) {
+			$.ctxmg.beginPath();
+			$.text( {
+				ctx: $.ctxmg, x: $.cw / 2, y: goHighlightY,
+				text: 'NEW PERSONAL BEST',
+				hspacing: 2, vspacing: 1, halign: 'center', valign: 'top',
+				scale: 2, snap: 1, render: 1
+			} );
+			$.ctxmg.fillStyle = 'hsla(45, 100%, 60%, ' + ( 0.7 + Math.sin( $.tick / 12 ) * 0.3 ) + ')';
+			$.ctxmg.fill();
+			$.tick += $.dt;
+			goHighlightY += goCompact ? 15 : 18;
+			goStatsShift += goCompact ? 15 : 0;
+		}
+		if( $.dailyResult ) {
+			$.ctxmg.beginPath();
+			$.text( {
+				ctx: $.ctxmg, x: $.cw / 2, y: goHighlightY,
+				text: 'DAILY CHALLENGE COMPLETE  +' + $.dailyResult.xp + ' XP',
+				hspacing: 1, vspacing: 1, halign: 'center', valign: 'top',
+				scale: 1, snap: 1, render: 1
+			} );
+			$.ctxmg.fillStyle = 'hsla(45, 100%, 60%, 1)';
+			$.ctxmg.fill();
+			goHighlightY += 10;
+			goStatsShift += goCompact ? 10 : 0;
+		}
+		if( $.boardSubmit && $.boardSubmit.state === 'done' && $.boardSubmit.gap > 0 && $.boardSubmit.nextRank > 0 ) {
+			$.ctxmg.beginPath();
+			$.text( {
+				ctx: $.ctxmg, x: $.cw / 2, y: goHighlightY,
+				text: $.util.commas( $.boardSubmit.gap ) + ' POINTS BEHIND NO.' + $.boardSubmit.nextRank,
+				hspacing: 1, vspacing: 1, halign: 'center', valign: 'top',
+				scale: 1, snap: 1, render: 1
+			} );
+			$.ctxmg.fillStyle = 'hsla(190, 100%, 70%, 0.9)';
+			$.ctxmg.fill();
+			goStatsShift += goCompact ? 10 : 0;
+		}
+
 		$.ctxmg.beginPath();
 		var gameoverStatsKeys = $.text( {
 			ctx: $.ctxmg,
 			x: $.cw / 2 - 10,
-			y: gameoverTitle.ey + ( goCompact ? 12 : 51 ),
+			y: gameoverTitle.ey + ( goCompact ? 12 + goStatsShift : 51 ),
 			text: 'SCORE\nLEVEL\nKILLS\nBEST COMBO\nBULLETS\nPOWERUPS\nTIME',
 			hspacing: 1,
 			vspacing: goCompact ? 8 : 17,
@@ -4087,7 +4195,7 @@ $.setupStates = function() {
 		var gameoverStatsValues = $.text( {
 			ctx: $.ctxmg,
 			x: $.cw / 2 + 10,
-			y: gameoverTitle.ey + ( goCompact ? 12 : 51 ),
+			y: gameoverTitle.ey + ( goCompact ? 12 + goStatsShift : 51 ),
 			text:
 				$.util.commas( $.score ) + '\n' +
 				( $.level.current + 1 ) + '\n' +
@@ -4166,7 +4274,11 @@ $.setupStates = function() {
 			boardSubText = 'PLAYING AS GUEST  /  CONNECT WALLET FOR A VERIFIED BADGE';
 		}
 		if( boardText ) {
-			var boardTextY = gameoverStatsValues.ey + ( goCompact ? ( buildNames.length > 0 ? 34 : 10 ) : ( buildNames.length > 0 ? 60 : 25 ) );
+			// desktop: below the fixed button stack (426 + 3 buttons + gaps),
+			// so the status can never print over PLAY AGAIN on short windows
+			var boardTextY = goCompact
+				? gameoverStatsValues.ey + ( buildNames.length > 0 ? 34 : 10 )
+				: Math.max( gameoverStatsValues.ey + ( buildNames.length > 0 ? 60 : 25 ), 643 );
 			$.ctxmg.beginPath();
 			$.text( {
 				ctx: $.ctxmg,
@@ -4202,6 +4314,7 @@ $.setupStates = function() {
 				$.ctxmg.fillStyle = 'hsla(45, 100%, 65%, 0.7)';
 				$.ctxmg.fill();
 			}
+
 		}
 	};
 }
