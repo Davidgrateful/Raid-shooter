@@ -277,5 +277,42 @@ $.fetchSponsors = function() {
 };
 $.fetchSponsors();
 
+// Active tournament season (operator-managed from the admin Rewards tab).
+// Precomputes banner lines in the bitmap font's limited glyph set
+// ( $+,.\/0-9:@A-Z ) so the render loop just draws strings.
+$.activeSeason = null;
+$.fetchSeason = function() {
+	fetch( '/api/season' )
+		.then( function( r ) { return r.json(); } )
+		.then( function( d ) {
+			if( !d.season ) { $.activeSeason = null; return; }
+			var clean = function( s, max ) {
+				return ( s || '' ).toUpperCase().replace( /[^A-Z0-9 $+,.:\/@]/g, '' ).replace( /\s+/g, ' ' ).trim().slice( 0, max );
+			};
+			var name = clean( d.season.name, 26 ) || 'TOURNAMENT',
+				prizeLine = '';
+			if( d.season.prize1Usd > 0 ) {
+				prizeLine = d.season.prize1Usd + ' USDC TO TOP PILOT';
+			} else if( d.season.poolUsd > 0 ) {
+				prizeLine = d.season.poolUsd + ' USDC PRIZE POOL';
+			} else {
+				prizeLine = 'EXCLUSIVE PRIZES FOR TOP PILOTS';
+			}
+			if( d.season.endsAt && d.season.endsAt > Date.now() ) {
+				var hoursLeft = Math.max( 1, Math.round( ( d.season.endsAt - Date.now() ) / 3600000 ) );
+				prizeLine += hoursLeft >= 48
+					? ', ENDS IN ' + Math.round( hoursLeft / 24 ) + ' DAYS'
+					: ', ENDS IN ' + hoursLeft + ' HOURS';
+			}
+			$.activeSeason = {
+				title: name,
+				prizeLine: prizeLine,
+				sponsorLine: d.season.sponsorName ? clean( 'WITH ' + d.season.sponsorName, 30 ) : ''
+			};
+		} )
+		.catch( function() {} );
+};
+$.fetchSeason();
+
 // know the wallet state as soon as the game loads
 $.fetchSession();

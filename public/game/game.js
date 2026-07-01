@@ -1661,6 +1661,8 @@ $.setState = function( state ) {
 			menuStartY = menuCompact ? 112 : $.ch / 2 - 110;
 
 		$.fetchSession();
+		// refresh the live tournament banner whenever the menu is entered
+		if( $.fetchSeason ) { $.fetchSeason(); }
 
 		// Trimmed top level: PLAY and SETTINGS are full-width bookends, with
 		// the four core destinations in a 2x2 grid between them. Secondary
@@ -2817,6 +2819,31 @@ $.setupStates = function() {
 			$.ctxmg.fill();
 		}
 
+		// live tournament banner: fits in the gap between the logo and PLAY,
+		// so players see there's real money/prizes on the board right now
+		if( $.activeSeason ) {
+			var seasonY = logoBottomY + ( menuCompact ? 3 : 6 );
+			$.ctxmg.beginPath();
+			$.text( {
+				ctx: $.ctxmg, x: $.cw / 2, y: seasonY,
+				text: 'TOURNAMENT LIVE: ' + $.activeSeason.title,
+				hspacing: 1, vspacing: 1, halign: 'center', valign: 'top',
+				scale: 1, snap: 1, render: 1
+			} );
+			// gentle pulse so the eye lands on it without being obnoxious
+			$.ctxmg.fillStyle = 'hsla(45, 100%, 60%, ' + ( 0.75 + Math.sin( $.tick / 20 ) * 0.25 ) + ')';
+			$.ctxmg.fill();
+			$.ctxmg.beginPath();
+			$.text( {
+				ctx: $.ctxmg, x: $.cw / 2, y: seasonY + 11,
+				text: $.activeSeason.prizeLine,
+				hspacing: 1, vspacing: 1, halign: 'center', valign: 'top',
+				scale: 1, snap: 1, render: 1
+			} );
+			$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 0.65)';
+			$.ctxmg.fill();
+		}
+
 		if( !menuCompact ) {
 			$.ctxmg.beginPath();
 			var bottomInfo = $.text( {
@@ -3185,6 +3212,20 @@ $.setupStates = function() {
 		gradient.addColorStop( 1, '#999' );
 		$.ctxmg.fillStyle = gradient;
 		$.ctxmg.fill();
+
+		// active tournament strip above the title - the board is where the
+		// competition happens, so the stakes belong right here
+		if( $.activeSeason ) {
+			$.ctxmg.beginPath();
+			$.text( {
+				ctx: $.ctxmg, x: $.cw / 2, y: boardCompact ? 10 : 16,
+				text: $.activeSeason.title + '  ' + $.activeSeason.prizeLine,
+				hspacing: 1, vspacing: 1, halign: 'center', valign: 'top',
+				scale: 1, snap: 1, render: 1
+			} );
+			$.ctxmg.fillStyle = 'hsla(45, 100%, 60%, 0.9)';
+			$.ctxmg.fill();
+		}
 
 		/*==============================================================================
 		Your Tier banner (from local best score - works without a wallet)
