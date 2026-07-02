@@ -22,7 +22,8 @@ const csp = [
   // blocked by default-src and the game boots silent (or errors on some
   // browsers), so allow self + data + blob audio explicitly
   "media-src 'self' data: blob:",
-  "font-src 'self' data:",
+  // the Reown/WalletConnect wallet modal loads its own webfonts from its CDN
+  "font-src 'self' data: https://fonts.reown.com",
   "connect-src 'self' https: wss:",
   "frame-src 'self' https: https://challenges.cloudflare.com",
   "object-src 'none'",
