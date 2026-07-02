@@ -300,7 +300,7 @@ function PlayersTable({ token }: { token: string }) {
 }
 
 // ---- sponsor / partnership manager (self-serve) ----
-const SLOTS = ['loading', 'menu', 'partners'] as const;
+const SLOTS = ['loading', 'menu', 'partners', 'arena'] as const;
 type Slot = (typeof SLOTS)[number];
 interface Sponsor {
   id: string;

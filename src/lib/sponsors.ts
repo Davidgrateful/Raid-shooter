@@ -7,8 +7,8 @@ import { isKvConfigured, redisCommand } from '@/lib/kv';
 
 const SPONSORS_KEY = 'shooterboard:sponsors';
 
-export type SponsorSlot = 'loading' | 'menu' | 'partners';
-export const SPONSOR_SLOTS: SponsorSlot[] = ['loading', 'menu', 'partners'];
+export type SponsorSlot = 'loading' | 'menu' | 'partners' | 'arena';
+export const SPONSOR_SLOTS: SponsorSlot[] = ['loading', 'menu', 'partners', 'arena'];
 
 export interface Sponsor {
   id: string;

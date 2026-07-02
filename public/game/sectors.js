@@ -62,6 +62,83 @@ $.spawnProps = function() {
 	}
 };
 
+/*==============================================================================
+Arena billboards - sponsor panels drifting in the deep background of the play
+field. Pure decor (never collide, never affect a run), dim so they read as
+distant signage - but they're INSIDE the arena, so they show up in every clip
+or screenshot a player shares. Driven by sponsors with the "arena" slot.
+==============================================================================*/
+$.spawnBillboards = function() {
+	$.billboards = [];
+	var arena = ( $.sponsors || [] ).filter( function( s ) {
+		return s.slots && s.slots.indexOf( 'arena' ) >= 0;
+	} );
+	if( !arena.length ) { return; }
+	var tracked = {};
+	for( var i = 0; i < 5; i++ ) {
+		var s = arena[ i % arena.length ],
+			label = ( s.name || '' ).toUpperCase().replace( /[^A-Z0-9 $+,.:\/@]/g, '' ).slice( 0, 14 );
+		if( !label ) { continue; }
+		$.billboards.push( {
+			x: $.util.rand( 0, $.ww ),
+			y: $.util.rand( 0, $.wh ),
+			vx: $.util.rand( -0.18, 0.18 ),
+			vy: $.util.rand( -0.18, 0.18 ),
+			scale: $.util.rand( 2.2, 3.4 ),
+			label: label
+		} );
+		if( !tracked[ s.id ] ) {
+			tracked[ s.id ] = 1;
+			try {
+				fetch( '/api/sponsors/track', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify( { id: s.id, type: 'impression' } ), keepalive: true } );
+			} catch( e ) {}
+		}
+	}
+};
+
+$.updateBillboards = function() {
+	if( !$.billboards ) { return; }
+	for( var i = 0; i < $.billboards.length; i++ ) {
+		var b = $.billboards[ i ];
+		b.x += b.vx * $.dt;
+		b.y += b.vy * $.dt;
+		if( b.x < -200 ) { b.x = $.ww + 200; }
+		if( b.x > $.ww + 200 ) { b.x = -200; }
+		if( b.y < -120 ) { b.y = $.wh + 120; }
+		if( b.y > $.wh + 120 ) { b.y = -120; }
+	}
+};
+
+$.renderBillboards = function() {
+	if( !$.billboards || !$.billboards.length ) { return; }
+	for( var i = 0; i < $.billboards.length; i++ ) {
+		var b = $.billboards[ i ];
+		$.ctxmg.beginPath();
+		var m = $.text( {
+			ctx: $.ctxmg, x: b.x, y: b.y, text: b.label,
+			hspacing: 2, vspacing: 1, halign: 'center', valign: 'center',
+			scale: b.scale, snap: 1, render: 0
+		} );
+		var padX = 14 * ( b.scale / 3 ), padY = 10 * ( b.scale / 3 ),
+			w = ( m.width || 60 ) + padX * 2, h = ( m.height || 20 ) + padY * 2;
+		$.ctxmg.beginPath();
+		$.ctxmg.rect( b.x - w / 2, b.y - h / 2, w, h );
+		$.ctxmg.fillStyle = 'hsla(190, 40%, 20%, 0.14)';
+		$.ctxmg.fill();
+		$.ctxmg.strokeStyle = 'hsla(190, 80%, 60%, 0.22)';
+		$.ctxmg.lineWidth = 1.5;
+		$.ctxmg.stroke();
+		$.ctxmg.beginPath();
+		$.text( {
+			ctx: $.ctxmg, x: b.x, y: b.y, text: b.label,
+			hspacing: 2, vspacing: 1, halign: 'center', valign: 'center',
+			scale: b.scale, snap: 1, render: 1
+		} );
+		$.ctxmg.fillStyle = 'hsla(190, 70%, 70%, 0.22)';
+		$.ctxmg.fill();
+	}
+};
+
 $.updateProps = function() {
 	if( !$.props ) {
 		return;

@@ -35,6 +35,12 @@ export async function GET() {
       poolUsd,
       endsAt: season.endsAt || null,
       sponsorName: sponsorName || null,
+      prizes: season.prizes.map((t) => ({
+        fromRank: t.fromRank,
+        toRank: t.toRank,
+        itemId: t.itemId || null,
+        usd: t.usd || 0,
+      })),
     },
   });
 }

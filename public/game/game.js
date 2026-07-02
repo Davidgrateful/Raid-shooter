@@ -234,6 +234,9 @@ $.reset = function() {
 	$.gameoverExplosion = 0;
 	$.dailyPopTick = 0;
 
+	// arena billboards are run-global sponsor scenery (see sectors.js)
+	if( $.spawnBillboards ) { $.spawnBillboards(); }
+
 	$.instructionTick = 0;
 	// first-ever run gets a longer, clearer tutorial pass; 'seen' is written
 	// when play actually begins (setState 'play'), not here - reset also runs
@@ -3356,7 +3359,7 @@ $.setupStates = function() {
 		if( !$.board.loading && !$.board.error && $.board.entries.length ) {
 			var rankY = tierY + ( boardCompact ? 36 : 48 ),
 				rankText = ( myIndexTop >= 0 )
-					? 'YOU  RANK ' + ( myIndexTop + 1 ) + ' OF ' + $.board.entries.length + '  ' + $.util.commas( $.board.entries[ myIndexTop ].score )
+					? 'YOU  RANK ' + ( myIndexTop + 1 ) + ' OF ' + ( $.board.total || $.board.entries.length ) + '  ' + $.util.commas( $.board.entries[ myIndexTop ].score )
 					: 'YOU  UNRANKED  /  PLAY TO CLAIM A RANK';
 			$.ctxmg.beginPath();
 			var rankMeasure = $.text( {
@@ -3409,7 +3412,7 @@ $.setupStates = function() {
 			// column at a smaller scale so names never collide with scores.
 			// the full top 100 is listed - the list scrolls rather than
 			// truncating to whatever fits on one screen
-			var rowCount = Math.min( $.board.entries.length, 100 ),
+			var rowCount = Math.min( $.board.entries.length, 250 ),
 				narrow = ( $.cw < 480 ),
 				columns = narrow ? 1 : 2,
 				rowScale = ( boardCompact || narrow ) ? 1 : 2,
@@ -3880,6 +3883,7 @@ $.setupStates = function() {
 		$.updateLevel();
 		$.updateHazards();
 		$.updateProps();
+		$.updateBillboards();
 		$.updatePowerupTimers();
 		$.spawnEnemies();
 		$.enemyOffsetMod += ( $.slow ) ? $.dt / 3 : $.dt;
@@ -3898,6 +3902,7 @@ $.setupStates = function() {
 		$.clearScreen();
 		$.ctxmg.save();
 		$.ctxmg.translate( $.screen.x - $.rumble.x, $.screen.y - $.rumble.y );
+		$.renderBillboards();
 		$.renderProps();
 		$.renderHazards();
 		i = $.enemies.length; while( i-- ){ $.enemies[ i ].render( i ) }

@@ -437,3 +437,13 @@ export async function clearFlag(id: string): Promise<boolean> {
   }
   return memFlagged.delete(id);
 }
+
+// Total number of ranked players (not just the page returned). Lets the UI
+// show "OF N" accurately even when only a page of rows is fetched.
+export async function getBoardCount(): Promise<number> {
+  if (kvUrl && kvToken) {
+    const n = (await redis(['ZCARD', BOARD_KEY])) as number;
+    return n || 0;
+  }
+  return memoryBoard.size;
+}

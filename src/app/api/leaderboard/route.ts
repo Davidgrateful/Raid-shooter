@@ -1,13 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getOrCreateGuestId, getSession } from '@/lib/session';
-import { checkSubmitAllowed, getTop, isPersistent, submitEntry, suspicionReason, flagRun } from '@/lib/leaderboard';
+import { checkSubmitAllowed, getTop, getBoardCount, isPersistent, submitEntry, suspicionReason, flagRun } from '@/lib/leaderboard';
 import { verifyTurnstile } from '@/lib/turnstile';
 import { clientIp } from '@/lib/ratelimit';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const entries = await getTop(50);
-    return NextResponse.json({ entries, persistent: isPersistent() });
+    // The board is no longer hard-capped at 50: it shows however many people
+    // actually ranked. `limit` pages the rows for lighter clients (the canvas
+    // game asks for fewer; the web page asks for all), while `total` always
+    // reports the full field so "OF N" stays accurate. Hard ceiling of 1000
+    // keeps a pathological payload from ever being returned.
+    const limitParam = parseInt(req.nextUrl.searchParams.get('limit') || '', 10);
+    const limit = Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, 1000) : 1000;
+    const [entries, total] = await Promise.all([getTop(limit), getBoardCount()]);
+    return NextResponse.json({ entries, total, persistent: isPersistent() });
   } catch {
     return NextResponse.json({ error: 'board_unavailable' }, { status: 503 });
   }

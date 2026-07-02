@@ -110,13 +110,16 @@ $.fetchSession = function() {
 $.fetchBoard = function() {
 	$.board.loading = 1;
 	$.board.error = 0;
-	fetch( '/api/leaderboard' )
+	// page the canvas board (it scrolls a few hundred rows fine); the true
+	// field size comes back as data.total so "OF N" counts everyone
+	fetch( '/api/leaderboard?limit=250' )
 		.then( function( res ) {
 			if( !res.ok ) { throw new Error( 'board' ); }
 			return res.json();
 		} )
 		.then( function( data ) {
 			$.board.entries = data.entries || [];
+			$.board.total = ( typeof data.total === 'number' ) ? data.total : $.board.entries.length;
 			// the server reports whether a shared store is configured; when
 			// it isn't, players can't see each other and we say so
 			$.board.persistent = ( data.persistent === false ) ? 0 : 1;
