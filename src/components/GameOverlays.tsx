@@ -48,7 +48,7 @@ export function GameOverlays() {
       const res = await fetch('/api/claim/weekly', { method: 'POST' });
       const d = await res.json();
       if (res.ok && d.granted) {
-        setGiftMsg(`Unlocked: ${d.granted.title} — equip it in the Hangar!`);
+        setGiftMsg(`Claimed: ${d.granted.title} — ready to use in your next run!`);
         setGift({ available: false, claimed: true, item: d.granted });
         // let the engine pick up the new item without a reload
         try { (window as unknown as { $: { fetchProfile?: () => void } }).$?.fetchProfile?.(); } catch { /* engine may not be ready */ }

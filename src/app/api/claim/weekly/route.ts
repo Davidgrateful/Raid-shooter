@@ -5,12 +5,14 @@ import { getItem } from '@/lib/market';
 import { isKvConfigured, redisCommand } from '@/lib/kv';
 import { rateLimit, clientIp } from '@/lib/ratelimit';
 
-// Weekly free cosmetic for wallet-connected players. The gift rotates every
+// Weekly free boost for wallet-connected players. The gift rotates every
 // week and is claimable once per wallet per week. Purpose: convert guests
-// into wallet players (who can then receive tournament rewards/payouts).
-// Cosmetics only - the gift can never affect gameplay or score.
+// into wallet players (who can then receive tournament rewards/payouts) and
+// give a recurring reason to come back. These are consumable boosts (health,
+// shield, revive) - a run that spends one is excluded from the ranked board,
+// so free boosts stay a convenience, never a competitive edge.
 
-const ROTATION = ['trail_ion', 'trail_ember', 'color_ice', 'trail_void', 'color_emerald'];
+const ROTATION = ['consumable_shield', 'consumable_health', 'consumable_revive'];
 
 // in-memory fallback so local dev works without KV (per-instance, ephemeral)
 const memClaims = new Set<string>();
