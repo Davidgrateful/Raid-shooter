@@ -17,6 +17,11 @@ const csp = [
   "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https:",
+  // the game synthesizes all sound effects as data:audio/wav URIs (jsfxr) and
+  // the promo/menu music via WebAudio blobs - without media-src these are
+  // blocked by default-src and the game boots silent (or errors on some
+  // browsers), so allow self + data + blob audio explicitly
+  "media-src 'self' data: blob:",
   "font-src 'self' data:",
   "connect-src 'self' https: wss:",
   "frame-src 'self' https: https://challenges.cloudflare.com",

@@ -2858,7 +2858,10 @@ $.setupStates = function() {
 		// then everyone lands on the menu.
 		if( elapsed >= dur || ( elapsed > 14 && $.mouse.down ) ) {
 			$.mouse.down = 0;
-			if( !$.storage['guideseen'] ) {
+			// only a genuinely new player (never started a run AND never seen
+			// the guide) gets auto-onboarded - existing players who update go
+			// straight to the menu as always
+			if( !$.storage['seen'] && !$.storage['guideseen'] ) {
 				$.howtoIndex = 0;
 				$.howtoOnboarding = 1;
 				$.setState( 'howto' );
