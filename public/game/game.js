@@ -1713,7 +1713,7 @@ $.setState = function( state ) {
 				$.music.start();
 				$.setState( 'play' );
 			} },
-			{ title: $.dailyRunPlayedToday() ? 'DAILY RUN: DONE' : 'DAILY RUN', full: 1, scale: menuCompact ? 1 : 2, action: function() {
+			{ title: $.dailyRunPlayedToday() ? 'DAILY RUN: DONE' : ( $.storage['dailyrunever'] ? 'DAILY RUN' : 'DAILY RUN  NEW' ), full: 1, scale: menuCompact ? 1 : 2, action: function() {
 				$.mouse.down = 0;
 				if( !$.storage['pilotname'] ) { $.promptPilotName(); }
 				$.ensurePilotName();
@@ -2382,6 +2382,7 @@ $.setState = function( state ) {
 
 	if( state == 'dailyrun' ) {
 		$.mouse.down = 0;
+		if( !$.storage['dailyrunever'] ) { $.storage['dailyrunever'] = 1; $.updateStorage(); }
 		$.fetchDailyBoard();
 		var playedToday = $.dailyRunPlayedToday();
 		$.buttons.push( new $.Button( {
