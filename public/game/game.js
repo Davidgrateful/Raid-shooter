@@ -1727,7 +1727,7 @@ $.setState = function( state ) {
 				$.mouse.down = 0;
 				$.setState( 'market' );
 			} },
-			{ title: 'SHOOTERBOARD', scale: menuCompact ? 1 : 2, action: function() {
+			{ title: 'SHOOTERBOARD', full: 1, scale: menuCompact ? 2 : 3, action: function() {
 				$.mouse.down = 0;
 				// a name is required before the board is shown the first time,
 				// so every row on screen — including the player's own — has a
@@ -1737,11 +1737,6 @@ $.setState = function( state ) {
 				}
 				$.ensurePilotName();
 				$.setState( 'board' );
-			} },
-			{ title: 'HOW TO PLAY', scale: menuCompact ? 1 : 2, action: function() {
-				$.mouse.down = 0;
-				$.howtoIndex = 0;
-				$.setState( 'howto' );
 			} },
 			{ title: 'SETTINGS', full: 1, scale: menuCompact ? 2 : 3, action: function() {
 				$.mouse.down = 0;
@@ -2311,6 +2306,12 @@ $.setState = function( state ) {
 		}
 
 		// secondary destinations moved off the main menu to keep it short
+		settingsButton( 'HOW TO PLAY', function() {
+			$.mouse.down = 0;
+			$.howtoIndex = 0;
+			$.howtoOnboarding = 0;
+			$.setState( 'howto' );
+		} );
 		settingsButton( 'STATS', function() {
 			$.mouse.down = 0;
 			$.setState( 'stats' );
@@ -2458,6 +2459,12 @@ $.setState = function( state ) {
 
 	if( state == 'howto' ) {
 		$.mouse.down = 0;
+		// once the guide has been seen (finished or skipped), a new player
+		// never gets auto-onboarded again
+		$.markGuideSeen = $.markGuideSeen || function() {
+			$.howtoOnboarding = 0;
+			if( !$.storage['guideseen'] ) { $.storage['guideseen'] = 1; $.updateStorage(); }
+		};
 		if( typeof $.howtoIndex !== 'number' ) { $.howtoIndex = 0; }
 
 		var htCompact = ( $.ch < 640 ),
@@ -2493,6 +2500,7 @@ $.setState = function( state ) {
 			action: function() {
 				$.mouse.down = 0;
 				if( $.howtoIndex >= $.howtoSlideCount() - 1 ) {
+					$.markGuideSeen();
 					$.setState( 'menu' );
 				} else {
 					$.howtoIndex += 1;
@@ -2501,15 +2509,17 @@ $.setState = function( state ) {
 			}
 		} ) );
 
-		// MENU/BACK, centered at the bottom
+		// SKIP (during onboarding) / MENU (from settings), bottom center
 		$.buttons.push( new $.Button( {
 			x: $.cw / 2 + 1,
 			y: htCompact ? $.ch - 34 : $.ch - 60,
 			lockedWidth: htCompact ? 130 : 180,
 			lockedHeight: htCompact ? 40 : 49,
 			scale: htCompact ? 1 : 2,
-			title: 'MENU',
+			title: $.howtoOnboarding ? 'SKIP' : 'MENU',
 			action: function() {
+				$.mouse.down = 0;
+				$.markGuideSeen();
 				$.setState( 'menu' );
 			}
 		} ) );
@@ -2843,10 +2853,18 @@ $.setupStates = function() {
 		// reset it on entry, so borrowing it here is safe)
 		$.tick += 1;
 
-		// hand off to the menu when done, or let the player tap to skip
+		// hand off when done, or let the player tap to skip. A brand-new
+		// player is dropped straight into the guide once (auto-onboarding),
+		// then everyone lands on the menu.
 		if( elapsed >= dur || ( elapsed > 14 && $.mouse.down ) ) {
 			$.mouse.down = 0;
-			$.setState( 'menu' );
+			if( !$.storage['guideseen'] ) {
+				$.howtoIndex = 0;
+				$.howtoOnboarding = 1;
+				$.setState( 'howto' );
+			} else {
+				$.setState( 'menu' );
+			}
 		}
 	};
 
