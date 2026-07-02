@@ -1668,6 +1668,14 @@ $.setState = function( state ) {
 		$.mouse.ax = 0;
 		$.mouse.ay = 0;
 
+		// abandoning a daily run mid-flight (pause -> menu): restore the real
+		// RNG and drop the active flag WITHOUT marking the day done, so the
+		// attempt isn't wasted
+		if( $.dailyRunActive ) {
+			$.endSeededRng();
+			$.dailyRunActive = 0;
+		}
+
 		$.reset();
 
 		// compact layout: two columns of buttons on short screens (phone
@@ -1704,6 +1712,12 @@ $.setState = function( state ) {
 				$.audio.play( 'levelup' );
 				$.music.start();
 				$.setState( 'play' );
+			} },
+			{ title: $.dailyRunPlayedToday() ? 'DAILY RUN: DONE' : 'DAILY RUN', full: 1, scale: menuCompact ? 1 : 2, action: function() {
+				$.mouse.down = 0;
+				if( !$.storage['pilotname'] ) { $.promptPilotName(); }
+				$.ensurePilotName();
+				$.setState( 'dailyrun' );
 			} },
 			{ title: 'PILOT: ' + $.currentCharacter().title, scale: menuCompact ? 1 : 2, action: function() {
 				$.mouse.down = 0;
@@ -2366,6 +2380,26 @@ $.setState = function( state ) {
 		$.buttons.push( boardMenuButton );
 	}
 
+	if( state == 'dailyrun' ) {
+		$.mouse.down = 0;
+		$.fetchDailyBoard();
+		var playedToday = $.dailyRunPlayedToday();
+		$.buttons.push( new $.Button( {
+			x: $.cw / 2 - 106, y: $.ch - 52, lockedWidth: 199, lockedHeight: 45, scale: 2,
+			title: playedToday ? 'PLAYED TODAY' : 'START RUN',
+			action: function() {
+				$.mouse.down = 0;
+				if( $.dailyRunPlayedToday() ) { return; }
+				$.startDailyRun();
+			}
+		} ) );
+		$.buttons.push( new $.Button( {
+			x: $.cw / 2 + 106, y: $.ch - 52, lockedWidth: 199, lockedHeight: 45, scale: 2,
+			title: 'MENU',
+			action: function() { $.mouse.down = 0; $.setState( 'menu' ); }
+		} ) );
+	}
+
 	if( state == 'stats' ) {
 		$.mouse.down = 0;
 
@@ -2636,12 +2670,16 @@ $.setState = function( state ) {
 
 		// best-run celebration + daily challenge settle BEFORE the storage
 		// update below folds this run into the records
-		$.runWasBest = $.score > 0 && $.score > ( $.storage['score'] || 0 );
+		// daily runs live on their own board and must not touch the endless
+		// personal-best records (or fire the NEW PERSONAL BEST banner)
+		$.runWasBest = !$.dailyRunActive && $.score > 0 && $.score > ( $.storage['score'] || 0 );
 		$.dailyResult = $.dailySettle();
 
-		$.storage['score'] = Math.max( $.storage['score'], $.score );
-		$.storage['level'] = Math.max( $.storage['level'], $.level.current );
-		$.storage['combo'] = Math.max( $.storage['combo'] || 0, $.bestCombo );
+		if( !$.dailyRunActive ) {
+			$.storage['score'] = Math.max( $.storage['score'], $.score );
+			$.storage['level'] = Math.max( $.storage['level'], $.level.current );
+			$.storage['combo'] = Math.max( $.storage['combo'] || 0, $.bestCombo );
+		}
 		$.storage['rounds'] += 1;
 		$.storage['kills'] += $.kills;
 		$.storage['bullets'] += $.bulletsFired;
@@ -2651,7 +2689,13 @@ $.setState = function( state ) {
 
 		// run length in seconds (elapsed counts at 60fps), for playtime stats
 		$.trackRun( 'run_end', Math.floor( ( $.elapsed * ( 1000 / 60 ) ) / 1000 ) );
-		$.submitScore();
+		// a daily run posts to the daily board only (never the endless one)
+		// and restores the real RNG; everything else submits as normal
+		if( $.dailyRunActive ) {
+			$.finishDailyRun();
+		} else {
+			$.submitScore();
+		}
 	}
 
 	// set state
@@ -2870,6 +2914,18 @@ $.setupStates = function() {
 			$.ctxmg.fill();
 		}
 
+		// the menu grew a row (DAILY RUN), so anchor the footer lines to the
+		// actual bottom of the button stack instead of fixed offsets, which
+		// would otherwise collide with SETTINGS on some heights
+		var menuBottomY = 0;
+		for( var mb = 0; mb < $.buttons.length; mb++ ) {
+			var mbtn = $.buttons[ mb ];
+			if( mbtn ) {
+				var mbe = mbtn.y + ( ( mbtn.lockedHeight || 0 ) / 2 );
+				if( mbe > menuBottomY ) { menuBottomY = mbe; }
+			}
+		}
+
 		// daily challenge: one shared goal per day, streak-scaled bonus XP
 		if( $.dailyChallenge ) {
 			var daily = $.dailyChallenge(),
@@ -2879,7 +2935,7 @@ $.setupStates = function() {
 				dailyText = dailyDone
 					? 'DAILY CHALLENGE COMPLETE  +' + $.dailyNextXp() + ' XP EARNED' + streakTag
 					: 'DAILY: ' + daily.text + '  +' + $.dailyNextXp() + ' XP' + streakTag,
-				dailyY = menuCompact ? 4 : $.ch - 196;
+				dailyY = menuCompact ? 4 : menuBottomY + 16;
 			$.ctxmg.beginPath();
 			$.text( {
 				ctx: $.ctxmg, x: $.cw / 2, y: dailyY,
@@ -2925,7 +2981,7 @@ $.setupStates = function() {
 			var bottomInfo = $.text( {
 				ctx: $.ctxmg,
 				x: $.cw / 2,
-				y: $.ch - 172,
+				y: menuBottomY + 32,
 				text: 'CREATED BY DAVID GRATEFUL',
 				hspacing: 1,
 				vspacing: 1,
@@ -3556,6 +3612,63 @@ $.setupStates = function() {
 			$.ctxmg.fill();
 		}
 
+		var i = $.buttons.length; while( i-- ){ if( $.buttons[ i ] ) { $.buttons[ i ].update( i ) } }
+			i = $.buttons.length; while( i-- ){ if( $.buttons[ i ] ) { $.buttons[ i ].render( i ) } }
+	};
+
+	$.states['dailyrun'] = function() {
+		$.clearScreen();
+		var drCompact = ( $.ch < 640 );
+		$.ctxmg.beginPath();
+		var drTitle = $.text( { ctx: $.ctxmg, x: $.cw / 2, y: drCompact ? 50 : 96, text: 'DAILY RUN', hspacing: 2, vspacing: 1, halign: 'center', valign: 'bottom', scale: drCompact ? 4 : 7, snap: 1, render: 1 } );
+		var drGrad = $.ctxmg.createLinearGradient( drTitle.sx, drTitle.sy, drTitle.sx, drTitle.ey );
+		drGrad.addColorStop( 0, '#fff' ); drGrad.addColorStop( 1, '#8ad' );
+		$.ctxmg.fillStyle = drGrad; $.ctxmg.fill();
+		$.ctxmg.beginPath();
+		$.text( { ctx: $.ctxmg, x: $.cw / 2, y: drTitle.ey + ( drCompact ? 8 : 14 ), text: 'SAME WAVES FOR EVERYONE TODAY  /  ONE ATTEMPT  /  RESETS DAILY', hspacing: 1, vspacing: 1, halign: 'center', valign: 'top', scale: 1, snap: 1, render: 1 } );
+		$.ctxmg.fillStyle = 'hsla(190, 100%, 75%, 0.7)'; $.ctxmg.fill();
+		var infoY = drTitle.ey + ( drCompact ? 24 : 40 );
+		if( $.dailyRunResult ) {
+			var rr = $.dailyRunResult,
+				rtxt = rr.state === 'sending' ? 'SUBMITTING YOUR RUN' : rr.state === 'error' ? 'SUBMISSION FAILED' : ( 'YOUR RUN  ' + $.util.commas( rr.score ) + ( rr.rank ? '  RANK ' + rr.rank : '' ) );
+			$.ctxmg.beginPath();
+			$.text( { ctx: $.ctxmg, x: $.cw / 2, y: infoY, text: rtxt, hspacing: 1, vspacing: 1, halign: 'center', valign: 'top', scale: drCompact ? 1 : 2, snap: 1, render: 1 } );
+			$.ctxmg.fillStyle = 'hsla(45, 100%, 65%, 1)'; $.ctxmg.fill();
+			infoY += drCompact ? 16 : 26;
+		} else if( $.dailyRunPlayedToday() ) {
+			$.ctxmg.beginPath();
+			$.text( { ctx: $.ctxmg, x: $.cw / 2, y: infoY, text: 'YOU HAVE PLAYED TODAY  /  COME BACK TOMORROW', hspacing: 1, vspacing: 1, halign: 'center', valign: 'top', scale: 1, snap: 1, render: 1 } );
+			$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 0.55)'; $.ctxmg.fill();
+			infoY += drCompact ? 14 : 22;
+		}
+		var listTop = infoY + ( drCompact ? 20 : 34 ),
+			rowH = drCompact ? 18 : 22,
+			maxRows = Math.min( $.dailyBoard.entries.length, Math.floor( ( $.ch - 120 - listTop ) / rowH ) );
+		if( $.dailyBoard.loading && !$.dailyBoard.fetched ) {
+			$.ctxmg.beginPath();
+			$.text( { ctx: $.ctxmg, x: $.cw / 2, y: listTop + 20, text: 'LOADING TODAYS BOARD', hspacing: 1, vspacing: 1, halign: 'center', valign: 'top', scale: 1, snap: 1, render: 1 } );
+			$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 0.4)'; $.ctxmg.fill();
+		} else if( $.dailyBoard.entries.length === 0 ) {
+			$.ctxmg.beginPath();
+			$.text( { ctx: $.ctxmg, x: $.cw / 2, y: listTop + 20, text: 'NO RUNS YET TODAY  /  BE THE FIRST', hspacing: 1, vspacing: 1, halign: 'center', valign: 'top', scale: drCompact ? 1 : 2, snap: 1, render: 1 } );
+			$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 0.4)'; $.ctxmg.fill();
+		} else {
+			$.ctxmg.beginPath();
+			$.text( { ctx: $.ctxmg, x: $.cw / 2, y: listTop - ( drCompact ? 14 : 18 ), text: 'TODAY  ' + $.dailyBoard.total + ' PILOT' + ( $.dailyBoard.total === 1 ? '' : 'S' ), hspacing: 1, vspacing: 1, halign: 'center', valign: 'top', scale: 1, snap: 1, render: 1 } );
+			$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 0.35)'; $.ctxmg.fill();
+			for( var r = 0; r < maxRows; r++ ) {
+				var e = $.dailyBoard.entries[ r ],
+					y = listTop + r * rowH,
+					nm = ( e.name || ( e.identity && e.identity.indexOf( '0x' ) === 0 ? ( e.identity.slice( 0, 6 ) + '..' + e.identity.slice( -4 ) ) : 'GUEST' ) ).toUpperCase(),
+					medal = ( r === 0 ? '01 ' : r === 1 ? '02 ' : r === 2 ? '03 ' : ( ( r + 1 ) + ' ' ) );
+				$.ctxmg.beginPath();
+				$.text( { ctx: $.ctxmg, x: $.cw / 2 - ( drCompact ? 150 : 230 ), y: y, text: medal + nm, hspacing: 1, vspacing: 1, halign: 'left', valign: 'top', scale: 1, snap: 1, render: 1 } );
+				$.ctxmg.fillStyle = ( r < 3 ) ? 'hsla(45, 100%, 65%, 0.95)' : 'hsla(0, 0%, 100%, 0.7)'; $.ctxmg.fill();
+				$.ctxmg.beginPath();
+				$.text( { ctx: $.ctxmg, x: $.cw / 2 + ( drCompact ? 150 : 230 ), y: y, text: $.util.commas( e.score ), hspacing: 1, vspacing: 1, halign: 'right', valign: 'top', scale: 1, snap: 1, render: 1 } );
+				$.ctxmg.fillStyle = ( r < 3 ) ? 'hsla(45, 100%, 65%, 0.95)' : 'hsla(0, 0%, 100%, 0.7)'; $.ctxmg.fill();
+			}
+		}
 		var i = $.buttons.length; while( i-- ){ if( $.buttons[ i ] ) { $.buttons[ i ].update( i ) } }
 			i = $.buttons.length; while( i-- ){ if( $.buttons[ i ] ) { $.buttons[ i ].render( i ) } }
 	};
@@ -4275,7 +4388,12 @@ $.setupStates = function() {
 		==============================================================================*/
 		var boardText = '',
 			boardColor = 'hsla(0, 0%, 100%, 0.5)';
-		if( $.boardSubmit.state === 'sending' ) {
+		if( $.boardSubmit.state === 'dailypending' ) {
+			boardText = 'SUBMITTING DAILY RUN';
+		} else if( $.boardSubmit.state === 'daily' ) {
+			boardText = $.boardSubmit.rank ? 'DAILY RUN  RANK ' + $.boardSubmit.rank : 'DAILY RUN SUBMITTED';
+			boardColor = 'hsla(45, 100%, 65%, 1)';
+		} else if( $.boardSubmit.state === 'sending' ) {
 			boardText = 'SUBMITTING TO SHOOTERBOARD';
 		} else if( $.boardSubmit.state === 'done' ) {
 			boardText = $.boardSubmit.rank
