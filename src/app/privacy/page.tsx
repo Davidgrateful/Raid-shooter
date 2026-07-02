@@ -12,7 +12,10 @@ export default function PrivacyPage() {
   return (
     <main className="mx-auto max-w-3xl px-6 py-12 text-sm leading-relaxed text-white/80">
       <h1 className="mb-1 text-2xl font-bold text-white">Privacy Policy</h1>
-      <p className="mb-8 text-white/40">Last updated: {UPDATED}</p>
+      <p className="mb-8 text-white/40">
+        Last updated: {UPDATED} · See also our{' '}
+        <a href="/terms" className="text-cyan-300 underline">Terms &amp; Tournament Rules</a>
+      </p>
 
       <Section title="What we collect">
         <ul className="list-disc space-y-1 pl-5">

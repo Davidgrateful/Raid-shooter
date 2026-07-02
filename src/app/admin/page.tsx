@@ -127,6 +127,11 @@ export default function AdminPage() {
   // hydrate token from ?key= or localStorage on first mount
   useEffect(() => {
     const fromUrl = new URLSearchParams(window.location.search).get('key');
+    // scrub the token from the address bar immediately - it must not live
+    // in browser history, referer headers, or shared links
+    if (fromUrl) {
+      window.history.replaceState({}, '', window.location.pathname);
+    }
     const saved = fromUrl || localStorage.getItem('admin_stats_token') || '';
     if (saved) {
       setToken(saved);
@@ -139,7 +144,7 @@ export default function AdminPage() {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch(`/api/admin/stats?key=${encodeURIComponent(t)}`, { cache: 'no-store' });
+      const res = await fetch(`/api/admin/stats`, { cache: 'no-store', headers: { Authorization: `Bearer ${t}` } });
       if (res.status === 401) throw new Error('Wrong token (401). Check the value matches ADMIN_STATS_TOKEN.');
       if (res.status === 503) throw new Error('ADMIN_STATS_TOKEN is not set on the server (503). Add it in Vercel and redeploy.');
       if (!res.ok) throw new Error(`Request failed (${res.status}).`);
@@ -196,7 +201,7 @@ function PlayersTable({ token }: { token: string }) {
     setBusy(true);
     setErr('');
     try {
-      const res = await fetch(`/api/admin/players?key=${encodeURIComponent(token)}`, { cache: 'no-store' });
+      const res = await fetch(`/api/admin/players`, { cache: 'no-store', headers: { Authorization: `Bearer ${token}` } });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || `Failed (${res.status})`);
       setPlayers(data.players);
@@ -213,9 +218,9 @@ function PlayersTable({ token }: { token: string }) {
     setBusy(true);
     setNote('');
     try {
-      const res = await fetch(`/api/admin/derank?key=${encodeURIComponent(token)}`, {
+      const res = await fetch(`/api/admin/derank`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ id: p.id, action }),
       });
       const data = await res.json();
@@ -323,7 +328,7 @@ function SponsorsManager({ token }: { token: string }) {
   async function load() {
     setBusy(true); setMsg('');
     try {
-      const res = await fetch(`/api/admin/sponsors?key=${encodeURIComponent(token)}`, { cache: 'no-store' });
+      const res = await fetch(`/api/admin/sponsors`, { cache: 'no-store', headers: { Authorization: `Bearer ${token}` } });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || `Failed (${res.status})`);
       setList(data.sponsors);
@@ -336,8 +341,8 @@ function SponsorsManager({ token }: { token: string }) {
     if (!form) return;
     setBusy(true); setMsg('');
     try {
-      const res = await fetch(`/api/admin/sponsors?key=${encodeURIComponent(token)}`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form),
+      const res = await fetch(`/api/admin/sponsors`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(form),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || `Failed (${res.status})`);
@@ -352,7 +357,7 @@ function SponsorsManager({ token }: { token: string }) {
     if (!confirm(`Delete partner "${s.name}"?`)) return;
     setBusy(true); setMsg('');
     try {
-      const res = await fetch(`/api/admin/sponsors?key=${encodeURIComponent(token)}&id=${encodeURIComponent(s.id)}`, { method: 'DELETE' });
+      const res = await fetch(`/api/admin/sponsors&id=${encodeURIComponent(s.id)}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error(`Failed (${res.status})`);
       await load();
     } catch (e) { setMsg(e instanceof Error ? e.message : 'Delete failed.'); }
@@ -450,7 +455,7 @@ function AdminActions({ token }: { token: string }) {
     setMsg('');
     setLookup(null);
     try {
-      const res = await fetch(`/api/admin/player?id=${encodeURIComponent(lookupId.trim())}&key=${encodeURIComponent(token)}`, { cache: 'no-store' });
+      const res = await fetch(`/api/admin/player?id=${encodeURIComponent(lookupId.trim())}`, { cache: 'no-store', headers: { Authorization: `Bearer ${token}` } });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || `Failed (${res.status})`);
       setLookup(data);
@@ -466,9 +471,9 @@ function AdminActions({ token }: { token: string }) {
     setBusy(true);
     setMsg('');
     try {
-      const res = await fetch(`/api/admin/grant?key=${encodeURIComponent(token)}`, {
+      const res = await fetch(`/api/admin/grant`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ address: grantAddr.trim(), itemId: grantItem.trim() }),
       });
       const data = await res.json();
@@ -490,9 +495,9 @@ function AdminActions({ token }: { token: string }) {
     setBusy(true);
     setMsg('');
     try {
-      const res = await fetch(`/api/admin/leaderboard/reset?key=${encodeURIComponent(token)}`, {
+      const res = await fetch(`/api/admin/leaderboard/reset`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ confirm: 'RESET' }),
       });
       const data = await res.json();
@@ -575,6 +580,74 @@ function ConfigPill({ ok, label, warn }: { ok: boolean; label: string; warn?: bo
 }
 
 // ---- live leaderboard (top ranked players) ----
+
+// ---- suspicious-run review queue (anti-cheat gate before payouts) ----
+interface FlaggedRun { id: string; address: string; name?: string; score: number; kills: number; combo: number; time: number; pilot: string; at: number; verified: boolean; reason: string }
+
+function FlaggedRuns({ token }: { token: string }) {
+  const [rows, setRows] = useState<FlaggedRun[] | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState('');
+
+  async function load() {
+    setBusy(true); setMsg('');
+    try {
+      const res = await fetch(`/api/admin/flagged`, { cache: 'no-store', headers: { Authorization: `Bearer ${token}` } });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `Failed (${res.status})`);
+      setRows(data.flagged);
+    } catch (e) { setMsg(e instanceof Error ? e.message : 'Failed to load.'); }
+    finally { setBusy(false); }
+  }
+
+  async function act(row: FlaggedRun, action: 'approve' | 'derank' | 'ban') {
+    if (action !== 'approve' && !confirm(`${action.toUpperCase()} ${row.name || row.address}?`)) return;
+    setBusy(true); setMsg('');
+    try {
+      const res = await fetch(`/api/admin/flagged`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ id: row.id, address: row.address, action }) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `Failed (${res.status})`);
+      await load();
+    } catch (e) { setMsg(e instanceof Error ? e.message : 'Action failed.'); }
+    finally { setBusy(false); }
+  }
+
+  return (
+    <section className="mt-8">
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-red-300/80">Flagged runs — review before paying prizes</h2>
+        <button onClick={load} disabled={busy} className="rounded-md bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20 disabled:opacity-40">{rows ? 'Refresh' : 'Load'}</button>
+      </div>
+      {msg && <div className="mb-3 rounded-md border border-white/15 bg-white/[0.05] p-2 text-sm text-white/80">{msg}</div>}
+      {rows && (rows.length === 0 ? (
+        <div className="rounded-md border border-white/10 bg-white/[0.02] p-3 text-sm text-white/40">Queue is clear. Outlier submissions land here automatically (they still rank until you act).</div>
+      ) : (
+        <div className="overflow-x-auto rounded-md border border-white/10">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-white/[0.04] text-white/40"><tr><th className="px-2 py-1.5">Player</th><th className="px-2 py-1.5">Score</th><th className="px-2 py-1.5">Kills</th><th className="px-2 py-1.5">Time</th><th className="px-2 py-1.5">Reason</th><th className="px-2 py-1.5 text-right">Actions</th></tr></thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.id} className="border-t border-white/5">
+                  <td className="px-2 py-1.5">{r.name || '—'} <span className="font-mono text-white/40">{short(r.address)}</span>{r.verified && <span className="ml-1 text-emerald-300">✓</span>}</td>
+                  <td className="px-2 py-1.5 font-semibold">{r.score.toLocaleString()}</td>
+                  <td className="px-2 py-1.5">{r.kills}</td>
+                  <td className="px-2 py-1.5">{r.time}s</td>
+                  <td className="px-2 py-1.5 text-amber-300/80">{r.reason}</td>
+                  <td className="px-2 py-1.5 text-right">
+                    <button onClick={() => act(r, 'approve')} className="rounded bg-emerald-500/15 px-2 py-1 text-emerald-300 hover:bg-emerald-500/25">Approve</button>
+                    <button onClick={() => act(r, 'derank')} className="ml-1.5 rounded bg-amber-500/15 px-2 py-1 text-amber-300 hover:bg-amber-500/25">Derank</button>
+                    <button onClick={() => act(r, 'ban')} className="ml-1.5 rounded bg-red-500/15 px-2 py-1 text-red-300 hover:bg-red-500/25">Ban</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ))}
+    </section>
+  );
+}
+
 function LeaderboardView({ rows }: { rows: Stats['leaderboard']['top'] }) {
   if (!rows || rows.length === 0) {
     return <div className="rounded-lg border border-white/10 bg-white/[0.02] p-3 text-sm text-white/40">No ranked players yet.</div>;
@@ -623,15 +696,15 @@ function AnnouncementsManager({ token }: { token: string }) {
 
   async function load() {
     setBusy(true);
-    try { const r = await fetch(`/api/admin/announcements?key=${encodeURIComponent(token)}`, { cache: 'no-store' }); const d = await r.json(); if (r.ok) setList(d.announcements); } finally { setBusy(false); }
+    try { const r = await fetch(`/api/admin/announcements`, { cache: 'no-store', headers: { Authorization: `Bearer ${token}` } }); const d = await r.json(); if (r.ok) setList(d.announcements); } finally { setBusy(false); }
   }
   async function save() {
     if (!form) return; setBusy(true);
-    try { await fetch(`/api/admin/announcements?key=${encodeURIComponent(token)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) }); setForm(null); await load(); } finally { setBusy(false); }
+    try { await fetch(`/api/admin/announcements`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(form) }); setForm(null); await load(); } finally { setBusy(false); }
   }
   async function remove(id: string) {
     if (!confirm('Delete this announcement?')) return; setBusy(true);
-    try { await fetch(`/api/admin/announcements?key=${encodeURIComponent(token)}&id=${encodeURIComponent(id)}`, { method: 'DELETE' }); await load(); } finally { setBusy(false); }
+    try { await fetch(`/api/admin/announcements&id=${encodeURIComponent(id)}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } }); await load(); } finally { setBusy(false); }
   }
 
   return (
@@ -672,7 +745,7 @@ function FeedbackInbox({ token }: { token: string }) {
   const [busy, setBusy] = useState(false);
   async function load() {
     setBusy(true);
-    try { const r = await fetch(`/api/admin/feedback?key=${encodeURIComponent(token)}`, { cache: 'no-store' }); const d = await r.json(); if (r.ok) setList(d.feedback); } finally { setBusy(false); }
+    try { const r = await fetch(`/api/admin/feedback`, { cache: 'no-store', headers: { Authorization: `Bearer ${token}` } }); const d = await r.json(); if (r.ok) setList(d.feedback); } finally { setBusy(false); }
   }
   return (
     <div>
@@ -734,7 +807,7 @@ function RewardsManager({ token }: { token: string }) {
   async function load() {
     setBusy(true); setMsg('');
     try {
-      const res = await fetch(`/api/admin/rewards?key=${encodeURIComponent(token)}`, { cache: 'no-store' });
+      const res = await fetch(`/api/admin/rewards`, { cache: 'no-store', headers: { Authorization: `Bearer ${token}` } });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || `Failed (${res.status})`);
       setSeasons(data.seasons); setPayouts(data.payouts || []);
@@ -747,7 +820,7 @@ function RewardsManager({ token }: { token: string }) {
     if (!form) return;
     setBusy(true); setMsg('');
     try {
-      const res = await fetch(`/api/admin/rewards?key=${encodeURIComponent(token)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
+      const res = await fetch(`/api/admin/rewards`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(form) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || `Failed (${res.status})`);
       setMsg(`✓ Saved ${data.season.name}.`); setForm(null); await load();
@@ -758,14 +831,14 @@ function RewardsManager({ token }: { token: string }) {
   async function removeSeason(s: Season) {
     if (!confirm(`Delete season "${s.name}"?`)) return;
     setBusy(true);
-    try { await fetch(`/api/admin/rewards?key=${encodeURIComponent(token)}&id=${encodeURIComponent(s.id)}`, { method: 'DELETE' }); await load(); }
+    try { await fetch(`/api/admin/rewards&id=${encodeURIComponent(s.id)}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } }); await load(); }
     finally { setBusy(false); }
   }
 
   async function runWinners(seasonId: string, grant: boolean, createPayout: boolean) {
     setBusy(true); setMsg(''); setExported(null);
     try {
-      const res = await fetch(`/api/admin/rewards/winners?key=${encodeURIComponent(token)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ seasonId, grant, createPayout }) });
+      const res = await fetch(`/api/admin/rewards/winners`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ seasonId, grant, createPayout }) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || `Failed (${res.status})`);
       setWinners({ seasonId, rows: data.winners });
@@ -781,7 +854,7 @@ function RewardsManager({ token }: { token: string }) {
     if (action === 'mark-sent' && !confirm('Mark this batch as paid?')) return;
     setBusy(true); setMsg('');
     try {
-      const res = await fetch(`/api/admin/rewards/payout?key=${encodeURIComponent(token)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ payoutId, action, confirm: true }) });
+      const res = await fetch(`/api/admin/rewards/payout`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ payoutId, action, confirm: true }) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || `Failed (${res.status})`);
       if (action === 'export') { setExported({ csv: data.export.csv, paste: data.export.disperse.pasteFormat }); setMsg('✓ Batch ready to sign from your wallet (copy below).'); }
@@ -1137,6 +1210,7 @@ function Dashboard(p: DashboardProps) {
                 <Stat label="Active (30d)" value={fmtNum(lb.activity.last30Days)} sub={`${lb.activity.lastDay} today`} />
               </div>
               <LeaderboardView rows={lb.top} />
+                <FlaggedRuns token={token} />
               {lb.topPilots.length > 0 && (
                 <>
                   <h3 className="mt-5 mb-2 text-xs uppercase tracking-wider text-white/40">Most-played pilots</h3>

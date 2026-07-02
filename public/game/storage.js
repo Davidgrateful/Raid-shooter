@@ -51,7 +51,9 @@ $.setupStorage = function() {
 	// migrate the old binary mute flag to the 3-level sound control
 	// (FULL/LOW/MUTE) for players who already have a saved profile
 	if( $.storage['soundLevel'] === undefined ) {
-		$.storage['soundLevel'] = $.storage['mute'] ? 0 : 1;
+		// new players start at LOW: audible arcade feel without blasting a
+	// first-time web visitor. One tap on the sound button goes to FULL.
+	$.storage['soundLevel'] = $.storage['mute'] ? 0 : 0.5;
 		$.updateStorage();
 	}
 

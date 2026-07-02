@@ -54,7 +54,7 @@ $.init = function() {
 	$.ctxfg = $.cfg.getContext( '2d' );
 	$.setupCanvasSizes();
 
-	$.setSoundLevel( $.storage['soundLevel'] !== undefined ? $.storage['soundLevel'] : 1 );
+	$.setSoundLevel( $.storage['soundLevel'] !== undefined ? $.storage['soundLevel'] : 0.5 );
 	$.autofire = $.storage['autofire'];
 	$.slowEnemyDivider = 2;
 
@@ -517,6 +517,19 @@ $.renderInterface = function() {
 				render: 1
 			} );
 			$.ctxmg.fillStyle = 'hsla(45, 100%, 70%, ' + ( tutAlpha * 0.9 ) + ')';
+			$.ctxmg.fill();
+
+			// a concrete first goal converts better than a cold drop-in
+			$.ctxmg.beginPath();
+			$.text( {
+				ctx: $.ctxmg,
+				x: $.cw / 2,
+				y: $.ch * 0.3 + 64,
+				text: 'GOAL: SCORE 10,000 TO RANK ON THE SHOOTERBOARD',
+				hspacing: 1, vspacing: 1, halign: 'center', valign: 'center',
+				scale: 1, snap: 1, render: 1
+			} );
+			$.ctxmg.fillStyle = 'hsla(190, 100%, 70%, ' + ( tutAlpha * 0.9 ) + ')';
 			$.ctxmg.fill();
 		}
 
@@ -2854,13 +2867,15 @@ $.setupStates = function() {
 			$.ctxmg.fill();
 		}
 
-		// daily challenge: one shared goal per day, bonus XP on completion
+		// daily challenge: one shared goal per day, streak-scaled bonus XP
 		if( $.dailyChallenge ) {
 			var daily = $.dailyChallenge(),
 				dailyDone = $.dailyDone(),
+				dailyStreak = $.dailyStreak(),
+				streakTag = dailyStreak >= 2 ? '  ' + dailyStreak + ' DAY STREAK' : '',
 				dailyText = dailyDone
-					? 'DAILY CHALLENGE COMPLETE  +' + daily.xp + ' XP EARNED'
-					: 'DAILY: ' + daily.text + '  +' + daily.xp + ' XP',
+					? 'DAILY CHALLENGE COMPLETE  +' + $.dailyNextXp() + ' XP EARNED' + streakTag
+					: 'DAILY: ' + daily.text + '  +' + $.dailyNextXp() + ' XP' + streakTag,
 				dailyY = menuCompact ? 4 : $.ch - 196;
 			$.ctxmg.beginPath();
 			$.text( {
@@ -4152,7 +4167,7 @@ $.setupStates = function() {
 			$.ctxmg.beginPath();
 			$.text( {
 				ctx: $.ctxmg, x: $.cw / 2, y: goHighlightY,
-				text: 'DAILY CHALLENGE COMPLETE  +' + $.dailyResult.xp + ' XP',
+				text: 'DAILY CHALLENGE COMPLETE  +' + $.dailyResult.xp + ' XP' + ( $.dailyResult.streak >= 2 ? ', ' + $.dailyResult.streak + ' DAY STREAK' : '' ),
 				hspacing: 1, vspacing: 1, halign: 'center', valign: 'top',
 				scale: 1, snap: 1, render: 1
 			} );

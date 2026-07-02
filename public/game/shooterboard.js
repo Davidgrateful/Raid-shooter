@@ -259,7 +259,10 @@ $.shareRunCard = function() {
 				'&combo=' + ( $.bestCombo | 0 ) +
 				'&level=' + ( ( $.level.current + 1 ) | 0 ) +
 				( tier ? '&tier=' + encodeURIComponent( tier ) : '' ) +
-				( rank ? '&rank=' + rank : '' ),
+				( rank ? '&rank=' + rank : '' ) +
+				// stamp the card when this run (or an earlier one today)
+				// cleared the daily challenge - shares recruit challengers
+				( ( $.dailyDone && $.dailyDone() ) ? '&daily=1' : '' ),
 			url = window.location.origin + '/api/card?' + params,
 			text = 'I SCORED ' + $.util.commas( $.score || 0 ) + ' ON RAID SHOOTER';
 		if( navigator.share ) {

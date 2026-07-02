@@ -15,6 +15,33 @@ $.dailyKey = function() {
 
 $.dailyXpReward = 250;
 
+// streak-scaled reward: day 1 pays 250, day 2 pays 300, day 3+ pays 400.
+// A missed day resets the streak - that's what makes it a habit.
+$.dailyXpFor = function( streak ) {
+	return streak >= 3 ? 400 : ( streak === 2 ? 300 : 250 );
+};
+
+// yesterday's key, for the did-the-streak-survive check
+$.dailyYesterdayKey = function() {
+	var d = new Date( Date.now() - 86400000 );
+	return d.getFullYear() + '-' + ( d.getMonth() + 1 ) + '-' + d.getDate();
+};
+
+// current streak count (only counts if it's still alive today)
+$.dailyStreak = function() {
+	var s = $.storage['dailystreak'];
+	if( !s || !s.count ) { return 0; }
+	if( s.last === $.dailyKey() || s.last === $.dailyYesterdayKey() ) { return s.count; }
+	return 0;
+};
+
+// the XP completing today's challenge would pay right now
+$.dailyNextXp = function() {
+	var s = $.storage['dailystreak'],
+		alive = s && s.last === $.dailyYesterdayKey() ? s.count : 0;
+	return $.dailyDone() ? $.dailyXpFor( $.dailyStreak() ) : $.dailyXpFor( alive + 1 );
+};
+
 // The challenge pool. Every stat here is already tallied during a run, so
 // checking completion costs nothing. Text must stay within the bitmap
 // font's glyph set ( $+,.:/0-9@A-Z ).
@@ -102,7 +129,7 @@ $.dailyRenderPop = function() {
 	$.ctxmg.beginPath();
 	$.text( {
 		ctx: $.ctxmg, x: $.cw / 2, y: $.ch * 0.22 + 26,
-		text: '+' + $.dailyXpReward + ' XP AT RUN END',
+		text: '+' + $.dailyNextXp() + ' XP AT RUN END',
 		hspacing: 1, vspacing: 1, halign: 'center', valign: 'top',
 		scale: 1, snap: 1, render: 1
 	} );
@@ -111,13 +138,18 @@ $.dailyRenderPop = function() {
 	$.ctxmg.restore();
 };
 
-// Settle the challenge at the end of a run: awards the XP once per day.
-// Returns the result for the game-over screen, or null.
+// Settle the challenge at the end of a run: awards the XP once per day and
+// advances the streak. Returns the result for the game-over screen, or null.
 $.dailySettle = function() {
 	if( $.dailyDone() || !$.dailyCheckRun() ) { return null; }
 	$.storage['dailydone'] = $.dailyKey();
+	// streak continues if yesterday was completed, otherwise restarts at 1
+	var prev = $.storage['dailystreak'],
+		count = ( prev && prev.last === $.dailyYesterdayKey() ) ? prev.count + 1 : 1;
+	$.storage['dailystreak'] = { count: count, last: $.dailyKey() };
+	var xp = $.dailyXpFor( count );
 	if( $.hero && $.hero.character ) {
-		$.gainPilotXp( $.hero.character.id, $.dailyXpReward );
+		$.gainPilotXp( $.hero.character.id, xp );
 	}
-	return { xp: $.dailyXpReward };
+	return { xp: xp, streak: count };
 };

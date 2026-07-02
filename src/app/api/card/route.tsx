@@ -41,6 +41,9 @@ export async function GET(req: Request) {
   const level = Math.max(0, parseInt(searchParams.get('level') || '0', 10) || 0);
   const tier = (searchParams.get('tier') || tierFromScore(score)).toUpperCase();
   const tierColor = TIERS[tier] || TIERS.BRONZE;
+  // "daily=1": this run cleared today's daily challenge - social proof that
+  // recruits ("there's a challenge every day?")
+  const daily = searchParams.get('daily') === '1';
 
   const stat = (label: string, value: string) => ({
     label,
@@ -91,6 +94,27 @@ export async function GET(req: Request) {
             {tier}
           </div>
         </div>
+
+        {/* daily challenge stamp */}
+        {daily && (
+          <div
+            style={{
+              display: 'flex',
+              position: 'absolute',
+              top: 92,
+              right: 72,
+              fontSize: 21,
+              fontWeight: 800,
+              letterSpacing: 2,
+              color: '#ffd75e',
+              border: '2px solid #ffd75e',
+              borderRadius: 8,
+              padding: '6px 14px',
+            }}
+          >
+            ✓ DAILY CHALLENGE CLEARED
+          </div>
+        )}
 
         {/* rank + name */}
         <div style={{ display: 'flex', flexDirection: 'column', marginTop: 18 }}>

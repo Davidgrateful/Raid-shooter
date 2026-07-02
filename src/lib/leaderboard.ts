@@ -351,3 +351,89 @@ export async function updateName(
   existing.name = name;
   return true;
 }
+
+/*==============================================================================
+Flagged-run review queue (anti-cheat)
+
+Scores are client-reported, so before real-money rewards are paid the
+operator needs eyes on outliers. Submissions that pass validation but look
+suspicious get copied here for manual review - they still rank normally
+(no false-positive punishment); the queue is the payout gate, not a block.
+==============================================================================*/
+
+const FLAGGED_KEY = 'shooterboard:flagged';
+
+export interface FlaggedRun {
+  id: string;
+  address: string;
+  name?: string;
+  score: number;
+  kills: number;
+  combo: number;
+  time: number;
+  pilot: string;
+  at: number;
+  verified: boolean;
+  reason: string;
+}
+
+const memFlagged = new Map<string, FlaggedRun>();
+
+// Heuristics tuned to catch "too good to be human" runs, not good players:
+// absolute score outliers, kill rates beyond human APM, and score-per-kill
+// ratios close to the theoretical cap for the whole run.
+export function suspicionReason(entry: BoardEntry): string | null {
+  if (entry.score >= 75_000) return 'HIGH SCORE OUTLIER';
+  if (entry.time > 0 && entry.kills / entry.time > 8) return 'KILL RATE > 8/S';
+  if (entry.kills > 0 && entry.score / entry.kills > 6000) return 'SCORE/KILL NEAR CAP';
+  return null;
+}
+
+export async function flagRun(entry: BoardEntry, reason: string): Promise<void> {
+  const flagged: FlaggedRun = {
+    id: `${entry.address}:${entry.at}`,
+    address: entry.address,
+    name: entry.name,
+    score: entry.score,
+    kills: entry.kills,
+    combo: entry.combo,
+    time: entry.time,
+    pilot: entry.pilot,
+    at: entry.at,
+    verified: !!entry.verified,
+    reason,
+  };
+  if (kvUrl && kvToken) {
+    await redis(['HSET', FLAGGED_KEY, flagged.id, JSON.stringify(flagged)]);
+  } else {
+    memFlagged.set(flagged.id, flagged);
+  }
+}
+
+export async function getFlagged(): Promise<FlaggedRun[]> {
+  let rows: FlaggedRun[];
+  if (kvUrl && kvToken) {
+    const raw = (await redis(['HGETALL', FLAGGED_KEY])) as unknown;
+    const vals: string[] = [];
+    if (Array.isArray(raw)) {
+      for (let i = 1; i < raw.length; i += 2) vals.push(String(raw[i]));
+    } else if (raw && typeof raw === 'object') {
+      for (const v of Object.values(raw as Record<string, unknown>)) vals.push(String(v));
+    }
+    rows = vals
+      .map((v) => { try { return JSON.parse(v) as FlaggedRun; } catch { return null; } })
+      .filter((r): r is FlaggedRun => !!r);
+  } else {
+    rows = [...memFlagged.values()];
+  }
+  return rows.sort((a, b) => b.at - a.at);
+}
+
+// Remove a run from the queue (after approve/derank/ban was applied).
+export async function clearFlag(id: string): Promise<boolean> {
+  if (kvUrl && kvToken) {
+    const removed = (await redis(['HDEL', FLAGGED_KEY, id])) as number;
+    return removed > 0;
+  }
+  return memFlagged.delete(id);
+}

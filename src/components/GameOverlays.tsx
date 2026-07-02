@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react';
 // Both read/write the same endpoints the admin console manages.
 
 interface Announcement { id: string; title: string; body: string }
+interface WeeklyGift { available: boolean; claimed?: boolean; item: { id: string; title: string } | null }
 
 export function GameOverlays() {
   const [onMenu, setOnMenu] = useState(false);
@@ -19,16 +20,45 @@ export function GameOverlays() {
   const [fbText, setFbText] = useState('');
   const [fbSent, setFbSent] = useState(false);
   const [fbBusy, setFbBusy] = useState(false);
+  const [gift, setGift] = useState<WeeklyGift | null>(null);
+  const [giftBusy, setGiftBusy] = useState(false);
+  const [giftMsg, setGiftMsg] = useState('');
 
   useEffect(() => {
     fetch('/api/announcements')
       .then((r) => r.json())
       .then((d) => { if (d.announcements?.length) setNews(d.announcements[0]); })
       .catch(() => {});
-    const onState = (e: Event) => setOnMenu((e as CustomEvent).detail === 'menu');
+    const onState = (e: Event) => {
+      const isMenu = (e as CustomEvent).detail === 'menu';
+      setOnMenu(isMenu);
+      // re-check the weekly gift whenever the menu is entered (the player
+      // may have connected a wallet since the last look)
+      if (isMenu) {
+        fetch('/api/claim/weekly').then((r) => r.json()).then(setGift).catch(() => {});
+      }
+    };
     window.addEventListener('raidshooter:state', onState as EventListener);
     return () => window.removeEventListener('raidshooter:state', onState as EventListener);
   }, []);
+
+  async function claimGift() {
+    setGiftBusy(true); setGiftMsg('');
+    try {
+      const res = await fetch('/api/claim/weekly', { method: 'POST' });
+      const d = await res.json();
+      if (res.ok && d.granted) {
+        setGiftMsg(`Unlocked: ${d.granted.title} — equip it in the Hangar!`);
+        setGift({ available: false, claimed: true, item: d.granted });
+        // let the engine pick up the new item without a reload
+        try { (window as unknown as { $: { fetchProfile?: () => void } }).$?.fetchProfile?.(); } catch { /* engine may not be ready */ }
+      } else {
+        setGiftMsg(d.error === 'already_claimed' ? 'Already claimed this week.' : 'Claim failed — try again.');
+      }
+    } catch {
+      setGiftMsg('Claim failed — try again.');
+    } finally { setGiftBusy(false); }
+  }
 
   async function sendFeedback() {
     if (fbText.trim().length < 2) return;
@@ -64,6 +94,28 @@ export function GameOverlays() {
             <p className="mt-2 whitespace-pre-wrap text-sm text-white/80">{news.body}</p>
             <button onClick={() => setOpen(false)} className="mt-5 rounded-lg bg-white/10 px-4 py-2 text-sm hover:bg-white/20">Close</button>
           </div>
+        </div>
+      )}
+
+      {/* weekly gift: shown to wallet players until claimed; guests see the
+          hook that makes connecting a wallet worth it */}
+      {gift?.item && !gift.claimed && (
+        <div data-game-ui="" style={{ position: 'fixed', right: 12, bottom: 12, zIndex: 45, maxWidth: '80vw' }}>
+          <div className="flex items-center gap-2 rounded-full border border-amber-400/40 bg-black/60 px-3 py-1.5 text-xs text-white/85 backdrop-blur-sm">
+            <span>🎁</span>
+            {gift.available ? (
+              <>
+                <span className="hidden sm:inline">Weekly gift: <b className="text-amber-300">{gift.item.title}</b></span>
+                <button onClick={claimGift} disabled={giftBusy}
+                  className="rounded-full bg-amber-400/90 px-3 py-1 font-semibold text-black hover:bg-amber-300 disabled:opacity-50">
+                  {giftBusy ? 'Claiming…' : 'Claim free'}
+                </button>
+              </>
+            ) : (
+              <span>Connect wallet to claim this week&apos;s free <b className="text-amber-300">{gift.item.title}</b></span>
+            )}
+          </div>
+          {giftMsg && <div className="mt-1 rounded-lg border border-emerald-500/30 bg-black/70 px-3 py-1.5 text-xs text-emerald-300">{giftMsg}</div>}
         </div>
       )}
 

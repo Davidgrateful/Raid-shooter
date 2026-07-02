@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getOrCreateGuestId, getSession } from '@/lib/session';
-import { checkSubmitAllowed, getTop, isPersistent, submitEntry } from '@/lib/leaderboard';
+import { checkSubmitAllowed, getTop, isPersistent, submitEntry, suspicionReason, flagRun } from '@/lib/leaderboard';
 import { verifyTurnstile } from '@/lib/turnstile';
 import { clientIp } from '@/lib/ratelimit';
 
@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
     if (!allowed) {
       return NextResponse.json({ error: 'rate_limited' }, { status: 429 });
     }
-    const result = await submitEntry({
+    const entry = {
       address: key,
       name: displayName,
       score,
@@ -93,7 +93,14 @@ export async function POST(req: NextRequest) {
       time,
       at: Date.now(),
       verified,
-    });
+    };
+    const result = await submitEntry(entry);
+    // outlier runs still rank (no false-positive punishment) but are copied
+    // to the admin review queue - the gate for tournament payouts
+    const reason = suspicionReason(entry);
+    if (reason) {
+      flagRun(entry, reason).catch(() => {});
+    }
     return NextResponse.json({ ok: true, verified, ...result });
   } catch {
     return NextResponse.json({ error: 'board_unavailable' }, { status: 503 });
