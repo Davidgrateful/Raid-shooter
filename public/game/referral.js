@@ -15,24 +15,42 @@ Flow:
 
 $.referral = { code: '', invites: 0, top: [], fetched: 0, justCredited: 0 };
 
-// Pull the ?ref= code out of the URL and stash it so a page reload or wallet
-// connect later doesn't lose the attribution. Cleaned to the code glyph set.
+// the ?ref= code, held here until $.storage exists (referral.js loads before
+// game.js builds $.storage), then persisted on first access
+$.__pendingRef = '';
+
+// Pull the ?ref= code out of the URL. Persists to storage if it's ready,
+// otherwise keeps it in $.__pendingRef for persistReferrer() to flush later.
 $.captureRefParam = function() {
 	try {
 		var params = new URLSearchParams( window.location.search ),
 			ref = ( params.get( 'ref' ) || '' ).toUpperCase().replace( /[^A-Z0-9]/g, '' ).slice( 0, 16 );
-		if( ref && ref.length >= 3 && !$.storage['refby'] ) {
-			$.storage['refby'] = ref;
-			$.updateStorage();
+		if( ref && ref.length >= 3 ) {
+			$.__pendingRef = ref;
+			$.persistReferrer();
 		}
 	} catch( e ) {}
+};
+
+// Once $.storage is available, move a pending ref into it (first writer wins -
+// never overwrite an existing binding). Safe to call repeatedly.
+$.persistReferrer = function() {
+	if( !$.storage || !$.__pendingRef ) { return; }
+	if( !$.storage['refby'] ) {
+		$.storage['refby'] = $.__pendingRef;
+		if( $.updateStorage ) { $.updateStorage(); }
+	}
 };
 
 // Bind the pending referrer to this identity server-side (idempotent there).
 // Also mints/refreshes our own code from our call sign in the same call.
 $.trackReferral = function() {
-	var callSign = $.storage['pilotname'] || '';
-	var refby = $.storage['refby'] || '';
+	// $.storage may not be initialised yet (referral.js loads before game.js);
+	// read defensively so a race at boot never throws
+	$.persistReferrer();
+	var store = $.storage || {},
+		callSign = store['pilotname'] || '',
+		refby = store['refby'] || $.__pendingRef || '';
 	if( !refby && $.referral.fetched ) { return; }
 	fetch( '/api/referral', {
 		method: 'POST',

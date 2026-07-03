@@ -29,6 +29,14 @@ already built and gated — usually just an env var + redeploy.
 - **Anyone can fake a sign-in / forged wallet / trust concerns** → `SESSION_SECRET`
   must be set in production (32+ random chars), or sessions are forgeable.
 
+- **Wallet won't connect / modal opens but nothing happens / "shows a wallet
+  but doesn't connect"** → `NEXT_PUBLIC_REOWN_PROJECT_ID` is not set, so AppKit
+  falls back to a placeholder the WalletConnect relay rejects. Get a free ID at
+  cloud.reown.com, set it in Vercel, add `raidshooter.xyz` to the project's
+  allowed domains, redeploy. The Connect button greys out with an explanation
+  until it's set (no dead modal). Email/social embedded wallets are enabled and
+  need the same ID.
+
 ## Admin / team dashboard
 
 `/admin` (gated by `ADMIN_STATS_TOKEN`): player stats, revenue, loadout usage,
