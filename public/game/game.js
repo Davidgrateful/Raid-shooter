@@ -2351,8 +2351,11 @@ $.setState = function( state ) {
 
 		// segmented board selector: ALL-TIME vs SPACE HUNT, the live sponsored
 		// cup (only shown when one is running). Lets a player pick the esports
-		// board in-game without leaving for an external page.
-		var tabY = ( $.ch < 640 ) ? 118 : 168,
+		// board in-game without leaving for an external page. The lane sits
+		// just under the title; the renderer reserves space for it (see
+		// laneOffset) so it never lands on the tier/rank banners.
+		var boardCompactSet = ( $.ch < 640 ),
+			tabY = ( boardCompactSet ? 60 : 110 ) + ( boardCompactSet ? 18 : 26 ),
 			cupLive = $.cupLive();
 		var makeTab = function( label, tab, x ) {
 			var b = new $.Button( {
@@ -2373,10 +2376,10 @@ $.setState = function( state ) {
 		}
 
 		// INVITE: share a personal referral link - both sides earn a boost.
-		// Tucked top-right so it clears the JUMP TO ME / MENU row and the
-		// centered tournament strip.
+		// Tucked top-left so it clears the wallet-connect button (top-right)
+		// and the JUMP TO ME / MENU row.
 		var inviteButton = new $.Button( {
-			x: $.cw - 92, y: ( $.ch < 640 ) ? 30 : 44, lockedWidth: 150, lockedHeight: 38, scale: 1,
+			x: 88, y: ( $.ch < 640 ) ? 28 : 40, lockedWidth: 150, lockedHeight: 38, scale: 1,
 			title: 'INVITE',
 			action: function() {
 				$.mouse.down = 0;
@@ -3429,9 +3432,12 @@ $.setupStates = function() {
 		/*==============================================================================
 		Your Tier banner (from local best score - works without a wallet)
 		==============================================================================*/
+		// when a cup is live the board shows a tab lane just under the title;
+		// push the banners and rows down so nothing lands on the toggle
+		var laneOffset = $.cupLive() ? ( boardCompact ? 34 : 48 ) : 0;
 		var myBest = $.storage['score'] || 0,
 			myTier = $.tierFor( myBest ),
-			tierY = boardTitle.ey + ( boardCompact ? 12 : 22 );
+			tierY = boardTitle.ey + ( boardCompact ? 12 : 22 ) + laneOffset;
 		$.ctxmg.beginPath();
 		var tierLabel = $.text( {
 			ctx: $.ctxmg,
@@ -3541,7 +3547,7 @@ $.setupStates = function() {
 				rowScale = ( boardCompact || narrow ) ? 1 : 2,
 				perColumn = Math.ceil( rowCount / columns ),
 				// pushed down to clear the YOUR-TIER and YOU-RANK banners
-					rowStartY = boardTitle.ey + ( boardCompact ? 70 : 104 ),
+					rowStartY = boardTitle.ey + ( boardCompact ? 70 : 104 ) + laneOffset,
 				rowSpacing = narrow ? 13 : ( boardCompact ? 15 : 19 ),
 				columnGap = boardCompact ? 24 : 50,
 				totalWidth = Math.min( $.cw - 60, 720 ),
