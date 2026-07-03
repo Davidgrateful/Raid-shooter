@@ -17,7 +17,7 @@ export function WalletButton() {
   if (!isConnected) {
     return (
       <button
-        onClick={() => open()}
+        onClick={() => { try { open(); } catch (e) { console.error('[wallet] open failed', e); } }}
         className="px-3 py-1.5 max-sm:px-2 max-sm:py-1 max-sm:text-xs bg-white/10 hover:bg-white/20 border border-white/20 rounded text-sm text-white transition-colors"
       >
         Connect Wallet
