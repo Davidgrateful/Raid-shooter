@@ -1467,7 +1467,7 @@ $.registerKill = function( value, radius ) {
 		$.hero.life = Math.min( 1, $.hero.life + heal );
 	}
 	if( $.hero.character ) {
-		$.gainPilotXp( $.hero.character.id, 1 );
+		$.gainPilotXp( $.hero.character.id, $.droneXpMult ? $.droneXpMult() : 1 );
 	}
 	$.bestCombo = Math.max( $.bestCombo, $.combo );
 	var multiplier = Math.min( 8, 1 + Math.floor( $.combo / 4 ) );
@@ -2010,8 +2010,10 @@ $.setState = function( state ) {
 			} ) );
 			var droneButtonTitle = function() {
 				var equipped = $.equippedDrone();
-				return 'DRONE: ' + ( equipped ? equipped.title : 'NONE' ) +
-					'\n' + ( equipped ? equipped.desc : 'EQUIP ONE FOR A PASSIVE BONUS' );
+				if( !equipped ) { return 'DRONE: NONE\nEQUIP ONE FOR A PASSIVE BONUS'; }
+				var xpTag = $.droneXpLabel ? $.droneXpLabel( equipped ) : '';
+				return 'DRONE: ' + equipped.title +
+					'\n' + equipped.desc + ( xpTag ? ( '   ' + xpTag ) : '' );
 			};
 			$.buttons.push( new $.Button( {
 				x: $.cw / 2,
@@ -2161,6 +2163,11 @@ $.setState = function( state ) {
 						droneDef = $.definitions.drones[ dii ];
 						break;
 					}
+				}
+				// surface the XP bonus as a buying point next to the passive
+				var droneXpTag = ( droneDef && $.droneXpLabel ) ? $.droneXpLabel( droneDef ) : '';
+				if( droneXpTag ) {
+					subtitle = ( subtitle ? ( subtitle + '   ' ) : '' ) + droneXpTag;
 				}
 				icon = {
 					draw: ( droneDef && droneDef.draw ) || function( ctx, r, fillStyle ) {

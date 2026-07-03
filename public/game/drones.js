@@ -8,7 +8,7 @@ must-buy power spike.
 ==============================================================================*/
 $.definitions.drones = [
 	{
-		id: 'drone_aegis', title: 'AEGIS HALO', desc: 'REDUCES COLLISION DAMAGE',
+		id: 'drone_aegis', title: 'AEGIS HALO', desc: 'REDUCES COLLISION DAMAGE', xpBonus: 0.10,
 		// a closed ring - a shield silhouette
 		draw: function( ctx, r, fillStyle, tick ) {
 			ctx.strokeStyle = fillStyle;
@@ -19,7 +19,7 @@ $.definitions.drones = [
 		}
 	},
 	{
-		id: 'drone_voltmite', title: 'VOLT MITE', desc: 'SHOTS CHAIN TO A NEARBY ENEMY',
+		id: 'drone_voltmite', title: 'VOLT MITE', desc: 'SHOTS CHAIN TO A NEARBY ENEMY', xpBonus: 0.15,
 		// a jagged spark/diamond
 		draw: function( ctx, r, fillStyle, tick ) {
 			ctx.beginPath();
@@ -35,7 +35,7 @@ $.definitions.drones = [
 		}
 	},
 	{
-		id: 'drone_needlefinch', title: 'NEEDLE FINCH', desc: 'BULLETS PIERCE ENEMIES',
+		id: 'drone_needlefinch', title: 'NEEDLE FINCH', desc: 'BULLETS PIERCE ENEMIES', xpBonus: 0.15,
 		// a thin needle/arrow
 		draw: function( ctx, r, fillStyle, tick ) {
 			ctx.beginPath();
@@ -49,7 +49,7 @@ $.definitions.drones = [
 		}
 	},
 	{
-		id: 'drone_gravbeetle', title: 'GRAV BEETLE', desc: 'PULLS NEARBY ENEMIES INWARD',
+		id: 'drone_gravbeetle', title: 'GRAV BEETLE', desc: 'PULLS NEARBY ENEMIES INWARD', xpBonus: 0.20,
 		// a spiral/orbit pulling inward
 		draw: function( ctx, r, fillStyle, tick ) {
 			ctx.strokeStyle = fillStyle;
@@ -68,7 +68,7 @@ $.definitions.drones = [
 		}
 	},
 	{
-		id: 'drone_medicwisp', title: 'MEDIC WISP', desc: 'SLOWLY REGENERATES HULL',
+		id: 'drone_medicwisp', title: 'MEDIC WISP', desc: 'SLOWLY REGENERATES HULL', xpBonus: 0.10,
 		// a cross inside an orb
 		draw: function( ctx, r, fillStyle, tick ) {
 			ctx.beginPath();
@@ -84,7 +84,7 @@ $.definitions.drones = [
 	{
 		// reward-only champion crest: a small gold crown. Never sold - granted
 		// to tournament winners from the admin so it reads as a flex in-game.
-		id: 'drone_champion', title: 'CHAMPION CREST', desc: 'WINNERS-ONLY COSMETIC CREST',
+		id: 'drone_champion', title: 'CHAMPION CREST', desc: 'WINNERS-ONLY COSMETIC CREST', xpBonus: 0.25,
 		reward: true,
 		draw: function( ctx, r, fillStyle, tick ) {
 			ctx.beginPath();
@@ -101,3 +101,19 @@ $.definitions.drones = [
 		}
 	}
 ];
+
+// XP multiplier from the equipped drone. Drones are bought loadout that
+// already shape a run's combat; each also grants a small pilot-XP bonus, so
+// buying/upgrading a drone speeds progression (pilot levels) - a revenue
+// lever that stays on the PROGRESSION lane and never touches the run's score.
+$.droneXpMult = function() {
+	var d = $.equippedDrone && $.equippedDrone();
+	return 1 + ( ( d && d.xpBonus ) || 0 );
+};
+
+// Percent label for UI, e.g. 0.15 -> "+15% XP" (empty when no bonus). The
+// bitmap font has no "%", so the label uses "PCT".
+$.droneXpLabel = function( drone ) {
+	var b = drone && drone.xpBonus;
+	return b ? ( '+' + Math.round( b * 100 ) + ' PCT XP' ) : '';
+};
