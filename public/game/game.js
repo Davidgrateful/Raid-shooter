@@ -289,6 +289,9 @@ $.reset = function() {
 	$.powerupsCollected = 0;
 	$.score = 0;
 	$.runAssisted = false;
+	// XP boost is decided at run start (see $.activateXpBoost); progression
+	// only, so it never marks the run assisted
+	$.xpBoostThisRun = 0;
 
 	$.combo = 0;
 	$.comboTimer = 0;
@@ -747,6 +750,15 @@ $.renderInterface = function() {
 	} );
 	$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 1)';
 	$.ctxmg.fill();
+
+		// XP BOOST active this run: a small pulsing badge after the score so the
+		// player sees the perk they paid for is working
+		if( $.xpBoostThisRun ) {
+			$.ctxmg.beginPath();
+			$.text( { ctx: $.ctxmg, x: scoreLabel.sx, y: scoreText.ey + 3, text: '2X XP', hspacing: 1, vspacing: 1, halign: 'top', valign: 'left', scale: 1, snap: 1, render: 1 } );
+			$.ctxmg.fillStyle = 'hsla(140, 90%, 62%, ' + ( 0.7 + Math.sin( $.tick / 12 ) * 0.3 ) + ')';
+			$.ctxmg.fill();
+		}
 
 	$.ctxmg.beginPath();
 	var bestLabel = $.text( {
@@ -1467,7 +1479,7 @@ $.registerKill = function( value, radius ) {
 		$.hero.life = Math.min( 1, $.hero.life + heal );
 	}
 	if( $.hero.character ) {
-		$.gainPilotXp( $.hero.character.id, $.droneXpMult ? $.droneXpMult() : 1 );
+		$.gainPilotXp( $.hero.character.id, $.xpGainMult ? $.xpGainMult() : 1 );
 	}
 	$.bestCombo = Math.max( $.bestCombo, $.combo );
 	var multiplier = Math.min( 8, 1 + Math.floor( $.combo / 4 ) );

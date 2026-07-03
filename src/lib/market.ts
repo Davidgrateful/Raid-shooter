@@ -67,6 +67,14 @@ export const CATALOG: MarketItem[] = [
   {
     id: 'consumable_revive', title: 'REVIVE TOKEN', kind: 'consumable', priceUsd: 1, priceEth: '0.00033', stack: 1,
   },
+  {
+    // XP Boost: doubles pilot XP for a run. A PROGRESSION item, not a combat
+    // assist - it does NOT flag the run as assisted, so a boosted run still
+    // ranks normally (you earn levels faster; your score is still your score).
+    // A pack auto-applies to your next runs.
+    id: 'consumable_xpboost', title: 'XP BOOST', kind: 'consumable', priceUsd: 1.5, priceEth: '0.0005', stack: 3,
+    ability: 'DOUBLE PILOT XP THIS RUN',
+  },
   // combat drones - equip one at a time for a passive effect; deliberately
   // small bonuses (see DRONE_DEFS in drones.js) so they shift playstyle
   // without becoming pay-to-win on Shooterboard runs

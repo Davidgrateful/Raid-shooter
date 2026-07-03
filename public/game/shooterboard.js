@@ -178,6 +178,8 @@ $.trackRun = function( event, durationSec ) {
 		// on run start, record the loadout the player chose so the dashboard
 		// can show pilot picks and drone equip rate across every run
 		if( event === 'run_start' ) {
+			// spend an XP BOOST charge (if any) to double this run's pilot XP
+			if( $.activateXpBoost ) { $.activateXpBoost(); }
 			var pilot = $.currentCharacter && $.currentCharacter();
 			var drone = $.equippedDrone && $.equippedDrone();
 			payload.pilot = pilot ? pilot.id : 'unknown';

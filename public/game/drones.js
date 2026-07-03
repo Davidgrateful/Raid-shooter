@@ -117,3 +117,26 @@ $.droneXpLabel = function( drone ) {
 	var b = drone && drone.xpBonus;
 	return b ? ( '+' + Math.round( b * 100 ) + ' PCT XP' ) : '';
 };
+
+// Total pilot-XP multiplier for the current run: the equipped drone's bonus
+// times a 2x if an XP BOOST is active this run. Both are progression levers -
+// they change how fast you level, never the run's score.
+$.xpGainMult = function() {
+	return $.droneXpMult() * ( $.xpBoostThisRun ? 2 : 1 );
+};
+
+// Spend one XP BOOST charge to double this run's pilot XP. Called once at run
+// start. Does NOT flag the run assisted (unlike combat consumables), so a
+// boosted run still ranks normally. Wallet-only, like all consumables.
+$.activateXpBoost = function() {
+	if( $.xpBoostThisRun ) { return; }
+	if( !$.session || !$.session.authenticated ) { return; }
+	if( ( $.consumableCount( 'consumable_xpboost' ) || 0 ) <= 0 ) { return; }
+	$.profile.consumables[ 'consumable_xpboost' ]--;
+	$.xpBoostThisRun = 1;
+	fetch( '/api/consumable/use', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify( { itemId: 'consumable_xpboost' } )
+	} ).catch( function() {} );
+};

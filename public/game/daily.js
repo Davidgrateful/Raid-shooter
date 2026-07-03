@@ -148,7 +148,7 @@ $.dailySettle = function() {
 		count = ( prev && prev.last === $.dailyYesterdayKey() ) ? prev.count + 1 : 1;
 	$.storage['dailystreak'] = { count: count, last: $.dailyKey() };
 	// the equipped drone's XP bonus applies to the daily reward too
-	var xp = Math.round( $.dailyXpFor( count ) * ( $.droneXpMult ? $.droneXpMult() : 1 ) );
+	var xp = Math.round( $.dailyXpFor( count ) * ( $.xpGainMult ? $.xpGainMult() : 1 ) );
 	if( $.hero && $.hero.character ) {
 		$.gainPilotXp( $.hero.character.id, xp );
 	}
