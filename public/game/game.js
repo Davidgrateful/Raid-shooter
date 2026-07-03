@@ -2349,9 +2349,9 @@ $.setState = function( state ) {
 			}
 		}, 10000 );
 
-		// segmented board selector: ALL-TIME vs the LIVE CUP (only shown when
-		// a sponsored cup is running). Lets a player pick the esports board
-		// in-game without leaving for an external page.
+		// segmented board selector: ALL-TIME vs SPACE HUNT, the live sponsored
+		// cup (only shown when one is running). Lets a player pick the esports
+		// board in-game without leaving for an external page.
 		var tabY = ( $.ch < 640 ) ? 118 : 168,
 			cupLive = $.cupLive();
 		var makeTab = function( label, tab, x ) {
@@ -2369,7 +2369,7 @@ $.setState = function( state ) {
 		};
 		if( cupLive ) {
 			makeTab( 'ALL-TIME', 'all', $.cw / 2 - 92 );
-			makeTab( 'LIVE CUP', 'cup', $.cw / 2 + 92 );
+			makeTab( 'SPACE HUNT', 'cup', $.cw / 2 + 92 );
 		}
 
 		// INVITE: share a personal referral link - both sides earn a boost.
@@ -3392,7 +3392,7 @@ $.setupStates = function() {
 			ctx: $.ctxmg,
 			x: $.cw / 2,
 			y: boardCompact ? 60 : 110,
-			text: ( $.boardTab === 'cup' ) ? 'LIVE CUP' : 'SHOOTERBOARD',
+			text: ( $.boardTab === 'cup' ) ? 'SPACE HUNT' : 'SHOOTERBOARD',
 			hspacing: 2,
 			vspacing: 1,
 			halign: 'center',
@@ -3510,7 +3510,7 @@ $.setupStates = function() {
 		} else if( $.board.error ) {
 			statusText = 'BOARD OFFLINE';
 		} else if( $.board.entries.length === 0 ) {
-			statusText = ( $.boardTab === 'cup' ) ? 'NO CUP RUNS YET  /  PLAY TO ENTER' : 'NO PILOTS RANKED YET';
+			statusText = ( $.boardTab === 'cup' ) ? 'SPACE HUNT NOT STARTED  /  PLAY TO ENTER' : 'NO PILOTS RANKED YET';
 		}
 
 		if( statusText ) {
