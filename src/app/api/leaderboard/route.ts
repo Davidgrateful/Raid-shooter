@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getOrCreateGuestId, getSession } from '@/lib/session';
 import { checkSubmitAllowed, getTop, getBoardCount, isPersistent, submitEntry, suspicionReason, flagRun } from '@/lib/leaderboard';
+import { getActiveSeason } from '@/lib/rewards';
+import { submitCupEntry } from '@/lib/cup';
 import { verifyTurnstile } from '@/lib/turnstile';
 import { clientIp } from '@/lib/ratelimit';
 
@@ -102,6 +104,21 @@ export async function POST(req: NextRequest) {
       verified,
     };
     const result = await submitEntry(entry);
+
+    // If a sponsored cup is live right now, this run ALSO posts to the
+    // time-boxed cup board — it counts toward the global best (above) and
+    // competes for the cup, but the cup ranking only ever sees runs played
+    // inside the window. Best-effort: a cup write must never fail a submit.
+    try {
+      const season = await getActiveSeason();
+      const now = Date.now();
+      if (season && season.status === 'active' && now >= season.createdAt && (!season.endsAt || now <= season.endsAt)) {
+        await submitCupEntry(season.id, entry);
+      }
+    } catch {
+      // cup board unavailable - the global submit already succeeded
+    }
+
     // outlier runs still rank (no false-positive punishment) but are copied
     // to the admin review queue - the gate for tournament payouts
     const reason = suspicionReason(entry);

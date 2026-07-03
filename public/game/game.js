@@ -2338,6 +2338,9 @@ $.setState = function( state ) {
 
 	if( state == 'board' ) {
 		$.mouse.down = 0;
+		// a cup that ended while the player was away shouldn't leave them
+		// stuck on an empty CUP tab
+		if( $.boardTab === 'cup' && !$.cupLive() ) { $.boardTab = 'all'; }
 		$.fetchBoard();
 		// keep the board live while the player is looking at it
 		$.boardRefreshTimer = setInterval( function() {
@@ -2345,6 +2348,43 @@ $.setState = function( state ) {
 				$.fetchBoard();
 			}
 		}, 10000 );
+
+		// segmented board selector: ALL-TIME vs the LIVE CUP (only shown when
+		// a sponsored cup is running). Lets a player pick the esports board
+		// in-game without leaving for an external page.
+		var tabY = ( $.ch < 640 ) ? 118 : 168,
+			cupLive = $.cupLive();
+		var makeTab = function( label, tab, x ) {
+			var b = new $.Button( {
+				x: x, y: tabY, lockedWidth: 168, lockedHeight: 38, scale: 1,
+				title: label,
+				action: function() {
+					if( $.boardTab === tab ) { return; }
+					$.boardTab = tab;
+					$.scroll.y = 0;
+					$.fetchBoard();
+				}
+			} );
+			$.buttons.push( b );
+		};
+		if( cupLive ) {
+			makeTab( 'ALL-TIME', 'all', $.cw / 2 - 92 );
+			makeTab( 'LIVE CUP', 'cup', $.cw / 2 + 92 );
+		}
+
+		// INVITE: share a personal referral link - both sides earn a boost.
+		// Tucked top-right so it clears the JUMP TO ME / MENU row and the
+		// centered tournament strip.
+		var inviteButton = new $.Button( {
+			x: $.cw - 92, y: ( $.ch < 640 ) ? 30 : 44, lockedWidth: 150, lockedHeight: 38, scale: 1,
+			title: 'INVITE',
+			action: function() {
+				$.mouse.down = 0;
+				if( $.fetchReferral ) { $.fetchReferral(); }
+				if( $.shareInvite ) { $.shareInvite(); }
+			}
+		} );
+		$.buttons.push( inviteButton );
 
 		// scrolls the list straight to the player's own row (set each frame
 		// by the board renderer); falls back to setting a call sign if the
@@ -3352,7 +3392,7 @@ $.setupStates = function() {
 			ctx: $.ctxmg,
 			x: $.cw / 2,
 			y: boardCompact ? 60 : 110,
-			text: 'SHOOTERBOARD',
+			text: ( $.boardTab === 'cup' ) ? 'LIVE CUP' : 'SHOOTERBOARD',
 			hspacing: 2,
 			vspacing: 1,
 			halign: 'center',
@@ -3362,8 +3402,13 @@ $.setupStates = function() {
 			render: 1
 		} );
 		var gradient = $.ctxmg.createLinearGradient( boardTitle.sx, boardTitle.sy, boardTitle.sx, boardTitle.ey );
-		gradient.addColorStop( 0, '#fff' );
-		gradient.addColorStop( 1, '#999' );
+		if( $.boardTab === 'cup' ) {
+			gradient.addColorStop( 0, '#fff' );
+			gradient.addColorStop( 1, '#fc6' );
+		} else {
+			gradient.addColorStop( 0, '#fff' );
+			gradient.addColorStop( 1, '#999' );
+		}
 		$.ctxmg.fillStyle = gradient;
 		$.ctxmg.fill();
 
@@ -3465,7 +3510,7 @@ $.setupStates = function() {
 		} else if( $.board.error ) {
 			statusText = 'BOARD OFFLINE';
 		} else if( $.board.entries.length === 0 ) {
-			statusText = 'NO PILOTS RANKED YET';
+			statusText = ( $.boardTab === 'cup' ) ? 'NO CUP RUNS YET  /  PLAY TO ENTER' : 'NO PILOTS RANKED YET';
 		}
 
 		if( statusText ) {

@@ -30,6 +30,8 @@ export async function GET() {
 
   return NextResponse.json({
     season: {
+      id: season.id,
+      live: season.status === 'active',
       name: season.name,
       prize1Usd,
       poolUsd,

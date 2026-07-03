@@ -10,7 +10,8 @@
 // store here).
 
 import { isKvConfigured, redisCommand } from '@/lib/kv';
-import { getTop, type BoardEntry } from '@/lib/leaderboard';
+import { type BoardEntry } from '@/lib/leaderboard';
+import { getCupTop } from '@/lib/cup';
 import { getItem } from '@/lib/market';
 import { grantItem } from '@/lib/profile';
 
@@ -160,12 +161,14 @@ function isWallet(address: string): boolean {
   return /^0x[0-9a-f]{40}$/i.test(address);
 }
 
-// Snapshot the current board against a season's prize table. Returns one row
-// per ranked player that a prize tier covers.
+// Snapshot the cup board against a season's prize table. Returns one row per
+// ranked player that a prize tier covers. Winners are judged on the
+// CUP-SCOPED board (runs played while this cup was live), not the all-time
+// global board — so a monster score set outside the cup window can't win it.
 export async function computeWinners(season: Season): Promise<WinnerRow[]> {
   const maxRank = season.prizes.reduce((m, p) => Math.max(m, p.toRank), 0);
   if (maxRank <= 0) return [];
-  const top: BoardEntry[] = await getTop(maxRank);
+  const top: BoardEntry[] = await getCupTop(season.id, maxRank);
   const rows: WinnerRow[] = [];
   top.forEach((entry, i) => {
     const rank = i + 1;

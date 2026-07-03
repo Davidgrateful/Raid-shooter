@@ -18,6 +18,14 @@ $.myKey = function() {
 $.board = { loading: 0, error: 0, fetched: 0, entries: [], persistent: 1 };
 $.boardSubmit = { state: 'idle', rank: 0, improved: false };
 
+// Which board the SHOOTERBOARD screen is showing: 'all' (all-time global) or
+// 'cup' (the live sponsored cup — only runs played while it's live count).
+// The DAILY board is its own screen. A cup run still counts toward the global
+// best; the CUP tab just judges the tournament on its own window.
+$.boardTab = 'all';
+// live cup meta ({ id, name, sponsorName, total }) or null when no cup runs
+$.cupBoard = null;
+
 /*==============================================================================
 Tiers - a visible rank ladder climbed by best score. Pure function of score,
 so it works with or without a wallet (a player sees their tier from their
@@ -110,19 +118,29 @@ $.fetchSession = function() {
 $.fetchBoard = function() {
 	$.board.loading = 1;
 	$.board.error = 0;
-	// page the canvas board (it scrolls a few hundred rows fine); the true
-	// field size comes back as data.total so "OF N" counts everyone
-	fetch( '/api/leaderboard?limit=250' )
+	// LIVE CUP tab reads the time-boxed cup board; ALL-TIME reads the global
+	// board. Both return {entries,total} in the same shape so the renderer is
+	// identical. The canvas pages 250 rows and scrolls; data.total counts all.
+	var cup = ( $.boardTab === 'cup' ),
+		url = cup ? '/api/cup' : '/api/leaderboard?limit=250',
+		requestedTab = $.boardTab;
+	fetch( url )
 		.then( function( res ) {
 			if( !res.ok ) { throw new Error( 'board' ); }
 			return res.json();
 		} )
 		.then( function( data ) {
+			// a tab switch mid-flight wins; drop a stale response
+			if( $.boardTab !== requestedTab ) { return; }
 			$.board.entries = data.entries || [];
 			$.board.total = ( typeof data.total === 'number' ) ? data.total : $.board.entries.length;
-			// the server reports whether a shared store is configured; when
-			// it isn't, players can't see each other and we say so
 			$.board.persistent = ( data.persistent === false ) ? 0 : 1;
+			if( cup ) {
+				$.cupBoard = data.season ? {
+					id: data.season.id, name: data.season.name,
+					sponsorName: data.season.sponsorName || '', total: data.total || 0
+				} : null;
+			}
 			$.board.loading = 0;
 			$.board.fetched = 1;
 		} )
@@ -130,6 +148,11 @@ $.fetchBoard = function() {
 			$.board.loading = 0;
 			$.board.error = 1;
 		} );
+};
+
+// Whether a sponsored cup is live right now (drives the CUP tab's visibility).
+$.cupLive = function() {
+	return !!( $.seasonMeta && $.seasonMeta.live && $.seasonMeta.id );
 };
 
 // Fire-and-forget run telemetry. Counts every run (and every player, via
@@ -226,6 +249,10 @@ $.submitScore = function() {
 				}
 				$.boardSubmit = { state: 'done', rank: data.rank || 0, improved: !!data.improved, verified: !!data.verified };
 
+				// if this pilot arrived through an invite, credit the inviter
+				// now that they've posted a real run (server gates on score)
+				if( $.claimReferral ) { $.claimReferral( runScore ); }
+
 				// near-miss hook: how far is this run from the next rank up?
 				// (top 50 only - deeper ranks aren't in the public feed)
 				if( data.rank > 1 && data.rank <= 50 ) {
@@ -306,7 +333,9 @@ $.fetchSeason = function() {
 	fetch( '/api/season' )
 		.then( function( r ) { return r.json(); } )
 		.then( function( d ) {
-			if( !d.season ) { $.activeSeason = null; return; }
+			if( !d.season ) { $.activeSeason = null; $.seasonMeta = null; return; }
+			// raw meta drives the LIVE CUP tab (id + live flag)
+			$.seasonMeta = { id: d.season.id || null, live: !!d.season.live };
 			var clean = function( s, max ) {
 				return ( s || '' ).toUpperCase().replace( /[^A-Z0-9 $+,.:\/@]/g, '' ).replace( /\s+/g, ' ' ).trim().slice( 0, max );
 			};
