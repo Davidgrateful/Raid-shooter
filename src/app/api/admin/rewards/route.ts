@@ -13,7 +13,7 @@ import { canAutoSend, tokenConfig } from '@/lib/payout';
 // tables (rank -> cosmetic and/or USDC) and runs reward rounds entirely from
 // the dashboard.
 export async function GET(req: NextRequest) {
-  const denied = adminGate(req);
+  const denied = await adminGate(req, 'rewards.view');
   if (denied) return denied;
   const [seasons, payouts] = await Promise.all([listSeasons(), listPayouts()]);
   const token = tokenConfig();
@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const denied = adminGate(req);
+  const denied = await adminGate(req, 'rewards.manage');
   if (denied) return denied;
   const body = (await req.json().catch(() => null)) as Partial<Season> | null;
   if (!body || !body.name) {
@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const denied = adminGate(req);
+  const denied = await adminGate(req, 'rewards.manage');
   if (denied) return denied;
   const id = req.nextUrl.searchParams.get('id') || '';
   const removed = await deleteSeason(id);

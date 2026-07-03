@@ -7,7 +7,7 @@ import { getProfile } from '@/lib/profile';
 // leaderboard entry, and whether persistence is even on (the #1 cause of
 // "my purchase vanished"). Pass ?id=<wallet 0x... or guest:...>.
 export async function GET(req: NextRequest) {
-  const denied = adminGate(req);
+  const denied = await adminGate(req, 'players.view');
   if (denied) return denied;
 
   const raw = (req.nextUrl.searchParams.get('id') || '').trim();

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { adminGate } from '@/lib/admin-auth';
+import { adminAuth } from '@/lib/admin-auth';
 import { removeEntry, banPlayer, unbanPlayer } from '@/lib/leaderboard';
+import { audit } from '@/lib/audit';
 
 // Moderate the leaderboard. Body: { id, action }.
 //   action "derank" -> remove their score (they can re-earn a rank)
@@ -8,8 +9,8 @@ import { removeEntry, banPlayer, unbanPlayer } from '@/lib/leaderboard';
 //   action "unban"  -> lift a ban
 // `id` may be a "wallet:0x…" / "guest:…" stats id or a bare board key.
 export async function POST(req: NextRequest) {
-  const denied = adminGate(req);
-  if (denied) return denied;
+  const auth = await adminAuth(req, 'players.moderate');
+  if (!auth.ok) return auth.res;
 
   const body = await req.json().catch(() => null);
   const rawId = (body?.id as string | undefined)?.trim();
@@ -23,14 +24,17 @@ export async function POST(req: NextRequest) {
 
   if (action === 'ban') {
     await banPlayer(key);
+    await audit({ actor: auth.identity.actor, action: 'player.ban', target: key });
     return NextResponse.json({ ok: true, action, id: key });
   }
   if (action === 'unban') {
     await unbanPlayer(key);
+    await audit({ actor: auth.identity.actor, action: 'player.unban', target: key });
     return NextResponse.json({ ok: true, action, id: key });
   }
   if (action === 'derank') {
     const removed = await removeEntry(key);
+    await audit({ actor: auth.identity.actor, action: 'player.derank', target: key });
     return NextResponse.json({ ok: true, action, id: key, removed });
   }
   return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 });

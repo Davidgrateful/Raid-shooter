@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { adminGate } from '@/lib/admin-auth';
+import { adminAuth } from '@/lib/admin-auth';
+import { audit } from '@/lib/audit';
 import { grantItem } from '@/lib/profile';
 import { getItem } from '@/lib/market';
 
@@ -7,8 +8,8 @@ import { getItem } from '@/lib/market';
 // paid but didn't receive their item, or to reward a verified account.
 // Body: { address: "0x...", itemId: "drone_voltmite" }.
 export async function POST(req: NextRequest) {
-  const denied = adminGate(req);
-  if (denied) return denied;
+  const auth = await adminAuth(req, 'players.moderate');
+  if (!auth.ok) return auth.res;
 
   const body = await req.json().catch(() => null);
   const address = (body?.address as string | undefined)?.trim().toLowerCase();
@@ -23,6 +24,7 @@ export async function POST(req: NextRequest) {
   }
 
   const profile = await grantItem(address, item);
+  await audit({ actor: auth.identity.actor, action: 'player.grant', target: address, detail: item.id });
   return NextResponse.json({
     ok: true,
     granted: item.id,

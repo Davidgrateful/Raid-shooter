@@ -6,14 +6,14 @@ import { getAdMetrics } from '@/lib/admetrics';
 // Admin CRUD for sponsors/partners. The operator drives this entirely from
 // the dashboard - no code changes needed to add or remove a partner.
 export async function GET(req: NextRequest) {
-  const denied = adminGate(req);
+  const denied = await adminGate(req, 'sponsors.manage');
   if (denied) return denied;
   const [sponsors, metrics] = await Promise.all([listSponsors(), getAdMetrics()]);
   return NextResponse.json({ sponsors, metrics });
 }
 
 export async function POST(req: NextRequest) {
-  const denied = adminGate(req);
+  const denied = await adminGate(req, 'sponsors.manage');
   if (denied) return denied;
   const body = (await req.json().catch(() => null)) as Partial<Sponsor> | null;
   if (!body || !body.name) {
@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const denied = adminGate(req);
+  const denied = await adminGate(req, 'sponsors.manage');
   if (denied) return denied;
   const id = req.nextUrl.searchParams.get('id') || '';
   const removed = await deleteSponsor(id);

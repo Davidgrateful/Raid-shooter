@@ -22,7 +22,7 @@ function avg(nums: number[]): number {
 }
 
 export async function GET(req: NextRequest) {
-  const denied = adminGate(req);
+  const denied = await adminGate(req, 'stats.view');
   if (denied) return denied;
 
   const [entries, tracking, market, recentBuys] = await Promise.all([

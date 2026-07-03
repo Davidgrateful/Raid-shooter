@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { adminGate } from '@/lib/admin-auth';
+import { adminAuth } from '@/lib/admin-auth';
+import { audit } from '@/lib/audit';
 import { resetBoard } from '@/lib/leaderboard';
 
 // Wipes the leaderboard. Destructive and irreversible, so it requires the
 // admin token AND an explicit { confirm: "RESET" } in the body.
 export async function POST(req: NextRequest) {
-  const denied = adminGate(req);
-  if (denied) return denied;
+  const auth = await adminAuth(req, 'rewards.manage');
+  if (!auth.ok) return auth.res;
 
   const body = await req.json().catch(() => null);
   if (!body || body.confirm !== 'RESET') {
@@ -17,5 +18,6 @@ export async function POST(req: NextRequest) {
   }
 
   const removed = await resetBoard();
+  await audit({ actor: auth.identity.actor, action: 'board.reset', detail: `${removed} entries wiped` });
   return NextResponse.json({ ok: true, removed });
 }

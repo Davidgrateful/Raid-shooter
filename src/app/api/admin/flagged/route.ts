@@ -6,14 +6,14 @@ import { getFlagged, clearFlag, removeEntry, banPlayer } from '@/lib/leaderboard
 // stays ranked); derank removes the score; ban removes it and blocks the
 // player from posting again. Review this queue before settling a tournament.
 export async function GET(req: NextRequest) {
-  const denied = adminGate(req);
+  const denied = await adminGate(req, 'flagged.review');
   if (denied) return denied;
   const flagged = await getFlagged();
   return NextResponse.json({ flagged });
 }
 
 export async function POST(req: NextRequest) {
-  const denied = adminGate(req);
+  const denied = await adminGate(req, 'flagged.review');
   if (denied) return denied;
   const body = (await req.json().catch(() => null)) as
     | { id?: string; address?: string; action?: string }

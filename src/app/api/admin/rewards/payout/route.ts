@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { adminGate } from '@/lib/admin-auth';
+import { adminAuth } from '@/lib/admin-auth';
+import { audit } from '@/lib/audit';
 import { getPayout, savePayout } from '@/lib/rewards';
 import {
   buildDisperse,
@@ -18,8 +19,8 @@ import {
 //   action: "mark-sent" -> manually record the round as paid after you sent
 //                        it yourself (optionally with a txHash note)
 export async function POST(req: NextRequest) {
-  const denied = adminGate(req);
-  if (denied) return denied;
+  const auth = await adminAuth(req, 'payouts.send');
+  if (!auth.ok) return auth.res;
 
   const body = (await req.json().catch(() => null)) as
     | { payoutId?: string; action?: string; confirm?: boolean; txHash?: string }
@@ -37,6 +38,7 @@ export async function POST(req: NextRequest) {
   if (body?.action === 'export') {
     payout.status = payout.status === 'sent' ? 'sent' : 'exported';
     await savePayout(payout);
+    await audit({ actor: auth.identity.actor, action: 'payout.export', target: payout.id });
     return NextResponse.json({
       ok: true,
       payout,
@@ -70,6 +72,7 @@ export async function POST(req: NextRequest) {
     }
     payout.status = result.ok ? 'sent' : payout.status;
     await savePayout(payout);
+    await audit({ actor: auth.identity.actor, action: 'payout.send', target: payout.id, detail: `${payout.totalUsd} ${payout.tokenSymbol} to ${rows.length}` });
     return NextResponse.json({ ok: result.ok, payout, result });
   }
 
@@ -80,6 +83,7 @@ export async function POST(req: NextRequest) {
       if (body?.txHash) row.txHash = body.txHash;
     }
     await savePayout(payout);
+    await audit({ actor: auth.identity.actor, action: 'payout.mark-sent', target: payout.id, detail: `${payout.totalUsd} ${payout.tokenSymbol}` });
     return NextResponse.json({ ok: true, payout });
   }
 

@@ -1,6 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useAccount } from 'wagmi';
+import { useAppKit } from '@reown/appkit/react';
+import { useSIWE } from '@/hooks/useSIWE';
 
 // Visual dev dashboard for /api/admin/stats. The token never ships in the
 // bundle - it's typed in (or read from ?key=) and kept in localStorage on
@@ -118,25 +121,41 @@ function BarRow({ label, value, max, prefix, suffix }: { label: string; value: n
   );
 }
 
+export interface Me { actor: string; role: string; roleLabel: string; scopes: string[] }
+
+function authHeaders(token: string): HeadersInit {
+  // wallet admins carry a session cookie (sent automatically); break-glass
+  // token admins send a Bearer header. Empty token => cookie-only.
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 export default function AdminPage() {
   const [token, setToken] = useState('');
+  const [me, setMe] = useState<Me | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
   const [stats, setStats] = useState<Stats | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // hydrate token from ?key= or localStorage on first mount
+  // Resolve identity (role + scopes) via /api/admin/me, then load stats.
+  async function resolveAuth(tok: string): Promise<boolean> {
+    try {
+      const res = await fetch('/api/admin/me', { cache: 'no-store', headers: authHeaders(tok) });
+      if (!res.ok) { setMe(null); return false; }
+      const identity = (await res.json()) as Me;
+      setMe(identity);
+      if (identity.scopes.includes('stats.view')) await load(tok);
+      return true;
+    } catch { setMe(null); return false; }
+  }
+
   useEffect(() => {
     const fromUrl = new URLSearchParams(window.location.search).get('key');
-    // scrub the token from the address bar immediately - it must not live
-    // in browser history, referer headers, or shared links
-    if (fromUrl) {
-      window.history.replaceState({}, '', window.location.pathname);
-    }
+    if (fromUrl) window.history.replaceState({}, '', window.location.pathname);
     const saved = fromUrl || localStorage.getItem('admin_stats_token') || '';
-    if (saved) {
-      setToken(saved);
-      load(saved);
-    }
+    setToken(saved);
+    // try token first (if any), otherwise a wallet-session cookie
+    resolveAuth(saved).finally(() => setAuthChecked(true));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -144,19 +163,36 @@ export default function AdminPage() {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch(`/api/admin/stats`, { cache: 'no-store', headers: { Authorization: `Bearer ${t}` } });
-      if (res.status === 401) throw new Error('Wrong token (401). Check the value matches ADMIN_STATS_TOKEN.');
-      if (res.status === 503) throw new Error('ADMIN_STATS_TOKEN is not set on the server (503). Add it in Vercel and redeploy.');
+      const res = await fetch(`/api/admin/stats`, { cache: 'no-store', headers: authHeaders(t) });
+      if (res.status === 401) throw new Error('Not authorized (401).');
+      if (res.status === 503) throw new Error('Admin auth is not configured on the server (503).');
       if (!res.ok) throw new Error(`Request failed (${res.status}).`);
       const data = (await res.json()) as Stats;
       setStats(data);
-      localStorage.setItem('admin_stats_token', t);
+      if (t) localStorage.setItem('admin_stats_token', t);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load.');
       setStats(null);
     } finally {
       setLoading(false);
     }
+  }
+
+  async function loginWithToken(tok: string) {
+    setToken(tok);
+    const ok = await resolveAuth(tok);
+    if (!ok) setError('That token was rejected.');
+  }
+  function signOut() {
+    localStorage.removeItem('admin_stats_token');
+    setToken(''); setMe(null); setStats(null);
+  }
+
+  if (!authChecked) {
+    return <div className="fixed inset-0 grid place-items-center bg-[#08090d] text-white/40 text-sm">Checking access…</div>;
+  }
+  if (!me) {
+    return <LoginScreen onToken={loginWithToken} onWalletAuthed={() => resolveAuth('')} error={error} />;
   }
 
   const t = stats?.tracking;
@@ -170,7 +206,65 @@ export default function AdminPage() {
   const maxPilotRuns = lo ? Math.max(1, ...lo.pilots.map((p) => p.runs)) : 1;
   const maxDroneRuns = lo ? Math.max(1, ...lo.drones.map((d) => d.runs)) : 1;
 
-  return <Dashboard {...{ token, setToken, stats, error, loading, load, t, lb, mk, lo, maxRuns, maxPilot, maxRev, maxItemRev, maxPilotRuns, maxDroneRuns }} />;
+  return <Dashboard {...{ token, setToken, me, signOut, stats, error, loading, load, t, lb, mk, lo, maxRuns, maxPilot, maxRev, maxItemRev, maxPilotRuns, maxDroneRuns }} />;
+}
+
+// ---- login: wallet sign-in (primary) + break-glass token (recovery) ----
+function LoginScreen({ onToken, onWalletAuthed, error }: { onToken: (t: string) => void; onWalletAuthed: () => void; error: string }) {
+  const { isConnected } = useAccount();
+  const { open } = useAppKit();
+  const { authenticated, signIn, loading: siweLoading } = useSIWE();
+  const [tok, setTok] = useState('');
+  const [showToken, setShowToken] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  // once a wallet SIWE session exists, hand back to the resolver
+  useEffect(() => { if (authenticated) onWalletAuthed(); }, [authenticated, onWalletAuthed]);
+
+  return (
+    <div className="fixed inset-0 grid place-items-center bg-gradient-to-b from-[#0a0c12] to-[#060709] px-6 text-white">
+      <div className="w-full max-w-sm">
+        <div className="mb-6 flex items-center gap-3">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.png" alt="Raid Shooter" className="h-9 w-auto" />
+          <div>
+            <div className="text-sm font-bold tracking-[0.2em]">TEAM CONSOLE</div>
+            <div className="text-[11px] text-white/40">Sign in to manage the live game</div>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+          {!isConnected ? (
+            <button onClick={() => open()} className="w-full rounded-lg bg-cyan-500/90 px-4 py-3 text-sm font-semibold text-black hover:bg-cyan-400">
+              Connect wallet
+            </button>
+          ) : !authenticated ? (
+            <button onClick={() => { setBusy(true); signIn().finally(() => setBusy(false)); }} disabled={busy || siweLoading}
+              className="w-full rounded-lg bg-cyan-500/90 px-4 py-3 text-sm font-semibold text-black hover:bg-cyan-400 disabled:opacity-50">
+              {busy || siweLoading ? 'Signing…' : 'Sign in with wallet'}
+            </button>
+          ) : (
+            <div className="text-sm text-white/60">Signed in — loading…</div>
+          )}
+          <p className="mt-3 text-center text-[11px] text-white/35">Your wallet address must be on the admin roster.</p>
+        </div>
+
+        {error && <div className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">{error}</div>}
+
+        <button onClick={() => setShowToken((v) => !v)} className="mt-5 w-full text-center text-[11px] text-white/30 hover:text-white/60">
+          {showToken ? 'Hide' : 'Use recovery token instead'}
+        </button>
+        {showToken && (
+          <div className="mt-2 flex gap-2">
+            <input type="password" value={tok} onChange={(e) => setTok(e.target.value)} placeholder="ADMIN_STATS_TOKEN"
+              onKeyDown={(e) => e.key === 'Enter' && onToken(tok)}
+              className="flex-1 rounded-lg border border-white/15 bg-white/[0.05] px-3 py-2 text-sm outline-none focus:border-cyan-400/60" />
+            <button onClick={() => onToken(tok)} disabled={!tok} className="rounded-lg bg-white/10 px-4 py-2 text-sm hover:bg-white/20 disabled:opacity-40">Enter</button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 // ---- team players table with moderation (derank / ban) ----
@@ -556,6 +650,8 @@ function AdminActions({ token }: { token: string }) {
 interface DashboardProps {
   token: string;
   setToken: (v: string) => void;
+  me: Me;
+  signOut: () => void;
   stats: Stats | null;
   error: string;
   loading: boolean;
@@ -1012,15 +1108,219 @@ function RewardsManager({ token }: { token: string }) {
   );
 }
 
-const TABS = ['Overview', 'Leaderboard', 'Rewards', 'Players', 'Sponsors', 'Content', 'Actions'] as const;
-type Tab = (typeof TABS)[number];
+// ---- Mission Control: health + a "needs attention" queue ----
+interface HomeData {
+  health: { activeToday: number; active7Days: number; runsToday: number; playersDelta: number | null; runsDelta: number | null; uniqueAllTime: number; daily: { date: string; players: number; runs: number }[] } | null;
+  needs: { type: string; count: number; label: string; scope: string; cta: string }[];
+  activeSeason: { name: string; endsAt: number | null } | null;
+}
+function MissionControl({ token, me, go }: { token: string; me: Me; go: (t: Tab) => void }) {
+  const [d, setD] = useState<HomeData | null>(null);
+  const [busy, setBusy] = useState(false);
+  async function load() {
+    setBusy(true);
+    try {
+      const res = await fetch('/api/admin/home', { cache: 'no-store', headers: authHeaders(token) });
+      if (res.ok) setD(await res.json());
+    } finally { setBusy(false); }
+  }
+  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+  const delta = (n: number | null) => n == null ? null : (n > 0 ? <span className="text-emerald-300">▲ {n}</span> : n < 0 ? <span className="text-red-300">▼ {Math.abs(n)}</span> : <span className="text-white/30">—</span>);
+  const h = d?.health;
+  return (
+    <section>
+      <div className="mb-4 flex items-center justify-between">
+        <div><h2 className="text-lg font-bold">Welcome back.</h2><p className="text-sm text-white/40">Here&apos;s what needs you.</p></div>
+        <button onClick={load} disabled={busy} className="rounded-md bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20 disabled:opacity-40">Refresh</button>
+      </div>
+
+      {/* needs attention */}
+      <div className="mb-6 rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+        <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-amber-300/80">Needs attention</div>
+        {d && d.needs.length === 0 ? (
+          <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/[0.05] p-3 text-sm text-emerald-300/90">✓ All clear — nothing waiting on you.</div>
+        ) : (
+          <div className="space-y-2">
+            {(d?.needs || []).map((n, i) => (
+              <button key={i} onClick={() => go(n.cta as Tab)} className="flex w-full items-center gap-3 rounded-lg border border-white/10 bg-white/[0.03] p-3 text-left hover:border-cyan-400/40">
+                <span className="grid h-8 w-8 place-items-center rounded-lg bg-amber-400/15 text-sm font-bold text-amber-300">{n.count}</span>
+                <span className="flex-1 text-sm text-white/85">{n.label}</span>
+                <span className="text-xs text-cyan-300">Open {n.cta} →</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* health tiles */}
+      {h && (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {[
+            ['Active today', h.activeToday.toLocaleString(), delta(h.playersDelta)],
+            ['Runs today', h.runsToday.toLocaleString(), delta(h.runsDelta)],
+            ['Active · 7 days', h.active7Days.toLocaleString(), null],
+            ['Players all-time', h.uniqueAllTime.toLocaleString(), null],
+          ].map(([k, v, dl], i) => (
+            <div key={i} className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
+              <div className="text-[10px] font-mono uppercase tracking-wider text-white/35">{k}</div>
+              <div className="mt-1 text-2xl font-bold tabular-nums text-cyan-300">{v}</div>
+              <div className="text-[11px] mt-0.5">{dl}</div>
+            </div>
+          ))}
+        </div>
+      )}
+      {d?.activeSeason && <p className="mt-4 text-xs text-white/40">Active cup: <span className="text-white/70">{d.activeSeason.name}</span></p>}
+    </section>
+  );
+}
+
+// ---- Admins management (owner only) ----
+interface AdminRow { address: string; role: string; label?: string; addedAt: number }
+interface RoleInfo { id: string; label: string; desc: string; scopes: string[] }
+function AdminsManager({ token, me }: { token: string; me: Me }) {
+  const [admins, setAdmins] = useState<AdminRow[] | null>(null);
+  const [roles, setRoles] = useState<RoleInfo[]>([]);
+  const [addr, setAddr] = useState(''); const [role, setRole] = useState('moderator'); const [label, setLabel] = useState('');
+  const [busy, setBusy] = useState(false); const [msg, setMsg] = useState('');
+  const inputCls = 'rounded-md border border-white/15 bg-white/[0.05] px-3 py-2 text-sm outline-none focus:border-cyan-400/60';
+  async function load() {
+    setBusy(true); setMsg('');
+    try {
+      const res = await fetch('/api/admin/admins', { cache: 'no-store', headers: authHeaders(token) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `Failed (${res.status})`);
+      setAdmins(data.admins); setRoles(data.roles);
+    } catch (e) { setMsg(e instanceof Error ? e.message : 'Failed.'); } finally { setBusy(false); }
+  }
+  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+  async function addAdmin() {
+    setBusy(true); setMsg('');
+    try {
+      const res = await fetch('/api/admin/admins', { method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeaders(token) }, body: JSON.stringify({ address: addr, role, label }) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed');
+      setAddr(''); setLabel(''); setMsg(`✓ ${data.admin.address.slice(0,6)}… added as ${data.admin.role}.`); await load();
+    } catch (e) { setMsg(e instanceof Error ? e.message : 'Failed.'); } finally { setBusy(false); }
+  }
+  async function remove(a: AdminRow) {
+    if (!confirm(`Remove ${a.label || a.address} (${a.role})?`)) return;
+    setBusy(true); setMsg('');
+    try {
+      const res = await fetch(`/api/admin/admins?address=${encodeURIComponent(a.address)}`, { method: 'DELETE', headers: authHeaders(token) });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || 'Could not remove.');
+      await load();
+    } catch (e) { setMsg(e instanceof Error ? e.message : 'Failed.'); } finally { setBusy(false); }
+  }
+  return (
+    <section>
+      <h2 className="mb-1 text-sm font-semibold uppercase tracking-wider text-amber-300/80">Admins &amp; Roles</h2>
+      <p className="mb-4 text-xs text-white/40">Add a teammate&apos;s wallet address and pick what they can do. They sign in by connecting that wallet.</p>
+      {msg && <div className="mb-3 rounded-md border border-white/15 bg-white/[0.05] p-2 text-sm text-white/80">{msg}</div>}
+
+      <div className="mb-4 rounded-lg border border-cyan-500/20 bg-cyan-500/[0.04] p-4">
+        <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto]">
+          <input value={addr} onChange={(e) => setAddr(e.target.value)} placeholder="0x… wallet address" className={inputCls} />
+          <select value={role} onChange={(e) => setRole(e.target.value)} className={inputCls}>
+            {roles.map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}
+          </select>
+          <button onClick={addAdmin} disabled={busy || !addr} className="rounded-md bg-emerald-500/80 px-4 py-2 text-sm font-semibold text-black hover:bg-emerald-400 disabled:opacity-40">Add</button>
+        </div>
+        <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Name / label (optional)" className={`${inputCls} mt-2 w-full`} />
+        {roles.find((r) => r.id === role) && <p className="mt-2 text-[11px] text-white/40">{roles.find((r) => r.id === role)!.desc}</p>}
+      </div>
+
+      {admins && (
+        <div className="space-y-2">
+          {admins.map((a) => (
+            <div key={a.address} className="flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-white/[0.02] p-3">
+              <div>
+                <div className="text-sm font-medium">{a.label || <span className="font-mono text-white/70">{a.address.slice(0,10)}…{a.address.slice(-6)}</span>}</div>
+                <div className="mt-0.5 flex items-center gap-2 text-xs text-white/40">
+                  <span className="rounded bg-cyan-400/15 px-1.5 py-0.5 text-[10px] font-bold uppercase text-cyan-300">{a.role}</span>
+                  <span className="font-mono">{a.address.slice(0,6)}…{a.address.slice(-4)}</span>
+                  {a.addedAt === 0 && <span className="text-white/25">env owner</span>}
+                </div>
+              </div>
+              {a.addedAt !== 0 && a.address !== me.actor && (
+                <button onClick={() => remove(a)} className="rounded bg-red-500/15 px-2 py-1 text-xs text-red-300 hover:bg-red-500/25">Remove</button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+// ---- Audit log ----
+interface AuditRow { at: number; actor: string; action: string; target?: string; detail?: string }
+function AuditLog({ token }: { token: string }) {
+  const [rows, setRows] = useState<AuditRow[] | null>(null);
+  const [busy, setBusy] = useState(false);
+  async function load() {
+    setBusy(true);
+    try {
+      const res = await fetch('/api/admin/audit', { cache: 'no-store', headers: authHeaders(token) });
+      if (res.ok) setRows((await res.json()).entries);
+    } finally { setBusy(false); }
+  }
+  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+  const who = (a: string) => a === 'token' ? 'recovery token' : `${a.slice(0,6)}…${a.slice(-4)}`;
+  return (
+    <section>
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-amber-300/80">Audit log</h2>
+        <button onClick={load} disabled={busy} className="rounded-md bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20 disabled:opacity-40">Refresh</button>
+      </div>
+      {rows && (rows.length === 0 ? (
+        <div className="rounded-md border border-white/10 bg-white/[0.02] p-3 text-sm text-white/40">No admin actions recorded yet.</div>
+      ) : (
+        <div className="overflow-hidden rounded-lg border border-white/10">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-white/[0.04] text-white/40"><tr><th className="px-3 py-2">When</th><th className="px-3 py-2">Who</th><th className="px-3 py-2">Action</th><th className="px-3 py-2">Target</th></tr></thead>
+            <tbody>
+              {rows.map((r, i) => (
+                <tr key={i} className="border-t border-white/5">
+                  <td className="px-3 py-2 text-white/50">{fmtAgo(r.at)}</td>
+                  <td className="px-3 py-2 font-mono text-white/60">{who(r.actor)}</td>
+                  <td className="px-3 py-2"><span className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-[11px]">{r.action}</span> {r.detail && <span className="text-white/40">{r.detail}</span>}</td>
+                  <td className="px-3 py-2 font-mono text-white/50">{r.target ? `${r.target.slice(0,10)}…` : '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ))}
+    </section>
+  );
+}
+
+// each tab lists the scope that gates it; the tab only renders if the
+// signed-in admin's role has that scope
+const TAB_DEFS = [
+  { id: 'Home', scope: 'stats.view' },
+  { id: 'Overview', scope: 'stats.view' },
+  { id: 'Leaderboard', scope: 'players.view' },
+  { id: 'Rewards', scope: 'rewards.view' },
+  { id: 'Players', scope: 'players.view' },
+  { id: 'Sponsors', scope: 'sponsors.manage' },
+  { id: 'Content', scope: 'content.manage' },
+  { id: 'Actions', scope: 'players.moderate' },
+  { id: 'Admins', scope: 'admins.manage' },
+  { id: 'Audit', scope: 'audit.view' },
+] as const;
+type Tab = (typeof TAB_DEFS)[number]['id'];
 
 function Dashboard(p: DashboardProps) {
-  const { token, setToken, stats, error, loading, load, t, lb, mk, lo } = p;
+  const { token, setToken, me, signOut, stats, error, loading, load, t, lb, mk, lo } = p;
+  const can = (s: string) => me.scopes.includes(s);
+  const TABS = TAB_DEFS.filter((d) => can(d.scope)).map((d) => d.id) as Tab[];
   const { maxRuns, maxPilot, maxRev, maxItemRev, maxPilotRuns, maxDroneRuns } = p;
-  const [tab, setTab] = useState<Tab>('Overview');
+  const [tab, setTab] = useState<Tab>(TABS[0] || 'Home');
 
   const persistentWarn = stats && !stats.persistent;
+  const shortActor = me.actor === 'token' ? 'recovery token' : `${me.actor.slice(0, 6)}…${me.actor.slice(-4)}`;
 
   return (
     <div className="fixed inset-0 overflow-y-auto bg-gradient-to-b from-[#0a0c12] via-[#080808] to-[#050608] text-white">
@@ -1031,38 +1331,36 @@ function Dashboard(p: DashboardProps) {
           <img src="/logo.png" alt="Raid Shooter" className="h-8 w-auto" />
           <div className="mr-auto">
             <div className="text-sm font-bold tracking-[0.2em] text-white">TEAM CONSOLE</div>
-            <div className="text-[11px] text-white/35">Manage the live game · token stays on this device</div>
+            <div className="text-[11px] text-white/35">Manage the live game</div>
           </div>
-          <input
-            type="password"
-            value={token}
-            onChange={(e) => setToken(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && load(token)}
-            placeholder="ADMIN_STATS_TOKEN"
-            className="min-w-[180px] rounded-lg border border-white/15 bg-white/[0.05] px-3 py-2 text-sm outline-none focus:border-cyan-400/60"
-          />
-          <button onClick={() => load(token)} disabled={loading || !token} className="rounded-lg bg-cyan-500/90 px-4 py-2 text-sm font-semibold text-black hover:bg-cyan-400 disabled:opacity-40">
-            {loading ? 'Loading…' : stats ? 'Refresh' : 'Load'}
-          </button>
+          <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1.5">
+            <span className="rounded bg-cyan-400/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-cyan-300">{me.roleLabel}</span>
+            <span className="font-mono text-[11px] text-white/40">{shortActor}</span>
+          </div>
+          <button onClick={() => load(token)} disabled={loading} className="rounded-lg bg-white/10 px-3 py-2 text-sm hover:bg-white/20 disabled:opacity-40">{loading ? '…' : 'Refresh'}</button>
+          <button onClick={signOut} className="rounded-lg bg-white/10 px-3 py-2 text-sm hover:bg-red-500/20">Sign out</button>
         </div>
         {/* tab nav */}
-        {stats && (
-          <div className="mx-auto flex max-w-5xl gap-1 overflow-x-auto px-4">
-            {TABS.map((tb) => (
-              <button key={tb} onClick={() => setTab(tb)}
-                className={`relative whitespace-nowrap px-4 py-2.5 text-sm font-medium transition-colors ${tab === tb ? 'text-white' : 'text-white/40 hover:text-white/70'}`}>
-                {tb}
-                {tab === tb && <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-cyan-400" />}
-              </button>
-            ))}
-          </div>
-        )}
+        <div className="mx-auto flex max-w-5xl gap-1 overflow-x-auto px-4">
+          {TABS.map((tb) => (
+            <button key={tb} onClick={() => setTab(tb)}
+              className={`relative whitespace-nowrap px-4 py-2.5 text-sm font-medium transition-colors ${tab === tb ? 'text-white' : 'text-white/40 hover:text-white/70'}`}>
+              {tb}
+              {tab === tb && <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-cyan-400" />}
+            </button>
+          ))}
+        </div>
       </header>
 
       <div className="mx-auto max-w-5xl px-6 py-6">
         {error && (
           <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">{error}</div>
         )}
+
+        {/* these tabs render independently of the analytics payload */}
+        {tab === 'Home' && <MissionControl token={token} me={me} go={setTab} />}
+        {tab === 'Admins' && <AdminsManager token={token} me={me} />}
+        {tab === 'Audit' && <AuditLog token={token} />}
 
         {stats && t && lb && mk && lo && (
           <div className="space-y-8">

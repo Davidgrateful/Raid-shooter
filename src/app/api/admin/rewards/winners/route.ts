@@ -14,7 +14,7 @@ import { tokenConfig } from '@/lib/payout';
 //   - grant:true        -> grants the cosmetic prizes to the top wallets
 //   - createPayout:true  -> creates a pending USDC payout batch for the round
 export async function POST(req: NextRequest) {
-  const denied = adminGate(req);
+  const denied = await adminGate(req, 'rewards.manage');
   if (denied) return denied;
 
   const body = (await req.json().catch(() => null)) as

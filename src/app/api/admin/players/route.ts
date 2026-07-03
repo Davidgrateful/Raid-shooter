@@ -6,7 +6,7 @@ import { getBanned } from '@/lib/leaderboard';
 // Team players table: every known player with games played, USD spent,
 // wallet, last-seen, and whether they're banned. Admin-only.
 export async function GET(req: NextRequest) {
-  const denied = adminGate(req);
+  const denied = await adminGate(req, 'players.view');
   if (denied) return denied;
 
   const limit = Math.min(1000, Math.max(1, parseInt(req.nextUrl.searchParams.get('limit') || '200', 10) || 200));
