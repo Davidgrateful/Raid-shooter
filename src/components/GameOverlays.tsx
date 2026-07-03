@@ -23,6 +23,9 @@ export function GameOverlays() {
   const [gift, setGift] = useState<WeeklyGift | null>(null);
   const [giftBusy, setGiftBusy] = useState(false);
   const [giftMsg, setGiftMsg] = useState('');
+  const [invOpen, setInvOpen] = useState(false);
+  const [inv, setInv] = useState<{ code: string; invites: number; top: { code: string; invites: number }[] } | null>(null);
+  const [invCopied, setInvCopied] = useState(false);
 
   useEffect(() => {
     fetch('/api/announcements')
@@ -58,6 +61,27 @@ export function GameOverlays() {
     } catch {
       setGiftMsg('Claim failed — try again.');
     } finally { setGiftBusy(false); }
+  }
+
+  const inviteLink = inv?.code ? `${typeof window !== 'undefined' ? window.location.origin : 'https://raidshooter.xyz'}/?ref=${inv.code}` : '';
+
+  async function openInvite() {
+    setInvOpen(true);
+    setInvCopied(false);
+    try {
+      const d = await fetch('/api/referral').then((r) => r.json());
+      setInv({ code: d.code || '', invites: d.invites || 0, top: d.top || [] });
+    } catch { /* keep whatever we had */ }
+  }
+
+  async function copyInvite() {
+    if (!inviteLink) return;
+    try {
+      if (navigator.share) { await navigator.share({ title: 'Raid Shooter', text: 'Play Raid Shooter with me — we both earn a boost', url: inviteLink }); return; }
+      await navigator.clipboard.writeText(inviteLink);
+      setInvCopied(true);
+      setTimeout(() => setInvCopied(false), 1600);
+    } catch { /* share/copy is best-effort */ }
   }
 
   async function sendFeedback() {
@@ -119,11 +143,55 @@ export function GameOverlays() {
         </div>
       )}
 
-      {/* feedback button */}
-      <button data-game-ui="" onClick={() => setFbOpen(true)} style={{ position: 'fixed', left: 12, bottom: 12, zIndex: 45 }}
-        className="rounded-full border border-white/10 bg-black/50 px-3 py-1.5 text-xs text-white/70 backdrop-blur-sm hover:border-cyan-400/40 hover:text-white">
-        ✉ Feedback
-      </button>
+      {/* feedback + invite buttons, bottom-left */}
+      <div data-game-ui="" style={{ position: 'fixed', left: 12, bottom: 12, zIndex: 45 }} className="flex items-center gap-2">
+        <button onClick={() => setFbOpen(true)}
+          className="rounded-full border border-white/10 bg-black/50 px-3 py-1.5 text-xs text-white/70 backdrop-blur-sm hover:border-cyan-400/40 hover:text-white">
+          ✉ Feedback
+        </button>
+        <button onClick={openInvite}
+          className="rounded-full border border-amber-400/30 bg-black/50 px-3 py-1.5 text-xs text-amber-200/90 backdrop-blur-sm hover:border-amber-400/60 hover:text-amber-100">
+          ✦ Invite
+        </button>
+      </div>
+
+      {/* invite modal: personal link, invite count, top recruiters */}
+      {invOpen && (
+        <div data-game-ui="" onClick={() => setInvOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 60 }} className="flex items-center justify-center bg-black/60 p-6">
+          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0b0e16] p-6 text-white">
+            <div className="text-base font-semibold text-amber-200">Invite a wingman</div>
+            <p className="mt-1 text-xs text-white/40">Share your link. When they play and clear 5,000, you both earn a boost — and you climb the recruiters board.</p>
+
+            <div className="mt-4 flex items-center gap-2 rounded-lg border border-white/15 bg-white/[0.05] px-3 py-2">
+              <span className="min-w-0 flex-1 truncate text-sm text-white/80">{inviteLink || 'Loading your link…'}</span>
+              <button onClick={copyInvite} disabled={!inviteLink}
+                className="shrink-0 rounded-md bg-amber-400/90 px-3 py-1 text-xs font-semibold text-black hover:bg-amber-300 disabled:opacity-40">
+                {invCopied ? 'Copied!' : 'Copy / Share'}
+              </button>
+            </div>
+
+            <div className="mt-3 text-xs text-white/50">Confirmed invites: <b className="text-white/80">{inv?.invites ?? 0}</b></div>
+
+            {inv?.top && inv.top.length > 0 && (
+              <div className="mt-4">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-white/40">Top recruiters</div>
+                <div className="mt-2 divide-y divide-white/5">
+                  {inv.top.slice(0, 5).map((r, i) => (
+                    <div key={r.code} className="flex items-center justify-between py-1.5 text-sm">
+                      <span className="text-white/70"><span className="text-white/40">{i + 1}.</span> {r.code}</span>
+                      <span className="tabular-nums text-amber-200/90">{r.invites}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="mt-5 flex justify-end">
+              <button onClick={() => setInvOpen(false)} className="rounded-lg bg-white/10 px-4 py-2 text-sm hover:bg-white/20">Close</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* feedback modal */}
       {fbOpen && (

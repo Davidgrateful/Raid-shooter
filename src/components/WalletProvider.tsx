@@ -22,13 +22,15 @@ createAppKit({
   },
   features: {
     analytics: false,
-    // Embedded (in-app) wallet: a player can sign in with email or a social
-    // account and AppKit provisions a self-custodial smart account for them -
-    // no extension, no seed phrase, no QR. This is the frictionless path for
-    // web2 arcade players; power users still get the normal WalletConnect /
-    // injected options in the same modal. Requires a real Reown project ID.
+    // Two ways to get a wallet, both in the same modal:
+    //   - CONNECT an existing wallet (WalletConnect QR / injected extension), or
+    //   - CREATE one in-app with email or a social login (AppKit provisions a
+    //     self-custodial smart account - no extension, no seed phrase).
+    // `emailShowWallets` keeps the wallet list visible alongside the email/
+    // social options so neither path is hidden. Needs a real Reown project ID;
+    // email + Google/X are enabled by default on new Reown projects.
     email: true,
-    socials: ['google', 'apple', 'x', 'discord'],
+    socials: ['google', 'x'],
     emailShowWallets: true,
   },
   themeMode: 'dark',

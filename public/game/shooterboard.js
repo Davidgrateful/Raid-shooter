@@ -155,6 +155,20 @@ $.cupLive = function() {
 	return !!( $.seasonMeta && $.seasonMeta.live && $.seasonMeta.id );
 };
 
+// The cup's display name - fully operator-editable from the admin Rewards tab
+// (it's just the active season's name). Falls back to a neutral label so the
+// UI never shows an empty title. Capped to the board title's glyph budget.
+$.cupLabel = function() {
+	var t = ( $.activeSeason && $.activeSeason.title ) || '';
+	return t || 'LIVE CUP';
+};
+
+// Short form for the narrow tab button (keeps long cup names from overflowing).
+$.cupTabLabel = function() {
+	var t = $.cupLabel();
+	return ( t.length > 14 ) ? t.slice( 0, 14 ) : t;
+};
+
 // Fire-and-forget run telemetry. Counts every run (and every player, via
 // the server session) for the dev stats dashboard - never blocks gameplay
 // and swallows all errors so a flaky network can't disrupt a run.

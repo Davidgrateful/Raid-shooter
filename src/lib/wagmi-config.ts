@@ -5,12 +5,6 @@ import { WagmiAdapter } from '@reown/appkit-adapter-wagmi';
 // Reown Cloud project ID — get one at https://cloud.reown.com
 export const projectId = process.env.NEXT_PUBLIC_REOWN_PROJECT_ID;
 
-// Whether wallet connect is actually usable. Without a real project ID the
-// WalletConnect relay rejects the placeholder, so the modal opens but can
-// never complete a connection — the UI checks this to warn instead of
-// showing players a dead modal.
-export const walletReady = !!projectId;
-
 if (!projectId) {
   console.warn(
     '[Reown] NEXT_PUBLIC_REOWN_PROJECT_ID is not set. Wallet connection will be limited. Get a project ID at https://cloud.reown.com'

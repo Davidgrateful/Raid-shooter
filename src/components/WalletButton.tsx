@@ -3,7 +3,6 @@
 import { useAccount, useDisconnect } from 'wagmi';
 import { useAppKit } from '@reown/appkit/react';
 import { useSIWE } from '@/hooks/useSIWE';
-import { walletReady } from '@/lib/wagmi-config';
 
 function shortenAddress(addr: string) {
   return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
@@ -16,24 +15,6 @@ export function WalletButton() {
   const { authenticated, address: siweAddress, signIn, signOut, loading } = useSIWE();
 
   if (!isConnected) {
-    // Wallet not configured yet: opening the modal would just dead-end at the
-    // WalletConnect relay. Tell the operator plainly instead of showing players
-    // a broken flow. (No-op for players until the project ID is set.)
-    if (!walletReady) {
-      return (
-        <button
-          onClick={() =>
-            alert(
-              'Wallet sign-in is not configured yet.\n\nSet NEXT_PUBLIC_REOWN_PROJECT_ID in Vercel (free ID at cloud.reown.com) and redeploy. Guests can still play and rank without a wallet.'
-            )
-          }
-          title="Wallet sign-in not configured (set NEXT_PUBLIC_REOWN_PROJECT_ID)"
-          className="px-3 py-1.5 max-sm:px-2 max-sm:py-1 max-sm:text-xs bg-white/5 border border-white/10 rounded text-sm text-white/50 transition-colors"
-        >
-          Connect Wallet
-        </button>
-      );
-    }
     return (
       <button
         onClick={() => open()}

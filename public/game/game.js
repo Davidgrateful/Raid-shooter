@@ -2372,22 +2372,12 @@ $.setState = function( state ) {
 		};
 		if( cupLive ) {
 			makeTab( 'ALL-TIME', 'all', $.cw / 2 - 92 );
-			makeTab( 'SPACE HUNT', 'cup', $.cw / 2 + 92 );
+			makeTab( $.cupTabLabel(), 'cup', $.cw / 2 + 92 );
 		}
 
-		// INVITE: share a personal referral link - both sides earn a boost.
-		// Tucked top-left so it clears the wallet-connect button (top-right)
-		// and the JUMP TO ME / MENU row.
-		var inviteButton = new $.Button( {
-			x: 88, y: ( $.ch < 640 ) ? 28 : 40, lockedWidth: 150, lockedHeight: 38, scale: 1,
-			title: 'INVITE',
-			action: function() {
-				$.mouse.down = 0;
-				if( $.fetchReferral ) { $.fetchReferral(); }
-				if( $.shareInvite ) { $.shareInvite(); }
-			}
-		} );
-		$.buttons.push( inviteButton );
+		// (INVITE lives as an HTML overlay button on the menu, like Feedback -
+		// see GameOverlays - so it's always one tap away and never crowds the
+		// board's control row.)
 
 		// scrolls the list straight to the player's own row (set each frame
 		// by the board renderer); falls back to setting a call sign if the
@@ -2962,7 +2952,8 @@ $.setupStates = function() {
 				prizeShort = $.activeSeason.prizeShort || '',
 				// prize inline on the headline; keep it short so it fits phones
 				prizeTag = ( prizeShort.indexOf( 'USDC' ) >= 0 ) ? ( '  ' + prizeShort.split( ' TO ' )[ 0 ].split( ' PRIZE' )[ 0 ] ) : '',
-				headText = 'SPACE HUNT LIVE' + prizeTag,
+				// cup name is operator-editable (the active season name)
+				headText = ( $.cupLabel ? $.cupLabel() : 'LIVE CUP' ) + ' LIVE' + prizeTag,
 				timeLeft = $.cupTimeLeft ? $.cupTimeLeft() : '',
 				timeText = timeLeft ? ( 'ENDS IN ' + timeLeft ) : $.activeSeason.prizeShort,
 				lineH = 11;
@@ -3419,12 +3410,15 @@ $.setupStates = function() {
 			ctx: $.ctxmg,
 			x: $.cw / 2,
 			y: boardCompact ? 60 : 110,
-			text: ( $.boardTab === 'cup' ) ? 'SPACE HUNT' : 'SHOOTERBOARD',
+			text: ( $.boardTab === 'cup' ) ? $.cupLabel() : 'SHOOTERBOARD',
 			hspacing: 2,
 			vspacing: 1,
 			halign: 'center',
 			valign: 'bottom',
-			scale: boardCompact ? 4 : 7,
+			// shrink the title a notch for longer cup names so they fit the width
+			scale: ( $.boardTab === 'cup' && $.cupLabel().length > 11 )
+				? ( boardCompact ? 3 : 5 )
+				: ( boardCompact ? 4 : 7 ),
 			snap: 1,
 			render: 1
 		} );
@@ -3540,7 +3534,7 @@ $.setupStates = function() {
 		} else if( $.board.error ) {
 			statusText = 'BOARD OFFLINE';
 		} else if( $.board.entries.length === 0 ) {
-			statusText = ( $.boardTab === 'cup' ) ? 'SPACE HUNT NOT STARTED  /  PLAY TO ENTER' : 'NO PILOTS RANKED YET';
+			statusText = ( $.boardTab === 'cup' ) ? ( $.cupLabel() + ' NOT STARTED  /  PLAY TO ENTER' ) : 'NO PILOTS RANKED YET';
 		}
 
 		if( statusText ) {
