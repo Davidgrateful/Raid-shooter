@@ -354,15 +354,38 @@ $.fetchSeason = function() {
 					? ', ENDS IN ' + Math.round( hoursLeft / 24 ) + ' DAYS'
 					: ', ENDS IN ' + hoursLeft + ' HOURS';
 			}
+			// short prize headline for the menu cup panel (no ends-in text -
+			// the panel renders a live ticking countdown from endsAt instead)
+			var prizeShort = ( d.season.prize1Usd > 0 )
+				? ( d.season.prize1Usd + ' USDC TO TOP PILOT' )
+				: ( d.season.poolUsd > 0 ? ( d.season.poolUsd + ' USDC PRIZE POOL' ) : 'EXCLUSIVE PRIZES' );
 			$.activeSeason = {
 				title: name,
 				prizeLine: prizeLine,
+				prizeShort: prizeShort,
+				endsAt: ( d.season.endsAt && d.season.endsAt > Date.now() ) ? d.season.endsAt : 0,
 				sponsorLine: d.season.sponsorName ? clean( 'WITH ' + d.season.sponsorName, 30 ) : ''
 			};
 		} )
 		.catch( function() {} );
 };
 $.fetchSeason();
+
+// Live "time left" for the cup, formatted in the bitmap font's glyph set:
+// "2D 14:33:07" when days remain, else "14:33:07". Returns '' when no cup
+// or no end time. Recomputed each frame so it ticks.
+$.cupTimeLeft = function() {
+	if( !$.activeSeason || !$.activeSeason.endsAt ) { return ''; }
+	var ms = $.activeSeason.endsAt - Date.now();
+	if( ms <= 0 ) { return 'ENDED'; }
+	var s = Math.floor( ms / 1000 ),
+		d = Math.floor( s / 86400 ),
+		h = Math.floor( ( s % 86400 ) / 3600 ),
+		m = Math.floor( ( s % 3600 ) / 60 ),
+		sec = s % 60,
+		pad = function( n ) { return ( n < 10 ? '0' : '' ) + n; };
+	return ( d > 0 ? d + 'D ' : '' ) + pad( h ) + ':' + pad( m ) + ':' + pad( sec );
+};
 
 // know the wallet state as soon as the game loads
 $.fetchSession();

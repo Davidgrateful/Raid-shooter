@@ -2954,28 +2954,52 @@ $.setupStates = function() {
 			$.ctxmg.fill();
 		}
 
-		// live tournament banner: fits in the gap between the logo and PLAY,
-		// so players see there's real money/prizes on the board right now
+		// SPACE HUNT cup panel: fits in the gap between the logo and PLAY, so
+		// players see the live cup - prize pool + a ticking countdown - before
+		// they ever open the board. Only shows while a cup is running.
 		if( $.activeSeason ) {
-			var seasonY = logoBottomY + ( menuCompact ? 3 : 6 );
+			var seasonY = logoBottomY + ( menuCompact ? 2 : 6 ),
+				prizeShort = $.activeSeason.prizeShort || '',
+				// prize inline on the headline; keep it short so it fits phones
+				prizeTag = ( prizeShort.indexOf( 'USDC' ) >= 0 ) ? ( '  ' + prizeShort.split( ' TO ' )[ 0 ].split( ' PRIZE' )[ 0 ] ) : '',
+				headText = 'SPACE HUNT LIVE' + prizeTag,
+				timeLeft = $.cupTimeLeft ? $.cupTimeLeft() : '',
+				timeText = timeLeft ? ( 'ENDS IN ' + timeLeft ) : $.activeSeason.prizeShort,
+				lineH = 11;
+
+			// widest line drives the panel width (measure without drawing)
+			var widest = 0,
+				measure = function( t ) {
+					var m = $.text( { ctx: $.ctxmg, x: 0, y: 0, text: t, hspacing: 1, vspacing: 1, halign: 'center', valign: 'top', scale: 1, snap: 1, render: 0 } );
+					if( m.width > widest ) { widest = m.width; }
+				};
+			measure( headText ); measure( timeText );
+
+			// subtle gold-tinted panel behind the two lines (fits the gap
+			// between the logo and PLAY - two lines, like the old banner)
+			var panelW = widest + 28,
+				panelH = 2 * lineH + 8,
+				panelX = $.cw / 2 - panelW / 2,
+				panelY = seasonY - 5;
 			$.ctxmg.beginPath();
-			$.text( {
-				ctx: $.ctxmg, x: $.cw / 2, y: seasonY,
-				text: 'TOURNAMENT LIVE: ' + $.activeSeason.title,
-				hspacing: 1, vspacing: 1, halign: 'center', valign: 'top',
-				scale: 1, snap: 1, render: 1
-			} );
-			// gentle pulse so the eye lands on it without being obnoxious
-			$.ctxmg.fillStyle = 'hsla(45, 100%, 60%, ' + ( 0.75 + Math.sin( $.tick / 20 ) * 0.25 ) + ')';
+			$.ctxmg.fillStyle = 'hsla(45, 90%, 55%, 0.07)';
+			$.roundRect( panelX, panelY, panelW, panelH, 5 );
 			$.ctxmg.fill();
 			$.ctxmg.beginPath();
-			$.text( {
-				ctx: $.ctxmg, x: $.cw / 2, y: seasonY + 11,
-				text: $.activeSeason.prizeLine,
-				hspacing: 1, vspacing: 1, halign: 'center', valign: 'top',
-				scale: 1, snap: 1, render: 1
-			} );
-			$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 0.65)';
+			$.ctxmg.lineWidth = 1;
+			$.ctxmg.strokeStyle = 'hsla(45, 100%, 62%, ' + ( 0.45 + Math.sin( $.tick / 20 ) * 0.12 ) + ')';
+			$.roundRect( panelX, panelY, panelW, panelH, 5 );
+			$.ctxmg.stroke();
+
+			// line 1 - SPACE HUNT LIVE + prize (gold, gentle pulse)
+			$.ctxmg.beginPath();
+			$.text( { ctx: $.ctxmg, x: $.cw / 2, y: seasonY, text: headText, hspacing: 1, vspacing: 1, halign: 'center', valign: 'top', scale: 1, snap: 1, render: 1 } );
+			$.ctxmg.fillStyle = 'hsla(45, 100%, 62%, ' + ( 0.8 + Math.sin( $.tick / 20 ) * 0.2 ) + ')';
+			$.ctxmg.fill();
+			// line 2 - live countdown (cyan, ticks every frame)
+			$.ctxmg.beginPath();
+			$.text( { ctx: $.ctxmg, x: $.cw / 2, y: seasonY + lineH, text: timeText, hspacing: 1, vspacing: 1, halign: 'center', valign: 'top', scale: 1, snap: 1, render: 1 } );
+			$.ctxmg.fillStyle = timeLeft ? 'hsla(190, 90%, 62%, 0.92)' : 'hsla(0, 0%, 100%, 0.7)';
 			$.ctxmg.fill();
 		}
 
