@@ -232,6 +232,8 @@ $.reset = function() {
 	$.gameoverTick = 0;
 	$.gameoverTickMax = 200;
 	$.gameoverExplosion = 0;
+	// one continue (resurrect) per run; reset on every fresh start
+	$.continueUsedThisRun = 0;
 	$.dailyPopTick = 0;
 
 	// arena billboards are run-global sponsor scenery (see sectors.js)
@@ -2657,6 +2659,47 @@ $.setState = function( state ) {
 		}
 	}
 
+	if( state == 'continueoffer' ) {
+		$.mouse.down = 0;
+		$.screenshot = $.ctxmg.getImageData( 0, 0, $.cmg.width, $.cmg.height );
+		$.continueTick = 0;               // auto-declines after the countdown
+		$.continueTickMax = 540;          // ~9 seconds at 60fps
+
+		var coCompact = ( $.ch < 640 ),
+			hasRevive = ( $.consumableCount( 'consumable_revive' ) > 0 ) && $.session.authenticated,
+			coCx = $.cw / 2,
+			coBtnY = coCompact ? $.ch - 118 : $.ch / 2 + 30;
+
+		if( hasRevive ) {
+			// owns a revive: one tap to resurrect and keep the run going
+			$.buttons.push( new $.Button( {
+				x: coCx, y: coBtnY, lockedWidth: coCompact ? 260 : 320, lockedHeight: coCompact ? 48 : 56,
+				scale: coCompact ? 2 : 3, title: 'CONTINUE',
+				action: function() { $.mouse.down = 0; $.continueRun(); }
+			} ) );
+		} else {
+			// no revive: upsell a pack or a drone to help them win (opens shop)
+			$.buttons.push( new $.Button( {
+				x: coCx, y: coBtnY, lockedWidth: coCompact ? 300 : 360, lockedHeight: coCompact ? 44 : 50,
+				scale: coCompact ? 1 : 2, title: 'GET REVIVE PACK',
+				action: function() { $.mouse.down = 0; $.marketTab = 'boost'; $.setState( 'market' ); }
+			} ) );
+			$.buttons.push( new $.Button( {
+				x: coCx, y: coBtnY + ( coCompact ? 50 : 58 ), lockedWidth: coCompact ? 300 : 360, lockedHeight: coCompact ? 44 : 50,
+				scale: coCompact ? 1 : 2, title: 'GET A DRONE',
+				action: function() { $.mouse.down = 0; $.marketTab = 'drone'; $.setState( 'market' ); }
+			} ) );
+		}
+
+		// always an out: end the run and see the score screen
+		$.buttons.push( new $.Button( {
+			x: coCx, y: coCompact ? $.ch - 34 : ( hasRevive ? coBtnY + 66 : coBtnY + ( coCompact ? 100 : 120 ) ),
+			lockedWidth: coCompact ? 200 : 240, lockedHeight: coCompact ? 38 : 44,
+			scale: 1, title: 'END RUN',
+			action: function() { $.mouse.down = 0; $.setState( 'gameover' ); }
+		} ) );
+	}
+
 	if( state == 'gameover' ) {
 		$.mouse.down = 0;
 
@@ -4080,6 +4123,32 @@ $.setupStates = function() {
 			i = $.buttons.length; while( i-- ){ if( $.buttons[ i ] ) { $.buttons[ i ].update( i ) } }
 	};
 
+	// Whether a mid-run "continue" (resurrect) can be offered on death: once
+	// per run, only when the run scored something, and not during a seeded
+	// Daily Run (one fair attempt). Continuing spends a revive, which marks
+	// the run assisted - so a continued run never posts to the ranked board
+	// or a cup (keeps the leaderboard and tournaments pure skill).
+	$.continueEligible = function() {
+		return !$.continueUsedThisRun && !$.dailyRunActive && ( $.score | 0 ) > 0;
+	};
+
+	// Resurrect the current run: spend one revive, restore half HP + a beat of
+	// invulnerability, and drop back into play with the world intact.
+	$.continueRun = function() {
+		if( $.continueUsedThisRun ) { return; }
+		var ok = $.useConsumable( 'consumable_revive', function() {
+			$.hero.life = 0.5;
+			$.powerupTimers[ 5 ] = $.powerupDuration;
+		} );
+		if( !ok ) { return; }
+		$.continueUsedThisRun = 1;
+		// clear the death state so a later death still ends the run normally
+		$.gameoverExplosion = 0;
+		$.gameoverTick = 0;
+		$.audio.play( 'levelup' );
+		$.setState( 'play' );
+	};
+
 	$.states['play'] = function() {
 		$.updateDelta();
 		$.updateScreen();
@@ -4168,15 +4237,10 @@ $.setupStates = function() {
 		var bi = $.buttons.length; while( bi-- ){ if( $.buttons[ bi ] ) { $.buttons[ bi ].update( bi ) } }
 			bi = $.buttons.length; while( bi-- ){ if( $.buttons[ bi ] ) { $.buttons[ bi ].render( bi ) } }
 
-		// a revive token auto-spends the instant life hits zero, once per
-		// run, restoring half HP and a moment of invulnerability instead of
-		// letting the death sequence start
-		if( $.hero.life <= 0 && $.consumableCount( 'consumable_revive' ) > 0 ) {
-			$.useConsumable( 'consumable_revive', function() {
-				$.hero.life = 0.5;
-				$.powerupTimers[ 5 ] = $.powerupDuration;
-			} );
-		}
+		// a revive is no longer auto-spent on death - instead the CONTINUE
+		// offer (see the continueoffer state, routed to below once the death
+		// animation finishes) lets the player choose to spend one and jump
+		// back in, or end the run.
 
 		// handle gameover
 		if( $.hero.life <= 0 ) {
@@ -4187,7 +4251,10 @@ $.setupStates = function() {
 			if( $.gameoverTick < $.gameoverTickMax ){
 				$.gameoverTick += $.dt;
 			} else {
-				$.setState( 'gameover' );
+				// offer one CONTINUE before the run officially ends; if not
+				// eligible (already used / daily run / no score) go straight
+				// to gameover as before
+				$.setState( $.continueEligible() ? 'continueoffer' : 'gameover' );
 			}
 
 			if( !$.gameoverExplosion ) {
@@ -4321,6 +4388,53 @@ $.setupStates = function() {
 		// a card's action clears $.buttons mid-loop, so guard each entry
 		var i = $.buttons.length; while( i-- ){ if( $.buttons[ i ] ) { $.buttons[ i ].update( i ) } }
 			i = $.buttons.length; while( i-- ){ if( $.buttons[ i ] ) { $.buttons[ i ].render( i ) } }
+	};
+
+	$.states['continueoffer'] = function() {
+		$.clearScreen();
+		$.ctxmg.putImageData( $.screenshot, 0, 0 );
+
+		// darken the frozen frame (strong enough to mute the HUD behind it)
+		$.ctxmg.fillStyle = 'hsla(0, 0%, 0%, 0.85)';
+		$.ctxmg.fillRect( 0, 0, $.cw, $.ch );
+
+		var coC = ( $.ch < 640 ),
+			coHasRevive = ( $.consumableCount( 'consumable_revive' ) > 0 ) && $.session.authenticated,
+			titleY = coC ? 70 : 150,
+			secsLeft = Math.max( 0, Math.ceil( ( $.continueTickMax - $.continueTick ) / 60 ) );
+
+		// title
+		$.ctxmg.beginPath();
+		var coTitle = $.text( { ctx: $.ctxmg, x: $.cw / 2, y: titleY, text: 'CONTINUE', hspacing: 3, vspacing: 1, halign: 'center', valign: 'bottom', scale: coC ? 5 : 8, snap: 1, render: 1 } );
+		var coGrad = $.ctxmg.createLinearGradient( coTitle.sx, coTitle.sy, coTitle.sx, coTitle.ey );
+		coGrad.addColorStop( 0, '#fff' ); coGrad.addColorStop( 1, '#fc6' );
+		$.ctxmg.fillStyle = coGrad; $.ctxmg.fill();
+
+		// score + countdown
+		$.ctxmg.beginPath();
+		$.text( { ctx: $.ctxmg, x: $.cw / 2, y: coTitle.ey + ( coC ? 12 : 20 ), text: 'SCORE  ' + $.util.commas( $.score | 0 ), hspacing: 1, vspacing: 1, halign: 'center', valign: 'top', scale: coC ? 2 : 3, snap: 1, render: 1 } );
+		$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 0.85)'; $.ctxmg.fill();
+
+		$.ctxmg.beginPath();
+		$.text( { ctx: $.ctxmg, x: $.cw / 2, y: coTitle.ey + ( coC ? 38 : 56 ), text: secsLeft + '', hspacing: 1, vspacing: 1, halign: 'center', valign: 'top', scale: coC ? 2 : 3, snap: 1, render: 1 } );
+		$.ctxmg.fillStyle = secsLeft <= 3 ? 'hsla(0, 90%, 62%, 0.95)' : 'hsla(190, 90%, 62%, 0.85)'; $.ctxmg.fill();
+
+		// helper line: what CONTINUE will do (and the fairness note), tucked
+		// under the countdown so the buttons never cover it
+		var noteY = coTitle.ey + ( coC ? 54 : 80 );
+		$.ctxmg.beginPath();
+		$.text( { ctx: $.ctxmg, x: $.cw / 2, y: noteY, text: coHasRevive ? 'SPEND 1 REVIVE TO JUMP BACK IN' : 'GET A REVIVE OR DRONE TO JUMP BACK IN', hspacing: 1, vspacing: 1, halign: 'center', valign: 'top', scale: 1, snap: 1, render: 1 } );
+		$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 0.6)'; $.ctxmg.fill();
+		$.ctxmg.beginPath();
+		$.text( { ctx: $.ctxmg, x: $.cw / 2, y: noteY + 12, text: 'CONTINUED RUNS DONT POST TO THE BOARD', hspacing: 1, vspacing: 1, halign: 'center', valign: 'top', scale: 1, snap: 1, render: 1 } );
+		$.ctxmg.fillStyle = 'hsla(45, 100%, 62%, 0.55)'; $.ctxmg.fill();
+
+		var i = $.buttons.length; while( i-- ){ if( $.buttons[ i ] ) { $.buttons[ i ].update( i ) } }
+			i = $.buttons.length; while( i-- ){ if( $.buttons[ i ] ) { $.buttons[ i ].render( i ) } }
+
+		// countdown - auto-declines to the score screen when it runs out
+		$.continueTick += $.dt;
+		if( $.continueTick >= $.continueTickMax ) { $.setState( 'gameover' ); }
 	};
 
 	$.states['gameover'] = function() {
