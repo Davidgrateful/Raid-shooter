@@ -7,17 +7,17 @@ import { wagmiAdapter, projectId, networks } from '@/lib/wagmi-config';
 import { mainnet } from '@reown/appkit/networks';
 import { useState, type ReactNode } from 'react';
 
-// Initialize Reown AppKit at module load. This is wrapped in try/catch because
-// WalletProvider wraps the ENTIRE app: if AppKit init ever throws (e.g. a bad
-// project config or an unverified domain triggering the Verify API), an
-// unguarded throw here white-screens the whole game on load. The wallet is a
-// secondary feature - it must never take the game down. On failure the app
-// still renders; Connect just won't open until the config is fixed.
+// Initialize Reown AppKit at module load. This is the last Vercel-working
+// wallet baseline (plain WalletConnect: connect an existing wallet / injected
+// extension), restored after the embedded email/social variant caused
+// "Invalid App Configuration". The only addition kept over the baseline is the
+// try/catch: WalletProvider wraps the ENTIRE app, so an unguarded throw here
+// (bad config / unverified domain hitting the Verify API) would white-screen
+// the whole game. The wallet is secondary - it must never take the game down.
 //
-// Embedded wallet (email + social -> self-custodial smart account) is only
-// enabled once a real project ID is present. With the dev placeholder we keep
-// it off, since those flows spin up extra secure iframes / Verify calls that
-// can error without a configured project.
+// NOTE: the in-app "create a wallet" flow (email + Google/X -> smart account)
+// is intentionally OFF here. Re-enable it ONLY after Email + Social login are
+// turned on inside the Reown project dashboard, or AppKit throws on init.
 try {
   createAppKit({
     adapters: [wagmiAdapter],
@@ -32,12 +32,8 @@ try {
     },
     features: {
       analytics: false,
-      // Two ways to get a wallet in one modal: CONNECT an existing wallet, or
-      // CREATE one in-app with email / Google / X (a self-custodial smart
-      // account - no extension, no seed phrase). Gated on a real project ID.
-      email: !!projectId,
-      socials: projectId ? ['google', 'x'] : [],
-      emailShowWallets: true,
+      email: false,
+      socials: false,
     },
     themeMode: 'dark',
   });
