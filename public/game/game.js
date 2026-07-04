@@ -99,7 +99,7 @@ $.init = function() {
 			dash: 0
 		}
 	};
-	$.isTouchDevice = ( 'ontouchstart' in window ) ? 1 : 0;
+	$.isTouchDevice = ( ( 'ontouchstart' in window ) || ( navigator.maxTouchPoints > 0 ) ) ? 1 : 0;
 	$.perfLite = $.isTouchDevice;
 	$.okeys = {};
 	$.mouse = {
@@ -162,13 +162,20 @@ $.setupCanvasSizes = function() {
 	// retina iPhones a 3x/2x backing store quadruples fill cost and was the
 	// main cause of in-game lag, so touch devices cap at 1.5x (still sharp,
 	// ~45% less pixel work) while desktop keeps 2x.
-	var maxDpr = $.isTouchDevice ? 1.5 : 2;
+	// Touch detection must not depend on init ordering: setupCanvasSizes runs
+	// once before $.isTouchDevice is assigned, so read it directly here too or
+	// touch devices fall through to the desktop 2x cap and render at 2x instead
+	// of 1.5x (the iPhone-lag regression).
+	var isTouch = ( $.isTouchDevice !== undefined )
+		? $.isTouchDevice
+		: ( ( ( 'ontouchstart' in window ) || ( navigator.maxTouchPoints > 0 ) ) ? 1 : 0 );
+	var maxDpr = isTouch ? 1.5 : 2;
 	// On desktop a large/high-DPI monitor (1440p or 4K) at a flat 2x backing
 	// store means 8M+ pixels cleared and refilled every frame of gameplay -
 	// the main cause of "PC version is lagging" on otherwise capable machines.
 	// Cap the backing store to a fixed pixel budget so big windows scale dpr
 	// down (still >=1, so it stays crisp) instead of paying full 2x fill cost.
-	if( !$.isTouchDevice ) {
+	if( !isTouch ) {
 		var pixelBudget = 4500000;
 		var fit = Math.sqrt( pixelBudget / Math.max( 1, $.cw * $.ch ) );
 		maxDpr = Math.min( maxDpr, Math.max( 1, fit ) );
