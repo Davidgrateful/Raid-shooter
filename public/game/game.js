@@ -180,7 +180,12 @@ $.setupCanvasSizes = function() {
 		var fit = Math.sqrt( pixelBudget / Math.max( 1, $.cw * $.ch ) );
 		maxDpr = Math.min( maxDpr, Math.max( 1, fit ) );
 	}
-	$.dpr = Math.min( window.devicePixelRatio || 1, maxDpr );
+	// baseDpr is the device's best resolution; the runtime FPS scaler
+	// ($.renderScale, see updateDelta) multiplies it down when a device can't
+	// hold framerate and back up when it can - so every device auto-tunes.
+	$.baseDpr = Math.min( window.devicePixelRatio || 1, maxDpr );
+	if( $.renderScale === undefined ) { $.renderScale = 1; }
+	$.dpr = Math.max( 0.75, $.baseDpr * $.renderScale );
 	$.cfg.width = $.cw;
 	$.cfg.height = $.ch;
 	$.cmg.width = Math.round( $.cw * $.dpr );
@@ -224,6 +229,19 @@ $.setupCanvasSizes = function() {
 		color: 'hsla(0, 0%, 0%, 0.85)',
 		strokeColor: '#3a3a3a'
 	};
+};
+
+// Re-apply the current render scale to the main gameplay canvas only (the hot
+// layer). Called by the FPS scaler when $.renderScale changes - resizing the
+// backing store is what actually cuts/adds fill cost. Backgrounds/HUD layers
+// are left crisp. The next render redraws the full frame, so the momentary
+// clear from resizing is never visible.
+$.applyRenderScale = function() {
+	if( !$.cmg || !$.baseDpr ) { return; }
+	$.dpr = Math.max( 0.75, $.baseDpr * $.renderScale );
+	$.cmg.width = Math.round( $.cw * $.dpr );
+	$.cmg.height = Math.round( $.ch * $.dpr );
+	$.ctxmg.setTransform( $.dpr, 0, 0, $.dpr, 0, 0 );
 };
 
 /*==============================================================================
@@ -1375,13 +1393,33 @@ $.updateDelta = function() {
 	$.lt = now;
 	$.elapsed += $.dt;
 
-	// adaptive quality: keep a smoothed FPS estimate and flip $.lowfx when a
-	// device can't hold ~48fps, so particle-heavy effects throttle back on
-	// weaker phones (and recover automatically when the load drops)
+	// adaptive quality: keep a smoothed FPS estimate. Two auto-tuning stages
+	// respond to it, so every device settles at the best quality it can hold:
+	//   1. $.lowfx  - throttles particle-heavy effects first (least visible),
+	//   2. $.renderScale - then drops the gameplay canvas resolution when even
+	//      that isn't enough, and raises it back once there's headroom.
 	var instFps = $.dt > 0 ? 60 / $.dt : 60;
 	$.fps = $.fps ? $.fps * 0.9 + instFps * 0.1 : instFps;
-	if( !$.lowfx && $.fps < 45 ) { $.lowfx = 1; }
-	else if( $.lowfx && $.fps > 54 ) { $.lowfx = 0; }
+	if( !$.lowfx && $.fps < 50 ) { $.lowfx = 1; }
+	else if( $.lowfx && $.fps > 56 ) { $.lowfx = 0; }
+
+	// dynamic resolution (only under real gameplay load; a paused/menu frame
+	// shouldn't trigger it). Cooldown between changes prevents oscillation -
+	// slower to raise than to lower, so it errs toward smooth.
+	if( $.state === 'play' && $.baseDpr ) {
+		$.perfCooldown = ( $.perfCooldown || 0 ) - $.dt;
+		if( $.perfCooldown <= 0 ) {
+			if( $.fps < 46 && $.renderScale > 0.6 ) {
+				$.renderScale = Math.max( 0.6, Math.round( ( $.renderScale - 0.1 ) * 100 ) / 100 );
+				$.applyRenderScale();
+				$.perfCooldown = 90;   // ~1.5s before another drop
+			} else if( $.fps > 58 && $.renderScale < 1 ) {
+				$.renderScale = Math.min( 1, Math.round( ( $.renderScale + 0.1 ) * 100 ) / 100 );
+				$.applyRenderScale();
+				$.perfCooldown = 240;  // ~4s of headroom before raising back
+			}
+		}
+	}
 };
 
 $.updateScreen = function() {
