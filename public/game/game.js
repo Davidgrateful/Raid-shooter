@@ -1697,6 +1697,9 @@ $.setState = function( state ) {
 		// items (call sign, stats, credits) live inside SETTINGS now, so the
 		// menu is 4 rows on every device instead of an overflowing 5.
 		var menuDefs = [
+			// PLAY opens a two-option chooser (ENDLESS / DAILY RUN) instead of a
+			// separate DAILY menu row - one less button, and the daily mode sits
+			// right on the play path where every player sees it
 			{ title: 'PLAY', full: 1, scale: menuCompact ? 2 : 3, action: function() {
 				$.mouse.down = 0;
 				// first-time players choose a call sign before their first
@@ -1706,17 +1709,7 @@ $.setState = function( state ) {
 					$.promptPilotName();
 					$.ensurePilotName();
 				}
-				$.reset();
-				$.trackRun( 'run_start' );
-				$.audio.play( 'levelup' );
-				$.music.start();
-				$.setState( 'play' );
-			} },
-			{ title: $.dailyRunPlayedToday() ? 'DAILY RUN: DONE' : ( $.storage['dailyrunever'] ? 'DAILY RUN' : 'DAILY RUN  NEW' ), full: 1, scale: menuCompact ? 1 : 2, action: function() {
-				$.mouse.down = 0;
-				if( !$.storage['pilotname'] ) { $.promptPilotName(); }
-				$.ensurePilotName();
-				$.setState( 'dailyrun' );
+				$.setState( 'playmode' );
 			} },
 			{ title: 'PILOT: ' + $.currentCharacter().title, scale: menuCompact ? 1 : 2, action: function() {
 				$.mouse.down = 0;
@@ -1796,6 +1789,42 @@ $.setState = function( state ) {
 				if( mcol === 1 ) { my += rowPitch; mcol = 0; } else { mcol = 1; }
 			}
 		}
+	}
+
+	// PLAY mode chooser: ENDLESS (the ranked run) or DAILY RUN (one seeded
+	// attempt on its own board). Lives on the play path so daily hooks every
+	// player without costing the menu a row.
+	if( state == 'playmode' ) {
+		$.mouse.down = 0;
+		var pmCompact = ( $.ch < 640 ),
+			pmY = pmCompact ? $.ch / 2 - 24 : $.ch / 2 - 40,
+			pmW = Math.min( $.cw - 40, pmCompact ? 420 : 520 );
+		$.buttons.push( new $.Button( {
+			x: $.cw / 2, y: pmY, lockedWidth: pmW, lockedHeight: pmCompact ? 48 : 56,
+			scale: pmCompact ? 2 : 3, title: 'ENDLESS RUN',
+			action: function() {
+				$.mouse.down = 0;
+				$.reset();
+				$.trackRun( 'run_start' );
+				$.audio.play( 'levelup' );
+				$.music.start();
+				$.setState( 'play' );
+			}
+		} ) );
+		$.buttons.push( new $.Button( {
+			x: $.cw / 2, y: pmY + ( pmCompact ? 56 : 70 ), lockedWidth: pmW, lockedHeight: pmCompact ? 44 : 50,
+			scale: pmCompact ? 1 : 2,
+			title: $.dailyRunPlayedToday() ? 'DAILY RUN: DONE FOR TODAY' : ( $.storage['dailyrunever'] ? 'DAILY RUN' : 'DAILY RUN  NEW' ),
+			action: function() {
+				$.mouse.down = 0;
+				$.setState( 'dailyrun' );
+			}
+		} ) );
+		$.buttons.push( new $.Button( {
+			x: $.cw / 2, y: pmCompact ? $.ch - 34 : pmY + ( pmCompact ? 108 : 136 ),
+			lockedWidth: 200, lockedHeight: pmCompact ? 38 : 45, scale: 1, title: 'BACK',
+			action: function() { $.mouse.down = 0; $.setState( 'menu' ); }
+		} ) );
 	}
 
 	if( state == 'hangar' ) {
@@ -3783,6 +3812,24 @@ $.setupStates = function() {
 			$.ctxmg.fillStyle = 'hsla(0, 100%, 65%, 0.8)';
 			$.ctxmg.fill();
 		}
+
+		var i = $.buttons.length; while( i-- ){ if( $.buttons[ i ] ) { $.buttons[ i ].update( i ) } }
+			i = $.buttons.length; while( i-- ){ if( $.buttons[ i ] ) { $.buttons[ i ].render( i ) } }
+	};
+
+	$.states['playmode'] = function() {
+		$.clearScreen();
+		var pmC = ( $.ch < 640 );
+		// title
+		$.ctxmg.beginPath();
+		var pmTitle = $.text( { ctx: $.ctxmg, x: $.cw / 2, y: pmC ? 60 : 120, text: 'CHOOSE YOUR RUN', hspacing: 2, vspacing: 1, halign: 'center', valign: 'bottom', scale: pmC ? 3 : 5, snap: 1, render: 1 } );
+		var pmGrad = $.ctxmg.createLinearGradient( pmTitle.sx, pmTitle.sy, pmTitle.sx, pmTitle.ey );
+		pmGrad.addColorStop( 0, '#fff' ); pmGrad.addColorStop( 1, '#8ad' );
+		$.ctxmg.fillStyle = pmGrad; $.ctxmg.fill();
+		// what each mode means, in one line each
+		$.ctxmg.beginPath();
+		$.text( { ctx: $.ctxmg, x: $.cw / 2, y: pmTitle.ey + ( pmC ? 10 : 18 ), text: 'ENDLESS RANKS ON THE SHOOTERBOARD  /  DAILY IS ONE SEEDED SHOT, SAME FOR EVERYONE', hspacing: 1, vspacing: 1, halign: 'center', valign: 'top', scale: 1, snap: 1, render: 1 } );
+		$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 0.5)'; $.ctxmg.fill();
 
 		var i = $.buttons.length; while( i-- ){ if( $.buttons[ i ] ) { $.buttons[ i ].update( i ) } }
 			i = $.buttons.length; while( i-- ){ if( $.buttons[ i ] ) { $.buttons[ i ].render( i ) } }

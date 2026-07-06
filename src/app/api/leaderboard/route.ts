@@ -3,6 +3,7 @@ import { getOrCreateGuestId, getSession } from '@/lib/session';
 import { checkSubmitAllowed, getTop, getBoardCount, isPersistent, submitEntry, suspicionReason, flagRun } from '@/lib/leaderboard';
 import { getActiveSeason } from '@/lib/rewards';
 import { submitCupEntry } from '@/lib/cup';
+import { submitWeekly } from '@/lib/weekly';
 import { verifyTurnstile } from '@/lib/turnstile';
 import { clientIp } from '@/lib/ratelimit';
 
@@ -117,6 +118,14 @@ export async function POST(req: NextRequest) {
       }
     } catch {
       // cup board unavailable - the global submit already succeeded
+    }
+
+    // the weekly ladder (resets Monday) also takes every run - fresh field
+    // each week so new players can always rank. Best-effort like the cup.
+    try {
+      await submitWeekly(entry);
+    } catch {
+      // weekly board unavailable - never fails the submit
     }
 
     // outlier runs still rank (no false-positive punishment) but are copied

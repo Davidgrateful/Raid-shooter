@@ -51,12 +51,13 @@ function dailyKey(): string {
 
 export function BoardOverlay() {
   const [openState, setOpenState] = useState(false);
-  const [tab, setTab] = useState<'all' | 'cup' | 'daily'>('all');
+  const [tab, setTab] = useState<'all' | 'cup' | 'daily' | 'weekly'>('all');
   const [entries, setEntries] = useState<Entry[]>([]);
   const [total, setTotal] = useState(0);
   const [me, setMe] = useState<string | null>(null);
   const [season, setSeason] = useState<CupSeason | null>(null);
   const [loading, setLoading] = useState(false);
+  const [weekResets, setWeekResets] = useState<number | null>(null);
   const myRowRef = useRef<HTMLDivElement | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
 
@@ -71,11 +72,12 @@ export function BoardOverlay() {
     return () => window.removeEventListener('raidshooter:state', onState as EventListener);
   }, []);
 
-  const fetchBoard = useCallback((which: 'all' | 'cup' | 'daily') => {
+  const fetchBoard = useCallback((which: 'all' | 'cup' | 'daily' | 'weekly') => {
     setLoading(true);
     const url =
       which === 'cup' ? '/api/cup'
       : which === 'daily' ? `/api/dailyrun?day=${dailyKey()}`
+      : which === 'weekly' ? '/api/weekly'
       : '/api/leaderboard?limit=1000';
     fetch(url)
       .then((r) => r.json())
@@ -93,6 +95,7 @@ export function BoardOverlay() {
         setEntries(rows);
         setTotal(typeof d.total === 'number' ? d.total : rows.length);
         if (which === 'cup' && d.season) setSeason(d.season);
+        if (which === 'weekly' && d.resetsAt) setWeekResets(d.resetsAt);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -156,6 +159,8 @@ export function BoardOverlay() {
             <span className="text-amber-300">{cupLabel.toUpperCase()}</span>
           ) : tab === 'daily' ? (
             <span className="text-sky-300">DAILY RUN</span>
+          ) : tab === 'weekly' ? (
+            <span className="text-emerald-300">WEEKLY LADDER</span>
           ) : (
             <>SHOOTER<span className="text-cyan-300">BOARD</span></>
           )}
@@ -165,6 +170,7 @@ export function BoardOverlay() {
           {season && (
             <button onClick={() => setTab('cup')} className={`px-3 py-1.5 ${tab === 'cup' ? 'bg-amber-400 text-black' : 'bg-white/[0.04] text-white/60 hover:text-white'}`}>{cupLabel.length > 12 ? 'Cup' : cupLabel}</button>
           )}
+          <button onClick={() => setTab('weekly')} className={`px-3 py-1.5 ${tab === 'weekly' ? 'bg-emerald-400 text-black' : 'bg-white/[0.04] text-white/60 hover:text-white'}`}>Weekly</button>
           <button onClick={() => setTab('daily')} className={`px-3 py-1.5 ${tab === 'daily' ? 'bg-sky-400 text-black' : 'bg-white/[0.04] text-white/60 hover:text-white'}`}>Daily</button>
         </div>
       </div>
@@ -177,11 +183,18 @@ export function BoardOverlay() {
         </div>
       )}
 
+      {/* weekly meta strip */}
+      {tab === 'weekly' && weekResets && (
+        <div className="relative z-10 px-4 pb-1 font-mono text-[11px] text-emerald-200/80 sm:px-8">
+          FRESH BOARD EVERY MONDAY · RESETS IN {timeLeft(weekResets)}
+        </div>
+      )}
+
       {/* board body */}
       <div ref={listRef} className="relative z-10 flex-1 overflow-y-auto px-4 pb-24 pt-3 sm:px-8">
         {entries.length === 0 ? (
           <div className="mt-16 text-center text-sm text-white/50">
-            {loading ? 'LOADING…' : tab === 'cup' ? 'NO CUP RUNS YET — PLAY TO ENTER' : tab === 'daily' ? 'NO DAILY RUNS YET — ONE SEEDED ATTEMPT PER DAY' : 'NO PILOTS RANKED YET'}
+            {loading ? 'LOADING…' : tab === 'cup' ? 'NO CUP RUNS YET — PLAY TO ENTER' : tab === 'daily' ? 'NO DAILY RUNS YET — ONE SEEDED ATTEMPT PER DAY' : tab === 'weekly' ? 'NO RUNS THIS WEEK YET — FRESH BOARD, CLAIM IT' : 'NO PILOTS RANKED YET'}
           </div>
         ) : (
           <>
