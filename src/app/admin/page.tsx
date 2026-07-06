@@ -1124,53 +1124,99 @@ function MissionControl({ token, me, go }: { token: string; me: Me; go: (t: Tab)
       if (res.ok) setD(await res.json());
     } finally { setBusy(false); }
   }
-  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
-  const delta = (n: number | null) => n == null ? null : (n > 0 ? <span className="text-emerald-300">▲ {n}</span> : n < 0 ? <span className="text-red-300">▼ {Math.abs(n)}</span> : <span className="text-white/30">—</span>);
+  useEffect(() => {
+    load();
+    const iv = setInterval(load, 60_000); // keep the console live
+    return () => clearInterval(iv);
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, []);
   const h = d?.health;
+  const now = new Date();
   return (
     <section>
-      <div className="mb-4 flex items-center justify-between">
-        <div><h2 className="text-lg font-bold">Welcome back.</h2><p className="text-sm text-white/40">Here&apos;s what needs you.</p></div>
-        <button onClick={load} disabled={busy} className="rounded-md bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20 disabled:opacity-40">Refresh</button>
+      {/* professional header band */}
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-3 border-b border-white/10 pb-4">
+        <div>
+          <div className="text-[10px] font-mono uppercase tracking-[0.3em] text-cyan-300/80">Mission Control</div>
+          <h2 className="mt-1 text-xl font-bold">Welcome back, <span className="text-cyan-300">{ROLE_LABEL(me.role)}</span>.</h2>
+          <p className="mt-0.5 text-sm text-white/40">
+            {now.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}
+            {d?.activeSeason && <> · Active cup: <span className="text-amber-300/80">{d.activeSeason.name}</span></>}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/25 bg-emerald-400/10 px-2.5 py-1 text-[11px] text-emerald-300">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> Live
+          </span>
+          <button onClick={load} disabled={busy} className="rounded-md border border-white/15 bg-white/[0.06] px-3 py-1.5 text-xs hover:bg-white/15 disabled:opacity-40">{busy ? 'Refreshing…' : 'Refresh'}</button>
+        </div>
       </div>
 
+      {/* KPI tiles with mini trend bars */}
+      {h && (
+        <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <KpiTile label="Active today" value={h.activeToday} delta={h.playersDelta} accent="#33e6ff" series={(h.daily || []).map((x) => x.players)} />
+          <KpiTile label="Runs today" value={h.runsToday} delta={h.runsDelta} accent="#8affb0" series={(h.daily || []).map((x) => x.runs)} />
+          <KpiTile label="Active · 7 days" value={h.active7Days} accent="#ffbb4d" />
+          <KpiTile label="Players all-time" value={h.uniqueAllTime} accent="#c9a7ff" />
+        </div>
+      )}
+
       {/* needs attention */}
-      <div className="mb-6 rounded-2xl border border-white/10 bg-white/[0.02] p-4">
-        <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-amber-300/80">Needs attention</div>
+      <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+        <div className="mb-3 flex items-center justify-between">
+          <div className="text-xs font-semibold uppercase tracking-wider text-amber-300/80">Needs attention</div>
+          {d && <div className="text-[11px] text-white/30">{d.needs.length} open</div>}
+        </div>
         {d && d.needs.length === 0 ? (
           <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/[0.05] p-3 text-sm text-emerald-300/90">✓ All clear — nothing waiting on you.</div>
         ) : (
           <div className="space-y-2">
             {(d?.needs || []).map((n, i) => (
-              <button key={i} onClick={() => go(n.cta as Tab)} className="flex w-full items-center gap-3 rounded-lg border border-white/10 bg-white/[0.03] p-3 text-left hover:border-cyan-400/40">
-                <span className="grid h-8 w-8 place-items-center rounded-lg bg-amber-400/15 text-sm font-bold text-amber-300">{n.count}</span>
+              <button key={i} onClick={() => go(n.cta as Tab)} className="flex w-full items-center gap-3 rounded-lg border border-white/10 bg-white/[0.03] p-3 text-left transition-colors hover:border-cyan-400/40">
+                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-amber-400/15 text-sm font-bold text-amber-300">{n.count}</span>
                 <span className="flex-1 text-sm text-white/85">{n.label}</span>
-                <span className="text-xs text-cyan-300">Open {n.cta} →</span>
+                <span className="shrink-0 text-xs text-cyan-300">Open {n.cta} →</span>
               </button>
             ))}
           </div>
         )}
       </div>
-
-      {/* health tiles */}
-      {h && (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {[
-            ['Active today', h.activeToday.toLocaleString(), delta(h.playersDelta)],
-            ['Runs today', h.runsToday.toLocaleString(), delta(h.runsDelta)],
-            ['Active · 7 days', h.active7Days.toLocaleString(), null],
-            ['Players all-time', h.uniqueAllTime.toLocaleString(), null],
-          ].map(([k, v, dl], i) => (
-            <div key={i} className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
-              <div className="text-[10px] font-mono uppercase tracking-wider text-white/35">{k}</div>
-              <div className="mt-1 text-2xl font-bold tabular-nums text-cyan-300">{v}</div>
-              <div className="text-[11px] mt-0.5">{dl}</div>
-            </div>
-          ))}
-        </div>
-      )}
-      {d?.activeSeason && <p className="mt-4 text-xs text-white/40">Active cup: <span className="text-white/70">{d.activeSeason.name}</span></p>}
     </section>
+  );
+}
+
+// role id -> friendly label for the greeting
+function ROLE_LABEL(role: string): string {
+  const map: Record<string, string> = { owner: 'Owner', finance: 'Finance', community: 'Community', moderator: 'Moderator', analyst: 'Analyst' };
+  return map[role] || role;
+}
+
+// a KPI tile with a delta pill and an optional 14-day sparkline
+function KpiTile({ label, value, delta, accent, series }: { label: string; value: number; delta?: number | null; accent: string; series?: number[] }) {
+  const pts = (series || []).slice(-14);
+  const max = Math.max(1, ...pts);
+  const w = 100, hgt = 26;
+  const path = pts.length > 1
+    ? pts.map((v, i) => `${(i / (pts.length - 1)) * w},${hgt - (v / max) * hgt}`).join(' ')
+    : '';
+  return (
+    <div className="rounded-xl border border-white/10 bg-gradient-to-b from-white/[0.03] to-transparent p-4">
+      <div className="text-[10px] font-mono uppercase tracking-wider text-white/35">{label}</div>
+      <div className="mt-1 flex items-end justify-between gap-2">
+        <div className="text-2xl font-bold tabular-nums" style={{ color: accent }}>{value.toLocaleString()}</div>
+        {delta != null && (
+          <span className={`text-[11px] font-semibold ${delta > 0 ? 'text-emerald-300' : delta < 0 ? 'text-red-300' : 'text-white/30'}`}>
+            {delta > 0 ? `▲ ${delta}` : delta < 0 ? `▼ ${Math.abs(delta)}` : '—'}
+          </span>
+        )}
+      </div>
+      {path && (
+        <svg viewBox={`0 0 ${w} ${hgt}`} className="mt-2 h-6 w-full overflow-visible" preserveAspectRatio="none">
+          <polyline points={path} fill="none" stroke={accent} strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" opacity="0.8" />
+        </svg>
+      )}
+    </div>
   );
 }
 
