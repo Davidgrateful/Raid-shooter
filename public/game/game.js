@@ -2773,6 +2773,11 @@ $.setState = function( state ) {
 		// at the bottom; fixed tall positions would push them off-screen
 		var goCompact = ( $.ch < 640 );
 
+		// the HTML GameOverOverlay owns this screen (blurred panel, no
+		// collision). Skip building canvas buttons then - but ALWAYS run the
+		// stat/storage bookkeeping below, and dispatch the state at the end.
+		if( !window.__htmlGameover ) {
+
 		var resumeButton = new $.Button( {
 			x: goCompact ? $.cw / 2 - 104 : $.cw / 2 + 1,
 			y: goCompact ? $.ch - 34 : 426,
@@ -2818,6 +2823,8 @@ $.setState = function( state ) {
 			}
 		} );
 		$.buttons.push( menuButton );
+
+		} // end !__htmlGameover button block
 
 		// best-run celebration + daily challenge settle BEFORE the storage
 		// update below folds this run into the records
@@ -4527,6 +4534,11 @@ $.setupStates = function() {
 
 		$.clearScreen();
 		$.ctxmg.putImageData( $.screenshot, 0, 0 );
+
+		// the HTML GameOverOverlay draws the blurred panel + stats + buttons on
+		// top; keep the frozen last frame underneath but draw nothing else, so
+		// canvas text can never collide with the HTML controls
+		if( window.__htmlGameover ) { return; }
 
 		var i = $.buttons.length; while( i-- ){ if( $.buttons[ i ] ) { $.buttons[ i ].update( i ) } }
 			i = $.buttons.length; while( i-- ){ if( $.buttons[ i ] ) { $.buttons[ i ].render( i ) } }

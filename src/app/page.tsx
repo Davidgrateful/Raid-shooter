@@ -5,6 +5,7 @@ import { TurnstileGate } from '@/components/TurnstileGate';
 import { PartnersBar } from '@/components/PartnersBar';
 import { GameOverlays } from '@/components/GameOverlays';
 import { BoardOverlay } from '@/components/BoardOverlay';
+import { GameOverOverlay } from '@/components/GameOverOverlay';
 
 export default function Home() {
   return (
@@ -16,6 +17,7 @@ export default function Home() {
       <PartnersBar />
       <GameOverlays />
       <BoardOverlay />
+      <GameOverOverlay />
       <div id="rotate-overlay">
         <div className="phone" />
         <p className="text-sm text-white/80">
