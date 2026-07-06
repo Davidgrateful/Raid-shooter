@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { BoardBackdrop } from '@/components/BoardBackdrop';
 import { headers } from 'next/headers';
 import type { Metadata } from 'next';
 import { LiveBoard, type Entry, type SeasonSummary } from './LiveBoard';
@@ -58,6 +59,8 @@ export default async function LeaderboardPage() {
         className="pointer-events-none fixed inset-0 -z-10 opacity-40"
         style={{ background: 'repeating-linear-gradient(to bottom, rgba(255,255,255,0.015) 0 1px, transparent 1px 3px)' }}
       />
+      {/* ambient blurred ships firing at enemies */}
+      <div aria-hidden className="pointer-events-none fixed inset-0 -z-10"><BoardBackdrop /></div>
 
       <div className="mx-auto max-w-4xl px-4 py-10">
         {/* header */}

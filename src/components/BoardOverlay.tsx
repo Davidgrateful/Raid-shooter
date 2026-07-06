@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { TIER_COLORS, tierFromScore, displayName } from '@/lib/tiers';
+import { BoardBackdrop } from '@/components/BoardBackdrop';
 
 // The DEFAULT in-game leaderboard. When the player opens SHOOTERBOARD the
 // engine hands the screen to this overlay (window.__htmlBoard flags the canvas
@@ -147,6 +148,9 @@ export function BoardOverlay() {
           'radial-gradient(700px 350px at 10% 110%, rgba(255,215,94,0.05), transparent 55%), #06070c',
       }}
     >
+      {/* ambient blurred combat behind the rows: ships firing at enemies */}
+      <BoardBackdrop />
+
       {/* scanlines */}
       <div aria-hidden className="pointer-events-none absolute inset-0 opacity-40" style={{ background: 'repeating-linear-gradient(to bottom, rgba(255,255,255,0.015) 0 1px, transparent 1px 3px)' }} />
 
