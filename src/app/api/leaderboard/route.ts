@@ -30,18 +30,29 @@ function isInt(value: unknown, min: number, max: number): value is number {
 export async function POST(req: NextRequest) {
   const session = await getSession();
 
-  // Guest play by default: a wallet is no longer required to post a score.
-  // Wallet players get a verified entry keyed by their address; everyone
-  // else gets an anonymous, device-scoped guest identity.
-  const verified = !!session.siwe;
-  const key = verified
-    ? session.siwe!.address.toLowerCase()
-    : await getOrCreateGuestId(session);
-
   const body = await req.json().catch(() => null);
   if (!body) {
     return NextResponse.json({ error: 'invalid_body' }, { status: 400 });
   }
+
+  // Guest play by default: a wallet is no longer required to post a score.
+  // Wallet players get a verified entry keyed by their address.
+  //
+  // Guests are keyed by a DURABLE token the client stores in localStorage and
+  // sends with every run. This survives the session cookie being dropped -
+  // which iOS Safari (ITP) and in-app browsers (Telegram/Twitter webviews) do
+  // routinely, the #1 cause of "my score doesn't save unless I connect a
+  // wallet" (each run otherwise minted a fresh cookie identity). Falls back to
+  // the cookie guest id when no client token is supplied.
+  const verified = !!session.siwe;
+  const rawGuestToken = (body as Record<string, unknown>).guestToken;
+  const clientGuestToken =
+    typeof rawGuestToken === 'string' && /^[a-z0-9-]{8,40}$/i.test(rawGuestToken)
+      ? `guest:${rawGuestToken.toLowerCase()}`
+      : null;
+  const key = verified
+    ? session.siwe!.address.toLowerCase()
+    : (clientGuestToken || (await getOrCreateGuestId(session)));
 
   const { score, level, kills, combo, pilot, time, name } = body as Record<string, unknown>;
 

@@ -7,13 +7,28 @@ automatically on game over.
 ==============================================================================*/
 $.session = { authenticated: false, address: null, guestId: null };
 
+// A durable, device-scoped guest token stored in localStorage. Sent with
+// every guest submission so a player's runs always attach to ONE identity -
+// even when the session cookie is dropped (iOS Safari ITP, in-app browsers),
+// which was making guest scores fail to accumulate ("only saves with a
+// wallet"). Minted once, then stable forever on this device.
+$.guestToken = function() {
+	var t = $.storage['guesttoken'];
+	if( !t || t.length < 8 ) {
+		t = ( ( Date.now().toString( 36 ) + Math.random().toString( 36 ).slice( 2 ) ).replace( /[^a-z0-9]/g, '' ) ).slice( 0, 32 );
+		$.storage['guesttoken'] = t;
+		$.updateStorage();
+	}
+	return t;
+};
+
 // The player's own leaderboard key, used to highlight their row. Wallet
-// players are keyed by address; guests by their "guest:<id>" handle.
+// players are keyed by address; guests by their durable "guest:<token>".
 $.myKey = function() {
 	if( $.session.authenticated ) {
 		return $.session.address;
 	}
-	return $.session.guestId || null;
+	return 'guest:' + $.guestToken();
 };
 $.board = { loading: 0, error: 0, fetched: 0, entries: [], persistent: 1 };
 $.boardSubmit = { state: 'idle', rank: 0, improved: false };
@@ -84,7 +99,7 @@ $.promptPilotName = function() {
 			fetch( '/api/leaderboard/name', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify( { name: input } )
+				body: JSON.stringify( { name: input, guestToken: $.session.authenticated ? undefined : $.guestToken() } )
 			} )
 				.then( function() { $.fetchBoard(); } )
 				.catch( function() {} );
@@ -245,7 +260,10 @@ $.submitScore = function() {
 				pilot: runPilot,
 				time: runTime,
 				name: pilotName,
-				turnstileToken: captchaToken
+				turnstileToken: captchaToken,
+				// durable guest identity (survives cookie loss on iOS / in-app
+				// browsers) so wallet-less scores always attach to one player
+				guestToken: $.session.authenticated ? undefined : $.guestToken()
 			} )
 		} )
 			.then( function( res ) {
