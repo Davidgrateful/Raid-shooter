@@ -7,16 +7,15 @@ automatically on game over.
 ==============================================================================*/
 $.session = { authenticated: false, address: null, guestId: null };
 
-// A durable, device-scoped guest token stored in localStorage. Sent with
-// every guest submission so a player's runs always attach to ONE identity -
-// even when the session cookie is dropped (iOS Safari ITP, in-app browsers),
-// which was making guest scores fail to accumulate ("only saves with a
-// wallet"). Minted once, then stable forever on this device.
+// A durable, device-scoped guest token in localStorage. Sent with every guest
+// submission so a player's runs always attach to ONE identity even when the
+// session cookie is dropped (iOS Safari ITP, in-app browsers) - the cause of
+// "my score/name only sticks with a wallet". Minted once, stable forever.
 $.guestToken = function() {
-	var t = $.storage['guesttoken'];
+	var t = $.storage[ 'guesttoken' ];
 	if( !t || t.length < 8 ) {
-		t = ( ( Date.now().toString( 36 ) + Math.random().toString( 36 ).slice( 2 ) ).replace( /[^a-z0-9]/g, '' ) ).slice( 0, 32 );
-		$.storage['guesttoken'] = t;
+		t = ( Date.now().toString( 36 ) + Math.random().toString( 36 ).slice( 2 ) ).replace( /[^a-z0-9]/g, '' ).slice( 0, 32 );
+		$.storage[ 'guesttoken' ] = t;
 		$.updateStorage();
 	}
 	return t;
@@ -108,11 +107,16 @@ $.promptPilotName = function() {
 };
 
 // Every guest needs a readable name to appear on the board. If they haven't
-// set one, mint a stable default ("PILOT 1234") and remember it.
+// set one, derive a STABLE default from the durable device token (so it's the
+// same call sign every run instead of a fresh random one, which read as "my
+// name keeps changing back").
 $.ensurePilotName = function() {
 	var name = $.storage['pilotname'];
 	if( !name || name.length < 3 ) {
-		name = 'PILOT ' + Math.floor( 1000 + Math.random() * 9000 );
+		var tok = $.guestToken ? $.guestToken() : '',
+			n = 2166136261;
+		for( var i = 0; i < tok.length; i++ ) { n = ( ( n ^ tok.charCodeAt( i ) ) * 16777619 ) >>> 0; }
+		name = 'PILOT ' + ( 1000 + ( n % 9000 ) );
 		$.storage['pilotname'] = name;
 		$.updateStorage();
 	}

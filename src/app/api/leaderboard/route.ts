@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getOrCreateGuestId, getSession } from '@/lib/session';
-import { checkSubmitAllowed, getTop, getBoardCount, isPersistent, submitEntry, suspicionReason, flagRun } from '@/lib/leaderboard';
+import { checkSubmitAllowed, getTop, getBoardCount, getEntry, isPersistent, submitEntry, suspicionReason, flagRun } from '@/lib/leaderboard';
 import { getActiveSeason } from '@/lib/rewards';
 import { submitCupEntry } from '@/lib/cup';
 import { submitWeekly } from '@/lib/weekly';
@@ -36,14 +36,11 @@ export async function POST(req: NextRequest) {
   }
 
   // Guest play by default: a wallet is no longer required to post a score.
-  // Wallet players get a verified entry keyed by their address.
-  //
-  // Guests are keyed by a DURABLE token the client stores in localStorage and
-  // sends with every run. This survives the session cookie being dropped -
-  // which iOS Safari (ITP) and in-app browsers (Telegram/Twitter webviews) do
-  // routinely, the #1 cause of "my score doesn't save unless I connect a
-  // wallet" (each run otherwise minted a fresh cookie identity). Falls back to
-  // the cookie guest id when no client token is supplied.
+  // Wallet players are keyed by their address (verified). Guests are keyed by
+  // a DURABLE token the client stores in localStorage and sends every run -
+  // this survives the session cookie being dropped (iOS Safari ITP, in-app
+  // browsers), the cause of "my score/name doesn't stick unless I connect a
+  // wallet". Falls back to the cookie id when no token is supplied.
   const verified = !!session.siwe;
   const rawGuestToken = (body as Record<string, unknown>).guestToken;
   const clientGuestToken =
@@ -68,6 +65,22 @@ export async function POST(req: NextRequest) {
   }
   if (!verified && !displayName) {
     return NextResponse.json({ error: 'name_required' }, { status: 400 });
+  }
+
+  // A player who lost their stored custom name (flaky localStorage) would
+  // submit an auto-generated "PILOT 1234" default, which then overwrote the
+  // good name already on the board. Never let a default clobber a real name:
+  // if this run's name is a default but the player already has a custom name
+  // stored, keep the custom one.
+  if (displayName && /^PILOT \d{4}$/.test(displayName)) {
+    try {
+      const existing = await getEntry(key);
+      if (existing?.name && !/^PILOT \d{4}$/.test(existing.name)) {
+        displayName = existing.name;
+      }
+    } catch {
+      // best-effort; fall through with the submitted name
+    }
   }
 
   // Bot defense for guest scores: wallet players already proved identity by
