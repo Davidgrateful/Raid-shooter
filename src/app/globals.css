@@ -79,6 +79,58 @@ body {
   opacity: 1;
 }
 
+/* Boot splash: instant first paint while the engine scripts load, so the
+   page never sits pure black. Fades away once .loaded lands. */
+#boot-splash {
+  align-items: center;
+  background:
+    radial-gradient(800px 400px at 70% 20%, rgba(51, 230, 255, 0.05), transparent 60%),
+    #06070c;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  inset: 0;
+  justify-content: center;
+  position: absolute;
+  transition: opacity 0.8s;
+  z-index: 5;
+}
+#boot-splash img {
+  height: auto;
+  max-width: 44vw;
+  opacity: 0.9;
+  width: 220px;
+}
+#boot-splash .boot-bar {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 2px;
+  height: 3px;
+  overflow: hidden;
+  width: 180px;
+}
+#boot-splash .boot-bar span {
+  animation: bootSweep 1.1s ease-in-out infinite;
+  background: #33e6ff;
+  border-radius: 2px;
+  display: block;
+  height: 100%;
+  width: 40%;
+}
+@keyframes bootSweep {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(450%); }
+}
+#boot-splash .boot-label {
+  color: rgba(255, 255, 255, 0.35);
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 11px;
+  letter-spacing: 0.4em;
+}
+#game-mount.loaded #boot-splash {
+  opacity: 0;
+  pointer-events: none;
+}
+
 #game-mount #wrap-inner {
   background: #000;
   overflow: hidden;

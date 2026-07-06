@@ -92,6 +92,15 @@ export function GameCanvas() {
 
   return (
     <div id="game-mount" ref={mountRef} className="absolute inset-0">
+      {/* boot splash: server-rendered so it paints IMMEDIATELY - without it
+          the page is pure black while the ~18 engine scripts load (#wrap sits
+          at opacity 0 until .loaded). Fades out when the engine takes over. */}
+      <div id="boot-splash" aria-hidden>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/logo.png" alt="" width={220} height={88} />
+        <div className="boot-bar"><span /></div>
+        <div className="boot-label">INITIALIZING</div>
+      </div>
       <div id="wrap">
         <div id="wrap-inner">
           <canvas id="cbg1"></canvas>

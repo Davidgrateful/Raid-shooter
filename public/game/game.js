@@ -2344,6 +2344,11 @@ $.setState = function( state ) {
 
 	if( state == 'board' ) {
 		$.mouse.down = 0;
+		// the HTML BoardOverlay is the default leaderboard: it covers the
+		// screen with the cool board (podium, tier colors, live refresh), so
+		// the canvas builds no UI and fetches nothing here. Everything below
+		// stays as a fallback for running the bare engine without the shell.
+		if( window.__htmlBoard ) { return; }
 		// a cup that ended while the player was away shouldn't leave them
 		// stuck on an empty CUP tab
 		if( $.boardTab === 'cup' && !$.cupLive() ) { $.boardTab = 'all'; }
@@ -3450,6 +3455,9 @@ $.setupStates = function() {
 	$.states['board'] = function() {
 
 		$.clearScreen();
+
+		// HTML BoardOverlay owns this screen - nothing to draw underneath
+		if( window.__htmlBoard ) { return; }
 
 		var boardCompact = ( $.ch < 640 );
 		$.ctxmg.beginPath();
