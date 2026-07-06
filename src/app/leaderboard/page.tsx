@@ -1,21 +1,19 @@
 import Link from 'next/link';
 import { headers } from 'next/headers';
 import type { Metadata } from 'next';
-import { TIER_COLORS, tierFromScore, displayName } from '@/lib/tiers';
+import { LiveBoard, type Entry, type SeasonSummary } from './LiveBoard';
 
-// Public web leaderboard: the full field (not capped at 50), server-rendered
-// so a link posted in Telegram/Discord unfurls into a real page and always
-// shows fresh standings. Fetches the same public API the game uses, so it
-// shares one source of truth with the in-game board.
+// Public web Shooterboard: server-rendered so a link posted in Telegram or
+// Discord unfurls into a real page with fresh standings, then hydrates into a
+// LIVE board (LiveBoard re-fetches on an interval). Styled to match the
+// in-game arcade look: scanlines, tier colors, podium for the top three.
 
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: 'Leaderboard — Raid Shooter',
-  description: 'Live pilot standings on the Raid Shooter Shooterboard.',
+  title: 'Shooterboard — Raid Shooter live rankings',
+  description: 'Live pilot standings on the Raid Shooter Shooterboard. Every score earned, never bought.',
 };
-
-interface Entry { address: string; name?: string; score: number; kills: number; pilot: string; verified?: boolean }
 
 async function baseUrl(): Promise<string> {
   const h = await headers();
@@ -33,79 +31,60 @@ export default async function LeaderboardPage() {
   const entries: Entry[] = boardRes?.entries || [];
   const total: number = boardRes?.total ?? entries.length;
   const persistent: boolean = boardRes?.persistent !== false;
-  const active = seasonRes?.season || null;
+  const season: SeasonSummary | null = seasonRes?.season
+    ? {
+        name: seasonRes.season.name,
+        prize1Usd: seasonRes.season.prize1Usd || 0,
+        poolUsd: seasonRes.season.poolUsd || 0,
+        endsAt: seasonRes.season.endsAt || null,
+        sponsorName: seasonRes.season.sponsorName || null,
+      }
+    : null;
 
   return (
-    <main className="mx-auto min-h-screen max-w-3xl px-4 py-10 text-white">
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-black tracking-tight sm:text-3xl">SHOOTERBOARD</h1>
-          <p className="mt-1 text-sm text-white/40">{total.toLocaleString()} pilot{total === 1 ? '' : 's'} ranked</p>
-        </div>
-        <Link href="/" className="rounded-lg bg-cyan-500/90 px-4 py-2 text-sm font-semibold text-black hover:bg-cyan-400">Play free →</Link>
-      </div>
+    <main className="relative min-h-screen overflow-x-hidden text-white">
+      {/* game-matched backdrop: deep space + soft glow + scanlines */}
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-0 -z-10"
+        style={{
+          background:
+            'radial-gradient(1000px 500px at 80% -10%, rgba(51,230,255,0.07), transparent 60%),' +
+            'radial-gradient(800px 400px at 10% 110%, rgba(255,215,94,0.05), transparent 55%), #06070c',
+        }}
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-0 -z-10 opacity-40"
+        style={{ background: 'repeating-linear-gradient(to bottom, rgba(255,255,255,0.015) 0 1px, transparent 1px 3px)' }}
+      />
 
-      {active && (
-        <Link href="/cup" className="mb-6 block rounded-xl border border-amber-400/30 bg-amber-400/[0.06] p-4 transition-colors hover:border-amber-400/60">
-          <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-amber-300">Tournament live</div>
-          <div className="mt-0.5 text-lg font-bold">{active.name}</div>
-          <div className="text-sm text-white/60">
-            {active.prize1Usd > 0 ? `${active.prize1Usd} USDC to the top pilot` : 'Exclusive prizes'} — see the cup →
+      <div className="mx-auto max-w-4xl px-4 py-10">
+        {/* header */}
+        <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <div className="text-[10px] font-black uppercase tracking-[0.4em] text-cyan-300">Raid Shooter · Live rankings</div>
+            <h1
+              className="mt-1 text-4xl font-black tracking-tight sm:text-5xl"
+              style={{ textShadow: '0 0 30px rgba(51,230,255,0.25)' }}
+            >
+              SHOOTER<span className="text-cyan-300">BOARD</span>
+            </h1>
           </div>
-        </Link>
-      )}
-
-      {!persistent && (
-        <div className="mb-6 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-200">
-          Demo mode — leaderboard storage isn&apos;t configured, so standings are local only.
+          <Link
+            href="/"
+            className="rounded-lg bg-cyan-400 px-5 py-2.5 text-sm font-black uppercase tracking-wider text-black transition-colors hover:bg-cyan-300"
+          >
+            Play free →
+          </Link>
         </div>
-      )}
 
-      {entries.length === 0 ? (
-        <div className="rounded-xl border border-white/10 bg-white/[0.02] p-8 text-center text-white/50">
-          No pilots ranked yet. <Link href="/" className="text-cyan-300 underline">Be the first.</Link>
-        </div>
-      ) : (
-        <div className="overflow-hidden rounded-xl border border-white/10">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-white/[0.04] text-[11px] uppercase tracking-wider text-white/40">
-              <tr>
-                <th className="px-3 py-2.5 sm:px-4">#</th>
-                <th className="px-3 py-2.5 sm:px-4">Pilot</th>
-                <th className="hidden px-4 py-2.5 sm:table-cell">Tier</th>
-                <th className="px-3 py-2.5 text-right sm:px-4">Score</th>
-                <th className="hidden px-4 py-2.5 text-right md:table-cell">Kills</th>
-              </tr>
-            </thead>
-            <tbody>
-              {entries.map((e, i) => {
-                const rank = i + 1;
-                const tier = tierFromScore(e.score);
-                const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : null;
-                return (
-                  <tr key={e.address} className={`border-t border-white/5 ${rank <= 3 ? 'bg-white/[0.03]' : ''}`}>
-                    <td className="px-3 py-2.5 font-mono text-white/50 sm:px-4">{medal || rank}</td>
-                    <td className="px-3 py-2.5 sm:px-4">
-                      <span className="font-semibold">{displayName(e.name, e.address)}</span>
-                      {e.verified && <span title="Wallet-verified" className="ml-1.5 text-cyan-300">✓</span>}
-                      <span className="ml-2 hidden text-xs text-white/30 sm:inline">{e.pilot}</span>
-                    </td>
-                    <td className="hidden px-4 py-2.5 sm:table-cell">
-                      <span style={{ color: TIER_COLORS[tier] }} className="text-xs font-bold">{tier}</span>
-                    </td>
-                    <td className="px-3 py-2.5 text-right font-bold sm:px-4">{e.score.toLocaleString()}</td>
-                    <td className="hidden px-4 py-2.5 text-right text-white/60 md:table-cell">{e.kills.toLocaleString()}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+        <LiveBoard initialEntries={entries} initialTotal={total} season={season} persistent={persistent} />
 
-      <p className="mt-6 text-center text-xs text-white/30">
-        Cosmetics never affect score. <Link href="/terms" className="underline">Rules</Link>
-      </p>
+        <p className="mt-8 text-center text-xs text-white/30">
+          Cosmetics never affect score. <Link href="/terms" className="underline hover:text-white/60">Tournament rules</Link>
+        </p>
+      </div>
     </main>
   );
 }
