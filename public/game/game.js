@@ -1752,6 +1752,32 @@ $.setState = function( state ) {
 			fullW = Math.min( $.cw - 40, menuCompact ? 420 : 620 ),
 			my = menuStartY,
 			mcol = 0;
+
+		// Guarantee the whole stack fits: count the rows the defs will take,
+		// and if the last row would land below the viewport (players reported
+		// SETTINGS missing on short screens), compress the pitch - and the
+		// button height if needed - so every row is always on screen.
+		var rowsNeeded = 0, colCount = 0;
+		for( var rc = 0; rc < menuDefs.length; rc++ ) {
+			if( menuDefs[ rc ].full ) {
+				if( colCount === 1 ) { rowsNeeded++; colCount = 0; }
+				rowsNeeded++;
+			} else {
+				if( colCount === 1 ) { rowsNeeded++; colCount = 0; } else { colCount = 1; }
+			}
+		}
+		if( colCount === 1 ) { rowsNeeded++; }
+		// clearance also accounts for the HTML pill row (Feedback / Invite /
+		// weekly gift) pinned to the bottom of the page - on short screens it
+		// was covering SETTINGS, which is what players reported as "missing"
+		var lastRowY = menuStartY + ( rowsNeeded - 1 ) * rowPitch,
+			maxRowY = $.ch - ( menuCompact ? 56 : 16 ) - menuButtonHeight / 2;
+		if( lastRowY > maxRowY && rowsNeeded > 1 ) {
+			rowPitch = Math.max( 30, Math.floor( ( maxRowY - menuStartY ) / ( rowsNeeded - 1 ) ) );
+			if( rowPitch < menuButtonHeight + 2 ) {
+				menuButtonHeight = Math.max( 26, rowPitch - 3 );
+			}
+		}
 		for( var mi = 0; mi < menuDefs.length; mi++ ) {
 			var d = menuDefs[ mi ];
 			if( d.full ) {
@@ -2342,13 +2368,13 @@ $.setState = function( state ) {
 		$.buttons.push( settingsMenuButton );
 	}
 
-	if( state == 'board' ) {
+	// The HTML BoardOverlay is the default leaderboard: it covers the screen
+	// with the cool board, so the canvas builds no UI and fetches nothing.
+	// CRITICAL: never return out of setState for this - the state assignment
+	// and the raidshooter:state dispatch at the BOTTOM of setState are what
+	// actually open the overlay (an early return here broke the board).
+	if( state == 'board' && !window.__htmlBoard ) {
 		$.mouse.down = 0;
-		// the HTML BoardOverlay is the default leaderboard: it covers the
-		// screen with the cool board (podium, tier colors, live refresh), so
-		// the canvas builds no UI and fetches nothing here. Everything below
-		// stays as a fallback for running the bare engine without the shell.
-		if( window.__htmlBoard ) { return; }
 		// a cup that ended while the player was away shouldn't leave them
 		// stuck on an empty CUP tab
 		if( $.boardTab === 'cup' && !$.cupLive() ) { $.boardTab = 'all'; }

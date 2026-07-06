@@ -10,6 +10,8 @@ $.setSoundLevel = function( level ) {
 	while( ai-- ) {
 		$.audio.references[ ai ].volume = level;
 	}
+	// Web Audio path volume
+	if( $.audio.gain ) { $.audio.gain.gain.value = level; }
 	$.storage['soundLevel'] = level;
 	$.updateStorage();
 };
@@ -25,19 +27,82 @@ $.audio = {
 	sounds: {},
 	references: [],
 	lastPlayed: {},
+	// Web Audio path: each jsfxr sound decoded ONCE into an AudioBuffer;
+	// playback is a BufferSource node - practically free, mixed off the main
+	// thread. HTMLAudioElement.play() per shot was the iPhone shooting lag:
+	// on iOS Safari every play() re-runs element/decode work on the main
+	// thread, and firing stacks shot+hit+explosion sounds every frame.
+	ctx: null,
+	gain: null,
+	buffers: {},
+	unlocked: 0,
+	// build/resume the context on a user gesture (autoplay rules)
+	unlock: function() {
+		try {
+			if( !$.audio.ctx ) {
+				var AC = window.AudioContext || window.webkitAudioContext;
+				if( !AC ) { return; }
+				$.audio.ctx = new AC();
+				$.audio.gain = $.audio.ctx.createGain();
+				$.audio.gain.gain.value = $.soundLevel !== undefined ? $.soundLevel : 0.5;
+				$.audio.gain.connect( $.audio.ctx.destination );
+				$.audio.decodeAll();
+			}
+			if( $.audio.ctx.state === 'suspended' ) { $.audio.ctx.resume(); }
+			$.audio.unlocked = 1;
+		} catch ( e ) {
+			// stay on the HTMLAudio fallback
+		}
+	},
+	// decode every pooled data:audio/wav into an AudioBuffer (once)
+	decodeAll: function() {
+		try {
+			for( var k in $.audio.sounds ) {
+				( function( key ) {
+					var variants = $.audio.sounds[ key ];
+					if( !variants || !variants.length ) { return; }
+					$.audio.buffers[ key ] = [];
+					for( var v = 0; v < variants.length; v++ ) {
+						var el = variants[ v ].pool[ 0 ];
+						if( !el || !el.src || el.src.indexOf( 'base64,' ) < 0 ) { continue; }
+						var b64 = el.src.slice( el.src.indexOf( 'base64,' ) + 7 ),
+							bin = atob( b64 ),
+							bytes = new Uint8Array( bin.length );
+						for( var i = 0; i < bin.length; i++ ) { bytes[ i ] = bin.charCodeAt( i ); }
+						$.audio.ctx.decodeAudioData( bytes.buffer, ( function( kk ) {
+							return function( buf ) { $.audio.buffers[ kk ].push( buf ); };
+						} )( key ), function() {} );
+					}
+				} )( k );
+			}
+		} catch ( e ) {
+			// decode failure -> fallback path still works
+		}
+	},
 	play: function( sound ) {
-		// Sound must NEVER break gameplay: a browser that blocks the data:
-		// audio (CSP), refuses autoplay, or has an empty pool would otherwise
-		// throw right where PLAY starts a run. Everything here is best-effort.
+		// Sound must NEVER break gameplay: everything here is best-effort.
 		try {
 			if( $.soundLevel > 0 ){
-				// throttle rapid repeats of the same sound; unbounded
-				// Audio.play() spam visibly stutters mobile Safari
+				// throttle rapid repeats of the same sound; unbounded spam
+				// stutters mobile browsers even on Web Audio
 				var now = Date.now();
 				if( $.audio.lastPlayed[ sound ] && now - $.audio.lastPlayed[ sound ] < 45 ) {
 					return;
 				}
 				$.audio.lastPlayed[ sound ] = now;
+
+				// fast path: Web Audio buffer (decoded once, cheap to fire)
+				var bufs = $.audio.buffers[ sound ];
+				if( $.audio.ctx && bufs && bufs.length ) {
+					var buf = bufs.length > 1 ? bufs[ Math.floor( $.util.rand( 0, bufs.length ) ) ] : bufs[ 0 ],
+						src = $.audio.ctx.createBufferSource();
+					src.buffer = buf;
+					src.connect( $.audio.gain );
+					src.start( 0 );
+					return;
+				}
+
+				// fallback: the original HTMLAudio pool
 				var audio = $.audio.sounds[ sound ];
 				if( !audio || !audio.length ) { return; }
 				if( audio.length > 1 ){
@@ -48,8 +113,6 @@ $.audio = {
 				var el = audio.pool[ audio.tick ];
 				if( el ) {
 					var pr = el.play();
-					// modern browsers return a promise that rejects on
-					// autoplay/CSP blocks - swallow it so nothing bubbles up
 					if( pr && typeof pr.catch === 'function' ) { pr.catch( function() {} ); }
 				}
 				if( audio.tick < audio.count - 1 ) {
@@ -63,6 +126,20 @@ $.audio = {
 		}
 	}
 };
+
+// unlock Web Audio on the first user gesture (tap/click/key) - required by
+// autoplay policy, and the moment the cheap playback path becomes available
+( function() {
+	var unlockOnce = function() {
+		$.audio.unlock();
+		window.removeEventListener( 'pointerdown', unlockOnce );
+		window.removeEventListener( 'touchstart', unlockOnce );
+		window.removeEventListener( 'keydown', unlockOnce );
+	};
+	window.addEventListener( 'pointerdown', unlockOnce );
+	window.addEventListener( 'touchstart', unlockOnce );
+	window.addEventListener( 'keydown', unlockOnce );
+} )();
 
 // Build the sound pools. Wrapped so a failure in the Audio/jsfxr setup on
 // any browser can never abort the whole engine bootstrap (this file loads

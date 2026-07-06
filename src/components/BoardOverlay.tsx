@@ -43,9 +43,15 @@ function timeLeft(endsAt: number | null): string {
   return d > 0 ? `${d}D ${h}H` : h > 0 ? `${h}H ${m}M` : `${m}M`;
 }
 
+// today's key in the same local-date format the game engine uses (daily.js)
+function dailyKey(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+}
+
 export function BoardOverlay() {
   const [openState, setOpenState] = useState(false);
-  const [tab, setTab] = useState<'all' | 'cup'>('all');
+  const [tab, setTab] = useState<'all' | 'cup' | 'daily'>('all');
   const [entries, setEntries] = useState<Entry[]>([]);
   const [total, setTotal] = useState(0);
   const [me, setMe] = useState<string | null>(null);
@@ -65,14 +71,27 @@ export function BoardOverlay() {
     return () => window.removeEventListener('raidshooter:state', onState as EventListener);
   }, []);
 
-  const fetchBoard = useCallback((which: 'all' | 'cup') => {
+  const fetchBoard = useCallback((which: 'all' | 'cup' | 'daily') => {
     setLoading(true);
-    const url = which === 'cup' ? '/api/cup' : '/api/leaderboard?limit=1000';
+    const url =
+      which === 'cup' ? '/api/cup'
+      : which === 'daily' ? `/api/dailyrun?day=${dailyKey()}`
+      : '/api/leaderboard?limit=1000';
     fetch(url)
       .then((r) => r.json())
       .then((d) => {
-        setEntries(d.entries || []);
-        setTotal(typeof d.total === 'number' ? d.total : (d.entries || []).length);
+        // daily entries are keyed `identity` (wallet or guest id); normalize
+        // to the Entry shape the renderer uses
+        const rows: Entry[] = (d.entries || []).map((e: Record<string, unknown>) => ({
+          address: (e.address as string) || (e.identity as string) || '',
+          name: e.name as string | undefined,
+          score: (e.score as number) || 0,
+          kills: (e.kills as number) || 0,
+          pilot: (e.pilot as string) || '',
+          verified: !!e.verified,
+        }));
+        setEntries(rows);
+        setTotal(typeof d.total === 'number' ? d.total : rows.length);
         if (which === 'cup' && d.season) setSeason(d.season);
       })
       .catch(() => {})
@@ -133,14 +152,21 @@ export function BoardOverlay() {
       <div className="relative z-10 px-4 pb-2 pt-4 sm:px-8">
         <div className="text-[9px] font-black uppercase tracking-[0.4em] text-cyan-300">Live rankings</div>
         <h1 className="text-2xl font-black tracking-tight sm:text-3xl" style={{ textShadow: '0 0 24px rgba(51,230,255,0.25)' }}>
-          {tab === 'cup' ? <span className="text-amber-300">{cupLabel.toUpperCase()}</span> : <>SHOOTER<span className="text-cyan-300">BOARD</span></>}
+          {tab === 'cup' ? (
+            <span className="text-amber-300">{cupLabel.toUpperCase()}</span>
+          ) : tab === 'daily' ? (
+            <span className="text-sky-300">DAILY RUN</span>
+          ) : (
+            <>SHOOTER<span className="text-cyan-300">BOARD</span></>
+          )}
         </h1>
-        {season && (
-          <div className="mt-2 inline-flex overflow-hidden rounded-lg border border-white/15 text-[11px] font-black uppercase tracking-wider">
-            <button onClick={() => setTab('all')} className={`px-3 py-1.5 ${tab === 'all' ? 'bg-cyan-400 text-black' : 'bg-white/[0.04] text-white/60 hover:text-white'}`}>All-time</button>
+        <div className="mt-2 inline-flex overflow-hidden rounded-lg border border-white/15 text-[11px] font-black uppercase tracking-wider">
+          <button onClick={() => setTab('all')} className={`px-3 py-1.5 ${tab === 'all' ? 'bg-cyan-400 text-black' : 'bg-white/[0.04] text-white/60 hover:text-white'}`}>All-time</button>
+          {season && (
             <button onClick={() => setTab('cup')} className={`px-3 py-1.5 ${tab === 'cup' ? 'bg-amber-400 text-black' : 'bg-white/[0.04] text-white/60 hover:text-white'}`}>{cupLabel.length > 12 ? 'Cup' : cupLabel}</button>
-          </div>
-        )}
+          )}
+          <button onClick={() => setTab('daily')} className={`px-3 py-1.5 ${tab === 'daily' ? 'bg-sky-400 text-black' : 'bg-white/[0.04] text-white/60 hover:text-white'}`}>Daily</button>
+        </div>
       </div>
 
       {/* cup meta strip */}
@@ -154,7 +180,9 @@ export function BoardOverlay() {
       {/* board body */}
       <div ref={listRef} className="relative z-10 flex-1 overflow-y-auto px-4 pb-24 pt-3 sm:px-8">
         {entries.length === 0 ? (
-          <div className="mt-16 text-center text-sm text-white/50">{loading ? 'LOADING…' : tab === 'cup' ? 'NO CUP RUNS YET — PLAY TO ENTER' : 'NO PILOTS RANKED YET'}</div>
+          <div className="mt-16 text-center text-sm text-white/50">
+            {loading ? 'LOADING…' : tab === 'cup' ? 'NO CUP RUNS YET — PLAY TO ENTER' : tab === 'daily' ? 'NO DAILY RUNS YET — ONE SEEDED ATTEMPT PER DAY' : 'NO PILOTS RANKED YET'}
+          </div>
         ) : (
           <>
             {podium.length === 3 && (
