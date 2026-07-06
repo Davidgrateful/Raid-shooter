@@ -1424,47 +1424,25 @@ $.updateScreen = function() {
 	//$.screen.x -= $.rumble.x;
 	//$.screen.y -= $.rumble.y;
 
-	// animate background canvas
-	$.cbg1.style.marginLeft =
-		-( ( $.cbg1.width - $.cw ) / 2 ) // half the difference from bg to viewport
-		- ( ( $.cbg1.width - $.cw ) / 2 ) // half the diff again, modified by a percentage below
-		* ( ( -$.screen.x - ( $.ww - $.cw ) / 2 ) / ( ( $.ww - $.cw ) / 2) ) // viewport offset applied to bg
-		- $.rumble.x + 'px';
-	$.cbg1.style.marginTop =
-		-( ( $.cbg1.height - $.ch ) / 2 )
-		- ( ( $.cbg1.height - $.ch ) / 2 )
-		* ( ( -$.screen.y - ( $.wh - $.ch ) / 2 ) / ( ( $.wh - $.ch ) / 2) )
-		- $.rumble.y + 'px';
-	$.cbg2.style.marginLeft =
-		-( ( $.cbg2.width - $.cw ) / 2 ) // half the difference from bg to viewport
-		- ( ( $.cbg2.width - $.cw ) / 2 ) // half the diff again, modified by a percentage below
-		* ( ( -$.screen.x - ( $.ww - $.cw ) / 2 ) / ( ( $.ww - $.cw ) / 2) ) // viewport offset applied to bg
-		- $.rumble.x + 'px';
-	$.cbg2.style.marginTop =
-		-( ( $.cbg2.height - $.ch ) / 2 )
-		- ( ( $.cbg2.height - $.ch ) / 2 )
-		* ( ( -$.screen.y - ( $.wh - $.ch ) / 2 ) / ( ( $.wh - $.ch ) / 2) )
-		- $.rumble.y + 'px';
-	$.cbg3.style.marginLeft =
-		-( ( $.cbg3.width - $.cw ) / 2 ) // half the difference from bg to viewport
-		- ( ( $.cbg3.width - $.cw ) / 2 ) // half the diff again, modified by a percentage below
-		* ( ( -$.screen.x - ( $.ww - $.cw ) / 2 ) / ( ( $.ww - $.cw ) / 2) ) // viewport offset applied to bg
-		- $.rumble.x + 'px';
-	$.cbg3.style.marginTop =
-		-( ( $.cbg3.height - $.ch ) / 2 )
-		- ( ( $.cbg3.height - $.ch ) / 2 )
-		* ( ( -$.screen.y - ( $.wh - $.ch ) / 2 ) / ( ( $.wh - $.ch ) / 2) )
-		- $.rumble.y + 'px';
-	$.cbg4.style.marginLeft =
-		-( ( $.cbg4.width - $.cw ) / 2 ) // half the difference from bg to viewport
-		- ( ( $.cbg4.width - $.cw ) / 2 ) // half the diff again, modified by a percentage below
-		* ( ( -$.screen.x - ( $.ww - $.cw ) / 2 ) / ( ( $.ww - $.cw ) / 2) ) // viewport offset applied to bg
-		- $.rumble.x + 'px';
-	$.cbg4.style.marginTop =
-		-( ( $.cbg4.height - $.ch ) / 2 )
-		- ( ( $.cbg4.height - $.ch ) / 2 )
-		* ( ( -$.screen.y - ( $.wh - $.ch ) / 2 ) / ( ( $.wh - $.ch ) / 2) )
-		- $.rumble.y + 'px';
+	// animate background canvases (parallax). Uses transform: translate3d,
+	// which stays on the compositor thread - the old marginLeft/marginTop
+	// version mutated a LAYOUT property on four full-screen canvases every
+	// frame, forcing style/layout recalc + re-rasterization each frame on iOS
+	// Safari. That layout storm, not canvas fill, was the iPhone lag under
+	// combat load.
+	var pxr = ( -$.screen.x - ( $.ww - $.cw ) / 2 ) / ( ( $.ww - $.cw ) / 2 ),
+		pyr = ( -$.screen.y - ( $.wh - $.ch ) / 2 ) / ( ( $.wh - $.ch ) / 2 ),
+		panBg = function( c ) {
+			var hx = ( c.width - $.cw ) / 2,
+				hy = ( c.height - $.ch ) / 2,
+				tx = -hx - hx * pxr - $.rumble.x,
+				ty = -hy - hy * pyr - $.rumble.y;
+			c.style.transform = 'translate3d(' + tx + 'px,' + ty + 'px,0)';
+		};
+	panBg( $.cbg1 );
+	panBg( $.cbg2 );
+	panBg( $.cbg3 );
+	panBg( $.cbg4 );
 
 	$.mousescreen();
 };
