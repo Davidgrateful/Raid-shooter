@@ -295,6 +295,7 @@ $.reset = function() {
 	$.bulletsFired = 0;
 	$.powerupsCollected = 0;
 	$.score = 0;
+	$.hitstop = 0;
 	$.runAssisted = false;
 	// XP boost is decided at run start (see $.activateXpBoost); progression
 	// only, so it never marks the run assisted
@@ -1389,6 +1390,65 @@ $.updateDelta = function() {
 	$.fps = $.fps ? $.fps * 0.9 + instFps * 0.1 : instFps;
 	if( !$.lowfx && $.fps < 45 ) { $.lowfx = 1; }
 	else if( $.lowfx && $.fps > 54 ) { $.lowfx = 0; }
+};
+
+// Brief world-freeze on impact (classic arcade "hitstop"). Takes the max so
+// rapid kills never stack into a visible stall; the play loop zeros $.dt while
+// it counts down, so the world holds for a beat but rendering keeps going.
+$.addHitstop = function( n ) {
+	$.hitstop = Math.max( $.hitstop || 0, n );
+};
+
+// Pulsing red danger vignette + heartbeat rumble when the hull is critical, so
+// a player always feels death coming instead of dying with no warning.
+$.renderLowHpWarning = function() {
+	var life = $.hero ? $.hero.life : 1;
+	if( life <= 0 || life >= 0.32 ) { return; }
+	var sev = 1 - life / 0.32,
+		beat = Math.sin( $.tick / 7 ),
+		a = ( 0.12 + sev * 0.30 ) * ( 0.55 + 0.45 * ( 0.5 + 0.5 * beat ) ),
+		g = $.ctxmg.createRadialGradient( $.cw / 2, $.ch / 2, $.ch * 0.30, $.cw / 2, $.ch / 2, $.ch * 0.72 );
+	g.addColorStop( 0, 'hsla(0, 100%, 45%, 0)' );
+	g.addColorStop( 1, 'hsla(0, 100%, 45%, ' + a.toFixed( 3 ) + ')' );
+	$.ctxmg.fillStyle = g;
+	$.ctxmg.fillRect( 0, 0, $.cw, $.ch );
+	if( beat > 0.98 ) { $.rumble.level = Math.max( $.rumble.level, 2 + sev * 3 ); }
+};
+
+// Edge chevrons pointing at the nearest off-screen hunters. The whole design
+// curves enemies toward the hero, so threats arrive from off-screen - these
+// keep incoming danger readable (especially on phones). Capped so late waves
+// don't clutter the edges.
+$.renderOffscreenArrows = function() {
+	if( !$.enemies || !$.enemies.length || !$.hero || $.hero.life <= 0 ) { return; }
+	var cx = $.cw / 2, cy = $.ch / 2, margin = 32, cand = [];
+	for( var i = 0; i < $.enemies.length; i++ ) {
+		var e = $.enemies[ i ];
+		if( e.isBolt ) { continue; }
+		var sx = e.x + $.screen.x, sy = e.y + $.screen.y;
+		if( sx >= -8 && sx <= $.cw + 8 && sy >= -8 && sy <= $.ch + 8 ) { continue; }
+		cand.push( { e: e, d: $.util.distance( $.hero.x, $.hero.y, e.x, e.y ) } );
+	}
+	if( !cand.length ) { return; }
+	cand.sort( function( a, b ) { return a.d - b.d; } );
+	var n = Math.min( 6, cand.length );
+	for( var k = 0; k < n; k++ ) {
+		var en = cand[ k ].e,
+			ang = Math.atan2( ( en.y + $.screen.y ) - cy, ( en.x + $.screen.x ) - cx ),
+			ex = Math.cos( ang ) || 0.0001, ey = Math.sin( ang ) || 0.0001,
+			t = Math.min( Math.abs( ( cx - margin ) / ex ), Math.abs( ( cy - margin ) / ey ) ),
+			ax = cx + ex * t, ay = cy + ey * t,
+			alpha = 0.22 + 0.5 * ( 1 - k / n );
+		$.ctxmg.save();
+		$.ctxmg.translate( ax, ay );
+		$.ctxmg.rotate( ang );
+		$.ctxmg.beginPath();
+		$.ctxmg.moveTo( 10, 0 ); $.ctxmg.lineTo( -6, 7 ); $.ctxmg.lineTo( -6, -7 );
+		$.ctxmg.closePath();
+		$.ctxmg.fillStyle = $.hsla( en.hue, 100, 62, alpha );
+		$.ctxmg.fill();
+		$.ctxmg.restore();
+	}
 };
 
 $.updateScreen = function() {
@@ -4452,6 +4512,8 @@ $.setupStates = function() {
 
 	$.states['play'] = function() {
 		$.updateDelta();
+		// hitstop: hold the world for a beat after a big impact (render still runs)
+		if( $.hitstop > 0 ) { $.hitstop -= 1; $.dt = 0; }
 		$.updateScreen();
 		$.updateCombo();
 		$.updateLevel();
@@ -4527,6 +4589,8 @@ $.setupStates = function() {
 		}
 		$.renderSectorOverlay();
 		$.renderInterface();
+		$.renderOffscreenArrows();
+		$.renderLowHpWarning();
 
 		// daily challenge: detect the moment the goal is hit and flash the
 		// completion banner (screen-space, after the world transform restore)

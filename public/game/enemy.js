@@ -650,6 +650,12 @@ $.Enemy.prototype.receiveDamage = function( i, val ) {
 				lightness: 60
 			} ) );
 			$.rumble.level = 6;
+			// hitstop on meaningful kills only (bosses hardest, elites/high-value
+			// a touch) - never on trash, so dense waves don't stutter
+			if( $.addHitstop ) {
+				if( this.isBoss ) { $.addHitstop( 10 ); }
+				else if( this.elite || this.value >= 30 ) { $.addHitstop( 2 ); }
+			}
 		}
 		this.death();
 		$.spawnPowerup( this.x, this.y );
