@@ -92,11 +92,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'captcha_failed' }, { status: 403 });
     }
   }
+  // Structural bounds are deliberately WIDE - they exist only to reject
+  // pathological/forged payloads, never real play. A marathon no-death run
+  // legitimately chains a huge kill streak (bestCombo is the streak COUNT,
+  // not the x8 score multiplier) and racks up a large score, so combo/kills/
+  // score ceilings must sit well above anything a human can reach. Outliers
+  // that slip through still rank, but get copied to the admin review queue
+  // (suspicionReason) - the actual anti-cheat gate for payouts.
   if (
-    !isInt(score, 1, 5_000_000) ||
+    !isInt(score, 1, 100_000_000) ||
     !isInt(level, 1, 500) ||
-    !isInt(kills, 0, 100_000) ||
-    !isInt(combo, 0, 10_000) ||
+    !isInt(kills, 0, 500_000) ||
+    !isInt(combo, 0, 500_000) ||
     !isInt(time, 0, 86_400) ||
     typeof pilot !== 'string' ||
     !/^[A-Z0-9 ]{1,16}$/.test(pilot)
@@ -104,10 +111,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'invalid_run' }, { status: 400 });
   }
 
-  // loose plausibility bounds: the richest single kill is a boss (value 750,
-  // or 3x as an elite) at the x8 combo cap, so we allow generous headroom per
-  // kill and reject only kill rates far beyond human play
-  if (score > kills * 8000 + 50 || kills > time * 12 + 40) {
+  // The only hard impossibilities: the richest single kill is a boss (value
+  // 750) at the x8 combo cap = 6000 pts, so a run can never legitimately
+  // average more than that per kill (headroom to 8000). The kill-rate ceiling
+  // is generous - piercing/chain drones clear clumps, so a great run in the
+  // new denser waves can sustain a high rate - and only blocks the absurd.
+  if (score > kills * 8000 + 50 || kills > time * 30 + 100) {
     return NextResponse.json({ error: 'implausible_run' }, { status: 400 });
   }
 

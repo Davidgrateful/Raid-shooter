@@ -383,9 +383,13 @@ const memFlagged = new Map<string, FlaggedRun>();
 // absolute score outliers, kill rates beyond human APM, and score-per-kill
 // ratios close to the theoretical cap for the whole run.
 export function suspicionReason(entry: BoardEntry): string | null {
-  if (entry.score >= 75_000) return 'HIGH SCORE OUTLIER';
-  if (entry.time > 0 && entry.kills / entry.time > 8) return 'KILL RATE > 8/S';
-  if (entry.kills > 0 && entry.score / entry.kills > 6000) return 'SCORE/KILL NEAR CAP';
+  // These only COPY a run to the review queue; they never block it. Tuned to
+  // catch "too good to be human" outliers without drowning the queue in the
+  // genuine high scores that long marathon runs now produce.
+  if (entry.score >= 1_000_000) return 'HIGH SCORE OUTLIER';
+  if (entry.time > 0 && entry.kills / entry.time > 18) return 'KILL RATE > 18/S';
+  // per-kill ceiling is 6000 (boss at x8 combo); anything above is impossible
+  if (entry.kills > 0 && entry.score / entry.kills > 6200) return 'SCORE/KILL OVER CAP';
   return null;
 }
 

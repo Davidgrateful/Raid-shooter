@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
   if (!day) return NextResponse.json({ error: 'bad_day' }, { status: 400 });
 
   const { score, pilot, name } = body as Record<string, unknown>;
-  if (!isInt(score, 1, 5_000_000) || typeof pilot !== 'string' || !/^[A-Z0-9 ]{1,16}$/.test(pilot)) {
+  if (!isInt(score, 1, 100_000_000) || typeof pilot !== 'string' || !/^[A-Z0-9 ]{1,16}$/.test(pilot)) {
     return NextResponse.json({ error: 'invalid_run' }, { status: 400 });
   }
   let displayName: string | undefined;
