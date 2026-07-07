@@ -18,6 +18,10 @@ export interface BoardEntry {
   at: number;
   // True when the entry is backed by a connected wallet (SIWE).
   verified?: boolean;
+  // True when the run used a paid combat consumable (health/shield/revive).
+  // Recorded for operator audit before tournament payouts; the run ranks
+  // normally either way - assists are a fair, bounded part of the loadout.
+  assisted?: boolean;
 }
 
 import { isKvConfigured, kvUrl, kvToken, redisCommand } from '@/lib/kv';

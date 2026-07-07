@@ -229,14 +229,12 @@ $.submitScore = function() {
 		return;
 	}
 
-	// a run that used a paid consumable (extra health/shield/revive) still
-	// counts for the player, but doesn't post to Shooterboard - keeps the
-	// global ranking a measure of skill, not spend
-	if( $.runAssisted ) {
-		$.boardSubmit = { state: 'assisted', rank: 0, improved: false, verified: false };
-		return;
-	}
-
+	// Every run counts now - including ones that used a drone, an XP boost, or
+	// a combat consumable (extra health/shield/revive). Paid help is a fair
+	// part of the loadout, tuned to be a bounded comeback aid, not a score
+	// multiplier. We still tell the server the run was assisted so the operator
+	// can audit top runs before paying out a tournament - it just no longer
+	// blocks the score from ranking.
 	$.boardSubmit = { state: 'sending', rank: 0, improved: false, verified: false };
 
 	// re-check the session right before submitting: the player may have
@@ -267,7 +265,10 @@ $.submitScore = function() {
 				turnstileToken: captchaToken,
 				// durable guest identity (survives cookie loss on iOS / in-app
 				// browsers) so wallet-less scores always attach to one player
-				guestToken: $.session.authenticated ? undefined : $.guestToken()
+				guestToken: $.session.authenticated ? undefined : $.guestToken(),
+				// did this run lean on a paid combat consumable? recorded for
+				// operator audit only - it no longer blocks the score
+				assisted: !!$.runAssisted
 			} )
 		} )
 			.then( function( res ) {

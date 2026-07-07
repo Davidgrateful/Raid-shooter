@@ -1277,7 +1277,8 @@ $.keydowncb = function( e ) {
 	if( $.state === 'play' && $.hero && $.hero.life > 0 ) {
 		if( e === 49 ) {
 			$.useConsumable( 'consumable_health', function() {
-				$.hero.life = Math.min( 1, $.hero.life + 0.5 );
+				// a comeback aid, not a full reset - tops up 40 PCT of the hull
+				$.hero.life = Math.min( 1, $.hero.life + 0.4 );
 			} );
 		}
 		if( e === 50 ) {
@@ -4223,19 +4224,19 @@ $.setupStates = function() {
 
 	// Whether a mid-run "continue" (resurrect) can be offered on death: once
 	// per run, only when the run scored something, and not during a seeded
-	// Daily Run (one fair attempt). Continuing spends a revive, which marks
-	// the run assisted - so a continued run never posts to the ranked board
-	// or a cup (keeps the leaderboard and tournaments pure skill).
+	// Daily Run (one fair attempt). Continuing spends a revive and marks the
+	// run assisted (recorded for operator audit), but the run still ranks -
+	// only ONE revive per run keeps the score lever bounded.
 	$.continueEligible = function() {
 		return !$.continueUsedThisRun && !$.dailyRunActive && ( $.score | 0 ) > 0;
 	};
 
-	// Resurrect the current run: spend one revive, restore half HP + a beat of
+	// Resurrect the current run: spend one revive, restore 40 PCT HP + a beat of
 	// invulnerability, and drop back into play with the world intact.
 	$.continueRun = function() {
 		if( $.continueUsedThisRun ) { return; }
 		var ok = $.useConsumable( 'consumable_revive', function() {
-			$.hero.life = 0.5;
+			$.hero.life = 0.4;
 			$.powerupTimers[ 5 ] = $.powerupDuration;
 		} );
 		if( !ok ) { return; }

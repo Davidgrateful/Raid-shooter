@@ -52,6 +52,7 @@ export async function POST(req: NextRequest) {
     : (clientGuestToken || (await getOrCreateGuestId(session)));
 
   const { score, level, kills, combo, pilot, time, name } = body as Record<string, unknown>;
+  const assisted = (body as Record<string, unknown>).assisted === true;
 
   // Display name: 3-12 chars, letters/digits/spaces. Optional for wallet
   // players (they fall back to their address); required for guests, who
@@ -136,6 +137,7 @@ export async function POST(req: NextRequest) {
       time,
       at: Date.now(),
       verified,
+      assisted,
     };
     const result = await submitEntry(entry);
 

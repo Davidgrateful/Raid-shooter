@@ -147,8 +147,8 @@ $.usd = function( n ) {
 };
 
 // spends one charge server-side first so a refresh can't duplicate it,
-// then runs the in-run effect; flags the run as unranked either way
-// once a charge has actually been used, to keep Shooterboard credible
+// then runs the in-run effect; marks the run assisted (for operator audit -
+// the score still ranks; assists are tuned to be a bounded comeback aid)
 $.useConsumable = function( id, effect ) {
 	if( $.consumableCount( id ) <= 0 || !$.session.authenticated ) {
 		return false;
