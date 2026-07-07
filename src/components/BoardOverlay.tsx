@@ -58,6 +58,7 @@ export function BoardOverlay() {
   const [me, setMe] = useState<string | null>(null);
   const [season, setSeason] = useState<CupSeason | null>(null);
   const [loading, setLoading] = useState(false);
+  const [updatedAt, setUpdatedAt] = useState(0);
   const [weekResets, setWeekResets] = useState<number | null>(null);
   const myRowRef = useRef<HTMLDivElement | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
@@ -114,6 +115,7 @@ export function BoardOverlay() {
         setTotal(typeof d.total === 'number' ? d.total : rows.length);
         if (which === 'cup' && d.season) setSeason(d.season);
         if (which === 'weekly' && d.resetsAt) setWeekResets(d.resetsAt);
+        setUpdatedAt(Date.now());
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -282,6 +284,13 @@ export function BoardOverlay() {
             Jump to me · #{myIndex + 1}
           </button>
         )}
+        <span className="pointer-events-none inline-flex items-center gap-1.5 rounded-lg border border-emerald-400/25 bg-emerald-400/[0.06] px-3 py-2 text-[10px] font-black uppercase tracking-wider text-emerald-300/90">
+          <span className="relative flex h-2 w-2">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
+          </span>
+          {loading ? 'Live · syncing' : updatedAt ? `Live · ${new Date(updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}` : 'Live'}
+        </span>
         <button
           onClick={() => fetchBoard(tab)}
           disabled={loading}

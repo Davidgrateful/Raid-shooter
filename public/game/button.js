@@ -129,6 +129,18 @@ $.Button.prototype.render = function( i ) {
 	if( this.icon ) {
 		$.ctxmg.save();
 		$.ctxmg.translate( Math.floor( this.sx ) + ( this.iconAreaWidth || 40 ) / 2, this.cy );
+		// soft accent glow behind the icon so the storefront reads as lit
+		// hardware, not flat silhouettes
+		if( this.icon.glow ) {
+			var gr = ( this.icon.r || 12 ) * 2.3,
+				gg = $.ctxmg.createRadialGradient( 0, 0, 2, 0, 0, gr );
+			gg.addColorStop( 0, this.icon.glow );
+			gg.addColorStop( 1, 'hsla(0, 0%, 0%, 0)' );
+			$.ctxmg.fillStyle = gg;
+			$.ctxmg.beginPath();
+			$.ctxmg.arc( 0, 0, gr, 0, $.twopi );
+			$.ctxmg.fill();
+		}
 		$.ctxmg.rotate( -$.pi / 2 );
 		this.icon.draw( $.ctxmg, this.icon.r || 12, this.icon.color, $.tick || 0 );
 		$.ctxmg.restore();
@@ -143,7 +155,16 @@ centered string, so a long list reads as an organized list.
 $.Button.prototype.renderCard = function() {
 	var pad = 10,
 		iconArea = this.icon ? ( this.iconAreaWidth || 40 ) : 0,
-		leftX = Math.floor( this.sx ) + iconArea + pad,
+		leftX = Math.floor( this.sx ) + iconArea + pad;
+
+	// category accent bar down the left edge - gives each card an identity
+	// stripe and lifts the flat list into a storefront
+	if( this.accent ) {
+		$.ctxmg.fillStyle = this.accent;
+		$.ctxmg.fillRect( Math.floor( this.sx ) + 1, Math.floor( this.sy ) + 3, 3, this.height - 6 );
+	}
+
+	var
 		rightX = Math.floor( this.ex ) - pad,
 		nameScale = this.nameScale || 1,
 		subScale = this.subScale || 1;

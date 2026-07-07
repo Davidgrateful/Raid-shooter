@@ -2213,7 +2213,14 @@ $.setState = function( state ) {
 				}
 				if( charDef ) {
 					var shipColor = $.definitions.shipColors[ $.storage[ 'ship' ] || 0 ] || $.definitions.shipColors[ 0 ];
-					icon = { draw: charDef.draw, color: owned ? shipColor.color : 'hsla(0, 0%, 55%, 1)', r: smallText ? 13 : 16 };
+					// unowned pilots read in a premium steel-blue (not dead grey)
+					// so the roster looks like hardware you want, and glow lit
+					icon = {
+						draw: charDef.draw,
+						color: owned ? shipColor.color : 'hsla(205, 78%, 68%, 0.95)',
+						glow: owned ? 'hsla(140, 90%, 55%, 0.28)' : 'hsla(205, 95%, 60%, 0.26)',
+						r: smallText ? 13 : 16
+					};
 				}
 			} else if( item.kind === 'drone' ) {
 				var droneDef = null;
@@ -2235,10 +2242,19 @@ $.setState = function( state ) {
 						ctx.fillStyle = fillStyle;
 						ctx.fill();
 					},
-					color: owned ? 'hsla(190, 100%, 65%, 1)' : 'hsla(0, 0%, 55%, 1)',
+					color: owned ? 'hsla(190, 100%, 65%, 1)' : 'hsla(190, 90%, 64%, 0.9)',
+					glow: owned ? 'hsla(190, 100%, 60%, 0.30)' : 'hsla(190, 95%, 58%, 0.22)',
 					r: smallText ? 13 : 16
 				};
 			}
+
+			// per-category identity stripe: pilots steel-blue, drones cyan,
+			// boosts gold - owned items go green to read as unlocked
+			var accent = owned
+				? 'hsla(140, 80%, 55%, 0.9)'
+				: ( item.kind === 'character' ? 'hsla(205, 90%, 62%, 0.9)'
+					: item.kind === 'drone' ? 'hsla(190, 100%, 60%, 0.9)'
+					: 'hsla(45, 100%, 62%, 0.9)' );
 
 			$.buttons.push( new $.Button( {
 				x: x,
@@ -2247,6 +2263,7 @@ $.setState = function( state ) {
 				lockedHeight: itemHeight,
 				scale: 1,
 				card: 1,
+				accent: accent,
 				name: item.title,
 				subtitle: subtitle,
 				note: note,
