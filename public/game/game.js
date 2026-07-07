@@ -1847,7 +1847,9 @@ $.setState = function( state ) {
 		$.hangarKeep = 0;
 
 		var hangarCompact = ( $.ch < 640 ),
-			arrowY = hangarCompact ? Math.floor( $.ch * 0.42 ) : Math.floor( $.ch * 0.38 ),
+			// on short landscape-mobile the ship sits higher so the stat-less
+			// compact layout leaves room for every control row on screen
+			arrowY = hangarCompact ? Math.floor( $.ch * 0.28 ) : Math.floor( $.ch * 0.38 ),
 			row1Y = $.ch - ( hangarCompact ? 78 : 124 ),
 			row2Y = $.ch - ( hangarCompact ? 30 : 60 );
 
@@ -1982,7 +1984,7 @@ $.setState = function( state ) {
 			var previewDef = $.definitions.characters[ $.hangarIndex ],
 				previewTextBottom = $.hangarPreviewLayout( previewDef, hangarCompact, arrowY ).bottom,
 				hangarRowGap = hangarCompact ? 48 : 58,
-				hangarRowsTop = previewTextBottom + ( hangarCompact ? 26 : 40 ),
+				hangarRowsTop = previewTextBottom + ( hangarCompact ? 14 : 40 ),
 				hr0 = hangarRowsTop,
 				hr1 = hr0 + hangarRowGap,
 				// the drone row is taller (two lines, for its passive text)
@@ -3327,11 +3329,11 @@ $.setupStates = function() {
 	$.hangarPreviewLayout = function( def, hangarCompact, previewY ) {
 		var unlocked = $.characterUnlocked( def ),
 			status = $.characterStatus( def ),
-			gap = hangarCompact ? 6 : 10,
+			gap = hangarCompact ? 4 : 10,
 			blocks = [],
 			// extra headroom below the ship so the bigger hero ship + display
 			// pad clear the name line on every screen
-			y = previewY + ( hangarCompact ? 42 : 60 );
+			y = previewY + ( hangarCompact ? 28 : 60 );
 
 		var add = function( text, scale, vspacing, color ) {
 			var measured = $.text( {
@@ -3354,10 +3356,15 @@ $.setupStates = function() {
 			add( def.ability.title + ': ' + def.ability.text, hangarCompact ? 1 : 2, 8, 'hsla(190, 100%, 70%, 0.8)' );
 		}
 		// stat bars block - reserves its own measured height so the SELECT /
-		// COLOR / TRAIL control rows stack cleanly beneath it on any screen
-		var statsHeight = ( hangarCompact ? 12 : 16 ) * 4 + ( hangarCompact ? 2 : 6 );
-		blocks.push( { stats: true, y: y, height: statsHeight } );
-		y += statsHeight + gap;
+		// COLOR / TRAIL control rows stack cleanly beneath it. DESKTOP ONLY:
+		// short landscape-mobile has no room for four bars without pushing the
+		// control rows off-screen, so compact skips them (the ship, tier badge,
+		// name + ability still carry the pilot's identity there).
+		if( !hangarCompact ) {
+			var statsHeight = 16 * 4 + 6;
+			blocks.push( { stats: true, y: y, height: statsHeight } );
+			y += statsHeight + gap;
+		}
 		if( unlocked ) {
 			var pilotLevel = $.pilotLevel( def.id ),
 				toNext = $.pilotXpToNext( def.id ),
@@ -3374,7 +3381,7 @@ $.setupStates = function() {
 
 		var hangarCompact = ( $.ch < 640 ),
 			def = $.definitions.characters[ $.hangarIndex ],
-			previewY = hangarCompact ? Math.floor( $.ch * 0.42 ) : Math.floor( $.ch * 0.38 ),
+			previewY = hangarCompact ? Math.floor( $.ch * 0.28 ) : Math.floor( $.ch * 0.38 ),
 			gridView = ( $.hangarView === 'grid' );
 
 		$.ctxmg.beginPath();
@@ -3428,11 +3435,11 @@ $.setupStates = function() {
 		var unlocked = $.characterUnlocked( def );
 		var hangarShipColor = $.definitions.shipColors[ $.storage[ 'ship' ] || 0 ] || $.definitions.shipColors[ 0 ];
 		var accentHue = $.pilotAccentHue( $.hangarIndex ),
-			shipR = hangarCompact ? 24 : 38,
+			shipR = hangarCompact ? 20 : 38,
 			bob = Math.sin( $.tick / 24 ) * ( hangarCompact ? 2 : 4 ),
-			padY = previewY + ( hangarCompact ? 22 : 32 ),
-			padRx = hangarCompact ? 92 : 138,
-			padRy = hangarCompact ? 15 : 22,
+			padY = previewY + ( hangarCompact ? 14 : 32 ),
+			padRx = hangarCompact ? 88 : 138,
+			padRy = hangarCompact ? 11 : 22,
 			glowR = hangarCompact ? 150 : 230;
 
 		// cinematic swap (set on PREV/NEXT): the incoming ship slides + spins
@@ -3545,22 +3552,27 @@ $.setupStates = function() {
 			$.ctxmg.fill();
 		}
 
-		$.ctxmg.beginPath();
-		$.text( {
-			ctx: $.ctxmg,
-			x: $.cw / 2,
-			y: hangarTitle.ey + ( hangarCompact ? 8 : 16 ),
-			text: ( $.hangarIndex + 1 ) + ' / ' + $.definitions.characters.length,
-			hspacing: 1,
-			vspacing: 1,
-			halign: 'center',
-			valign: 'top',
-			scale: hangarCompact ? 1 : 2,
-			snap: 1,
-			render: 1
-		} );
-		$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 0.35)';
-		$.ctxmg.fill();
+		// roster position counter - desktop only; on short compact screens the
+		// hero ship is raised into this band, so the counter is dropped to keep
+		// it clear (PREV/NEXT already make position obvious)
+		if( !hangarCompact ) {
+			$.ctxmg.beginPath();
+			$.text( {
+				ctx: $.ctxmg,
+				x: $.cw / 2,
+				y: hangarTitle.ey + 16,
+				text: ( $.hangarIndex + 1 ) + ' / ' + $.definitions.characters.length,
+				hspacing: 1,
+				vspacing: 1,
+				halign: 'center',
+				valign: 'top',
+				scale: 2,
+				snap: 1,
+				render: 1
+			} );
+			$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 0.35)';
+			$.ctxmg.fill();
+		}
 
 		// advance the tick so ship previews animate (safe: PLAY/MENU reset it)
 		$.tick += 1;
