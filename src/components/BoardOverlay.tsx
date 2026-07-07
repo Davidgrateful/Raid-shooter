@@ -70,7 +70,24 @@ export function BoardOverlay() {
       setOpenState(s === 'board');
     };
     window.addEventListener('raidshooter:state', onState as EventListener);
-    return () => window.removeEventListener('raidshooter:state', onState as EventListener);
+
+    // Belt-and-suspenders: also POLL the live engine state. If this component
+    // mounts after the engine already entered 'board', or the state event was
+    // missed / an older engine build never re-dispatched it, the event alone
+    // would leave the overlay closed while the canvas board is gated off -
+    // i.e. an EMPTY leaderboard ("people not showing"). Polling $.state makes
+    // the overlay always reflect reality.
+    const iv = setInterval(() => {
+      const st = (window as unknown as { $?: { state?: string } }).$?.state;
+      if (st === 'board' || st === 'menu' || st === 'play') {
+        setOpenState((prev) => (st === 'board') !== prev ? st === 'board' : prev);
+      }
+    }, 300);
+
+    return () => {
+      window.removeEventListener('raidshooter:state', onState as EventListener);
+      clearInterval(iv);
+    };
   }, []);
 
   const fetchBoard = useCallback((which: 'all' | 'cup' | 'daily' | 'weekly') => {
