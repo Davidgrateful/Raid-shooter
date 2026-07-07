@@ -1943,6 +1943,9 @@ $.setState = function( state ) {
 				action: function() {
 					$.mouse.down = 0;
 					$.hangarIndex = ( $.hangarIndex - 1 + $.definitions.characters.length ) % $.definitions.characters.length;
+					// cinematic swap: the new ship whooshes/spins in from the left
+					$.hangarAnim = { t: 1, dir: -1 };
+					$.audio.play( 'powerup' );
 					// rebuild so the control rows re-stack below the new
 					// pilot's measured text height - a taller pilot (two-line
 					// desc + ability + level) needs its rows pushed down
@@ -1960,6 +1963,9 @@ $.setState = function( state ) {
 				action: function() {
 					$.mouse.down = 0;
 					$.hangarIndex = ( $.hangarIndex + 1 ) % $.definitions.characters.length;
+					// cinematic swap: the new ship whooshes/spins in from the right
+					$.hangarAnim = { t: 1, dir: 1 };
+					$.audio.play( 'powerup' );
 					// rebuild so the control rows re-stack below the new
 					// pilot's measured text height (see PREV above)
 					$.hangarKeep = 1;
@@ -3240,6 +3246,35 @@ $.setupStates = function() {
 	// long ability string would silently collide with the next line under
 	// fixed offsets, and that collision only showed up at certain window
 	// sizes (compact desktop windows), not on a tall mobile screen
+	// A flavour class per pilot for the character-select tier badge. Founders
+	// and premium pilots get their own labels; the rest ladder up by roster
+	// position so the roll call reads like a ranked lineup.
+	$.pilotTier = function( def, index ) {
+		if( def.ability && def.ability.title === 'FOUNDER' ) { return { label: 'FOUNDER', hue: 45 }; }
+		if( ( def.desc || '' ).indexOf( 'PREMIUM' ) >= 0 ) { return { label: 'PREMIUM', hue: 285 }; }
+		var tiers = [ { label: 'CADET', hue: 190 }, { label: 'PILOT', hue: 150 }, { label: 'ELITE', hue: 210 }, { label: 'ACE', hue: 30 }, { label: 'LEGEND', hue: 0 } ];
+		return tiers[ Math.min( tiers.length - 1, Math.floor( index / 2 ) ) ];
+	};
+
+	// A small bordered pill (bitmap font) centered at cy, coloured by tier.
+	$.drawTierBadge = function( def, index, cy, compact ) {
+		var tier = $.pilotTier( def, index ),
+			scale = compact ? 1 : 2,
+			m = $.text( { ctx: $.ctxmg, x: 0, y: 0, text: tier.label, hspacing: 1, vspacing: 0, halign: 'left', valign: 'top', scale: scale, snap: 1, render: 0 } ),
+			padX = compact ? 10 : 14, padY = compact ? 5 : 7,
+			w = m.width + padX * 2, h = m.height + padY * 2,
+			x = Math.floor( $.cw / 2 - w / 2 ), y = Math.floor( cy - h / 2 );
+		$.ctxmg.fillStyle = $.hsla( tier.hue, 80, 50, 0.14 );
+		$.ctxmg.fillRect( x, y, w, h );
+		$.ctxmg.strokeStyle = $.hsla( tier.hue, 85, 62, 0.7 );
+		$.ctxmg.lineWidth = 1.5;
+		$.ctxmg.strokeRect( x + 0.5, y + 0.5, w - 1, h - 1 );
+		$.ctxmg.beginPath();
+		$.text( { ctx: $.ctxmg, x: $.cw / 2, y: cy, text: tier.label, hspacing: 1, vspacing: 0, halign: 'center', valign: 'center', scale: scale, snap: 1, render: 1 } );
+		$.ctxmg.fillStyle = $.hsla( tier.hue, 90, 74, 1 );
+		$.ctxmg.fill();
+	};
+
 	// Each pilot gets a signature accent hue so scrolling the roster feels
 	// like flipping through distinct fighters, not recolors of one ship.
 	$.pilotAccentHue = function( index ) {
@@ -3307,6 +3342,11 @@ $.setupStates = function() {
 			blocks.push( { text: text, scale: scale, vspacing: vspacing, color: color, y: y } );
 			y += measured.height + gap;
 		};
+
+		// tier badge sits just under the ship, above the pilot name
+		var badgeH = hangarCompact ? 20 : 28;
+		blocks.push( { badge: true, y: y + badgeH / 2, height: badgeH } );
+		y += badgeH + gap;
 
 		add( def.title, hangarCompact ? 2 : 3, 1, unlocked ? 'hsla(0, 0%, 100%, 0.95)' : 'hsla(0, 0%, 100%, 0.4)' );
 		add( status.text, hangarCompact ? 1 : 2, 8, status.color );
@@ -3395,9 +3435,16 @@ $.setupStates = function() {
 			padRy = hangarCompact ? 15 : 22,
 			glowR = hangarCompact ? 150 : 230;
 
-		// overhead spotlight wash
+		// cinematic swap (set on PREV/NEXT): the incoming ship slides + spins
+		// in and the spotlight flares, then everything settles as t -> 0
+		var anim = $.hangarAnim || { t: 0, dir: 1 },
+			ease = anim.t * anim.t,
+			slideX = anim.dir * ease * ( hangarCompact ? 130 : 210 ),
+			spin = anim.dir * ease * $.twopi * 0.5;
+
+		// overhead spotlight wash (flares brighter mid-swap)
 		var spot = $.ctxmg.createRadialGradient( $.cw / 2, previewY, 6, $.cw / 2, previewY, glowR );
-		spot.addColorStop( 0, $.hsla( accentHue, 90, 55, unlocked ? 0.20 : 0.08 ) );
+		spot.addColorStop( 0, $.hsla( accentHue, 90, 55, ( unlocked ? 0.20 : 0.08 ) + ease * 0.22 ) );
 		spot.addColorStop( 1, $.hsla( accentHue, 90, 55, 0 ) );
 		$.ctxmg.fillStyle = spot;
 		$.ctxmg.fillRect( $.cw / 2 - glowR, previewY - glowR, glowR * 2, glowR * 2 );
@@ -3425,26 +3472,33 @@ $.setupStates = function() {
 
 		// engine exhaust flickering beneath the hovering ship (nose points up,
 		// so the plume streams downward toward the pad)
-		if( unlocked ) {
-			var exY = previewY + bob + shipR * 0.5;
+		if( unlocked && ease < 0.2 ) {
+			var exX = $.cw / 2 + slideX,
+				exY = previewY + bob + shipR * 0.5;
 			for( var fl = 0; fl < 3; fl++ ) {
 				var flLen = shipR * ( 0.5 + fl * 0.35 + Math.random() * 0.4 );
 				$.ctxmg.beginPath();
-				$.ctxmg.moveTo( $.cw / 2 - shipR * 0.17, exY );
-				$.ctxmg.lineTo( $.cw / 2, exY + flLen );
-				$.ctxmg.lineTo( $.cw / 2 + shipR * 0.17, exY );
+				$.ctxmg.moveTo( exX - shipR * 0.17, exY );
+				$.ctxmg.lineTo( exX, exY + flLen );
+				$.ctxmg.lineTo( exX + shipR * 0.17, exY );
 				$.ctxmg.closePath();
 				$.ctxmg.fillStyle = $.hsla( 30 - fl * 8, 100, 60 + fl * 10, 0.5 - fl * 0.13 );
 				$.ctxmg.fill();
 			}
 		}
 
-		// the hero ship itself, bobbing on the pad, tinted with the equipped skin
+		// the hero ship itself, bobbing on the pad, tinted with the equipped
+		// skin - during a swap it slides in from the side and spins to rest
 		$.ctxmg.save();
-		$.ctxmg.translate( $.cw / 2, previewY + bob );
-		$.ctxmg.rotate( -$.pi / 2 );
+		$.ctxmg.translate( $.cw / 2 + slideX, previewY + bob );
+		$.ctxmg.rotate( -$.pi / 2 + spin );
 		def.draw( $.ctxmg, shipR, unlocked ? hangarShipColor.color : 'hsla(0, 0%, 35%, 1)', $.tick );
 		$.ctxmg.restore();
+
+		// settle the swap animation one step per frame
+		if( $.hangarAnim && $.hangarAnim.t > 0 ) {
+			$.hangarAnim.t = Math.max( 0, $.hangarAnim.t - 0.05 );
+		}
 
 		// the equipped drone hovers beside the pilot, drawn in its own market
 		// shape, so a purchased/equipped drone is visible on the character in
@@ -3465,6 +3519,10 @@ $.setupStates = function() {
 		var previewLayout = $.hangarPreviewLayout( def, hangarCompact, previewY );
 		for( var pli = 0; pli < previewLayout.blocks.length; pli++ ) {
 			var block = previewLayout.blocks[ pli ];
+			if( block.badge ) {
+				$.drawTierBadge( def, $.hangarIndex, block.y, hangarCompact );
+				continue;
+			}
 			if( block.stats ) {
 				$.drawPilotStats( def, block.y, hangarCompact );
 				continue;
