@@ -352,6 +352,67 @@ $.enemyShapes = {
 		ctx.closePath();
 		ctx.fillStyle = $.hsla( e.hue, 100, 80, 1 );
 		ctx.fill();
+	},
+	// phantom: a jitter-strafing dart trailing dodge echoes; flares when it slips a bullet
+	phantom: function( ctx, r, fill, stroke, tick, e ) {
+		var d = e.dodgeFlash || 0;
+		for( var g = 2; g >= 0; g-- ) {
+			var off = g * r * ( 0.5 + d * 0.5 ),
+				alpha = [ 1, 0.3, 0.13 ][ g ];
+			ctx.beginPath();
+			ctx.moveTo( r * 1.3 - off, 0 );
+			ctx.lineTo( -r * 0.6 - off, r * 0.7 );
+			ctx.lineTo( -r * 0.25 - off, 0 );
+			ctx.lineTo( -r * 0.6 - off, -r * 0.7 );
+			ctx.closePath();
+			ctx.fillStyle = $.hsla( e.hue, e.saturation, 60, ( 0.14 + d * 0.2 ) * alpha );
+			ctx.fill();
+			ctx.lineWidth = 1.6;
+			ctx.strokeStyle = $.hsla( e.hue, e.saturation, 65 + d * 25, alpha );
+			ctx.stroke();
+		}
+		$.coreEye( ctx, r * 0.2, 0, r * 0.18, e.hue, e.saturation, tick + d * 40 );
+	},
+	// weaver: serpentine hunter, a rippling body of linked segments
+	weaver: function( ctx, r, fill, stroke, tick, e ) {
+		ctx.lineWidth = r * 0.42;
+		ctx.lineCap = 'round';
+		ctx.strokeStyle = fill;
+		ctx.beginPath();
+		for( var s = 0; s <= 5; s++ ) {
+			var sx = ( 0.9 - s * 0.42 ) * r,
+				sy = Math.sin( tick / 5 + s * 0.9 ) * r * 0.55;
+			if( s === 0 ) { ctx.moveTo( sx, sy ); } else { ctx.lineTo( sx, sy ); }
+		}
+		ctx.stroke();
+		ctx.lineWidth = 2;
+		$.neonStroke( ctx, e.hue, e.saturation, stroke );
+		ctx.beginPath(); ctx.arc( r * 0.9, Math.sin( tick / 5 ) * r * 0.55, r * 0.38, 0, $.twopi );
+		ctx.fillStyle = fill; ctx.fill();
+		$.neonStroke( ctx, e.hue, e.saturation, stroke );
+		$.coreEye( ctx, r * 0.95, Math.sin( tick / 5 ) * r * 0.55, r * 0.16, e.hue, e.saturation, tick );
+	},
+	// warden: slow bulwark with a hero-facing shield plate that flares on deflect
+	warden: function( ctx, r, fill, stroke, tick, e ) {
+		ctx.beginPath();
+		for( var p = 0; p < 6; p++ ) {
+			var a = p / 6 * $.twopi + $.pi / 6;
+			if( p === 0 ) { ctx.moveTo( Math.cos( a ) * r * 0.8, Math.sin( a ) * r * 0.8 ); }
+			else { ctx.lineTo( Math.cos( a ) * r * 0.8, Math.sin( a ) * r * 0.8 ); }
+		}
+		ctx.closePath();
+		ctx.fillStyle = fill; ctx.fill();
+		$.neonStroke( ctx, e.hue, e.saturation, stroke );
+		$.coreEye( ctx, 0, 0, r * 0.24, e.hue, e.saturation, tick );
+		// shield plate. the enemy is rendered rotated to its heading and the
+		// warden always drives at the hero, so its heading is its facing -
+		// the plate sits at local angle 0 ( leading edge ) and flares on deflect
+		var flare = e.shieldFlash || 0;
+		ctx.beginPath();
+		ctx.arc( 0, 0, r * 1.18, -$.pi * 0.42, $.pi * 0.42 );
+		ctx.lineWidth = 4 + flare * 4;
+		ctx.strokeStyle = $.hsla( e.hue, e.saturation, 70 + flare * 25, 0.6 + flare * 0.4 );
+		ctx.stroke();
 	}
 };
 
@@ -405,7 +466,48 @@ $.Enemy = function( opt ) {
 /*==============================================================================
 Update
 ==============================================================================*/
+/*==============================================================================
+Bullet dodging - shared by the Phantom enemy and the EVASIVE elite trait.
+Scans the hero's bullets for one on a collision course and nudges the enemy
+sideways (perpendicular to that bullet) to slip the shot. Bounded work: only
+runs when bullets exist, ignores far/behind bullets, one strafe per frame.
+==============================================================================*/
+$.enemyDodge = function( self, strength ) {
+	var bullets = $.bullets;
+	if( !bullets || !bullets.length || $.hero.life <= 0 ) { return; }
+	var bestDist = 1e9, bx = 0, by = 0, bl = 1, cross = 0, found = 0;
+	for( var i = 0; i < bullets.length; i++ ) {
+		var b = bullets[ i ],
+			dx = self.x - b.x, dy = self.y - b.y,
+			bvx = Math.cos( b.direction ) * b.speed,
+			bvy = Math.sin( b.direction ) * b.speed;
+		// bullet must be heading toward the enemy (not already past it)
+		if( dx * bvx + dy * bvy <= 0 ) { continue; }
+		var dist = Math.sqrt( dx * dx + dy * dy );
+		if( dist > 170 ) { continue; }
+		var len = Math.sqrt( bvx * bvx + bvy * bvy ) || 1,
+			perp = Math.abs( dx * bvy - dy * bvx ) / len; // miss distance
+		// only react to shots that would actually clip the enemy
+		if( perp > self.radius + 20 ) { continue; }
+		if( dist < bestDist ) { bestDist = dist; bx = bvx; by = bvy; bl = len; cross = dx * bvy - dy * bvx; found = 1; }
+	}
+	if( found ) {
+		var s = ( cross >= 0 ) ? 1 : -1,
+			px = s * ( -by ) / bl,
+			py = s * ( bx ) / bl;
+		self.vx += px * strength;
+		self.vy += py * strength;
+		self.dodgeFlash = 1;
+	}
+};
+
 $.Enemy.prototype.update = function( i ) {
+	// EVASIVE elites juke incoming fire like a Phantom does
+	if( this.elite === 'EVASIVE' && !this.isBoss ) {
+		$.enemyDodge( this, 0.9 );
+	}
+	if( this.dodgeFlash ) { this.dodgeFlash *= 0.85; }
+	if( this.shieldFlash ) { this.shieldFlash *= 0.82; }
 	/*==============================================================================
 	Apply Behavior
 	==============================================================================*/

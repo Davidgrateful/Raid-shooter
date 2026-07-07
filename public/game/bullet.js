@@ -78,7 +78,20 @@ $.Bullet.prototype.update = function( i ) {
 				} ) );
 
 				this.enemiesHit.push( enemy.index );
-				enemy.receiveDamage( ei, this.damage );
+
+				// Warden shield: a plate faces the hero and deflects frontal
+				// fire. If this bullet struck within the shield arc, it mostly
+				// bounces (tiny chip damage + a spark) - you must flank it.
+				var dmg = this.damage;
+				if( enemy.shielded && enemy.facing !== undefined ) {
+					var impact = Math.atan2( this.y - enemy.y, this.x - enemy.x ),
+						diff = Math.abs( $.util.angleDiff ? $.util.angleDiff( impact, enemy.facing ) : Math.atan2( Math.sin( impact - enemy.facing ), Math.cos( impact - enemy.facing ) ) );
+					if( diff < 1.15 ) {          // ~66 deg frontal arc
+						dmg = this.damage * 0.12;
+						enemy.shieldFlash = 1;
+					}
+				}
+				enemy.receiveDamage( ei, dmg );
 
 				// Volt Mite drone: zap one nearby enemy for partial damage
 				if( this.chain ) {

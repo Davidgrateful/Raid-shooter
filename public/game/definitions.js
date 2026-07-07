@@ -733,6 +733,67 @@ $.definitions.enemies = [
 			this.fillStyle = 'hsla(' + this.hue + ', 100%, ' + this.lightness + '%, 0.2)';
 			this.strokeStyle = 'hsla(' + this.hue + ', 100%, ' + this.lightness + '%, 1)';
 		}
+	},
+	{ // Phantom - juke ship: hunts the hero but dodges incoming bullets, so a
+	  // straight stream of fire slips right past it. Lead your shots or corner it.
+		shape: 'phantom',
+		value: 45,
+		speed: 2.2,
+		life: 2,
+		radius: 15,
+		hue: 285,
+		behavior: function() {
+			var speed = this.speed;
+			if( $.slow ) { speed = this.speed / $.slowEnemyDivider; }
+			var dx = $.hero.x - this.x,
+				dy = $.hero.y - this.y,
+				dir = Math.atan2( dy, dx );
+			this.vx = Math.cos( dir ) * speed;
+			this.vy = Math.sin( dir ) * speed;
+			// the signature move: slip incoming fire
+			$.enemyDodge( this, 1.15 );
+		}
+	},
+	{ // Weaver - serpentine strafer: closes on the hero in a fast sine weave,
+	  // never a straight line, so it's hard to track and predict
+		shape: 'weaver',
+		value: 40,
+		speed: 2.1,
+		life: 3,
+		radius: 16,
+		hue: 160,
+		phase: 0,
+		behavior: function() {
+			var speed = this.speed;
+			if( $.slow ) { speed = this.speed / $.slowEnemyDivider; }
+			this.phase = ( this.phase || 0 ) + 0.14 * $.dt;
+			var dx = $.hero.x - this.x,
+				dy = $.hero.y - this.y,
+				dir = Math.atan2( dy, dx ),
+				weave = Math.sin( this.phase ) * 1.1; // sideways swing
+			this.vx = Math.cos( dir ) * speed + Math.cos( dir + $.pi / 2 ) * weave;
+			this.vy = Math.sin( dir ) * speed + Math.sin( dir + $.pi / 2 ) * weave;
+		}
+	},
+	{ // Warden - shielded bulwark: a hardened plate faces the hero and deflects
+	  // shots from the front (see receiveDamage), forcing you to flank it
+		shape: 'warden',
+		value: 55,
+		speed: 0.9,
+		life: 6,
+		radius: 26,
+		hue: 45,
+		shielded: 1,
+		behavior: function() {
+			var speed = this.speed;
+			if( $.slow ) { speed = this.speed / $.slowEnemyDivider; }
+			var dx = $.hero.x - this.x,
+				dy = $.hero.y - this.y,
+				dir = Math.atan2( dy, dx );
+			this.facing = dir; // shield always turns to the hero
+			this.vx = Math.cos( dir ) * speed;
+			this.vy = Math.sin( dir ) * speed;
+		}
 	}
 ];
 

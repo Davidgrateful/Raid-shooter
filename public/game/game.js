@@ -947,8 +947,11 @@ $.spawnEnemy = function( type ) {
 };
 
 $.makeElite = function( enemy ) {
-	var kinds = [ 'FAST', 'ARMORED', 'REGEN' ],
-		kind = kinds[ Math.floor( $.util.rand( 0, kinds.length ) ) ];
+	// EVASIVE joins from level 5 - these juke your shots (see $.enemyDodge),
+	// so a maxed fire rate alone won't clear them; you have to lead or corner
+	var kinds = [ 'FAST', 'ARMORED', 'REGEN' ];
+	if( $.level && $.level.current >= 4 ) { kinds.push( 'EVASIVE' ); }
+	var kind = kinds[ Math.floor( $.util.rand( 0, kinds.length ) ) ];
 	enemy.elite = kind;
 	enemy.value = enemy.value * 3;
 	if( kind === 'FAST' ) {
@@ -956,6 +959,9 @@ $.makeElite = function( enemy ) {
 	} else if( kind === 'ARMORED' ) {
 		enemy.life = enemy.lifeMax = enemy.lifeMax * 3;
 		enemy.radius = Math.floor( enemy.radius * 1.15 );
+	} else if( kind === 'EVASIVE' ) {
+		enemy.speed *= 1.25;
+		enemy.life = enemy.lifeMax = enemy.lifeMax + 1;
 	} else {
 		enemy.regen = enemy.lifeMax * 0.004;
 	}
@@ -967,7 +973,7 @@ Difficulty
 $.difficulties = {
 	// One setting only: Raid Shooter runs at a single, punishing difficulty.
 	// Faster spawns, relentless hunters, heavier hits, tankier enemies.
-	extreme: { label: 'EXTREME', spawn: 0.58, hunt: 1.55, dmg: 1.75, enemyHp: 1.6 }
+	extreme: { label: 'EXTREME', spawn: 0.54, hunt: 1.7, dmg: 1.85, enemyHp: 1.7 }
 };
 
 // eases the opening: with EXTREME as the only difficulty, the ramp now
