@@ -3240,12 +3240,63 @@ $.setupStates = function() {
 	// long ability string would silently collide with the next line under
 	// fixed offsets, and that collision only showed up at certain window
 	// sizes (compact desktop windows), not on a tall mobile screen
+	// Each pilot gets a signature accent hue so scrolling the roster feels
+	// like flipping through distinct fighters, not recolors of one ship.
+	$.pilotAccentHue = function( index ) {
+		var pal = [ 205, 45, 160, 285, 15, 190, 120, 330, 260, 55, 95, 300 ];
+		return pal[ index % pal.length ];
+	};
+
+	// Derive a 0..1 stat readout from a pilot's real tuning numbers, for the
+	// character-select stat bars (SPD / FIRE / ARM / DASH).
+	$.pilotStats = function( def ) {
+		var ab = def.ability || {},
+			fp = 1 + ( ( ab.damage || 1 ) - 1 ) + ( ( ab.bulletSpeed || 1 ) - 1 ) +
+				( 1 - ( ab.fireRate || 1 ) ) + ( ( ab.combo || 1 ) - 1 ) * 0.4,
+			clamp = function( v, lo, hi ) { v = ( v - lo ) / ( hi - lo ); return v < 0 ? 0 : ( v > 1 ? 1 : v ); };
+		return {
+			SPD: clamp( def.speedMult || 1, 0.75, 1.32 ),
+			FIRE: clamp( fp, 0.92, 1.4 ),
+			ARM: clamp( 1.5 - ( def.damageTakenMult || 1 ), 0.15, 0.84 ),
+			DASH: clamp( 1.42 - ( def.dashCooldownMult || 1 ), 0.07, 0.72 )
+		};
+	};
+
+	// Draw the four stat bars centered at cw/2, starting at topY. Uses the
+	// pilot's accent hue for the fill so the panel matches the hero ship.
+	$.drawPilotStats = function( def, topY, compact ) {
+		var stats = $.pilotStats( def ),
+			order = [ [ 'SPD', stats.SPD ], [ 'FIRE', stats.FIRE ], [ 'ARM', stats.ARM ], [ 'DASH', stats.DASH ] ],
+			accentHue = $.pilotAccentHue( $.hangarIndex ),
+			panelW = compact ? 250 : 320,
+			labelW = compact ? 58 : 74,
+			rowH = compact ? 12 : 16,
+			barH = compact ? 6 : 8,
+			x0 = Math.floor( $.cw / 2 - panelW / 2 ),
+			barX = x0 + labelW,
+			barW = panelW - labelW;
+		for( var s = 0; s < order.length; s++ ) {
+			var ry = topY + s * rowH,
+				cy = ry + rowH / 2;
+			$.ctxmg.beginPath();
+			$.text( { ctx: $.ctxmg, x: x0, y: cy, text: order[ s ][ 0 ], hspacing: 1, vspacing: 0, halign: 'left', valign: 'center', scale: 1, snap: 1, render: 1 } );
+			$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 0.55)';
+			$.ctxmg.fill();
+			$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 0.09)';
+			$.ctxmg.fillRect( barX, cy - barH / 2, barW, barH );
+			$.ctxmg.fillStyle = $.hsla( accentHue, 90, 60, 0.9 );
+			$.ctxmg.fillRect( barX, cy - barH / 2, Math.max( 2, Math.round( barW * order[ s ][ 1 ] ) ), barH );
+		}
+	};
+
 	$.hangarPreviewLayout = function( def, hangarCompact, previewY ) {
 		var unlocked = $.characterUnlocked( def ),
 			status = $.characterStatus( def ),
 			gap = hangarCompact ? 6 : 10,
 			blocks = [],
-			y = previewY + ( hangarCompact ? 34 : 50 );
+			// extra headroom below the ship so the bigger hero ship + display
+			// pad clear the name line on every screen
+			y = previewY + ( hangarCompact ? 42 : 60 );
 
 		var add = function( text, scale, vspacing, color ) {
 			var measured = $.text( {
@@ -3262,6 +3313,11 @@ $.setupStates = function() {
 		if( def.ability ) {
 			add( def.ability.title + ': ' + def.ability.text, hangarCompact ? 1 : 2, 8, 'hsla(190, 100%, 70%, 0.8)' );
 		}
+		// stat bars block - reserves its own measured height so the SELECT /
+		// COLOR / TRAIL control rows stack cleanly beneath it on any screen
+		var statsHeight = ( hangarCompact ? 12 : 16 ) * 4 + ( hangarCompact ? 2 : 6 );
+		blocks.push( { stats: true, y: y, height: statsHeight } );
+		y += statsHeight + gap;
 		if( unlocked ) {
 			var pilotLevel = $.pilotLevel( def.id ),
 				toNext = $.pilotXpToNext( def.id ),
@@ -3325,14 +3381,69 @@ $.setupStates = function() {
 			return;
 		}
 
-		// big animated ship preview, facing up - tinted with the equipped
-		// ship color so a purchased/equipped skin shows here, not just in-run
+		// HERO DISPLAY PAD: the selected pilot on a lit turntable - a spotlight
+		// glow, a glowing floor disc with pulsing rings, engine exhaust, and a
+		// big bobbing ship in the pilot's signature accent. Turns the pick
+		// screen into a "choose your fighter" moment. Fully responsive.
 		var unlocked = $.characterUnlocked( def );
 		var hangarShipColor = $.definitions.shipColors[ $.storage[ 'ship' ] || 0 ] || $.definitions.shipColors[ 0 ];
+		var accentHue = $.pilotAccentHue( $.hangarIndex ),
+			shipR = hangarCompact ? 24 : 38,
+			bob = Math.sin( $.tick / 24 ) * ( hangarCompact ? 2 : 4 ),
+			padY = previewY + ( hangarCompact ? 22 : 32 ),
+			padRx = hangarCompact ? 92 : 138,
+			padRy = hangarCompact ? 15 : 22,
+			glowR = hangarCompact ? 150 : 230;
+
+		// overhead spotlight wash
+		var spot = $.ctxmg.createRadialGradient( $.cw / 2, previewY, 6, $.cw / 2, previewY, glowR );
+		spot.addColorStop( 0, $.hsla( accentHue, 90, 55, unlocked ? 0.20 : 0.08 ) );
+		spot.addColorStop( 1, $.hsla( accentHue, 90, 55, 0 ) );
+		$.ctxmg.fillStyle = spot;
+		$.ctxmg.fillRect( $.cw / 2 - glowR, previewY - glowR, glowR * 2, glowR * 2 );
+
+		// display pad: a flattened glowing disc with a rim and pulsing rings
 		$.ctxmg.save();
-		$.ctxmg.translate( $.cw / 2, previewY );
+		$.ctxmg.translate( $.cw / 2, padY );
+		$.ctxmg.scale( 1, padRy / padRx );
+		var pg = $.ctxmg.createRadialGradient( 0, 0, 4, 0, 0, padRx );
+		pg.addColorStop( 0, $.hsla( accentHue, 80, 55, 0.18 ) );
+		pg.addColorStop( 0.7, $.hsla( accentHue, 80, 45, 0.05 ) );
+		pg.addColorStop( 1, 'hsla(0, 0%, 0%, 0)' );
+		$.ctxmg.fillStyle = pg;
+		$.ctxmg.beginPath(); $.ctxmg.arc( 0, 0, padRx, 0, $.twopi ); $.ctxmg.fill();
+		for( var ring = 0; ring < 2; ring++ ) {
+			var rp = ( ( $.tick / 70 + ring * 0.5 ) % 1 );
+			$.ctxmg.beginPath();
+			$.ctxmg.arc( 0, 0, padRx * ( 0.35 + rp * 0.62 ), 0, $.twopi );
+			$.ctxmg.strokeStyle = $.hsla( accentHue, 90, 62, 0.28 * ( 1 - rp ) );
+			$.ctxmg.lineWidth = 2; $.ctxmg.stroke();
+		}
+		$.ctxmg.beginPath(); $.ctxmg.arc( 0, 0, padRx * 0.9, 0, $.twopi );
+		$.ctxmg.strokeStyle = $.hsla( accentHue, 80, 60, 0.32 ); $.ctxmg.lineWidth = 1.5; $.ctxmg.stroke();
+		$.ctxmg.restore();
+
+		// engine exhaust flickering beneath the hovering ship (nose points up,
+		// so the plume streams downward toward the pad)
+		if( unlocked ) {
+			var exY = previewY + bob + shipR * 0.5;
+			for( var fl = 0; fl < 3; fl++ ) {
+				var flLen = shipR * ( 0.5 + fl * 0.35 + Math.random() * 0.4 );
+				$.ctxmg.beginPath();
+				$.ctxmg.moveTo( $.cw / 2 - shipR * 0.17, exY );
+				$.ctxmg.lineTo( $.cw / 2, exY + flLen );
+				$.ctxmg.lineTo( $.cw / 2 + shipR * 0.17, exY );
+				$.ctxmg.closePath();
+				$.ctxmg.fillStyle = $.hsla( 30 - fl * 8, 100, 60 + fl * 10, 0.5 - fl * 0.13 );
+				$.ctxmg.fill();
+			}
+		}
+
+		// the hero ship itself, bobbing on the pad, tinted with the equipped skin
+		$.ctxmg.save();
+		$.ctxmg.translate( $.cw / 2, previewY + bob );
 		$.ctxmg.rotate( -$.pi / 2 );
-		def.draw( $.ctxmg, hangarCompact ? 18 : 28, unlocked ? hangarShipColor.color : 'hsla(0, 0%, 35%, 1)', $.tick );
+		def.draw( $.ctxmg, shipR, unlocked ? hangarShipColor.color : 'hsla(0, 0%, 35%, 1)', $.tick );
 		$.ctxmg.restore();
 
 		// the equipped drone hovers beside the pilot, drawn in its own market
@@ -3354,6 +3465,10 @@ $.setupStates = function() {
 		var previewLayout = $.hangarPreviewLayout( def, hangarCompact, previewY );
 		for( var pli = 0; pli < previewLayout.blocks.length; pli++ ) {
 			var block = previewLayout.blocks[ pli ];
+			if( block.stats ) {
+				$.drawPilotStats( def, block.y, hangarCompact );
+				continue;
+			}
 			$.ctxmg.beginPath();
 			$.text( {
 				ctx: $.ctxmg,
