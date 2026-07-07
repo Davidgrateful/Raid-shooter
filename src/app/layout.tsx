@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { WalletProvider } from '@/components/WalletProvider';
+import { SpeedInsights } from '@vercel/speed-insights/next';
 
 // Absolute base so OG/Twitter image URLs resolve on the real domain instead
 // of localhost. Set NEXT_PUBLIC_SITE_URL in prod; falls back to the Vercel
@@ -55,6 +56,7 @@ export default function RootLayout({
         <WalletProvider>
           {children}
         </WalletProvider>
+        <SpeedInsights />
       </body>
     </html>
   );
