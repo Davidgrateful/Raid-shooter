@@ -282,6 +282,13 @@ export function BoardOverlay() {
             Jump to me · #{myIndex + 1}
           </button>
         )}
+        <button
+          onClick={() => fetchBoard(tab)}
+          disabled={loading}
+          className="pointer-events-auto rounded-lg border border-white/20 bg-white/[0.06] px-5 py-2 text-[11px] font-black uppercase tracking-wider text-white/80 hover:bg-white/[0.12] disabled:opacity-50"
+        >
+          {loading ? 'Refreshing…' : '↻ Refresh'}
+        </button>
         <button onClick={toMenu} className="pointer-events-auto rounded-lg bg-cyan-400 px-6 py-2 text-[11px] font-black uppercase tracking-wider text-black hover:bg-cyan-300">
           Back to menu
         </button>

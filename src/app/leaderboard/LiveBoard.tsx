@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { TIER_COLORS, tierFromScore, displayName } from '@/lib/tiers';
 
 // The live half of the public Shooterboard page. Server render provides the
@@ -99,22 +99,27 @@ export function LiveBoard({
   const [entries, setEntries] = useState<Entry[]>(initialEntries);
   const [total, setTotal] = useState(initialTotal);
   const [updatedAt, setUpdatedAt] = useState<number>(Date.now());
+  const [refreshing, setRefreshing] = useState(false);
+
+  const refresh = useCallback(() => {
+    setRefreshing(true);
+    fetch('/api/leaderboard?limit=1000')
+      .then((r) => r.json())
+      .then((d) => {
+        if (Array.isArray(d.entries)) {
+          setEntries(d.entries);
+          setTotal(typeof d.total === 'number' ? d.total : d.entries.length);
+          setUpdatedAt(Date.now());
+        }
+      })
+      .catch(() => {})
+      .finally(() => setRefreshing(false));
+  }, []);
 
   useEffect(() => {
-    const iv = setInterval(() => {
-      fetch('/api/leaderboard?limit=1000')
-        .then((r) => r.json())
-        .then((d) => {
-          if (Array.isArray(d.entries)) {
-            setEntries(d.entries);
-            setTotal(typeof d.total === 'number' ? d.total : d.entries.length);
-            setUpdatedAt(Date.now());
-          }
-        })
-        .catch(() => {});
-    }, REFRESH_MS);
+    const iv = setInterval(refresh, REFRESH_MS);
     return () => clearInterval(iv);
-  }, []);
+  }, [refresh]);
 
   const podium = entries.slice(0, 3);
   const rest = entries.slice(3);
@@ -130,7 +135,16 @@ export function LiveBoard({
           </span>
           LIVE — updates every {REFRESH_MS / 1000}s
         </span>
-        <span suppressHydrationWarning>Updated {new Date(updatedAt).toLocaleTimeString()}</span>
+        <span className="inline-flex items-center gap-3">
+          <span suppressHydrationWarning>Updated {new Date(updatedAt).toLocaleTimeString()}</span>
+          <button
+            onClick={refresh}
+            disabled={refreshing}
+            className="rounded-md border border-white/15 bg-white/[0.06] px-2.5 py-1 font-black uppercase tracking-wider text-white/70 transition-colors hover:bg-white/[0.12] disabled:opacity-50"
+          >
+            {refreshing ? 'Refreshing…' : '↻ Refresh'}
+          </button>
+        </span>
       </div>
 
       {/* live cup strip */}
