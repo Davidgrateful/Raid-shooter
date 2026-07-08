@@ -2044,7 +2044,10 @@ $.setState = function( state ) {
 			var previewDef = $.definitions.characters[ $.hangarIndex ],
 				previewTextBottom = $.hangarPreviewLayout( previewDef, hangarCompact, arrowY ).bottom,
 				hangarRowGap = hangarCompact ? 48 : 58,
-				hangarRowsTop = previewTextBottom + ( hangarCompact ? 14 : 40 ),
+					// rows are CENTER-anchored 45px buttons, so this gap must clear the
+				// button's half-height (~23) or the top row rides up over the
+				// ability text - the bug where pilot powers were hidden on mobile
+				hangarRowsTop = previewTextBottom + ( hangarCompact ? 34 : 48 ),
 				hr0 = hangarRowsTop,
 				hr1 = hr0 + hangarRowGap,
 				// the drone row is taller (two lines, for its passive text)
