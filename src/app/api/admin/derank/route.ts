@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth } from '@/lib/admin-auth';
 import { unbanPlayer } from '@/lib/leaderboard';
-import { purgeScoresEverywhere, banEverywhere } from '@/lib/moderation';
+import { purgeScoresEverywhere, banEverywhere, restoreScore, listRemoved } from '@/lib/moderation';
 import { audit } from '@/lib/audit';
+
+// GET: the "recently removed" list, so an accidental derank/ban can be undone.
+export async function GET(req: NextRequest) {
+  const auth = await adminAuth(req, 'players.moderate');
+  if (!auth.ok) return auth.res;
+  return NextResponse.json({ removed: await listRemoved() });
+}
 
 // Moderate the leaderboard. Body: { id, action }.
 //   action "derank" -> remove their score (they can re-earn a rank)
@@ -33,6 +40,12 @@ export async function POST(req: NextRequest) {
     await unbanPlayer(key);
     await audit({ actor: auth.identity.actor, action: 'player.unban', target: key });
     return NextResponse.json({ ok: true, action, id: key });
+  }
+  if (action === 'restore') {
+    // undo an accidental derank/ban: put the snapshotted score back + unban
+    const r = await restoreScore(key);
+    await audit({ actor: auth.identity.actor, action: 'player.restore', target: key });
+    return NextResponse.json({ ok: true, action, id: key, ...r });
   }
   if (action === 'derank') {
     // strip the score from all-time AND the sponsored cup + weekly boards

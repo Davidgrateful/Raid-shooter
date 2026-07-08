@@ -306,9 +306,10 @@ function PlayersTable({ token }: { token: string }) {
     }
   }
 
-  async function moderate(p: PlayerRow, action: 'derank' | 'ban' | 'unban') {
-    const verb = action === 'ban' ? 'BAN' : action === 'unban' ? 'unban' : 'derank';
-    if (action !== 'unban' && !confirm(`${verb} ${shortId(p)}? ${action === 'ban' ? 'They will be removed AND blocked from re-ranking.' : 'Removes their score from the board.'}`)) return;
+  async function moderate(p: PlayerRow, action: 'derank' | 'ban' | 'unban' | 'restore') {
+    const verb = action === 'ban' ? 'BAN' : action === 'unban' ? 'unban' : action === 'restore' ? 'restore' : 'derank';
+    // only the destructive actions confirm; unban/restore are the safe undo path
+    if ((action === 'derank' || action === 'ban') && !confirm(`${verb} ${shortId(p)}? ${action === 'ban' ? 'They will be removed from every board AND blocked from re-ranking.' : 'Removes their score from all-time, every cup, and the weekly board.'} You can Restore it afterward.`)) return;
     setBusy(true);
     setNote('');
     try {
@@ -319,7 +320,11 @@ function PlayersTable({ token }: { token: string }) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || `Failed (${res.status})`);
-      setNote(`✓ ${action} applied to ${shortId(p)}.`);
+      if (action === 'restore') {
+        setNote(data.restored ? `✓ Restored ${shortId(p)}${typeof data.score === 'number' ? ` (${data.score.toLocaleString()} pts)` : ''}.` : `Nothing to restore for ${shortId(p)} — no removed score on file.`);
+      } else {
+        setNote(`✓ ${action} applied to ${shortId(p)}.`);
+      }
       await loadPlayers();
     } catch (e) {
       setNote(e instanceof Error ? e.message : 'Action failed.');
@@ -375,6 +380,7 @@ function PlayersTable({ token }: { token: string }) {
                     <td className="px-3 py-2 text-right">
                       <div className="flex justify-end gap-1.5">
                         <button onClick={() => moderate(p, 'derank')} disabled={busy} className="rounded bg-white/10 px-2 py-1 text-xs hover:bg-white/20 disabled:opacity-40">Derank</button>
+                        <button onClick={() => moderate(p, 'restore')} disabled={busy} title="Undo an accidental derank/ban - puts their removed score back" className="rounded bg-sky-500/15 px-2 py-1 text-xs text-sky-300 hover:bg-sky-500/25 disabled:opacity-40">Restore</button>
                         {p.banned ? (
                           <button onClick={() => moderate(p, 'unban')} disabled={busy} className="rounded bg-emerald-500/20 px-2 py-1 text-xs text-emerald-300 hover:bg-emerald-500/30 disabled:opacity-40">Unban</button>
                         ) : (
