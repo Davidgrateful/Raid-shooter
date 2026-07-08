@@ -656,16 +656,31 @@ $.spawnBossChunks = function( boss, count ) {
 
 $.spawnBoss = function() {
 	var coords = $.getSpawnCoordinates( 90 ),
-		levelScale = 1 + $.level.current * 0.16,
-		sectorIdx = $.sectorIndex % 3;
+		levelScale = 1 + $.level.current * 0.16;
 
-	// each sector family fields its own boss with its own attack
+	// The boss pool. The first three are the cosmic originals; the last three
+	// are alien-biological horrors. A boss wave now draws a RANDOM boss from the
+	// whole pool (no immediate repeat) so runs stay fresh instead of one boss
+	// per sector. Flags drive the shared behavior/render: spiral/aimed/pull are
+	// attacks; summon births minions; pulseRing adds a second volley; spikes/
+	// rings/flames/bell/sacs/crown are the silhouettes.
 	var variants = [
 		{ title: 'ASTEROID KING', hue: 30, saturation: 40, speed: 1.6, burstCount: 14, burstSpeed: 7, burstEvery: 150, spikes: 1, spiral: 1 },
 		{ title: 'VOID TYRANT', hue: 270, saturation: 90, speed: 1.4, burstCount: 18, burstSpeed: 5.5, burstEvery: 130, pull: 1, rings: 1, spiral: 1 },
-		{ title: 'SOLAR WARDEN', hue: 10, saturation: 100, speed: 1.9, burstCount: 7, burstSpeed: 9, burstEvery: 90, aimed: 1, flames: 1, spiral: 1 }
+		{ title: 'SOLAR WARDEN', hue: 10, saturation: 100, speed: 1.9, burstCount: 7, burstSpeed: 9, burstEvery: 90, aimed: 1, flames: 1, spiral: 1 },
+		// PLASMA MEDUSA: a jellyfish of light - pulses out expanding bolt rings
+		{ title: 'PLASMA MEDUSA', hue: 190, saturation: 95, speed: 1.5, burstCount: 22, burstSpeed: 4.6, burstEvery: 118, bell: 1, spiral: 1, pulseRing: 1 },
+		// HIVE QUEEN: bloated matriarch - births swarms of hunters, few bullets
+		{ title: 'HIVE QUEEN', hue: 140, saturation: 85, speed: 1.05, burstCount: 8, burstSpeed: 5, burstEvery: 175, sacs: 1, summon: 1 },
+		// XENO MONARCH: apex warlord - spiral + aimed fans AND summons; the
+		// "everything you have learned" fight
+		{ title: 'XENO MONARCH', hue: 15, saturation: 100, speed: 1.7, burstCount: 12, burstSpeed: 7, burstEvery: 112, crown: 1, spiral: 1, aimed: 1, summon: 1 }
 	];
-	var variant = variants[ sectorIdx ];
+	// random boss, never the same one twice in a row
+	var pick = Math.floor( Math.random() * variants.length );
+	if( variants.length > 1 && pick === $.lastBossPick ) { pick = ( pick + 1 ) % variants.length; }
+	$.lastBossPick = pick;
+	var variant = variants[ pick ];
 
 	var boss = new $.Enemy( {
 		value: 750,
@@ -769,6 +784,55 @@ $.spawnBoss = function() {
 						}
 					} ) );
 				}
+				// PLASMA MEDUSA: a second, slower inner ring so the volley reads
+				// as an expanding double pulse (kicks in from phase 1)
+				if( this.variant.pulseRing && this.phase >= 1 ) {
+					var inner = Math.floor( count * 0.6 );
+					for( var ib = 0; ib < inner; ib++ ) {
+						var idir = direction + ( ib / inner ) * $.twopi + 0.22;
+						$.enemies.push( new $.Enemy( {
+							value: 5, speed: this.variant.burstSpeed * 0.66, life: 1, radius: 7,
+							hue: this.variant.hue, saturation: this.variant.saturation, lockBounds: 1,
+							x: this.x + Math.cos( idir ) * ( this.radius + 10 ),
+							y: this.y + Math.sin( idir ) * ( this.radius + 10 ),
+							direction: idir,
+							behavior: function() {
+								var s = $.slow ? this.speed / $.slowEnemyDivider : this.speed;
+								this.vx = Math.cos( this.direction ) * s;
+								this.vy = Math.sin( this.direction ) * s;
+							}
+						} ) );
+					}
+				}
+			}
+
+			// HIVE QUEEN / XENO MONARCH birth swarms of hunters - the real threat
+			// is the adds, not the bullets. Births faster and larger each phase,
+			// and only while the arena isn't already flooded.
+			if( this.variant.summon ) {
+				this.summonTick = ( this.summonTick || 0 ) + $.dt;
+				var summonEvery = ( this.variant.title === 'HIVE QUEEN' ? 150 : 210 ) - this.phase * 26;
+				if( this.summonTick > summonEvery && $.enemies.length < 64 ) {
+					this.summonTick = 0;
+					if( this.inView ) { $.audio.play( 'powerup' ); }
+					var brood = 2 + this.phase;
+					for( var mm = 0; mm < brood; mm++ ) {
+						var ma = Math.random() * $.twopi;
+						$.enemies.push( new $.Enemy( {
+							shape: 'dartlet', value: 15, speed: 2.6, life: 2,
+							radius: 11, hue: this.variant.hue, saturation: this.variant.saturation,
+							x: this.x + Math.cos( ma ) * ( this.radius + 20 ),
+							y: this.y + Math.sin( ma ) * ( this.radius + 20 ),
+							behavior: function() {
+								var s = $.slow ? this.speed / $.slowEnemyDivider : this.speed,
+									hx = $.hero.x - this.x, hy = $.hero.y - this.y,
+									hd = Math.max( 1, Math.sqrt( hx * hx + hy * hy ) );
+								this.vx = ( hx / hd ) * s;
+								this.vy = ( hy / hd ) * s;
+							}
+						} ) );
+					}
+				}
 			}
 
 			// pick a fresh roam waypoint: alternate between strafing around the
@@ -864,6 +928,48 @@ $.spawnBoss = function() {
 					var fa = $.tick / 18 + flameIdx * $.twopi / 3;
 					$.util.fillCircle( $.ctxmg, this.x + Math.cos( fa ) * ( this.radius + 16 ), this.y + Math.sin( fa ) * ( this.radius + 16 ), 9 + Math.cos( $.tick / 6 ) * 3, 'hsla(25, 100%, 60%, 0.7)' );
 				}
+			}
+			// PLASMA MEDUSA: a pulsing translucent bell with trailing tendrils
+			if( this.variant.bell ) {
+				var pulse = 1 + Math.sin( $.tick / 10 ) * 0.12;
+				$.ctxmg.strokeStyle = 'hsla(' + this.hue + ', 100%, 78%, 0.5)';
+				$.ctxmg.lineWidth = 3;
+				$.ctxmg.beginPath();
+				$.ctxmg.arc( this.x, this.y - this.radius * 0.15, this.radius * 1.05 * pulse, $.pi, $.twopi );
+				$.ctxmg.stroke();
+				$.ctxmg.strokeStyle = 'hsla(' + this.hue + ', 100%, 72%, 0.4)';
+				$.ctxmg.lineWidth = 2;
+				for( var tn = 0; tn < 7; tn++ ) {
+					var tnx = this.x - this.radius + tn * ( this.radius * 2 / 6 );
+					$.ctxmg.beginPath();
+					$.ctxmg.moveTo( tnx, this.y );
+					$.ctxmg.quadraticCurveTo( tnx + Math.sin( $.tick / 8 + tn ) * 10, this.y + this.radius * 0.9, tnx + Math.sin( $.tick / 6 + tn ) * 15, this.y + this.radius * 1.7 );
+					$.ctxmg.stroke();
+				}
+			}
+			// HIVE QUEEN: three pulsing egg-sacs orbiting the abdomen
+			if( this.variant.sacs ) {
+				for( var eg = 0; eg < 3; eg++ ) {
+					var ega = $.tick / 60 + eg * $.twopi / 3,
+						grow = 0.5 + ( Math.sin( $.tick / 12 + eg * 2 ) + 1 ) * 0.28;
+					$.util.fillCircle( $.ctxmg, this.x + Math.cos( ega ) * this.radius * 0.9, this.y + Math.sin( ega ) * this.radius * 0.9, this.radius * 0.28 * grow, 'hsla(' + this.hue + ', 90%, 60%, 0.55)' );
+				}
+			}
+			// XENO MONARCH: six counter-rotating blade-limbs, a crowned warlord
+			if( this.variant.crown ) {
+				$.ctxmg.save();
+				$.ctxmg.translate( this.x, this.y );
+				$.ctxmg.rotate( $.tick / 40 );
+				$.ctxmg.strokeStyle = 'hsla(' + this.hue + ', 100%, 75%, 0.85)';
+				$.ctxmg.lineWidth = 4;
+				for( var bl = 0; bl < 6; bl++ ) {
+					var ba = bl / 6 * $.twopi;
+					$.ctxmg.beginPath();
+					$.ctxmg.moveTo( Math.cos( ba ) * this.radius * 0.8, Math.sin( ba ) * this.radius * 0.8 );
+					$.ctxmg.lineTo( Math.cos( ba ) * this.radius * 1.5, Math.sin( ba ) * this.radius * 1.5 );
+					$.ctxmg.stroke();
+				}
+				$.ctxmg.restore();
 			}
 		},
 		death: function() {
