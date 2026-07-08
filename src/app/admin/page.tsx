@@ -333,6 +333,35 @@ function PlayersTable({ token }: { token: string }) {
     }
   }
 
+  // Manual recovery when there's no snapshot to Restore from (e.g. a score
+  // removed before the Restore feature existed): re-add it by value.
+  async function readdScore(p: PlayerRow) {
+    const raw = prompt(`Re-add a score for ${shortId(p)}.\nEnter the score value to put back on the board:`, '');
+    if (raw === null) return;
+    const score = Number(raw.replace(/[^0-9]/g, ''));
+    if (!Number.isFinite(score) || score <= 0) { setNote('Enter a positive number for the score.'); return; }
+    const name = prompt('Optional call sign (leave blank to keep existing):', p.name || '') || '';
+    setBusy(true);
+    setNote('');
+    try {
+      const res = await fetch(`/api/admin/derank`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ id: p.id, action: 'readd', score, name }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `Failed (${res.status})`);
+      setNote(data.applied
+        ? `✓ Re-added ${score.toLocaleString()} pts to ${shortId(p)} (rank #${data.rank}).`
+        : `Score submitted but not applied — the player already has an equal or higher score on the board.`);
+      await loadPlayers();
+    } catch (e) {
+      setNote(e instanceof Error ? e.message : 'Re-add failed.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <section>
       <div className="mb-3 flex items-center justify-between">
@@ -380,7 +409,8 @@ function PlayersTable({ token }: { token: string }) {
                     <td className="px-3 py-2 text-right">
                       <div className="flex justify-end gap-1.5">
                         <button onClick={() => moderate(p, 'derank')} disabled={busy} className="rounded bg-white/10 px-2 py-1 text-xs hover:bg-white/20 disabled:opacity-40">Derank</button>
-                        <button onClick={() => moderate(p, 'restore')} disabled={busy} title="Undo an accidental derank/ban - puts their removed score back" className="rounded bg-sky-500/15 px-2 py-1 text-xs text-sky-300 hover:bg-sky-500/25 disabled:opacity-40">Restore</button>
+                        <button onClick={() => moderate(p, 'restore')} disabled={busy} title="Undo an accidental derank/ban - puts their snapshotted score back" className="rounded bg-sky-500/15 px-2 py-1 text-xs text-sky-300 hover:bg-sky-500/25 disabled:opacity-40">Restore</button>
+                        <button onClick={() => readdScore(p)} disabled={busy} title="Manually re-add a score by value (when there's no snapshot to restore)" className="rounded bg-sky-500/10 px-2 py-1 text-xs text-sky-200/80 hover:bg-sky-500/20 disabled:opacity-40">Re-add</button>
                         {p.banned ? (
                           <button onClick={() => moderate(p, 'unban')} disabled={busy} className="rounded bg-emerald-500/20 px-2 py-1 text-xs text-emerald-300 hover:bg-emerald-500/30 disabled:opacity-40">Unban</button>
                         ) : (

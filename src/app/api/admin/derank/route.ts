@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth } from '@/lib/admin-auth';
-import { unbanPlayer } from '@/lib/leaderboard';
+import { unbanPlayer, submitEntry } from '@/lib/leaderboard';
 import { purgeScoresEverywhere, banEverywhere, restoreScore, listRemoved } from '@/lib/moderation';
 import { audit } from '@/lib/audit';
 
@@ -46,6 +46,31 @@ export async function POST(req: NextRequest) {
     const r = await restoreScore(key);
     await audit({ actor: auth.identity.actor, action: 'player.restore', target: key });
     return NextResponse.json({ ok: true, action, id: key, ...r });
+  }
+  if (action === 'readd') {
+    // manual recovery when there's no snapshot (e.g. an old derank): put a
+    // score back by value. Only fields we have are optional; the rest default.
+    const score = Math.floor(Number(body?.score));
+    if (!Number.isFinite(score) || score <= 0 || score > 100_000_000) {
+      return NextResponse.json({ error: 'A positive score is required.' }, { status: 400 });
+    }
+    await unbanPlayer(key); // in case they were banned, so the re-add can land
+    const nameRaw = typeof body?.name === 'string' ? body.name.toUpperCase().replace(/[^A-Z0-9 ]/g, '').trim().slice(0, 12) : '';
+    const entry = {
+      address: key,
+      name: nameRaw || undefined,
+      score,
+      level: Math.max(1, Math.floor(Number(body?.level) || 1)),
+      kills: Math.max(0, Math.floor(Number(body?.kills) || 0)),
+      combo: 0,
+      pilot: '',
+      time: 0,
+      at: Date.now(),
+      verified: key.startsWith('0x'),
+    };
+    const res = await submitEntry(entry);
+    await audit({ actor: auth.identity.actor, action: 'player.readd', target: key, detail: String(score) });
+    return NextResponse.json({ ok: true, action, id: key, score, rank: res.rank, applied: res.improved });
   }
   if (action === 'derank') {
     // strip the score from all-time AND the sponsored cup + weekly boards
