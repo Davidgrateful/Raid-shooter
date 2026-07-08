@@ -59,6 +59,22 @@ export const CATALOG: MarketItem[] = [
     ability: 'VAMPIRE: HEAL HP FROM KILLS',
   },
   {
+    id: 'pilot_ironhalo', title: 'IRON HALO PILOT', kind: 'character', priceUsd: 0.5, priceEth: '0.00017',
+    ability: 'OVERCHARGER: POWERUPS LAST LONGER',
+  },
+  {
+    id: 'pilot_javelin9', title: 'JAVELIN 9 PILOT', kind: 'character', priceUsd: 0.5, priceEth: '0.00017',
+    ability: 'LANCER: FASTER BULLETS',
+  },
+  {
+    id: 'pilot_atlasbeam', title: 'ATLAS BEAM PILOT', kind: 'character', priceUsd: 0.5, priceEth: '0.00017',
+    ability: 'HEAVY CAL: SHARPER DAMAGE',
+  },
+  {
+    id: 'pilot_glitchprince', title: 'GLITCH PRINCE PILOT', kind: 'character', priceUsd: 0.5, priceEth: '0.00017',
+    ability: 'JITTER: FASTER FIRING',
+  },
+  {
     id: 'consumable_health', title: 'HEALTH PACK', kind: 'consumable', priceUsd: 0.5, priceEth: '0.00017', stack: 3,
   },
   {

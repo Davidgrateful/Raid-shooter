@@ -56,6 +56,18 @@ export async function getCupTop(seasonId: string, limit = 100): Promise<BoardEnt
   return [...memBoard(seasonId).values()].sort((a, b) => b.score - a.score).slice(0, limit);
 }
 
+// Strip one identity's score from a cup board (moderation: derank/ban). Used
+// so a cheater removed from the all-time board also drops off the sponsored
+// cup they were gaming. Returns true if a row was actually removed.
+export async function removeFromCup(seasonId: string, key: string): Promise<boolean> {
+  if (kvUrl && kvToken) {
+    const removed = (await redis(['ZREM', boardKey(seasonId), key])) as number;
+    await redis(['HDEL', entriesKey(seasonId), key]);
+    return removed > 0;
+  }
+  return memBoard(seasonId).delete(key);
+}
+
 export async function getCupCount(seasonId: string): Promise<number> {
   if (kvUrl && kvToken) {
     const n = (await redis(['ZCARD', boardKey(seasonId)])) as number;

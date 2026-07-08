@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminGate } from '@/lib/admin-auth';
-import { getFlagged, clearFlag, removeEntry, banPlayer } from '@/lib/leaderboard';
+import { getFlagged, clearFlag } from '@/lib/leaderboard';
+import { purgeScoresEverywhere, banEverywhere } from '@/lib/moderation';
 
 // Admin: the suspicious-run review queue. Approve clears the flag (the run
 // stays ranked); derank removes the score; ban removes it and blocks the
@@ -28,14 +29,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, action: 'approve' });
   }
   if (body.action === 'derank') {
-    await removeEntry(address);
+    // remove the score from all-time AND every cup + the weekly ladder, so a
+    // flagged cheater doesn't keep a rank on the sponsored board
+    const purged = await purgeScoresEverywhere(address);
     await clearFlag(body.id);
-    return NextResponse.json({ ok: true, action: 'derank' });
+    return NextResponse.json({ ok: true, action: 'derank', purged });
   }
   if (body.action === 'ban') {
-    await banPlayer(address);
+    const purged = await banEverywhere(address);
     await clearFlag(body.id);
-    return NextResponse.json({ ok: true, action: 'ban' });
+    return NextResponse.json({ ok: true, action: 'ban', purged });
   }
   return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
 }

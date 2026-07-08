@@ -1,9 +1,8 @@
 /*==============================================================================
 Character Definitions
 
-Onyix is the free starter. Every pilot sold in the market is purchase-only
-(unlock: { purchase } with no stat) - you must buy it to fly it. A handful of
-pilots that aren't sold still unlock by play (unlock: { stat, value }). Shape
+Onyix is the free starter. Every other pilot is purchase-only
+(unlock: { purchase }) - you must buy it in the market to fly it. Shape
 and stats come from the character; the color selector stays the player's identity
 layer. Archetypes follow the silhouette rules: darts/arrows are fast and
 fragile, rings/hexagons are armored and slow, diamonds/circles run balanced.
@@ -102,7 +101,7 @@ $.definitions.characters = [
 	{
 		id: 'ironhalo', ability: { title: 'OVERCHARGER', text: 'POWERUPS LAST LONGER', powerupDuration: 1.4 }, bulletStyle: { size: 12, lineWidth: 3.5 }, title: 'IRON HALO', desc: 'ARMORED RING HULL',
 		speedMult: 0.82, damageTakenMult: 0.7, dashCooldownMult: 1.3, radius: 12,
-		unlock: { stat: 'bosskills', value: 3, label: 'BOSSES DEFEATED' },
+		unlock: { purchase: 'pilot_ironhalo' },
 		draw: function( ctx, r, fillStyle, tick ) {
 			ctx.beginPath();
 			ctx.arc( 0, 0, r * 0.55, 0, $.twopi );
@@ -162,7 +161,7 @@ $.definitions.characters = [
 	{
 		id: 'javelin9', ability: { title: 'LANCER', text: 'FASTER BULLETS', bulletSpeed: 1.25 }, bulletStyle: { size: 26, lineWidth: 1.5 }, title: 'JAVELIN 9', desc: 'NEEDLE NOSE,\nPURE SPEED',
 		speedMult: 1.3, damageTakenMult: 1.3, dashCooldownMult: 0.75, radius: 8,
-		unlock: { stat: 'score', value: 10000, label: 'BEST SCORE' },
+		unlock: { purchase: 'pilot_javelin9' },
 		draw: function( ctx, r, fillStyle, tick ) {
 			ctx.beginPath();
 			ctx.moveTo( r * 2.3, 0 );
@@ -178,7 +177,7 @@ $.definitions.characters = [
 	{
 		id: 'atlasbeam', ability: { title: 'HEAVY CAL', text: 'SHARPER DAMAGE', damage: 1.2 }, bulletStyle: { size: 13, lineWidth: 5 }, title: 'ATLAS BEAM', desc: 'HEAVY CANNON FRAME',
 		speedMult: 0.78, damageTakenMult: 0.68, dashCooldownMult: 1.35, radius: 13,
-		unlock: { stat: 'bosskills', value: 6, label: 'BOSSES DEFEATED' },
+		unlock: { purchase: 'pilot_atlasbeam' },
 		draw: function( ctx, r, fillStyle, tick ) {
 			ctx.fillStyle = fillStyle;
 			ctx.fillRect( -r * 1.1, -r * 0.85, r * 1.6, r * 1.7 );
@@ -193,7 +192,7 @@ $.definitions.characters = [
 	{
 		id: 'glitchprince', ability: { title: 'JITTER', text: 'FASTER FIRING', fireRate: 0.88 }, bulletStyle: { size: 16, lineWidth: 2.5 }, title: 'GLITCH PRINCE', desc: 'FRAGMENTED HULL',
 		speedMult: 1.05, damageTakenMult: 1.05, dashCooldownMult: 0.95, radius: 10,
-		unlock: { stat: 'combo', value: 20, label: 'BEST COMBO' },
+		unlock: { purchase: 'pilot_glitchprince' },
 		draw: function( ctx, r, fillStyle, tick ) {
 			ctx.beginPath();
 			ctx.moveTo( r * 1.3, 0 ); ctx.lineTo( 0, r * 0.9 ); ctx.lineTo( -r * 1.1, 0 ); ctx.lineTo( 0, -r * 0.9 );

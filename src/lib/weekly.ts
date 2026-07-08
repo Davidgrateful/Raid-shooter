@@ -74,6 +74,18 @@ export async function getWeeklyTop(limit = 250): Promise<BoardEntry[]> {
   return [...memBoard(week).values()].sort((a, b) => b.score - a.score).slice(0, limit);
 }
 
+// Strip one identity's score from the current week's ladder (moderation). A
+// deranked/banned cheater drops off the weekly board too, not just all-time.
+export async function removeFromWeekly(key: string): Promise<boolean> {
+  const week = weekKey();
+  if (kvUrl && kvToken) {
+    const removed = (await redis(['ZREM', boardKey(week), key])) as number;
+    await redis(['HDEL', entriesKey(week), key]);
+    return removed > 0;
+  }
+  return memBoard(week).delete(key);
+}
+
 export async function getWeeklyCount(): Promise<number> {
   const week = weekKey();
   if (kvUrl && kvToken) {
