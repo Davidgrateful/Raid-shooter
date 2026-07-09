@@ -721,8 +721,14 @@ $.spawnBoss = function() {
 				$.hero.vy += ( -dy / dist ) * -0.3 * $.dt;
 			}
 
+			// hard ceiling on live enemies while a boss bolt-attack fires, so a
+			// bad phase/timer formula (or just a long, sustained fight) can never
+			// balloon the entity count into unplayable lag - mirrors the cap
+			// already used for the summon attack below
+			var bossBoltsAllowed = $.enemies.length < 180;
+
 			// continuous spiral spitter: the boss is never not shooting
-			if( this.variant.spiral ) {
+			if( this.variant.spiral && bossBoltsAllowed ) {
 				this.spiralTick += $.dt;
 				if( this.spiralTick > 8 ) {
 					this.spiralTick = 0;
@@ -750,9 +756,17 @@ $.spawnBoss = function() {
 				}
 			}
 
-			// ranged attack, faster with every phase
+			// ranged attack, faster with every phase - clamped to a floor so a
+			// boss with a low burstEvery (Solar Warden 90, Plasma Medusa 118,
+			// Xeno Monarch 112) can never go negative at phase 3 (-phase*40=-120)
+			// and end up firing every single frame. That runaway was the actual
+			// cause of "boss level keeps lagging": zero population cap on this
+			// spawn path meant the enemy array grew unbounded for the rest of
+			// the fight, worsening the longer a player stayed in it - exactly
+			// the reported symptom.
 			this.burstTick += $.dt;
-			if( this.burstTick > this.variant.burstEvery - this.phase * 40 ) {
+			var burstDelay = Math.max( 24, this.variant.burstEvery - this.phase * 40 );
+			if( this.burstTick > burstDelay && bossBoltsAllowed ) {
 				this.burstTick = 0;
 				if( this.inView ) {
 					$.audio.play( 'shootAlt' );
