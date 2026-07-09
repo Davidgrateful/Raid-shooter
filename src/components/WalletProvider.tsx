@@ -7,6 +7,36 @@ import { wagmiAdapter, projectId, networks } from '@/lib/wagmi-config';
 import { mainnet } from '@reown/appkit/networks';
 import { useState, type ReactNode } from 'react';
 
+// One-time cleanup, BEFORE createAppKit() below reads any persisted state:
+// `basic: true` (see the block below) hard-disables the embedded email/
+// social wallet flow, but a player who hit that flow before this fix
+// shipped can still be carrying its leftover session keys in localStorage
+// (@appkit/connected_social, @appkit/siwx-auth-token, etc.). Those now
+// reference a connector type this client no longer registers under basic
+// mode, so AppKit's auto-reconnect can choke on them inconsistently -
+// exactly the kind of per-player "some people can connect, others can't"
+// symptom that's otherwise invisible to us. Safe to always clear: these
+// keys only ever back the email/social flow, never an injected extension
+// or WalletConnect session, so this can never disconnect anyone with a
+// real, working wallet connection.
+if (typeof window !== 'undefined') {
+  try {
+    const embeddedOnlyKeys = [
+      '@appkit/connected_social',
+      '@appkit-wallet/SOCIAL_USERNAME',
+      '@appkit/social_provider',
+      '@appkit/recent_emails',
+      '@appkit/siwx-auth-token',
+      '@appkit/siwx-nonce-token',
+    ];
+    for (const key of embeddedOnlyKeys) {
+      window.localStorage.removeItem(key);
+    }
+  } catch {
+    // localStorage unavailable (private browsing, etc.) - nothing to clean up
+  }
+}
+
 // Initialize Reown AppKit at module load. This is the last Vercel-working
 // wallet baseline (plain WalletConnect: connect an existing wallet / injected
 // extension), restored after the embedded email/social variant caused
@@ -50,6 +80,20 @@ type AppKitOptionsWithBasic = Parameters<typeof createAppKit>[0] & { basic: bool
 // assigned to a typed variable (not passed as an inline literal) so the
 // excess-property check runs against AppKitOptionsWithBasic, which admits
 // `basic` - createAppKit() itself still receives a fully-typed object
+// WalletConnect's spec requires metadata.icons to be a non-empty array of an
+// HTTPS-reachable image, or the pairing request that gets relayed to a mobile
+// wallet arrives with no icon. Several wallets - MetaMask's connect prompt
+// notably - treat a missing/broken icon as a signal alongside their domain
+// verification check, and will warn or block the connection; others render a
+// blank icon and connect anyway without complaint. That split explains
+// "some people can wallet connect, others can't" along wallet-brand lines:
+// it was never fully broken, just inconsistently accepted. `icons: []` here
+// was the gap - fixed to a real square badge (public/wallet-icon.png,
+// composited from the wordmark logo onto the game's brand background, since
+// the source logo is a wide non-square wordmark that would render cropped/
+// distorted in the small square badge most wallets show).
+const origin = typeof window !== 'undefined' ? window.location.origin : 'https://raidshooter.xyz';
+
 const appKitOptions: AppKitOptionsWithBasic = {
   adapters: [wagmiAdapter],
   projectId: projectId || 'dev-placeholder',
@@ -58,8 +102,8 @@ const appKitOptions: AppKitOptionsWithBasic = {
   metadata: {
     name: 'Raid Shooter',
     description: 'Canvas-based arcade shooter with Web3 wallet integration',
-    url: typeof window !== 'undefined' ? window.location.origin : 'https://raidshooter.xyz',
-    icons: [],
+    url: origin,
+    icons: [`${origin}/wallet-icon.png`],
   },
   basic: true,
   features: {
