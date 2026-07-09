@@ -11,24 +11,29 @@ function shortenAddress(addr: string) {
 
 // Nuclear option: wipe every trace of a wallet session from the browser and
 // reload. wagmi persists its connector state via cookieStorage; WalletConnect
-// and AppKit separately cache session data in localStorage. If the normal
-// disconnect call fails (relay timeout, a mobile in-app browser rejecting the
-// teardown - both common), that persisted state survives and the wallet
-// silently reconnects on the next page load, which reads to a player as
-// "I disconnected and it came right back." This clears all of it so there is
-// nothing left to reconnect from, no matter how the SDK call failed.
+// and AppKit separately cache session data in localStorage - including, if a
+// player ever got routed into the embedded email/social flow, the
+// CONNECTED_SOCIAL / TELEGRAM_SOCIAL_PROVIDER keys that keep silently
+// signing them back into that auto-created wallet on every visit. If the
+// normal disconnect call fails (relay timeout, a mobile in-app browser
+// rejecting the teardown - both common), that persisted state survives and
+// the wallet silently reconnects on the next page load, which reads to a
+// player as "I disconnected and it came right back" - or "a new wallet keeps
+// appearing." This clears all of it, matched case-insensitively against the
+// real key prefixes AppKit/WalletConnect/wagmi use, so there is nothing left
+// to reconnect (or re-create) from, no matter how the SDK call failed.
 function forceForgetWallet() {
   try {
-    const prefixes = ['wc@2:', '@w3m', '@appkit', 'wagmi', 'W3M_'];
+    const prefixes = ['wc@2', '@w3m', '@appkit', 'wagmi', 'w3m_', 'walletconnect'];
+    const matches = (key: string) => {
+      const k = key.toLowerCase();
+      return prefixes.some((p) => k.startsWith(p) || k.includes(p));
+    };
     for (const key of Object.keys(localStorage)) {
-      if (prefixes.some((p) => key.startsWith(p) || key.includes(p))) {
-        localStorage.removeItem(key);
-      }
+      if (matches(key)) localStorage.removeItem(key);
     }
     for (const key of Object.keys(sessionStorage)) {
-      if (prefixes.some((p) => key.startsWith(p) || key.includes(p))) {
-        sessionStorage.removeItem(key);
-      }
+      if (matches(key)) sessionStorage.removeItem(key);
     }
     // the wagmi cookieStorage adapter persists under cookies matching "wagmi"
     for (const c of document.cookie.split(';')) {

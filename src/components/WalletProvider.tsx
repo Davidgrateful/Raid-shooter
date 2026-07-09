@@ -16,27 +16,62 @@ import { useState, type ReactNode } from 'react';
 // the whole game. The wallet is secondary - it must never take the game down.
 //
 // NOTE: the in-app "create a wallet" flow (email + Google/X -> smart account)
-// is intentionally OFF here. Re-enable it ONLY after Email + Social login are
-// turned on inside the Reown project dashboard, or AppKit throws on init.
+// is intentionally OFF here.
+//
+// `features: { email: false, socials: false }` alone does NOT reliably
+// disable this. AppKit's ConfigUtil fetches remote feature flags from the
+// Reown Cloud project dashboard on every init; if THAT project has Email or
+// Social login toggled on (the SDK default for a new project), the remote
+// config silently WINS and our local `false` is discarded outright - AppKit
+// even logs a console warning ("local configuration ... was ignored") when
+// this happens. That's what caused the reported bug: a player clicked
+// Connect Wallet, the modal offered "Continue with email/Google", and
+// picking one spun up a brand-new embedded non-custodial wallet the player
+// never asked for and didn't recognize.
+//
+// `basic: true` is the actual fix - it forces every one of these
+// dashboard-controlled features (email, socials, swaps, onramp, activity,
+// multiWallet, etc.) off LOCALLY, unconditionally, regardless of what the
+// Reown Cloud project has configured. Leaves plain wallet connect (an
+// existing extension / WalletConnect QR) untouched, which is the only flow
+// this game wants. Re-enable embedded wallets only as a deliberate product
+// decision, not as a side effect of a dashboard toggle someone else flips.
+//
+// `basic` is deliberately omitted from createAppKit()'s public TS type
+// (Reown's own `CreateAppKit = Omit<AppKitOptions, ... | 'basic'>`), but the
+// runtime implementation (exports/react.js) just spreads the options object
+// straight through to the underlying client unmodified - `basic` reaches
+// ConfigUtil exactly like every other option. Verified against the installed
+// package source before relying on this. The cast below only widens the
+// param type to admit the one field Reown's types withhold; every other
+// key still gets full type-checking against AppKitOptions.
+type AppKitOptionsWithBasic = Parameters<typeof createAppKit>[0] & { basic: boolean };
+
+// assigned to a typed variable (not passed as an inline literal) so the
+// excess-property check runs against AppKitOptionsWithBasic, which admits
+// `basic` - createAppKit() itself still receives a fully-typed object
+const appKitOptions: AppKitOptionsWithBasic = {
+  adapters: [wagmiAdapter],
+  projectId: projectId || 'dev-placeholder',
+  networks: [...networks],
+  defaultNetwork: mainnet,
+  metadata: {
+    name: 'Raid Shooter',
+    description: 'Canvas-based arcade shooter with Web3 wallet integration',
+    url: typeof window !== 'undefined' ? window.location.origin : 'https://raidshooter.xyz',
+    icons: [],
+  },
+  basic: true,
+  features: {
+    analytics: false,
+    email: false,
+    socials: false,
+  },
+  themeMode: 'dark',
+};
+
 try {
-  createAppKit({
-    adapters: [wagmiAdapter],
-    projectId: projectId || 'dev-placeholder',
-    networks: [...networks],
-    defaultNetwork: mainnet,
-    metadata: {
-      name: 'Raid Shooter',
-      description: 'Canvas-based arcade shooter with Web3 wallet integration',
-      url: typeof window !== 'undefined' ? window.location.origin : 'https://raidshooter.xyz',
-      icons: [],
-    },
-    features: {
-      analytics: false,
-      email: false,
-      socials: false,
-    },
-    themeMode: 'dark',
-  });
+  createAppKit(appKitOptions);
 } catch (err) {
   // never let a wallet-config error break the game
   console.error('[Reown] AppKit init failed — wallet disabled, game unaffected:', err);
