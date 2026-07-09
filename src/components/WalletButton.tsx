@@ -1,11 +1,47 @@
 'use client';
 
+import { useEffect, useRef, useState } from 'react';
 import { useAccount, useDisconnect } from 'wagmi';
 import { useAppKit } from '@reown/appkit/react';
 import { useSIWE } from '@/hooks/useSIWE';
 
 function shortenAddress(addr: string) {
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
+}
+
+// Nuclear option: wipe every trace of a wallet session from the browser and
+// reload. wagmi persists its connector state via cookieStorage; WalletConnect
+// and AppKit separately cache session data in localStorage. If the normal
+// disconnect call fails (relay timeout, a mobile in-app browser rejecting the
+// teardown - both common), that persisted state survives and the wallet
+// silently reconnects on the next page load, which reads to a player as
+// "I disconnected and it came right back." This clears all of it so there is
+// nothing left to reconnect from, no matter how the SDK call failed.
+function forceForgetWallet() {
+  try {
+    const prefixes = ['wc@2:', '@w3m', '@appkit', 'wagmi', 'W3M_'];
+    for (const key of Object.keys(localStorage)) {
+      if (prefixes.some((p) => key.startsWith(p) || key.includes(p))) {
+        localStorage.removeItem(key);
+      }
+    }
+    for (const key of Object.keys(sessionStorage)) {
+      if (prefixes.some((p) => key.startsWith(p) || key.includes(p))) {
+        sessionStorage.removeItem(key);
+      }
+    }
+    // the wagmi cookieStorage adapter persists under cookies matching "wagmi"
+    for (const c of document.cookie.split(';')) {
+      const name = c.split('=')[0]?.trim();
+      if (name && name.toLowerCase().includes('wagmi')) {
+        document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+      }
+    }
+  } catch (e) {
+    console.error('[wallet] force reset failed', e);
+  } finally {
+    window.location.reload();
+  }
 }
 
 // One tidy control instead of the old address + Sign Out + Disconnect + Account
@@ -16,22 +52,68 @@ function shortenAddress(addr: string) {
 //                            the AppKit account view, which holds Disconnect
 export function WalletButton() {
   const { address, isConnected } = useAccount();
-  const { disconnect } = useDisconnect();
+  const { disconnectAsync } = useDisconnect();
   const { open } = useAppKit();
   const { authenticated, address: siweAddress, signIn, signOut, loading } = useSIWE();
+  const [disconnecting, setDisconnecting] = useState(false);
+  const [attempted, setAttempted] = useState(false);
 
   const openAccount = () => {
     try { open({ view: 'Account' }); } catch (e) { console.error('[wallet] open failed', e); }
   };
 
+  // Run both teardown steps as real, independently-caught promises so a
+  // failure in one (e.g. the session DELETE) never blocks the other (the
+  // wallet disconnect itself).
+  const signOutAndDisconnect = async () => {
+    if (disconnecting) return;
+    setDisconnecting(true);
+    const results = await Promise.allSettled([signOut(), disconnectAsync()]);
+    if (results[1].status === 'rejected') {
+      console.error('[wallet] disconnect failed', results[1].reason);
+    }
+    setDisconnecting(false);
+    setAttempted(true);
+  };
+
+  // If a disconnect was attempted but the wallet is STILL reporting
+  // connected a couple seconds later, the connector-level teardown silently
+  // failed (common on mobile / in-app browsers). Surface a hard-reset
+  // fallback instead of leaving the player stuck with no way out.
+  const [stuck, setStuck] = useState(false);
+  const stuckTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (stuckTimer.current) clearTimeout(stuckTimer.current);
+    if (!attempted) return;
+    if (!isConnected) { setStuck(false); setAttempted(false); return; }
+    stuckTimer.current = setTimeout(() => setStuck(true), 2000);
+    return () => { if (stuckTimer.current) clearTimeout(stuckTimer.current); };
+  }, [attempted, isConnected]);
+
+  // Rendered next to the wallet control whenever a disconnect was requested
+  // but the wallet is still reporting connected after a couple seconds - the
+  // escape hatch for exactly the "signed out but it won't disconnect" case.
+  const stuckBanner = stuck ? (
+    <button
+      onClick={forceForgetWallet}
+      title="Wipes all local wallet session data and reloads the page"
+      className="ml-1.5 animate-pulse rounded-lg border border-amber-400/40 bg-amber-400/10 px-2 py-1.5 text-[11px] font-semibold text-amber-300 hover:bg-amber-400/20 max-sm:px-1.5 max-sm:text-[9px]"
+    >
+      Still connected? Force reset
+    </button>
+  ) : null;
+
   if (!isConnected) {
     return (
-      <button
-        onClick={() => { try { open(); } catch (e) { console.error('[wallet] open failed', e); } }}
-        className="rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-sm text-white transition-colors hover:bg-white/20 max-sm:px-2 max-sm:py-1 max-sm:text-xs"
-      >
-        Connect Wallet
-      </button>
+      <div className="flex items-center">
+        <button
+          onClick={() => { try { open(); } catch (e) { console.error('[wallet] open failed', e); } }}
+          className="rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-sm text-white transition-colors hover:bg-white/20 max-sm:px-2 max-sm:py-1 max-sm:text-xs"
+        >
+          Connect Wallet
+        </button>
+        {stuckBanner}
+      </div>
     );
   }
 
@@ -39,18 +121,22 @@ export function WalletButton() {
   // (which offers Disconnect); the ✕ signs out + disconnects in one tap.
   if (authenticated) {
     return (
-      <div className="flex items-center overflow-hidden rounded-lg border border-emerald-400/30 bg-emerald-400/10 text-xs max-sm:text-[10px]">
-        <button onClick={openAccount} className="flex items-center gap-1.5 px-2.5 py-1.5 text-emerald-300 hover:bg-white/5 max-sm:px-2 max-sm:py-1">
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-          <span className="font-mono">{shortenAddress(siweAddress || address || '')}</span>
-        </button>
-        <button
-          onClick={() => { try { signOut(); } finally { disconnect(); } }}
-          title="Sign out & disconnect"
-          className="border-l border-emerald-400/20 px-2 py-1.5 text-white/50 hover:bg-red-500/30 hover:text-white max-sm:py-1"
-        >
-          ✕
-        </button>
+      <div className="flex items-center">
+        <div className="flex items-center overflow-hidden rounded-lg border border-emerald-400/30 bg-emerald-400/10 text-xs max-sm:text-[10px]">
+          <button onClick={openAccount} className="flex items-center gap-1.5 px-2.5 py-1.5 text-emerald-300 hover:bg-white/5 max-sm:px-2 max-sm:py-1">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+            <span className="font-mono">{shortenAddress(siweAddress || address || '')}</span>
+          </button>
+          <button
+            onClick={signOutAndDisconnect}
+            disabled={disconnecting}
+            title="Sign out & disconnect"
+            className="border-l border-emerald-400/20 px-2 py-1.5 text-white/50 hover:bg-red-500/30 hover:text-white disabled:opacity-50 max-sm:py-1"
+          >
+            {disconnecting ? '…' : '✕'}
+          </button>
+        </div>
+        {stuckBanner}
       </div>
     );
   }
@@ -72,6 +158,15 @@ export function WalletButton() {
       >
         {loading ? 'Signing…' : 'Sign In'}
       </button>
+      <button
+        onClick={signOutAndDisconnect}
+        disabled={disconnecting}
+        title="Disconnect wallet"
+        className="rounded-lg border border-white/10 px-1.5 py-1.5 text-white/40 hover:bg-red-500/30 hover:text-white disabled:opacity-50 max-sm:px-1 max-sm:py-1"
+      >
+        {disconnecting ? '…' : '✕'}
+      </button>
+      {stuckBanner}
     </div>
   );
 }

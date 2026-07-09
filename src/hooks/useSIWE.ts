@@ -80,8 +80,20 @@ export function useSIWE() {
   }, [address, chainId, signMessageAsync]);
 
   const signOut = useCallback(async () => {
-    await fetch('/api/siwe/session', { method: 'DELETE' });
+    // Clear local state FIRST: the player should never see "signed in" again
+    // once they've asked to sign out, even if the network request below
+    // fails. The DELETE is best-effort cleanup of the server-side cookie;
+    // its failure must never leave the UI stuck showing the old session.
     setState({ authenticated: false, address: null, loading: false });
+    try {
+      const res = await fetch('/api/siwe/session', { method: 'DELETE' });
+      return res.ok;
+    } catch {
+      // network hiccup - local state is already cleared above; the stale
+      // server cookie will simply fail SIWE checks next time (address won't
+      // match) or get overwritten on the next successful sign-in
+      return false;
+    }
   }, []);
 
   // Auto-prompt the SIWE signature once the wallet connects, so players
