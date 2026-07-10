@@ -2,10 +2,10 @@
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WagmiProvider } from 'wagmi';
-import { createAppKit } from '@reown/appkit/react';
+import { createAppKit, useAppKitEvents } from '@reown/appkit/react';
 import { wagmiAdapter, projectId, networks } from '@/lib/wagmi-config';
 import { mainnet } from '@reown/appkit/networks';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 // One-time cleanup, BEFORE createAppKit() below reads any persisted state:
 // `basic: true` (see the block below) hard-disables the embedded email/
@@ -79,7 +79,8 @@ type AppKitOptionsWithBasic = Parameters<typeof createAppKit>[0] & { basic: bool
 
 // assigned to a typed variable (not passed as an inline literal) so the
 // excess-property check runs against AppKitOptionsWithBasic, which admits
-// `basic` - createAppKit() itself still receives a fully-typed object
+// `basic` - createAppKit() itself still receives a fully-typed object.
+//
 // WalletConnect's spec requires metadata.icons to be a non-empty array of an
 // HTTPS-reachable image, or the pairing request that gets relayed to a mobile
 // wallet arrives with no icon. Several wallets - MetaMask's connect prompt
@@ -121,12 +122,61 @@ try {
   console.error('[Reown] AppKit init failed — wallet disabled, game unaffected:', err);
 }
 
+// "Some people can connect, others can't" was reported with no console log,
+// no wallet name, nothing to diagnose from - every prior fix in this file
+// was found by reading SDK source, not by seeing what actually failed for a
+// real player. AppKit already emits CONNECT_ERROR / USER_REJECTED /
+// DISCONNECT_ERROR on its internal event bus; this just listens and reports
+// them to /api/wallet/connect-error so the NEXT occurrence shows up in
+// /admin with a wallet name, an error message, and a user agent instead of
+// being another blind report. Also remembers the most recently selected
+// wallet (SELECT_WALLET fires before the attempt) so a failure can be
+// attributed to a specific wallet brand. Best-effort only - never throws,
+// never blocks the connect flow, and reports nothing on success.
+function WalletErrorReporter() {
+  const events = useAppKitEvents();
+  const lastSeenTimestamp = useRef<number>(0);
+  const lastWalletName = useRef<string | undefined>(undefined);
+
+  useEffect(() => {
+    if (!events || events.timestamp === lastSeenTimestamp.current) return;
+    lastSeenTimestamp.current = events.timestamp;
+
+    const data = events.data;
+    if (!data || data.type !== 'track') return;
+
+    if (data.event === 'SELECT_WALLET') {
+      lastWalletName.current = data.properties?.name;
+      return;
+    }
+    if (data.event !== 'CONNECT_ERROR' && data.event !== 'USER_REJECTED' && data.event !== 'DISCONNECT_ERROR') {
+      return;
+    }
+
+    const payload = {
+      kind: data.event,
+      walletName: lastWalletName.current,
+      message: 'properties' in data ? data.properties?.message : undefined,
+    };
+    fetch('/api/wallet/connect-error', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }).catch(() => {
+      // best-effort telemetry - never surface this to the player
+    });
+  }, [events]);
+
+  return null;
+}
+
 export function WalletProvider({ children }: { children: ReactNode }) {
   const [queryClient] = useState(() => new QueryClient());
 
   return (
     <WagmiProvider config={wagmiAdapter.wagmiConfig}>
       <QueryClientProvider client={queryClient}>
+        <WalletErrorReporter />
         {children}
       </QueryClientProvider>
     </WagmiProvider>

@@ -780,6 +780,66 @@ function FlaggedRuns({ token }: { token: string }) {
   );
 }
 
+interface WalletErrorEntry { id: string; at: number; kind: 'CONNECT_ERROR' | 'USER_REJECTED' | 'DISCONNECT_ERROR'; walletName?: string; message?: string; userAgent?: string }
+
+// "Some people can connect, others can't" has no answer without real data.
+// This panel is that data - every entry is a real failure AppKit reported
+// from a real player's browser (wallet name, error message, UA), captured
+// client-side and posted to /api/wallet/connect-error. Look here first the
+// next time someone reports a wallet issue instead of guessing blind.
+function WalletErrors({ token }: { token: string }) {
+  const [rows, setRows] = useState<WalletErrorEntry[] | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState('');
+
+  async function load() {
+    setBusy(true); setMsg('');
+    try {
+      const res = await fetch(`/api/wallet/connect-error`, { cache: 'no-store', headers: { Authorization: `Bearer ${token}` } });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `Failed (${res.status})`);
+      setRows(data.errors);
+    } catch (e) { setMsg(e instanceof Error ? e.message : 'Failed to load.'); }
+    finally { setBusy(false); }
+  }
+
+  const kindColor: Record<WalletErrorEntry['kind'], string> = {
+    CONNECT_ERROR: 'text-red-300/80',
+    DISCONNECT_ERROR: 'text-red-300/80',
+    USER_REJECTED: 'text-white/40',
+  };
+
+  return (
+    <section className="mt-8">
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-cyan-300/80">Wallet connect errors — recent, from real players</h2>
+        <button onClick={load} disabled={busy} className="rounded-md bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20 disabled:opacity-40">{rows ? 'Refresh' : 'Load'}</button>
+      </div>
+      {msg && <div className="mb-3 rounded-md border border-white/15 bg-white/[0.05] p-2 text-sm text-white/80">{msg}</div>}
+      {rows && (rows.length === 0 ? (
+        <div className="rounded-md border border-white/10 bg-white/[0.02] p-3 text-sm text-white/40">No wallet connect failures reported recently.</div>
+      ) : (
+        <div className="overflow-x-auto rounded-md border border-white/10">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-white/[0.04] text-white/40"><tr><th className="px-2 py-1.5">When</th><th className="px-2 py-1.5">Type</th><th className="px-2 py-1.5">Wallet</th><th className="px-2 py-1.5">Message</th><th className="px-2 py-1.5">Browser</th></tr></thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.id} className="border-t border-white/5">
+                  <td className="px-2 py-1.5 text-white/50">{fmtAgo(r.at)}</td>
+                  <td className={`px-2 py-1.5 font-semibold ${kindColor[r.kind]}`}>{r.kind.replace('_', ' ')}</td>
+                  <td className="px-2 py-1.5">{r.walletName || '—'}</td>
+                  <td className="px-2 py-1.5 text-white/70">{r.message || '—'}</td>
+                  <td className="max-w-[260px] truncate px-2 py-1.5 text-white/30" title={r.userAgent}>{r.userAgent || '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ))}
+    </section>
+  );
+}
+
 function LeaderboardView({ rows }: { rows: Stats['leaderboard']['top'] }) {
   if (!rows || rows.length === 0) {
     return <div className="rounded-lg border border-white/10 bg-white/[0.02] p-3 text-sm text-white/40">No ranked players yet.</div>;
@@ -1591,6 +1651,7 @@ function Dashboard(p: DashboardProps) {
               </div>
               <LeaderboardView rows={lb.top} />
                 <FlaggedRuns token={token} />
+                <WalletErrors token={token} />
               {lb.topPilots.length > 0 && (
                 <>
                   <h3 className="mt-5 mb-2 text-xs uppercase tracking-wider text-white/40">Most-played pilots</h3>
