@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { TIER_COLORS, tierFromScore, displayName } from '@/lib/tiers';
+import { PilotIcon, type Cosmetics } from '@/components/PilotIcon';
 
 // The live half of the public Shooterboard page. Server render provides the
 // initial standings (so links unfurl + first paint is instant); this component
@@ -16,6 +17,7 @@ export interface Entry {
   kills: number;
   pilot: string;
   verified?: boolean;
+  cosmetics?: Cosmetics;
 }
 
 export interface SeasonSummary {
@@ -68,9 +70,12 @@ function PodiumCard({ entry, rank }: { entry: Entry; rank: number }) {
       >
         {rank}
       </div>
-      <div className="mt-3 truncate text-lg font-extrabold tracking-wide">
-        {displayName(entry.name, entry.address)}
-        {entry.verified && <span title="Wallet-verified" className="ml-1 text-cyan-300">✓</span>}
+      <div className="mt-3 flex items-center justify-center gap-1.5">
+        <PilotIcon cosmetics={entry.cosmetics} size={20} />
+        <span className="truncate text-lg font-extrabold tracking-wide">
+          {displayName(entry.name, entry.address)}
+          {entry.verified && <span title="Wallet-verified" className="ml-1 text-cyan-300">✓</span>}
+        </span>
       </div>
       <div className="mt-1 font-mono text-2xl font-black tabular-nums" style={{ color: meta.ring }}>
         {entry.score.toLocaleString()}
@@ -204,10 +209,13 @@ export function LiveBoard({
                   className="grid grid-cols-[3rem_1fr_auto] items-center gap-2 border-t border-white/[0.04] px-4 py-2.5 text-sm transition-colors hover:bg-white/[0.03] sm:grid-cols-[3.5rem_1fr_6rem_7rem_5rem]"
                 >
                   <span className="font-mono text-white/40 tabular-nums">{String(rank).padStart(2, '0')}</span>
-                  <span className="truncate font-semibold tracking-wide">
-                    {displayName(e.name, e.address)}
-                    {e.verified && <span title="Wallet-verified" className="ml-1.5 text-cyan-300">✓</span>}
-                    <span className="ml-2 hidden text-xs text-white/25 md:inline">{e.pilot}</span>
+                  <span className="flex min-w-0 items-center gap-1.5 truncate font-semibold tracking-wide">
+                    <PilotIcon cosmetics={e.cosmetics} size={18} />
+                    <span className="truncate">
+                      {displayName(e.name, e.address)}
+                      {e.verified && <span title="Wallet-verified" className="ml-1.5 text-cyan-300">✓</span>}
+                      <span className="ml-2 hidden text-xs text-white/25 md:inline">{e.pilot}</span>
+                    </span>
                   </span>
                   <span className="hidden sm:block"><TierChip score={e.score} /></span>
                   <span className="text-right font-mono font-bold tabular-nums" style={{ color: TIER_COLORS[tierFromScore(e.score)] }}>

@@ -268,7 +268,17 @@ $.submitScore = function() {
 				guestToken: $.session.authenticated ? undefined : $.guestToken(),
 				// did this run lean on a paid combat consumable? recorded for
 				// operator audit only - it no longer blocks the score
-				assisted: !!$.runAssisted
+				assisted: !!$.runAssisted,
+				// equipped loadout at submit time - purely cosmetic, rendered as a
+				// small badge next to this row on every board so a purchase is
+				// visible to every other player scanning it, not just the buyer.
+				// Server re-validates every field against a known-id allowlist.
+				cosmetics: {
+					pilotId: $.hero.character ? $.hero.character.id : undefined,
+					shipColor: ( $.definitions.shipColors[ $.storage[ 'ship' ] || 0 ] || $.definitions.shipColors[ 0 ] ).color,
+					trailHue: ( $.equippedTrail && $.equippedTrail() ) ? $.equippedTrail().hue : undefined,
+					droneId: ( $.equippedDrone && $.equippedDrone() ) ? $.equippedDrone().id : undefined
+				}
 			} )
 		} )
 			.then( function( res ) {

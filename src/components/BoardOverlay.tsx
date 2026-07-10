@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { TIER_COLORS, tierFromScore, displayName } from '@/lib/tiers';
 import { BoardBackdrop } from '@/components/BoardBackdrop';
+import { PilotIcon, type Cosmetics } from '@/components/PilotIcon';
 
 // The DEFAULT in-game leaderboard. When the player opens SHOOTERBOARD the
 // engine hands the screen to this overlay (window.__htmlBoard flags the canvas
@@ -16,6 +17,7 @@ interface Entry {
   kills: number;
   pilot: string;
   verified?: boolean;
+  cosmetics?: Cosmetics;
 }
 
 interface CupSeason { id: string; name: string; endsAt: number | null; sponsorName: string | null }
@@ -110,6 +112,7 @@ export function BoardOverlay() {
           kills: (e.kills as number) || 0,
           pilot: (e.pilot as string) || '',
           verified: !!e.verified,
+          cosmetics: e.cosmetics as Cosmetics | undefined,
         }));
         setEntries(rows);
         setTotal(typeof d.total === 'number' ? d.total : rows.length);
@@ -235,10 +238,13 @@ export function BoardOverlay() {
                       style={{ borderColor: isMe ? '#ffd75e' : `${m.ring}55`, background: `linear-gradient(180deg, ${m.glow}, rgba(10,12,20,0.6))` }}
                     >
                       <div className="text-[9px] font-black tracking-[0.3em]" style={{ color: m.ring }}>{m.label}</div>
-                      <div className="mt-1 truncate text-base font-extrabold tracking-wide">
-                        {displayName(e.name, e.address)}
-                        {e.verified && <span className="ml-1 text-cyan-300">✓</span>}
-                        {isMe && <span className="ml-1 text-amber-300">· YOU</span>}
+                      <div className="mt-1 flex items-center justify-center gap-1.5">
+                        <PilotIcon cosmetics={e.cosmetics} size={20} />
+                        <span className="truncate text-base font-extrabold tracking-wide">
+                          {displayName(e.name, e.address)}
+                          {e.verified && <span className="ml-1 text-cyan-300">✓</span>}
+                          {isMe && <span className="ml-1 text-amber-300">· YOU</span>}
+                        </span>
                       </div>
                       <div className="font-mono text-xl font-black tabular-nums" style={{ color: m.ring }}>{e.score.toLocaleString()}</div>
                       <div className="mt-1 flex items-center justify-center gap-2 text-[10px] text-white/40">
@@ -261,10 +267,13 @@ export function BoardOverlay() {
                     className={`grid grid-cols-[2.6rem_1fr_auto] items-center gap-2 border-t border-white/[0.04] px-3 py-2 text-sm first:border-t-0 sm:grid-cols-[3rem_1fr_5.5rem_6.5rem] ${isMe ? 'bg-amber-400/10' : 'hover:bg-white/[0.03]'}`}
                   >
                     <span className="font-mono text-white/40 tabular-nums">{String(rank).padStart(2, '0')}</span>
-                    <span className="truncate font-semibold tracking-wide">
-                      {displayName(e.name, e.address)}
-                      {e.verified && <span className="ml-1 text-cyan-300">✓</span>}
-                      {isMe && <span className="ml-1.5 text-[10px] font-black text-amber-300">YOU</span>}
+                    <span className="flex min-w-0 items-center gap-1.5 truncate font-semibold tracking-wide">
+                      <PilotIcon cosmetics={e.cosmetics} size={18} />
+                      <span className="truncate">
+                        {displayName(e.name, e.address)}
+                        {e.verified && <span className="ml-1 text-cyan-300">✓</span>}
+                        {isMe && <span className="ml-1.5 text-[10px] font-black text-amber-300">YOU</span>}
+                      </span>
                     </span>
                     <span className="hidden sm:block"><TierChip score={e.score} /></span>
                     <span className="text-right font-mono font-bold tabular-nums" style={{ color: TIER_COLORS[tierFromScore(e.score)] }}>{e.score.toLocaleString()}</span>

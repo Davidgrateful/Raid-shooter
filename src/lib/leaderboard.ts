@@ -22,6 +22,18 @@ export interface BoardEntry {
   // Recorded for operator audit before tournament payouts; the run ranks
   // normally either way - assists are a fair, bounded part of the loadout.
   assisted?: boolean;
+  // Equipped loadout at submit time - purely cosmetic, rendered as a small
+  // badge next to the player's row so a purchase is visible to every other
+  // competitor scanning the board, not just the buyer. Never affects score
+  // or rank. Sanitized server-side against a known-id allowlist before
+  // storage (see route.ts) so a forged payload can't inject garbage into
+  // every viewer's leaderboard render.
+  cosmetics?: {
+    pilotId?: string;
+    shipColor?: string;
+    trailHue?: number;
+    droneId?: string;
+  };
 }
 
 import { isKvConfigured, kvUrl, kvToken, redisCommand } from '@/lib/kv';

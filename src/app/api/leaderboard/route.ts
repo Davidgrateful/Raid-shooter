@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getOrCreateGuestId, getSession } from '@/lib/session';
-import { checkSubmitAllowed, getTop, getBoardCount, getEntry, isPersistent, submitEntry, suspicionReason, flagRun } from '@/lib/leaderboard';
+import { checkSubmitAllowed, getTop, getBoardCount, getEntry, isPersistent, submitEntry, suspicionReason, flagRun, type BoardEntry } from '@/lib/leaderboard';
 import { getActiveSeason } from '@/lib/rewards';
 import { submitCupEntry } from '@/lib/cup';
 import { submitWeekly } from '@/lib/weekly';
@@ -25,6 +25,32 @@ export async function GET(req: NextRequest) {
 
 function isInt(value: unknown, min: number, max: number): value is number {
   return typeof value === 'number' && Number.isInteger(value) && value >= min && value <= max;
+}
+
+// Known-id allowlists for the cosmetic badge rendered on every leaderboard
+// row. Anything outside these lists is dropped rather than stored, so a
+// forged payload can never inject an arbitrary string/color into every
+// other viewer's render.
+const PILOT_IDS = new Set([
+  'onyix', 'nova', 'tankrex', 'astravane', 'ironhalo', 'runepilot',
+  'nebulafox', 'javelin9', 'atlasbeam', 'glitchprince', 'solstice', 'crimsonwisp',
+]);
+const DRONE_IDS = new Set([
+  'drone_aegis', 'drone_voltmite', 'drone_needlefinch', 'drone_gravbeetle', 'drone_medicwisp', 'drone_champion',
+]);
+// ship colors are '#fff' or 'hsl(190, 100%, 60%)' style strings (see
+// $.definitions.shipColors / premiumColors) - never free text
+const SHIP_COLOR_RE = /^(#[0-9a-fA-F]{3,8}|hsl\(\s*\d{1,3}\s*,\s*\d{1,3}%\s*,\s*\d{1,3}%\s*\))$/;
+
+function sanitizeCosmetics(input: unknown): BoardEntry['cosmetics'] {
+  if (!input || typeof input !== 'object') return undefined;
+  const c = input as Record<string, unknown>;
+  const out: NonNullable<BoardEntry['cosmetics']> = {};
+  if (typeof c.pilotId === 'string' && PILOT_IDS.has(c.pilotId)) out.pilotId = c.pilotId;
+  if (typeof c.shipColor === 'string' && c.shipColor.length <= 32 && SHIP_COLOR_RE.test(c.shipColor)) out.shipColor = c.shipColor;
+  if (typeof c.trailHue === 'number' && Number.isInteger(c.trailHue) && c.trailHue >= 0 && c.trailHue <= 360) out.trailHue = c.trailHue;
+  if (typeof c.droneId === 'string' && DRONE_IDS.has(c.droneId)) out.droneId = c.droneId;
+  return Object.keys(out).length > 0 ? out : undefined;
 }
 
 export async function POST(req: NextRequest) {
@@ -138,6 +164,7 @@ export async function POST(req: NextRequest) {
       at: Date.now(),
       verified,
       assisted,
+      cosmetics: sanitizeCosmetics((body as Record<string, unknown>).cosmetics),
     };
     const result = await submitEntry(entry);
 
