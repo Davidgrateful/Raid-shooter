@@ -10,7 +10,7 @@ import { isKvConfigured, redisCommand } from '@/lib/kv';
 export interface WalletErrorEntry {
   id: string;
   at: number;
-  kind: 'CONNECT_ERROR' | 'USER_REJECTED' | 'DISCONNECT_ERROR';
+  kind: 'CONNECT_ERROR' | 'USER_REJECTED' | 'DISCONNECT_ERROR' | 'RECONNECT_TIMEOUT';
   walletName?: string;
   message?: string;
   userAgent?: string;

@@ -3,17 +3,22 @@ import { adminAuth } from '@/lib/admin-auth';
 import { logWalletError, getWalletErrors } from '@/lib/walletErrors';
 import { rateLimit, clientIp } from '@/lib/ratelimit';
 
-// Public write: the client reports a wallet connect failure it observed from
-// AppKit's own event stream (CONNECT_ERROR / USER_REJECTED / DISCONNECT_ERROR).
-// No address or personal data - only what's needed to spot a pattern (wallet
-// brand, error message, browser). Rate-limited per IP so this can't be spammed.
+// Public write: the client reports a wallet connect failure it observed -
+// either from AppKit's own event stream (CONNECT_ERROR / USER_REJECTED /
+// DISCONNECT_ERROR) or a client-side watchdog (RECONNECT_TIMEOUT: wagmi's
+// silent auto-reconnect on page load never resolved, almost always a
+// returning player's WalletConnect pairing that's expired/dead - the exact
+// "old players finding it hard to connect" shape, since only someone with a
+// previously-persisted session hits this path at all). No address or
+// personal data - only what's needed to spot a pattern. Rate-limited per IP.
 export async function POST(req: NextRequest) {
   if (!(await rateLimit('wallet-error', clientIp(req), 20, 60_000))) {
     return NextResponse.json({ ok: false }, { status: 429 });
   }
   const body = await req.json().catch(() => null);
   const kind = body?.kind;
-  if (kind !== 'CONNECT_ERROR' && kind !== 'USER_REJECTED' && kind !== 'DISCONNECT_ERROR') {
+  const validKinds = ['CONNECT_ERROR', 'USER_REJECTED', 'DISCONNECT_ERROR', 'RECONNECT_TIMEOUT'];
+  if (!validKinds.includes(kind)) {
     return NextResponse.json({ ok: false, error: 'invalid kind' }, { status: 400 });
   }
   await logWalletError({

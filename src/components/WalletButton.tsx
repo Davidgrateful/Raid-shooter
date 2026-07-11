@@ -56,7 +56,7 @@ function forceForgetWallet() {
 //   - signed in           -> a single verified address chip; tapping it opens
 //                            the AppKit account view, which holds Disconnect
 export function WalletButton() {
-  const { address, isConnected } = useAccount();
+  const { address, isConnected, status } = useAccount();
   const { disconnectAsync } = useDisconnect();
   const { open } = useAppKit();
   const { authenticated, address: siweAddress, signIn, signOut, loading } = useSIWE();
@@ -107,6 +107,51 @@ export function WalletButton() {
       Still connected? Force reset
     </button>
   ) : null;
+
+  // On every page load, wagmi silently tries to restore a PREVIOUS session
+  // (status transitions through 'reconnecting') before showing Connect
+  // Wallet at all - this only runs for a RETURNING player, someone who
+  // connected before. If that stored WalletConnect pairing has since
+  // expired or the relay hangs mid-handshake (the same relay flakiness
+  // wallet-connect-error telemetry already caught elsewhere), reconnecting
+  // never resolves either way and the player is left staring at nothing -
+  // not a "Connect Wallet" button, not an error, just silence. This is
+  // exactly the "old players finding it hard to connect" shape: brand-new
+  // players never enter this state (nothing to reconnect), and it looks
+  // like "the game is just broken" with no visible next step. Surfacing a
+  // reset action after a few seconds gives them one.
+  const [reconnectStuck, setReconnectStuck] = useState(false);
+  const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (status !== 'reconnecting') {
+      setReconnectStuck(false);
+      if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
+      return;
+    }
+    reconnectTimer.current = setTimeout(() => {
+      setReconnectStuck(true);
+      fetch('/api/wallet/connect-error', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kind: 'RECONNECT_TIMEOUT' }),
+      }).catch(() => {});
+    }, 5000);
+    return () => { if (reconnectTimer.current) clearTimeout(reconnectTimer.current); };
+  }, [status]);
+
+  if (reconnectStuck) {
+    return (
+      <div className="flex items-center">
+        <button
+          onClick={forceForgetWallet}
+          title="Your last wallet session didn't reconnect - wipes it and starts fresh"
+          className="rounded-lg border border-amber-400/40 bg-amber-400/10 px-3 py-1.5 text-sm font-semibold text-amber-300 hover:bg-amber-400/20 max-sm:px-2 max-sm:py-1 max-sm:text-xs"
+        >
+          Reconnect stuck? Tap to reset
+        </button>
+      </div>
+    );
+  }
 
   if (!isConnected) {
     return (

@@ -780,7 +780,7 @@ function FlaggedRuns({ token }: { token: string }) {
   );
 }
 
-interface WalletErrorEntry { id: string; at: number; kind: 'CONNECT_ERROR' | 'USER_REJECTED' | 'DISCONNECT_ERROR'; walletName?: string; message?: string; userAgent?: string }
+interface WalletErrorEntry { id: string; at: number; kind: 'CONNECT_ERROR' | 'USER_REJECTED' | 'DISCONNECT_ERROR' | 'RECONNECT_TIMEOUT'; walletName?: string; message?: string; userAgent?: string }
 
 // "Some people can connect, others can't" has no answer without real data.
 // This panel is that data - every entry is a real failure AppKit reported
@@ -807,6 +807,7 @@ function WalletErrors({ token }: { token: string }) {
     CONNECT_ERROR: 'text-red-300/80',
     DISCONNECT_ERROR: 'text-red-300/80',
     USER_REJECTED: 'text-white/40',
+    RECONNECT_TIMEOUT: 'text-amber-300/80',
   };
 
   return (
