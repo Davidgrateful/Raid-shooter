@@ -37,6 +37,53 @@ if (typeof window !== 'undefined') {
   }
 }
 
+// Expired-session sweep, also BEFORE createAppKit(): the "old players can't
+// connect" bug. WalletConnect v2 persists every session and pairing in
+// localStorage (wc@2:client:0.3//session, wc@2:core:0.3//pairing, ...) with
+// an `expiry` unix timestamp - sessions live ~7 days. A player who connected
+// last week and comes back after expiry still has the dead records on disk;
+// wagmi's silent auto-reconnect then tries to revive them against the relay
+// and hangs or errors ("Failed to publish custom payload" in the admin
+// telemetry) instead of falling back to a clean Connect Wallet button. New
+// players have no stored session, so they never hit this - which is exactly
+// why only OLD players report it. The sweep: parse the stored records, and
+// if every session AND pairing is past its expiry (or unparseable), wipe all
+// WalletConnect/AppKit connection caches so startup begins from a clean
+// slate and the button works first tap. A single still-valid record keeps
+// everything untouched, so a genuinely live session still auto-reconnects.
+// Injected extensions (MetaMask et al) don't store wc@2 records - unaffected.
+if (typeof window !== 'undefined') {
+  try {
+    const now = Math.floor(Date.now() / 1000);
+    const wcKeys = Object.keys(window.localStorage).filter((k) => k.startsWith('wc@2'));
+    const recordKeys = wcKeys.filter((k) => /\/\/(session|pairing)$/.test(k));
+    let total = 0;
+    let live = 0;
+    for (const key of recordKeys) {
+      try {
+        const records = JSON.parse(window.localStorage.getItem(key) || '[]') as { expiry?: number }[];
+        for (const record of records) {
+          total++;
+          if (typeof record.expiry === 'number' && record.expiry > now) live++;
+        }
+      } catch {
+        // unparseable store counts as dead
+      }
+    }
+    if (total > 0 && live === 0) {
+      const stalePrefixes = ['wc@2', '@w3m', 'w3m', '@appkit', 'walletconnect'];
+      for (const key of Object.keys(window.localStorage)) {
+        const k = key.toLowerCase();
+        if (stalePrefixes.some((p) => k.startsWith(p))) {
+          window.localStorage.removeItem(key);
+        }
+      }
+    }
+  } catch {
+    // localStorage unavailable - nothing to sweep
+  }
+}
+
 // Initialize Reown AppKit at module load. This is the last Vercel-working
 // wallet baseline (plain WalletConnect: connect an existing wallet / injected
 // extension), restored after the embedded email/social variant caused
