@@ -251,38 +251,58 @@ $.submitScore = function() {
 			? window.__turnstileToken
 			: undefined;
 
+		// The payload is captured once so a RETRY resends this exact run even
+		// after the player has started another. The server's anti-spam
+		// cooldown (one submit per identity per 20s) can catch a legitimate
+		// run - finish a quick death, replay, post a monster run inside the
+		// window - and before this retry existed that response was treated
+		// like any error and the score was silently gone forever ("I scored
+		// high and it didn't register"). Now a cooldown rejection waits out
+		// the window and resends; nothing is dropped over pacing.
+		var payload = {
+			score: runScore,
+			level: runLevel,
+			kills: runKills,
+			combo: runCombo,
+			pilot: runPilot,
+			time: runTime,
+			name: pilotName,
+			turnstileToken: captchaToken,
+			// durable guest identity (survives cookie loss on iOS / in-app
+			// browsers) so wallet-less scores always attach to one player
+			guestToken: $.session.authenticated ? undefined : $.guestToken(),
+			// did this run lean on a paid combat consumable? recorded for
+			// operator audit only - it no longer blocks the score
+			assisted: !!$.runAssisted,
+			// equipped loadout at submit time - purely cosmetic, rendered as a
+			// small badge next to this row on every board so a purchase is
+			// visible to every other player scanning it, not just the buyer.
+			// Server re-validates every field against a known-id allowlist.
+			cosmetics: {
+				pilotId: $.hero.character ? $.hero.character.id : undefined,
+				shipColor: ( $.definitions.shipColors[ $.storage[ 'ship' ] || 0 ] || $.definitions.shipColors[ 0 ] ).color,
+				trailHue: ( $.equippedTrail && $.equippedTrail() ) ? $.equippedTrail().hue : undefined,
+				droneId: ( $.equippedDrone && $.equippedDrone() ) ? $.equippedDrone().id : undefined
+			}
+		};
+
+		var attempt = function( retriesLeft ) {
 		fetch( '/api/leaderboard', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify( {
-				score: runScore,
-				level: runLevel,
-				kills: runKills,
-				combo: runCombo,
-				pilot: runPilot,
-				time: runTime,
-				name: pilotName,
-				turnstileToken: captchaToken,
-				// durable guest identity (survives cookie loss on iOS / in-app
-				// browsers) so wallet-less scores always attach to one player
-				guestToken: $.session.authenticated ? undefined : $.guestToken(),
-				// did this run lean on a paid combat consumable? recorded for
-				// operator audit only - it no longer blocks the score
-				assisted: !!$.runAssisted,
-				// equipped loadout at submit time - purely cosmetic, rendered as a
-				// small badge next to this row on every board so a purchase is
-				// visible to every other player scanning it, not just the buyer.
-				// Server re-validates every field against a known-id allowlist.
-				cosmetics: {
-					pilotId: $.hero.character ? $.hero.character.id : undefined,
-					shipColor: ( $.definitions.shipColors[ $.storage[ 'ship' ] || 0 ] || $.definitions.shipColors[ 0 ] ).color,
-					trailHue: ( $.equippedTrail && $.equippedTrail() ) ? $.equippedTrail().hue : undefined,
-					droneId: ( $.equippedDrone && $.equippedDrone() ) ? $.equippedDrone().id : undefined
-				}
-			} )
+			body: JSON.stringify( payload )
 		} )
 			.then( function( res ) {
-				if( !res.ok ) { throw new Error( 'submit' ); }
+				if( !res.ok ) {
+					return res.json().catch( function() { return {}; } ).then( function( errBody ) {
+						if( errBody && errBody.error === 'rate_limited' && retriesLeft > 0 ) {
+							// wait out the cooldown window, then resend this run
+							setTimeout( function() { attempt( retriesLeft - 1 ); }, 21000 );
+							throw new Error( 'retrying' );
+						}
+						throw new Error( 'submit' );
+					} );
+				}
 				return res.json();
 			} )
 			.then( function( data ) {
@@ -317,9 +337,15 @@ $.submitScore = function() {
 						.catch( function() {} );
 				}
 			} )
-			.catch( function() {
+			.catch( function( err ) {
+				// 'retrying' means a resend is already scheduled - keep the
+				// SENDING state so the UI never claims failure for a run
+				// that's still on its way to the board
+				if( err && err.message === 'retrying' ) { return; }
 				$.boardSubmit = { state: 'error', rank: 0, improved: false, verified: false };
 			} );
+		};
+		attempt( 1 );
 	} );
 };
 

@@ -198,18 +198,20 @@ export async function POST(req: NextRequest) {
       flagRun(entry, reason).catch(() => {});
     }
 
-    // High-score hype in chat: a new personal best that lands top-10 gets
-    // announced, same system-voice as the purchase flex. `improved` gates it
-    // to genuine new bests (replaying below your best posts nothing) and the
-    // rank cutoff keeps it an event, not a ticker - top-10 entries are rare
-    // enough to stay exciting, and podium breaks get called out as such.
+    // High-score hype in chat: EVERY new personal best gets announced,
+    // whatever the rank (operator call: no one's moment should go missing).
+    // `improved` still gates it - replaying below your own best posts
+    // nothing, which is what keeps this from becoming a ticker of every
+    // single game over. Podium/top-10 breaks get louder callouts.
     // Best-effort: chat being down must never fail a score submit.
-    if (result.improved && result.rank >= 1 && result.rank <= 10 && displayName) {
+    if (result.improved && result.rank >= 1 && displayName) {
       const callout = result.rank === 1
         ? `${displayName} takes the CROWN with ${score.toLocaleString()}!`
         : result.rank <= 3
           ? `${displayName} breaks the podium at #${result.rank} with ${score.toLocaleString()}!`
-          : `${displayName} storms into the top 10 at #${result.rank} with ${score.toLocaleString()}`;
+          : result.rank <= 10
+            ? `${displayName} storms into the top 10 at #${result.rank} with ${score.toLocaleString()}`
+            : `${displayName} sets a new personal best - ${score.toLocaleString()} at #${result.rank}`;
       postChatMessage({ key: 'system', name: 'RAID SHOOTER', text: callout, verified: true }).catch(() => {});
     }
 
