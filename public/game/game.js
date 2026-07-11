@@ -2381,7 +2381,7 @@ $.setState = function( state ) {
 		$.scrollClip = $.marketListClip;
 	}
 
-	if( state == 'settings' ) {
+	if( state == 'settings' && !window.__htmlSettings ) {
 		$.mouse.down = 0;
 
 		var settingsCompact = ( $.ch < 640 ),
@@ -2416,12 +2416,6 @@ $.setState = function( state ) {
 			$.mouse.down = 0;
 			$.promptPilotName();
 			this.title = 'CALL SIGN: ' + ( $.storage['pilotname'] || 'SET NAME' );
-		} );
-
-		// Difficulty is fixed at EXTREME — no selector. Shown read-only so
-		// players know what they're walking into.
-		settingsButton( 'DIFFICULTY: EXTREME', function() {
-			$.mouse.down = 0;
 		} );
 
 		var controlNames = { hybrid: 'HYBRID', keyboard: 'KEYBOARD', mouse: 'MOUSE' };
@@ -3743,6 +3737,9 @@ $.setupStates = function() {
 	$.states['settings'] = function() {
 
 		$.clearScreen();
+
+		// HTML SettingsOverlay owns this screen - nothing to draw underneath
+		if( window.__htmlSettings ) { return; }
 
 		var settingsCompact = ( $.ch < 640 );
 		$.ctxmg.beginPath();
