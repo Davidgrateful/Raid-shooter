@@ -7,6 +7,7 @@ import { GameOverlays } from '@/components/GameOverlays';
 import { BoardOverlay } from '@/components/BoardOverlay';
 import { GameOverOverlay } from '@/components/GameOverOverlay';
 import { StarterBundleModal } from '@/components/StarterBundleModal';
+import { GameChatWidget } from '@/components/GameChatWidget';
 
 export default function Home() {
   return (
@@ -20,6 +21,7 @@ export default function Home() {
       <BoardOverlay />
       <GameOverOverlay />
       <StarterBundleModal />
+      <GameChatWidget />
       <div id="rotate-overlay">
         <div className="phone" />
         <p className="text-sm text-white/80">
