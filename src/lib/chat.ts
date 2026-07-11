@@ -1,4 +1,4 @@
-// Top-10 chat. Scoped to whoever currently holds a top-10 leaderboard spot
+// Top-20 chat. Scoped to whoever currently holds a top-20 leaderboard spot
 // (checked fresh on every post in the API route) - a live perk that comes
 // and goes with rank, not a permanent channel. Redis-backed (ZSET for order
 // + HASH for bodies, same pattern as the leaderboard) with an in-memory

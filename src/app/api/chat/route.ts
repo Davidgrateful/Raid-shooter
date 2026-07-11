@@ -4,8 +4,8 @@ import { getTop } from '@/lib/leaderboard';
 import { postMessage, getRecent, isMuted, containsProfanity } from '@/lib/chat';
 import { rateLimit, clientIp } from '@/lib/ratelimit';
 
-// Top-10 chat. Reads are public (anyone watching the board can spectate);
-// posting requires the caller to currently hold a top-10 spot, checked
+// Top-20 chat. Reads are public (anyone watching the board can spectate);
+// posting requires the caller to currently hold a top-20 spot, checked
 // fresh against the live board on every request - rank slips, chat access
 // slips with it, no separate permission to revoke.
 
@@ -31,10 +31,10 @@ export async function POST(req: NextRequest) {
     ? session.siwe!.address.toLowerCase()
     : (clientGuestToken || (await getOrCreateGuestId(session)));
 
-  const top10 = await getTop(10);
-  const entry = top10.find((e) => e.address === key);
+  const top20 = await getTop(20);
+  const entry = top20.find((e) => e.address === key);
   if (!entry) {
-    return NextResponse.json({ error: 'not_top_10' }, { status: 403 });
+    return NextResponse.json({ error: 'not_top_20' }, { status: 403 });
   }
 
   if (await isMuted(key)) {

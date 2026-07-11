@@ -894,7 +894,7 @@ function ChatModeration({ token }: { token: string }) {
   return (
     <section className="mt-8">
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-cyan-300/80">Top 10 chat moderation</h2>
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-cyan-300/80">Top 20 chat moderation</h2>
         <button onClick={load} disabled={busy} className="rounded-md bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20 disabled:opacity-40">{rows ? 'Refresh' : 'Load'}</button>
       </div>
       {msg && <div className="mb-3 rounded-md border border-white/15 bg-white/[0.05] p-2 text-sm text-white/80">{msg}</div>}

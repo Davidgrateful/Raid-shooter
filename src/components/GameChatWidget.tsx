@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 // A persistent in-game chat icon, docked to the right edge, menu-screen only
 // (same visibility rule as GameOverlays' feedback/invite buttons - it never
-// sits on top of gameplay). Clicking it slides out the top-10 chat panel
+// sits on top of gameplay). Clicking it slides out the top-20 chat panel
 // without leaving the menu or navigating to the web leaderboard.
 
 interface ChatMessage {
@@ -19,7 +19,7 @@ interface ChatMessage {
 const REFRESH_MS = 5_000;
 
 const ERROR_LABELS: Record<string, string> = {
-  not_top_10: 'Chat is open to the current top 10 only.',
+  not_top_20: 'Chat is open to the current top 20 only.',
   muted: 'You have been muted from chat.',
   rate_limited: 'Slow down — try again in a few seconds.',
   blocked: 'That message was blocked.',
@@ -49,7 +49,7 @@ export function GameChatWidget() {
       .then((r) => r.json())
       .then((d) => setMe(d.authenticated && d.address ? d.address.toLowerCase() : d.guestId || null))
       .catch(() => {});
-    fetch('/api/leaderboard?limit=10')
+    fetch('/api/leaderboard?limit=20')
       .then((r) => r.json())
       .then((d) => setTopKeys((d.entries || []).map((e: { address: string }) => e.address)))
       .catch(() => {});
@@ -119,7 +119,7 @@ export function GameChatWidget() {
       <div data-game-ui="" style={{ position: 'fixed', right: 0, top: '50%', transform: 'translateY(-50%)', zIndex: 45 }}>
         <button
           onClick={() => setOpen((o) => !o)}
-          aria-label="Top 10 chat"
+          aria-label="Top 20 chat"
           className="flex items-center gap-1.5 rounded-l-full border border-r-0 border-cyan-400/30 bg-black/60 py-2.5 pl-3 pr-2.5 text-cyan-200 backdrop-blur-sm hover:border-cyan-400/60 hover:bg-black/75"
         >
           <span className="text-base">💬</span>
@@ -135,13 +135,13 @@ export function GameChatWidget() {
           className="overflow-hidden rounded-2xl border border-cyan-400/25 bg-[#0b0e16]/95 shadow-[0_0_40px_rgba(0,0,0,0.5)] backdrop-blur-md"
         >
           <div className="flex items-center justify-between border-b border-white/10 bg-white/[0.03] px-3 py-2">
-            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">Top 10 chat</span>
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">Top 20 chat</span>
             <button onClick={() => setOpen(false)} aria-label="Close" className="rounded-full p-1 text-white/40 hover:bg-white/10 hover:text-white">✕</button>
           </div>
 
           <div ref={listRef} className="max-h-56 space-y-2 overflow-y-auto px-3 py-2.5">
             {messages.length === 0 ? (
-              <p className="text-xs text-white/25">No messages yet — the top 10 haven&apos;t said anything.</p>
+              <p className="text-xs text-white/25">No messages yet — the top 20 haven&apos;t said anything.</p>
             ) : (
               messages.map((m) => (
                 <div key={m.id} className="text-xs leading-snug">
@@ -160,7 +160,7 @@ export function GameChatWidget() {
                   value={text}
                   onChange={(e) => setText(e.target.value.slice(0, 240))}
                   onKeyDown={(e) => { if (e.key === 'Enter') send(); }}
-                  placeholder="Talk to the top 10..."
+                  placeholder="Talk to the top 20..."
                   className="flex-1 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-xs text-white placeholder-white/25 outline-none focus:border-cyan-400/50"
                 />
                 <button
@@ -172,7 +172,7 @@ export function GameChatWidget() {
                 </button>
               </div>
             ) : (
-              <p className="text-[11px] text-white/30">Chat is open to the current top 10 ranked pilots. Climb the board to unlock it.</p>
+              <p className="text-[11px] text-white/30">Chat is open to the current top 20 ranked pilots. Climb the board to unlock it.</p>
             )}
             {error && <p className="mt-1.5 text-[11px] text-amber-300">{error}</p>}
           </div>

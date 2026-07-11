@@ -33,7 +33,7 @@ function myGuestToken(): string | null {
 }
 
 const ERROR_LABELS: Record<string, string> = {
-  not_top_10: 'Chat is open to the current top 10 only.',
+  not_top_20: 'Chat is open to the current top 20 only.',
   muted: 'You have been muted from chat.',
   rate_limited: 'Slow down — try again in a few seconds.',
   blocked: 'That message was blocked.',
@@ -104,12 +104,12 @@ export function TopChat({ topKeys }: { topKeys: string[] }) {
   return (
     <div className="mt-8 overflow-hidden rounded-2xl border border-white/10 bg-black/30">
       <div className="border-b border-white/10 bg-white/[0.03] px-4 py-2">
-        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">Top 10 chat</span>
+        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">Top 20 chat</span>
       </div>
 
       <div ref={listRef} className="max-h-64 space-y-2 overflow-y-auto px-4 py-3">
         {messages.length === 0 ? (
-          <p className="text-xs text-white/25">No messages yet — the top 10 haven&apos;t said anything.</p>
+          <p className="text-xs text-white/25">No messages yet — the top 20 haven&apos;t said anything.</p>
         ) : (
           messages.map((m) => (
             <div key={m.id} className="text-sm leading-snug">
@@ -130,7 +130,7 @@ export function TopChat({ topKeys }: { topKeys: string[] }) {
               onKeyDown={(e) => {
                 if (e.key === 'Enter') send();
               }}
-              placeholder="Talk to the top 10..."
+              placeholder="Talk to the top 20..."
               className="flex-1 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white placeholder-white/25 outline-none focus:border-cyan-400/50"
             />
             <button
@@ -142,7 +142,7 @@ export function TopChat({ topKeys }: { topKeys: string[] }) {
             </button>
           </div>
         ) : (
-          <p className="text-xs text-white/30">Chat is open to the current top 10 ranked pilots. Climb the board to unlock it.</p>
+          <p className="text-xs text-white/30">Chat is open to the current top 20 ranked pilots. Climb the board to unlock it.</p>
         )}
         {error && <p className="mt-1.5 text-xs text-amber-300">{error}</p>}
       </div>
