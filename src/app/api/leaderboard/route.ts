@@ -6,6 +6,7 @@ import { submitCupEntry } from '@/lib/cup';
 import { submitWeekly } from '@/lib/weekly';
 import { verifyTurnstile } from '@/lib/turnstile';
 import { clientIp } from '@/lib/ratelimit';
+import { postMessage as postChatMessage } from '@/lib/chat';
 
 export async function GET(req: NextRequest) {
   try {
@@ -196,6 +197,22 @@ export async function POST(req: NextRequest) {
     if (reason) {
       flagRun(entry, reason).catch(() => {});
     }
+
+    // High-score hype in chat: a new personal best that lands top-10 gets
+    // announced, same system-voice as the purchase flex. `improved` gates it
+    // to genuine new bests (replaying below your best posts nothing) and the
+    // rank cutoff keeps it an event, not a ticker - top-10 entries are rare
+    // enough to stay exciting, and podium breaks get called out as such.
+    // Best-effort: chat being down must never fail a score submit.
+    if (result.improved && result.rank >= 1 && result.rank <= 10 && displayName) {
+      const callout = result.rank === 1
+        ? `${displayName} takes the CROWN with ${score.toLocaleString()}!`
+        : result.rank <= 3
+          ? `${displayName} breaks the podium at #${result.rank} with ${score.toLocaleString()}!`
+          : `${displayName} storms into the top 10 at #${result.rank} with ${score.toLocaleString()}`;
+      postChatMessage({ key: 'system', name: 'RAID SHOOTER', text: callout, verified: true }).catch(() => {});
+    }
+
     return NextResponse.json({ ok: true, verified, ...result });
   } catch {
     return NextResponse.json({ error: 'board_unavailable' }, { status: 503 });
