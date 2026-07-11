@@ -840,6 +840,99 @@ function WalletErrors({ token }: { token: string }) {
   );
 }
 
+interface ChatEntry { id: string; key: string; name: string; text: string; verified: boolean; at: number; }
+
+function ChatModeration({ token }: { token: string }) {
+  const [rows, setRows] = useState<ChatEntry[] | null>(null);
+  const [muted, setMuted] = useState<string[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState('');
+
+  async function load() {
+    setBusy(true); setMsg('');
+    try {
+      const [chatRes, mutedRes] = await Promise.all([
+        fetch(`/api/chat`, { cache: 'no-store' }),
+        fetch(`/api/admin/chat`, { cache: 'no-store', headers: { Authorization: `Bearer ${token}` } }),
+      ]);
+      const chatData = await chatRes.json();
+      const mutedData = await mutedRes.json();
+      if (!chatRes.ok) throw new Error(chatData.error || `Failed (${chatRes.status})`);
+      if (!mutedRes.ok) throw new Error(mutedData.error || `Failed (${mutedRes.status})`);
+      setRows([...chatData.messages].reverse());
+      setMuted(mutedData.muted || []);
+    } catch (e) { setMsg(e instanceof Error ? e.message : 'Failed to load.'); }
+    finally { setBusy(false); }
+  }
+
+  async function removeMessage(id: string) {
+    setBusy(true); setMsg('');
+    try {
+      const res = await fetch(`/api/admin/chat?id=${encodeURIComponent(id)}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `Failed (${res.status})`);
+      await load();
+    } catch (e) { setMsg(e instanceof Error ? e.message : 'Failed to delete.'); }
+    finally { setBusy(false); }
+  }
+
+  async function toggleMute(key: string, action: 'mute' | 'unmute') {
+    setBusy(true); setMsg('');
+    try {
+      const res = await fetch(`/api/admin/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ key, action }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `Failed (${res.status})`);
+      await load();
+    } catch (e) { setMsg(e instanceof Error ? e.message : 'Failed to update mute.'); }
+    finally { setBusy(false); }
+  }
+
+  return (
+    <section className="mt-8">
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-cyan-300/80">Top 10 chat moderation</h2>
+        <button onClick={load} disabled={busy} className="rounded-md bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20 disabled:opacity-40">{rows ? 'Refresh' : 'Load'}</button>
+      </div>
+      {msg && <div className="mb-3 rounded-md border border-white/15 bg-white/[0.05] p-2 text-sm text-white/80">{msg}</div>}
+      {rows && (rows.length === 0 ? (
+        <div className="rounded-md border border-white/10 bg-white/[0.02] p-3 text-sm text-white/40">No chat messages yet.</div>
+      ) : (
+        <div className="overflow-x-auto rounded-md border border-white/10">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-white/[0.04] text-white/40"><tr><th className="px-2 py-1.5">When</th><th className="px-2 py-1.5">Pilot</th><th className="px-2 py-1.5">Message</th><th className="px-2 py-1.5">Actions</th></tr></thead>
+            <tbody>
+              {rows.map((r) => {
+                const isMuted = muted.includes(r.key);
+                return (
+                  <tr key={r.id} className="border-t border-white/5">
+                    <td className="px-2 py-1.5 text-white/50">{fmtAgo(r.at)}</td>
+                    <td className="px-2 py-1.5 font-semibold text-white/80">{r.name}{r.verified && <span className="ml-1 text-cyan-300">✓</span>}</td>
+                    <td className="px-2 py-1.5 text-white/70">{r.text}</td>
+                    <td className="px-2 py-1.5">
+                      <div className="flex gap-1.5">
+                        <button onClick={() => removeMessage(r.id)} disabled={busy} className="rounded bg-red-500/15 px-2 py-1 text-[11px] text-red-300 hover:bg-red-500/25 disabled:opacity-40">Delete</button>
+                        {isMuted ? (
+                          <button onClick={() => toggleMute(r.key, 'unmute')} disabled={busy} className="rounded bg-white/10 px-2 py-1 text-[11px] hover:bg-white/20 disabled:opacity-40">Unmute</button>
+                        ) : (
+                          <button onClick={() => toggleMute(r.key, 'mute')} disabled={busy} className="rounded bg-amber-500/15 px-2 py-1 text-[11px] text-amber-300 hover:bg-amber-500/25 disabled:opacity-40">Mute</button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      ))}
+    </section>
+  );
+}
+
 function LeaderboardView({ rows }: { rows: Stats['leaderboard']['top'] }) {
   if (!rows || rows.length === 0) {
     return <div className="rounded-lg border border-white/10 bg-white/[0.02] p-3 text-sm text-white/40">No ranked players yet.</div>;
@@ -1652,6 +1745,7 @@ function Dashboard(p: DashboardProps) {
               <LeaderboardView rows={lb.top} />
                 <FlaggedRuns token={token} />
                 <WalletErrors token={token} />
+                <ChatModeration token={token} />
               {lb.topPilots.length > 0 && (
                 <>
                   <h3 className="mt-5 mb-2 text-xs uppercase tracking-wider text-white/40">Most-played pilots</h3>

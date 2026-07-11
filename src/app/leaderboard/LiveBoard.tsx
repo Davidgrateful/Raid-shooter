@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { TIER_COLORS, tierFromScore, displayName } from '@/lib/tiers';
 import { PilotIcon, type Cosmetics } from '@/components/PilotIcon';
+import { TopChat } from '@/components/TopChat';
 
 // The live half of the public Shooterboard page. Server render provides the
 // initial standings (so links unfurl + first paint is instant); this component
@@ -226,6 +227,8 @@ export function LiveBoard({
             })}
           </div>
           <p className="mt-3 text-center text-xs text-white/30">{total.toLocaleString()} pilot{total === 1 ? '' : 's'} ranked — every score earned, never bought.</p>
+
+          <TopChat topKeys={entries.slice(0, 10).map((e) => e.address)} />
         </>
       )}
     </>
