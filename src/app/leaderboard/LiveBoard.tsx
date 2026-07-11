@@ -132,25 +132,9 @@ export function LiveBoard({
 
   return (
     <>
-      {/* live status strip */}
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-2 text-[11px] text-white/40">
-        <span className="inline-flex items-center gap-2">
-          <span className="relative flex h-2 w-2">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
-          </span>
-          LIVE — updates every {REFRESH_MS / 1000}s
-        </span>
-        <span className="inline-flex items-center gap-3">
-          <span suppressHydrationWarning>Updated {new Date(updatedAt).toLocaleTimeString()}</span>
-          <button
-            onClick={refresh}
-            disabled={refreshing}
-            className="rounded-md border border-white/15 bg-white/[0.06] px-2.5 py-1 font-black uppercase tracking-wider text-white/70 transition-colors hover:bg-white/[0.12] disabled:opacity-50"
-          >
-            {refreshing ? 'Refreshing…' : '↻ Refresh'}
-          </button>
-        </span>
+      {/* status strip - auto-refreshes on its own, no manual action needed */}
+      <div className="mb-6 flex flex-wrap items-center justify-end gap-2 text-[11px] text-white/40">
+        <span suppressHydrationWarning>Updated {new Date(updatedAt).toLocaleTimeString()}</span>
       </div>
 
       {/* live cup strip */}

@@ -103,15 +103,8 @@ export function TopChat({ topKeys }: { topKeys: string[] }) {
 
   return (
     <div className="mt-8 overflow-hidden rounded-2xl border border-white/10 bg-black/30">
-      <div className="flex items-center justify-between border-b border-white/10 bg-white/[0.03] px-4 py-2">
+      <div className="border-b border-white/10 bg-white/[0.03] px-4 py-2">
         <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">Top 10 chat</span>
-        <span className="inline-flex items-center gap-1.5 text-[10px] text-white/25">
-          <span className="relative flex h-1.5 w-1.5">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
-            <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
-          </span>
-          Live
-        </span>
       </div>
 
       <div ref={listRef} className="max-h-64 space-y-2 overflow-y-auto px-4 py-3">
