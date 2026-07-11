@@ -238,8 +238,21 @@ export function BoardOverlay() {
                       style={{ borderColor: isMe ? '#ffd75e' : `${m.ring}55`, background: `linear-gradient(180deg, ${m.glow}, rgba(10,12,20,0.6))` }}
                     >
                       <div className="text-[9px] font-black tracking-[0.3em]" style={{ color: m.ring }}>{m.label}</div>
+                      {/* the pilot's actual loadout, not just a label - the
+                          champion's cosmetics are the first thing you see */}
+                      <div
+                        className="relative mx-auto mt-1.5 flex h-11 w-11 items-center justify-center rounded-full border-2 bg-black/30"
+                        style={{ borderColor: isMe ? '#ffd75e' : m.ring }}
+                      >
+                        <PilotIcon cosmetics={e.cosmetics} size={26} />
+                        <span
+                          className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full border bg-[#0b0e16] text-[9px] font-black"
+                          style={{ borderColor: m.ring, color: m.ring }}
+                        >
+                          {pi + 1}
+                        </span>
+                      </div>
                       <div className="mt-1 flex items-center justify-center gap-1.5">
-                        <PilotIcon cosmetics={e.cosmetics} size={20} pilotName={e.pilot} />
                         <span className="truncate text-base font-extrabold tracking-wide">
                           {displayName(e.name, e.address)}
                           {e.verified && <span className="ml-1 text-cyan-300">✓</span>}

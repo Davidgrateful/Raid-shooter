@@ -10,6 +10,19 @@ import { useEffect, useState } from 'react';
 
 interface Announcement { id: string; title: string; body: string }
 interface WeeklyGift { available: boolean; claimed?: boolean; item: { id: string; title: string } | null }
+interface StreakState { days: number; claimedAt: number; goal: number }
+interface CupSeason { id: string; name: string; live: boolean; prize1Usd?: number; poolUsd?: number; endsAt: number | null; sponsorName: string | null }
+
+function myGuestToken(): string | null {
+  try {
+    const raw = localStorage.getItem('radiusraid');
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { guesttoken?: string };
+    return typeof parsed.guesttoken === 'string' && parsed.guesttoken.length >= 8 ? parsed.guesttoken : null;
+  } catch {
+    return null;
+  }
+}
 
 export function GameOverlays() {
   const [onMenu, setOnMenu] = useState(false);
@@ -26,8 +39,16 @@ export function GameOverlays() {
   const [invOpen, setInvOpen] = useState(false);
   const [inv, setInv] = useState<{ code: string; invites: number; top: { code: string; invites: number }[] } | null>(null);
   const [invCopied, setInvCopied] = useState(false);
+  const [streak, setStreak] = useState<StreakState | null>(null);
+  const [streakBusy, setStreakBusy] = useState(false);
+  const [streakMsg, setStreakMsg] = useState('');
+  const [cup, setCup] = useState<CupSeason | null>(null);
 
   useEffect(() => {
+    fetch('/api/season')
+      .then((r) => r.json())
+      .then((d) => setCup(d.season && d.season.live ? d.season : null))
+      .catch(() => {});
     fetch('/api/announcements')
       .then((r) => r.json())
       .then((d) => { if (d.announcements?.length) setNews(d.announcements[0]); })
@@ -39,11 +60,45 @@ export function GameOverlays() {
       // may have connected a wallet since the last look)
       if (isMenu) {
         fetch('/api/claim/weekly').then((r) => r.json()).then(setGift).catch(() => {});
+        // record today's play, then read back the full streak state
+        // (claimedAt isn't in the record response) - works with no wallet,
+        // pure retention hook for guests/web2 players
+        const guestToken = myGuestToken();
+        fetch('/api/streak', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ guestToken: guestToken || undefined }),
+        })
+          .then(() => fetch(`/api/streak${guestToken ? `?guestToken=${encodeURIComponent(guestToken)}` : ''}`))
+          .then((r) => r.json())
+          .then(setStreak)
+          .catch(() => {});
       }
     };
     window.addEventListener('raidshooter:state', onState as EventListener);
     return () => window.removeEventListener('raidshooter:state', onState as EventListener);
   }, []);
+
+  async function claimStreak() {
+    setStreakBusy(true); setStreakMsg('');
+    try {
+      const res = await fetch('/api/streak/claim', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ guestToken: myGuestToken() || undefined }),
+      });
+      const d = await res.json();
+      if (res.ok && d.granted) {
+        setStreakMsg(`Claimed: ${d.granted.title} — ready to use in your next run!`);
+        setStreak((prev) => (prev ? { ...prev, claimedAt: d.days } : prev));
+        try { (window as unknown as { $: { fetchProfile?: () => void } }).$?.fetchProfile?.(); } catch { /* engine may not be ready */ }
+      } else {
+        setStreakMsg('Not ready yet — keep the streak going.');
+      }
+    } catch {
+      setStreakMsg('Claim failed — try again.');
+    } finally { setStreakBusy(false); }
+  }
 
   async function claimGift() {
     setGiftBusy(true); setGiftMsg('');
@@ -95,10 +150,35 @@ export function GameOverlays() {
     } finally { setFbBusy(false); }
   }
 
+  function openCup() {
+    try {
+      const $ = (window as unknown as { $: { boardTab?: string; setState: (s: string) => void } }).$;
+      $.boardTab = 'cup';
+      $.setState('board');
+    } catch { /* engine not ready */ }
+  }
+
   if (!onMenu) return null;
 
   return (
     <>
+      {/* live cup: free "why play today" hook, points into the board's cup
+          tab - only shown while a season is actually live */}
+      {cup && (
+        <div data-game-ui="" style={{ position: 'fixed', top: 8, left: 8, zIndex: 45, maxWidth: '60vw' }}>
+          <button
+            onClick={openCup}
+            className="flex items-center gap-2 rounded-full border border-amber-400/40 bg-black/70 px-3 py-1.5 text-xs text-amber-200 backdrop-blur-md hover:border-amber-400/70 hover:text-amber-100"
+          >
+            <span>⚡</span>
+            <span className="truncate font-bold uppercase tracking-wide">{cup.name}</span>
+            {(cup.prize1Usd || cup.poolUsd) ? (
+              <span className="font-mono text-amber-300">{(cup.prize1Usd || cup.poolUsd)} USDC</span>
+            ) : null}
+          </button>
+        </div>
+      )}
+
       {/* news banner */}
       {news && !dismissed && (
         <div data-game-ui="" style={{ position: 'fixed', top: 8, left: '50%', transform: 'translateX(-50%)', zIndex: 45, maxWidth: '92vw' }}>
@@ -118,6 +198,22 @@ export function GameOverlays() {
             <p className="mt-2 whitespace-pre-wrap text-sm text-white/80">{news.body}</p>
             <button onClick={() => setOpen(false)} className="mt-5 rounded-lg bg-white/10 px-4 py-2 text-sm hover:bg-white/20">Close</button>
           </div>
+        </div>
+      )}
+
+      {/* daily streak: no wallet needed, works identically for guests -
+          re-arms every {goal} days so it's a repeat hook, not a one-off */}
+      {streak && streak.days >= streak.goal && streak.days - streak.claimedAt >= streak.goal && (
+        <div data-game-ui="" style={{ position: 'fixed', right: 12, bottom: gift?.item && !gift.claimed ? 52 : 12, zIndex: 45, maxWidth: '80vw' }}>
+          <div className="flex items-center gap-2 rounded-full border border-orange-400/40 bg-black/60 px-3 py-1.5 text-xs text-white/85 backdrop-blur-sm">
+            <span>🔥</span>
+            <span className="hidden sm:inline">{streak.days}-day streak! Free consumable ready</span>
+            <button onClick={claimStreak} disabled={streakBusy}
+              className="rounded-full bg-orange-400/90 px-3 py-1 font-semibold text-black hover:bg-orange-300 disabled:opacity-50">
+              {streakBusy ? 'Claiming…' : 'Claim free'}
+            </button>
+          </div>
+          {streakMsg && <div className="mt-1 rounded-lg border border-emerald-500/30 bg-black/70 px-3 py-1.5 text-xs text-emerald-300">{streakMsg}</div>}
         </div>
       )}
 

@@ -6,7 +6,7 @@
 export interface MarketItem {
   id: string;
   title: string;
-  kind: 'color' | 'trail' | 'character' | 'consumable' | 'drone';
+  kind: 'color' | 'trail' | 'character' | 'consumable' | 'drone' | 'bundle';
   priceUsd: number;
   priceEth: string;
   comingSoon?: boolean;
@@ -17,6 +17,10 @@ export interface MarketItem {
   // reward-only items are never listed for sale; they're granted to
   // tournament winners from the admin, which keeps them exclusive
   reward?: boolean;
+  // bundle-only: the real catalog item ids one purchase grants. A single
+  // on-chain payment for the bundle's own id/price fans out to all of these
+  // (see grantItem in profile.ts) - the bundle id itself is never owned.
+  bundleItems?: string[];
 }
 
 // priceEth approximates priceUsd at deploy time - adjust as ETH moves.
@@ -121,6 +125,13 @@ export const CATALOG: MarketItem[] = [
   {
     id: 'drone_champion', title: 'CHAMPION CREST DRONE', kind: 'drone', priceUsd: 0, priceEth: '0', reward: true,
     ability: 'PASSIVE: WINNERS-ONLY COSMETIC CREST',
+  },
+  // ---- bundle, not in the normal grid - sold only via the starter-bundle
+  // popup (StarterBundleModal), marked reward:true purely to keep it out of
+  // PUBLIC_CATALOG's storefront grid, not because it's a tournament prize ----
+  {
+    id: 'bundle_recruit', title: 'RECRUIT PACK', kind: 'bundle', priceUsd: 0.99, priceEth: '0.00033', reward: true,
+    bundleItems: ['pilot_nova', 'drone_aegis', 'color_gold'],
   },
 ];
 

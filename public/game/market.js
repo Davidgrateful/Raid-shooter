@@ -127,7 +127,8 @@ $.fetchMarket = function() {
 };
 
 $.fetchProfile = function() {
-	fetch( '/api/profile' )
+	var qs = !$.session.authenticated ? '?guestToken=' + encodeURIComponent( $.guestToken() ) : '';
+	fetch( '/api/profile' + qs )
 		.then( function( res ) { return res.json(); } )
 		.then( function( data ) {
 			$.profile.items = data.items || [];

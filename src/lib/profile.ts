@@ -41,13 +41,22 @@ async function saveProfile(address: string, profile: PlayerProfile): Promise<voi
   }
 }
 
-// kind/stack let consumables stack as counts instead of one-time unlocks
+// kind/stack let consumables stack as counts instead of one-time unlocks.
+// A 'bundle' item is never itself owned - one payment fans out to grant
+// every id in bundleItems, so ownership checks elsewhere (market grid,
+// hangar) only ever see the real items, not the bundle wrapper.
 export async function grantItem(
   address: string,
-  item: { id: string; kind: string; stack?: number }
+  item: { id: string; kind: string; stack?: number; bundleItems?: string[] }
 ): Promise<PlayerProfile> {
   const profile = await getProfile(address);
-  if (item.kind === 'consumable') {
+  if (item.kind === 'bundle' && item.bundleItems) {
+    for (const id of item.bundleItems) {
+      if (!profile.items.includes(id)) {
+        profile.items.push(id);
+      }
+    }
+  } else if (item.kind === 'consumable') {
     profile.consumables[item.id] = (profile.consumables[item.id] || 0) + (item.stack || 1);
   } else if (!profile.items.includes(item.id)) {
     profile.items.push(item.id);

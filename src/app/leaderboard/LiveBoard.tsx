@@ -65,14 +65,21 @@ function PodiumCard({ entry, rank }: { entry: Entry; rank: number }) {
       style={{ borderColor: `${meta.ring}55`, background: `linear-gradient(180deg, ${meta.glow}, rgba(10,12,20,0.6))` }}
     >
       <div className="text-[10px] font-black tracking-[0.3em]" style={{ color: meta.ring }}>{meta.label}</div>
+      {/* the champion's actual loadout, not just a rank number - the point
+          is to make the #1 player's cosmetics the first thing you see */}
       <div
-        className="mx-auto mt-3 flex h-14 w-14 items-center justify-center rounded-full border-2 text-xl font-black"
-        style={{ borderColor: meta.ring, color: meta.ring, boxShadow: `0 0 24px ${meta.glow}` }}
+        className="relative mx-auto mt-3 flex h-16 w-16 items-center justify-center rounded-full border-2 bg-black/30"
+        style={{ borderColor: meta.ring, boxShadow: `0 0 24px ${meta.glow}` }}
       >
-        {rank}
+        <PilotIcon cosmetics={entry.cosmetics} size={40} />
+        <span
+          className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border-2 bg-[#0b0e16] text-xs font-black"
+          style={{ borderColor: meta.ring, color: meta.ring }}
+        >
+          {rank}
+        </span>
       </div>
       <div className="mt-3 flex items-center justify-center gap-1.5">
-        <PilotIcon cosmetics={entry.cosmetics} size={20} pilotName={entry.pilot} />
         <span className="truncate text-lg font-extrabold tracking-wide">
           {displayName(entry.name, entry.address)}
           {entry.verified && <span title="Wallet-verified" className="ml-1 text-cyan-300">✓</span>}

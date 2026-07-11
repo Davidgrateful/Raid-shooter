@@ -4,6 +4,8 @@ import { getItem, marketEnabled, treasury, baseRpcUrl } from '@/lib/market';
 import { claimTx, grantItem } from '@/lib/profile';
 import { trackPurchase } from '@/lib/stats';
 import { rateLimit, clientIp } from '@/lib/ratelimit';
+import { getTop } from '@/lib/leaderboard';
+import { postMessage } from '@/lib/chat';
 
 async function rpc(method: string, params: unknown[]): Promise<unknown> {
   const res = await fetch(baseRpcUrl, {
@@ -80,6 +82,26 @@ export async function POST(req: NextRequest) {
     } catch {
       // swallow: the player already got their item
     }
+
+    // Free advertising: a top-20 player's purchase is social proof that
+    // sells the item far better than a static catalog listing does. Only
+    // fires for players currently holding a top-20 spot (the same audience
+    // chat is scoped to), so this stays a rare flex, not spam on every sale.
+    try {
+      const top20 = await getTop(20);
+      const entry = top20.find((e) => e.address === address);
+      if (entry) {
+        await postMessage({
+          key: 'system',
+          name: 'RAID SHOOTER',
+          text: `${entry.name || 'A top pilot'} just equipped ${item.title}`,
+          verified: true,
+        });
+      }
+    } catch {
+      // best-effort flex message - never block a paid purchase over it
+    }
+
     return NextResponse.json({ ok: true, items: profile.items, consumables: profile.consumables });
   } catch {
     return NextResponse.json({ error: 'verification_unavailable' }, { status: 503 });
