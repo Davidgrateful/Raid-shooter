@@ -71,7 +71,7 @@ function PodiumCard({ entry, rank }: { entry: Entry; rank: number }) {
         {rank}
       </div>
       <div className="mt-3 flex items-center justify-center gap-1.5">
-        <PilotIcon cosmetics={entry.cosmetics} size={20} />
+        <PilotIcon cosmetics={entry.cosmetics} size={20} pilotName={entry.pilot} />
         <span className="truncate text-lg font-extrabold tracking-wide">
           {displayName(entry.name, entry.address)}
           {entry.verified && <span title="Wallet-verified" className="ml-1 text-cyan-300">✓</span>}
@@ -210,11 +210,10 @@ export function LiveBoard({
                 >
                   <span className="font-mono text-white/40 tabular-nums">{String(rank).padStart(2, '0')}</span>
                   <span className="flex min-w-0 items-center gap-1.5 truncate font-semibold tracking-wide">
-                    <PilotIcon cosmetics={e.cosmetics} size={18} />
+                    <PilotIcon cosmetics={e.cosmetics} size={18} pilotName={e.pilot} />
                     <span className="truncate">
                       {displayName(e.name, e.address)}
                       {e.verified && <span title="Wallet-verified" className="ml-1.5 text-cyan-300">✓</span>}
-                      <span className="ml-2 hidden text-xs text-white/25 md:inline">{e.pilot}</span>
                     </span>
                   </span>
                   <span className="hidden sm:block"><TierChip score={e.score} /></span>

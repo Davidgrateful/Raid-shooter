@@ -239,7 +239,7 @@ export function BoardOverlay() {
                     >
                       <div className="text-[9px] font-black tracking-[0.3em]" style={{ color: m.ring }}>{m.label}</div>
                       <div className="mt-1 flex items-center justify-center gap-1.5">
-                        <PilotIcon cosmetics={e.cosmetics} size={20} />
+                        <PilotIcon cosmetics={e.cosmetics} size={20} pilotName={e.pilot} />
                         <span className="truncate text-base font-extrabold tracking-wide">
                           {displayName(e.name, e.address)}
                           {e.verified && <span className="ml-1 text-cyan-300">✓</span>}
@@ -268,7 +268,7 @@ export function BoardOverlay() {
                   >
                     <span className="font-mono text-white/40 tabular-nums">{String(rank).padStart(2, '0')}</span>
                     <span className="flex min-w-0 items-center gap-1.5 truncate font-semibold tracking-wide">
-                      <PilotIcon cosmetics={e.cosmetics} size={18} />
+                      <PilotIcon cosmetics={e.cosmetics} size={18} pilotName={e.pilot} />
                       <span className="truncate">
                         {displayName(e.name, e.address)}
                         {e.verified && <span className="ml-1 text-cyan-300">✓</span>}

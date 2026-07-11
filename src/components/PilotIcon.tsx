@@ -74,20 +74,34 @@ function Glyph({ family, color }: { family: Family; color: string }) {
   }
 }
 
-export function PilotIcon({ cosmetics, size = 24 }: { cosmetics?: Cosmetics; size?: number }) {
+export function PilotIcon({ cosmetics, size = 24, pilotName }: { cosmetics?: Cosmetics; size?: number; pilotName?: string }) {
   const family = (cosmetics?.pilotId && FAMILY_BY_PILOT[cosmetics.pilotId]) || null;
   const color = cosmetics?.shipColor || 'rgba(255,255,255,0.25)';
+
+  // On hover (desktop) / tap-and-hold (most mobile browsers), a small label
+  // shows which pilot this player flies - the icon alone reads "someone
+  // customized their ship" but doesn't say which pilot, and players kept
+  // asking to see that. Only rendered when the row passes a pilotName;
+  // falls back to nothing (no dead tooltip) if it's not known.
+  const tooltip = pilotName ? (
+    <span
+      aria-hidden
+      className="pointer-events-none absolute left-1/2 top-full z-20 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-white/15 bg-black/95 px-2 py-1 text-[10px] font-bold text-white opacity-0 shadow-lg transition-opacity duration-100 group-hover:opacity-100"
+    >
+      {pilotName}
+    </span>
+  ) : null;
 
   if (!family) {
     // no cosmetics on file (older entry, or fetch failed) - a neutral dash
     // instead of a broken/empty slot
     return (
       <span
-        aria-hidden
-        className="inline-flex shrink-0 items-center justify-center rounded-full border border-white/10 text-white/20"
+        className="group relative inline-flex shrink-0 items-center justify-center rounded-full border border-white/10 text-white/20"
         style={{ width: size, height: size, fontSize: size * 0.5 }}
       >
-        ·
+        <span aria-hidden>·</span>
+        {tooltip}
       </span>
     );
   }
@@ -95,7 +109,7 @@ export function PilotIcon({ cosmetics, size = 24 }: { cosmetics?: Cosmetics; siz
   const hasTrail = typeof cosmetics?.trailHue === 'number';
 
   return (
-    <span className="relative inline-flex shrink-0" style={{ width: size, height: size }} title={cosmetics?.pilotId}>
+    <span className="group relative inline-flex shrink-0" style={{ width: size, height: size }}>
       {hasTrail && (
         <svg width={size} height={size} viewBox="0 0 24 24" className="absolute inset-0" aria-hidden>
           <circle cx="12" cy="12" r="10.5" fill="none" stroke={`hsl(${cosmetics!.trailHue}, 90%, 60%)`} strokeWidth="1.2" strokeDasharray="3 3" opacity="0.55" />
@@ -111,6 +125,7 @@ export function PilotIcon({ cosmetics, size = 24 }: { cosmetics?: Cosmetics; siz
           style={{ width: size * 0.28, height: size * 0.28, background: 'hsl(190, 100%, 65%)' }}
         />
       )}
+      {tooltip}
     </span>
   );
 }
