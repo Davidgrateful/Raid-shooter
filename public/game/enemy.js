@@ -467,6 +467,27 @@ $.Enemy = function( opt ) {
 Update
 ==============================================================================*/
 /*==============================================================================
+Predictive aim - used by ranged enemies (Stinger, Sniper) for the direction
+they actually FIRE, as opposed to how they move. Only leads the shot when
+the current enemy tactic is PREDICTIVE/SNIPER (see $.rollEnemyIntel) -
+otherwise degrades to a plain aim-at-current-position shot, same as before
+this system existed, so most fights still see straightforward fire.
+==============================================================================*/
+$.aimDirection = function( fromX, fromY, projectileSpeed ) {
+	var dx = $.hero.x - fromX, dy = $.hero.y - fromY;
+	if( !$.enemyIntel || !$.enemyIntel.predictive || !projectileSpeed || $.hero.life <= 0 ) {
+		return Math.atan2( dy, dx );
+	}
+	var dist = Math.sqrt( dx * dx + dy * dy ),
+		// bounded lead time so a hero that just dashed away doesn't get shot
+		// at a spot they'll never actually reach
+		t = Math.min( 40, dist / projectileSpeed ),
+		px = $.hero.x + $.hero.vx * t,
+		py = $.hero.y + $.hero.vy * t;
+	return Math.atan2( py - fromY, px - fromX );
+};
+
+/*==============================================================================
 Bullet dodging - shared by the Phantom enemy and the EVASIVE elite trait.
 Scans the hero's bullets for one on a collision course and nudges the enemy
 sideways (perpendicular to that bullet) to slip the shot. Bounded work: only
@@ -567,7 +588,7 @@ $.Enemy.prototype.update = function( i ) {
 			hsy = $.hero.y - this.y,
 			hsd = Math.max( 1, Math.sqrt( hsx * hsx + hsy * hsy ) ),
 			spd = Math.sqrt( this.vx * this.vx + this.vy * this.vy ) || this.speed || 1,
-			turn = 0.08 * ( $.diff ? $.diff.hunt : 1 ) * $.introMult();
+			turn = 0.08 * ( $.diff ? $.diff.hunt : 1 ) * $.introMult() * ( ( $.enemyIntel && $.enemyIntel.huntBoost ) || 1 );
 		this.vx = this.vx * ( 1 - turn ) + ( hsx / hsd ) * spd * turn;
 		this.vy = this.vy * ( 1 - turn ) + ( hsy / hsd ) * spd * turn;
 		// straight-line movers shouldn't despawn at the wall while hunting

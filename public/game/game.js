@@ -315,6 +315,8 @@ $.reset = function() {
 
 	$.hero = new $.Hero();
 	$.resetUpgrades();
+	$.enemyIntel = { tactic: 'balanced', flank: 0, predictive: 0, huntBoost: 1, eliteBias: null, tick: 0, nextRoll: 180 };
+	$.rollEnemyIntel();
 	// FOUNDER-style abilities grant a random starting upgrade
 	if( $.hero.character.ability && $.hero.character.ability.startUpgrade ) {
 		var starters = $.definitions.upgrades;
@@ -910,11 +912,32 @@ $.renderMinimap = function() {
 /*==============================================================================
 Enemy Spawning
 ==============================================================================*/
+// Quadrant most aligned with the hero's current travel direction - used by
+// the FLANK tactic to spawn ahead of a kiting/dashing player instead of
+// purely at random, cutting off the direction they're running toward.
+$.headingQuadrant = function() {
+	var hvx = $.hero.vx, hvy = $.hero.vy;
+	if( Math.abs( hvx ) < 0.3 && Math.abs( hvy ) < 0.3 ) { return -1; } // too slow to have a heading
+	if( Math.abs( hvx ) > Math.abs( hvy ) ) {
+		return ( hvx > 0 ) ? 1 : 3; // right : left
+	}
+	return ( hvy > 0 ) ? 2 : 0; // bottom : top
+};
+
 $.getSpawnCoordinates = function( radius ) {
 	var quadrant = Math.floor( $.util.rand( 0, 4 ) ),
 		x,
 		y,
 		start;
+
+	// FLANK tactic: most of the time spawn ahead of the hero's own heading
+	// instead of a pure coin flip, so a player who's kiting in one direction
+	// keeps finding fresh enemies waiting rather than an empty lane. Still
+	// random the rest of the time - it reads as pressure, not a wall.
+	if( $.enemyIntel && $.enemyIntel.flank && Math.random() < 0.55 ) {
+		var headingQ = $.headingQuadrant();
+		if( headingQ !== -1 ) { quadrant = headingQ; }
+	}
 
 	if( quadrant === 0){
 		x = $.util.rand( 0, $.ww );
@@ -952,6 +975,12 @@ $.makeElite = function( enemy ) {
 	// so a maxed fire rate alone won't clear them; you have to lead or corner
 	var kinds = [ 'FAST', 'ARMORED', 'REGEN' ];
 	if( $.level && $.level.current >= 4 ) { kinds.push( 'EVASIVE' ); }
+	// the current tactical read stacks extra weight on one kind (not an
+	// override - it's still a random pick from a pool that includes it more
+	// than once) so elites lean into whatever's currently countering the pilot
+	if( $.enemyIntel && $.enemyIntel.eliteBias && kinds.indexOf( $.enemyIntel.eliteBias ) !== -1 ) {
+		kinds.push( $.enemyIntel.eliteBias, $.enemyIntel.eliteBias );
+	}
 	var kind = kinds[ Math.floor( $.util.rand( 0, kinds.length ) ) ];
 	enemy.elite = kind;
 	enemy.value = enemy.value * 3;
@@ -966,6 +995,57 @@ $.makeElite = function( enemy ) {
 	} else {
 		enemy.regen = enemy.lifeMax * 0.004;
 	}
+};
+
+/*==============================================================================
+Enemy Intel - "studies" the equipped pilot's ability and the hero's current
+combat state (low HP, actively dashing/kiting), then WEIGHTED-RANDOMLY rolls
+one tactic for the next stretch of the run: FLANK (spawn ahead of the
+hero's heading), PREDICTIVE (ranged bolts lead the hero's velocity instead
+of firing at its current spot), SWARM (faster hunt turn-rate so enemies
+converge instead of drifting in individually), SNIPER (predictive aim +
+elite bias toward EVASIVE, punishing sustained DPS before it lands), or
+BALANCED (no bias). It's a read, not a script: every tactic always keeps
+some weight, and the read is re-rolled every ~3-8s, so the same loadout
+doesn't fight the same counter twice in a row.
+==============================================================================*/
+$.rollEnemyIntel = function() {
+	var ability = ( $.hero.character && $.hero.character.ability ) || {},
+		lowHp = $.hero.life < 0.4,
+		// dashDuration/combo abilities belong to hit-and-run kiting pilots;
+		// dashTick>0 or a hero currently moving fast is also "mobile" this instant
+		mobile = !!ability.dashDuration || !!ability.combo || $.hero.dashTick > 0,
+		tanky = !!ability.lowHpResist,
+		// fires fast/hits hard/moves fast bullets - a glass-cannon burst kit
+		glassCannon = !!ability.bulletSpeed || !!ability.damage || !!ability.fireRate,
+		sustain = !!ability.killHealMult;
+
+	// [ tacticName, weight ] - reshaped by the read, but nothing ever hits 0
+	var pool = [
+		[ 'balanced', 3 ],
+		[ 'flank', mobile ? 5 : 2 ],
+		[ 'predictive', mobile ? 4 : 2 ],
+		[ 'swarm', tanky ? 5 : ( glassCannon ? 4 : 2 ) ],
+		[ 'sniper', glassCannon ? 5 : 2 ]
+	];
+	if( lowHp ) { pool.push( [ 'swarm', 4 ], [ 'flank', 3 ] ); } // press the advantage
+	if( sustain ) { pool.push( [ 'sniper', 3 ] ); } // punish farmed kills before the heal lands
+
+	var total = 0, p;
+	for( p = 0; p < pool.length; p++ ) { total += pool[ p ][ 1 ]; }
+	var roll = Math.random() * total, sum = 0, chosen = 'balanced';
+	for( p = 0; p < pool.length; p++ ) {
+		sum += pool[ p ][ 1 ];
+		if( roll <= sum ) { chosen = pool[ p ][ 0 ]; break; }
+	}
+
+	$.enemyIntel.tactic = chosen;
+	$.enemyIntel.flank = ( chosen === 'flank' ) ? 1 : 0;
+	$.enemyIntel.predictive = ( chosen === 'predictive' || chosen === 'sniper' ) ? 1 : 0;
+	$.enemyIntel.huntBoost = ( chosen === 'swarm' ) ? 1.6 : 1;
+	$.enemyIntel.eliteBias = ( chosen === 'swarm' ) ? 'ARMORED' : ( chosen === 'flank' ? 'FAST' : ( ( chosen === 'predictive' || chosen === 'sniper' ) ? 'EVASIVE' : null ) );
+	$.enemyIntel.tick = 0;
+	$.enemyIntel.nextRoll = $.util.rand( 180, 480 );
 };
 
 /*==============================================================================
@@ -4522,6 +4602,13 @@ $.setupStates = function() {
 		$.updateBillboards();
 		$.updatePowerupTimers();
 		$.spawnEnemies();
+
+		// re-read the pilot/combat state and re-roll the enemy tactic once
+		// the current read has run its course
+		$.enemyIntel.tick += $.dt;
+		if( $.enemyIntel.tick >= $.enemyIntel.nextRoll ) {
+			$.rollEnemyIntel();
+		}
 		$.enemyOffsetMod += ( $.slow ) ? $.dt / 3 : $.dt;
 
 		// update entities

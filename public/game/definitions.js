@@ -332,6 +332,10 @@ $.definitions.enemies = [
 				if( this.inView ) {
 					$.audio.play( 'shootAlt' );
 				}
+				// firing direction leads the hero's velocity when the current
+				// tactic calls for it (see $.aimDirection) - movement above
+				// still tracks the hero's actual position either way
+				var boltDir = $.aimDirection( this.x, this.y, 6.5 );
 				$.enemies.push( new $.Enemy( {
 					shape: 'shard', isBolt: 1,
 					value: 5,
@@ -340,10 +344,10 @@ $.definitions.enemies = [
 					radius: 5,
 					hue: 320,
 					lockBounds: 1,
-					x: this.x + Math.cos( direction ) * ( this.radius + 6 ),
-					y: this.y + Math.sin( direction ) * ( this.radius + 6 ),
+					x: this.x + Math.cos( boltDir ) * ( this.radius + 6 ),
+					y: this.y + Math.sin( boltDir ) * ( this.radius + 6 ),
 					type: this.type,
-					direction: direction,
+					direction: boltDir,
 					behavior: function() {
 						var boltSpeed = this.speed;
 						if( $.slow ) {
@@ -532,7 +536,10 @@ $.definitions.enemies = [
 				dy = $.hero.y - this.y,
 				dist = Math.sqrt( dx * dx + dy * dy ),
 				direction = Math.atan2( dy, dx );
-			this.aimDirection = direction;
+			// the telegraph laser (renderExtra) reads this same field, so a
+			// predictive lead shows up honestly in the charge-up warning
+			// instead of firing somewhere the laser never pointed
+			this.aimDirection = $.aimDirection( this.x, this.y, 8 );
 
 			if( dist > 520 ) {
 				this.vx = Math.cos( direction ) * speed;
@@ -559,10 +566,10 @@ $.definitions.enemies = [
 					radius: 6,
 					hue: 275,
 					lockBounds: 1,
-					x: this.x + Math.cos( direction ) * ( this.radius + 8 ),
-					y: this.y + Math.sin( direction ) * ( this.radius + 8 ),
+					x: this.x + Math.cos( this.aimDirection ) * ( this.radius + 8 ),
+					y: this.y + Math.sin( this.aimDirection ) * ( this.radius + 8 ),
 					type: this.type,
-					direction: direction,
+					direction: this.aimDirection,
 					behavior: function() {
 						var boltSpeed = this.speed;
 						if( $.slow ) {
