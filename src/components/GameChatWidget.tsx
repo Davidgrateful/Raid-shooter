@@ -26,6 +26,8 @@ const ERROR_LABELS: Record<string, string> = {
   empty: 'Message can’t be empty.',
 };
 
+const LAST_SEEN_KEY = 'chatLastSeenId';
+
 export function GameChatWidget() {
   const [onMenu, setOnMenu] = useState(false);
   const [open, setOpen] = useState(false);
@@ -35,6 +37,7 @@ export function GameChatWidget() {
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasUnread, setHasUnread] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -55,19 +58,51 @@ export function GameChatWidget() {
       .catch(() => {});
   }, [onMenu]);
 
+  // refresh() runs inside a setInterval closure, so it reads `open` via a
+  // ref rather than the state directly - otherwise it would always see
+  // whatever `open` was when the interval was created, not its current value.
+  const openRef = useRef(open);
+  useEffect(() => { openRef.current = open; }, [open]);
+
   const refresh = useCallback(() => {
     fetch('/api/chat')
       .then((r) => r.json())
-      .then((d) => { if (Array.isArray(d.messages)) setMessages(d.messages); })
+      .then((d) => {
+        if (!Array.isArray(d.messages)) return;
+        setMessages(d.messages);
+        const latest = d.messages[d.messages.length - 1];
+        if (!latest) return;
+        if (openRef.current) {
+          // panel is already open - this message was just seen, not unread
+          try { localStorage.setItem(LAST_SEEN_KEY, latest.id); } catch { /* ignore */ }
+          setHasUnread(false);
+        } else {
+          let lastSeen: string | null = null;
+          try { lastSeen = localStorage.getItem(LAST_SEEN_KEY); } catch { /* ignore */ }
+          setHasUnread(latest.id !== lastSeen);
+        }
+      })
       .catch(() => {});
   }, []);
 
+  // Poll continuously while on the menu (not just while the panel is open)
+  // so the unread dot can appear without the player ever opening chat.
   useEffect(() => {
-    if (!open) return;
+    if (!onMenu) return;
     refresh();
     const iv = setInterval(refresh, REFRESH_MS);
     return () => clearInterval(iv);
-  }, [open, refresh]);
+  }, [onMenu, refresh]);
+
+  // Opening the panel marks everything currently loaded as seen.
+  useEffect(() => {
+    if (!open) return;
+    setHasUnread(false);
+    const latest = messages[messages.length - 1];
+    if (latest) {
+      try { localStorage.setItem(LAST_SEEN_KEY, latest.id); } catch { /* ignore */ }
+    }
+  }, [open, messages]);
 
   useEffect(() => {
     if (listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight;
@@ -120,10 +155,16 @@ export function GameChatWidget() {
         <button
           onClick={() => setOpen((o) => !o)}
           aria-label="Top 20 chat"
-          className="flex items-center gap-1.5 rounded-l-full border border-r-0 border-cyan-400/30 bg-black/60 py-2.5 pl-3 pr-2.5 text-cyan-200 backdrop-blur-sm hover:border-cyan-400/60 hover:bg-black/75"
+          className="relative flex items-center gap-1.5 rounded-l-full border border-r-0 border-cyan-400/30 bg-black/60 py-2.5 pl-3 pr-2.5 text-cyan-200 backdrop-blur-sm hover:border-cyan-400/60 hover:bg-black/75"
         >
           <span className="text-base">💬</span>
           <span className="hidden text-[10px] font-black uppercase tracking-wider sm:inline">Chat</span>
+          {hasUnread && !open && (
+            <span aria-hidden className="absolute -right-0.5 -top-0.5 flex h-2.5 w-2.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-75" />
+              <span className="relative inline-flex h-2.5 w-2.5 rounded-full border border-black/40 bg-red-500" />
+            </span>
+          )}
         </button>
       </div>
 
