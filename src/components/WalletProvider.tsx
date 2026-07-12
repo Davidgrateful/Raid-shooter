@@ -184,18 +184,22 @@ function WalletErrorReporter() {
   const events = useAppKitEvents();
   const lastSeenTimestamp = useRef<number>(0);
   const lastWalletName = useRef<string | undefined>(undefined);
-  // Mobile in-app-browser hint, shown only AFTER a real connect failure on a
-  // phone. The dominant mobile failure in the admin telemetry ("Failed to
-  // publish custom payload" - Uniswap/Trust/OKX/MetaMask, iOS and Android
-  // alike) happens because the WalletConnect relay handshake spans an app
-  // switch: the browser tab gets suspended while the player approves in the
-  // wallet app, the relay socket dies, and the handshake never lands. That's
-  // relay infrastructure - unfixable from here. But every one of those
-  // wallets ships a built-in dapp browser, and opening the game INSIDE it
-  // uses the wallet's injected provider directly: no relay, no app switch,
-  // connects first try. Players just don't know that's an option, so after a
-  // failed attempt we tell them.
-  const [showMobileHint, setShowMobileHint] = useState(false);
+  // Relay-failure hint, shown AFTER a real CONNECT_ERROR whenever there's no
+  // injected provider already (inside a wallet's own browser, or with an
+  // extension already handling the connection, the relay never enters the
+  // picture and this hint would be nonsense). Originally scoped to mobile
+  // only - the theory being the relay handshake dies across an app switch -
+  // but the SAME "Failed to publish custom payload" error keeps showing up
+  // from desktop Chrome too (Uniswap Wallet, MetaMask), which means it's not
+  // just an app-switch problem: it's the underlying WalletConnect relay
+  // pairing itself being unreliable, desktop QR-scan flows included. That's
+  // relay infrastructure - unfixable from here - so instead of guessing at
+  // one specific trigger, the hint now fires on any CONNECT_ERROR and gives
+  // device-appropriate advice: on a phone, open the game inside the wallet's
+  // own browser (skips the relay/app-switch entirely); on desktop, install/
+  // use that wallet's browser extension instead of scanning a QR code (also
+  // skips the relay), or just retry - these are often transient.
+  const [hint, setHint] = useState<'mobile' | 'desktop' | null>(null);
 
   useEffect(() => {
     if (!events || events.timestamp === lastSeenTimestamp.current) return;
@@ -212,12 +216,9 @@ function WalletErrorReporter() {
       return;
     }
 
-    if (data.event === 'CONNECT_ERROR' && /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) {
-      // only when there's no injected provider already (inside a wallet's
-      // own browser the hint would be nonsense - connects don't relay there)
-      if (!(window as unknown as { ethereum?: unknown }).ethereum) {
-        setShowMobileHint(true);
-      }
+    if (data.event === 'CONNECT_ERROR' && !(window as unknown as { ethereum?: unknown }).ethereum) {
+      const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+      setHint(isMobile ? 'mobile' : 'desktop');
     }
 
     const payload = {
@@ -234,7 +235,7 @@ function WalletErrorReporter() {
     });
   }, [events]);
 
-  if (!showMobileHint) return null;
+  if (!hint) return null;
 
   return (
     <div
@@ -243,16 +244,27 @@ function WalletErrorReporter() {
       className="rounded-xl border border-cyan-400/40 bg-[#0b0e16]/95 p-3.5 text-white shadow-[0_0_40px_rgba(0,0,0,0.6)] backdrop-blur-md"
     >
       <div className="flex items-start gap-2.5">
-        <span className="text-lg">📱</span>
+        <span className="text-lg">{hint === 'mobile' ? '📱' : '💻'}</span>
         <div className="min-w-0 flex-1 text-xs leading-relaxed text-white/80">
-          <b className="text-cyan-300">Connection didn&apos;t go through?</b> On phones the most
-          reliable way is opening this game inside your wallet app&apos;s own browser:
-          open {lastWalletName.current ? <b>{lastWalletName.current}</b> : 'your wallet app'}, find its
-          <b> Browser / Discover</b> tab, and go to <b className="font-mono">raidshooter.xyz</b> —
-          the wallet connects instantly there, no approval ping-pong.
+          {hint === 'mobile' ? (
+            <>
+              <b className="text-cyan-300">Connection didn&apos;t go through?</b> The most
+              reliable way on phones is opening this game inside your wallet app&apos;s own browser:
+              open {lastWalletName.current ? <b>{lastWalletName.current}</b> : 'your wallet app'}, find its
+              <b> Browser / Discover</b> tab, and go to <b className="font-mono">raidshooter.xyz</b> —
+              the wallet connects instantly there, no approval ping-pong.
+            </>
+          ) : (
+            <>
+              <b className="text-cyan-300">Connection didn&apos;t go through?</b> QR-code connects
+              can be flaky. If {lastWalletName.current ? <b>{lastWalletName.current}</b> : 'your wallet'} has
+              a browser extension, install and use that instead — it connects directly,
+              no scan required. Otherwise just try again in a few seconds.
+            </>
+          )}
         </div>
         <button
-          onClick={() => setShowMobileHint(false)}
+          onClick={() => setHint(null)}
           aria-label="Close"
           className="shrink-0 rounded-full p-1 text-white/40 hover:bg-white/10 hover:text-white"
         >

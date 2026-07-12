@@ -21,6 +21,11 @@
     "viem": "^2.47.6",
     "wagmi": "^3.6.0"
   },
+  "overrides": {
+    "@walletconnect/core": "2.23.10",
+    "@walletconnect/sign-client": "2.23.10",
+    "@walletconnect/universal-provider": "2.23.10"
+  },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
