@@ -38,9 +38,12 @@ Last updated: 2026-07-09
 
 | Tier | Price / cup | Includes |
 |---|---|---|
-| **Bronze** | `[ ADD ]` | "POWERED BY" loading-screen slot, listed on the Cup info strip, standard prize pool funding |
-| **Silver** | `[ ADD ]` | Everything in Bronze + full Cup naming ("WITH [TOKEN]" on the live board) + post-event recap report |
-| **Gold** | `[ ADD ]` | Everything in Silver + featured top-3 prize tier + cross-post to our socials + first right of refusal on the next Cup |
+| **Bronze** | **$150** | "POWERED BY" loading-screen slot, listed on the Cup info strip, standard prize pool funding |
+| **Silver** | **$350** | Everything in Bronze + full Cup naming ("WITH [TOKEN]" on the live board) + post-event recap report |
+| **Gold** | **$750** | Everything in Silver + featured top-3 prize tier + cross-post to our socials + first right of refusal on the next Cup |
+
+Starting-point pricing with no prior deals to benchmark against - negotiate
+from here, and revise once you've closed 2-3 real sponsorships.
 
 **They provide:** logo, token/brand name, and the prize budget for the
 event window. **Setup time:** same day — no integration work needed on
@@ -62,7 +65,9 @@ Copy this into an email, DM, or Telegram message — fill in the brackets:
 
 ## Before sending
 
-- [ ] Fill in real tier pricing (currently placeholders)
 - [ ] Confirm current Cup calendar / next available slot
 - [ ] Have logo-spec requirements ready to send back (format, size)
 - [ ] Know your payout process for prize funding (their token vs. USDC)
+
+A polished, ready-to-send version of the outreach message (no brackets to
+fill except name/token) lives in `docs/SPONSOR_OUTREACH_EMAIL.md`.
