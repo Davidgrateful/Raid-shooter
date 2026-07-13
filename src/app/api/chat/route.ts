@@ -65,6 +65,7 @@ export async function POST(req: NextRequest) {
     name: entry.name || (verified ? `${key.slice(0, 6)}...${key.slice(-4)}` : 'PILOT'),
     text,
     verified,
+    cosmetics: entry.cosmetics,
   });
 
   return NextResponse.json({ message });

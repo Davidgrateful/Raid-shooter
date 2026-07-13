@@ -212,7 +212,7 @@ export async function POST(req: NextRequest) {
           : result.rank <= 10
             ? `${displayName} storms into the top 10 at #${result.rank} with ${score.toLocaleString()}`
             : `${displayName} sets a new personal best - ${score.toLocaleString()} at #${result.rank}`;
-      postChatMessage({ key: 'system', name: 'RAID SHOOTER', text: callout, verified: true }).catch(() => {});
+      postChatMessage({ key: 'system', name: 'RAID SHOOTER', text: callout, verified: true, cosmetics: entry.cosmetics }).catch(() => {});
     }
 
     return NextResponse.json({ ok: true, verified, ...result });

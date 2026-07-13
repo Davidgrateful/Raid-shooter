@@ -2,14 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSIWE } from '@/hooks/useSIWE';
+import { ChatMessageLine, type ChatMessageData } from '@/components/ChatMessageLine';
 
-interface ChatMessage {
-  id: string;
-  key: string;
-  name: string;
-  text: string;
-  verified: boolean;
-  at: number;
+export interface TopChatEntry {
+  address: string;
+  name?: string;
 }
 
 const REFRESH_MS = 5_000;
@@ -40,13 +37,14 @@ const ERROR_LABELS: Record<string, string> = {
   empty: 'Message can’t be empty.',
 };
 
-export function TopChat({ topKeys }: { topKeys: string[] }) {
+export function TopChat({ topEntries }: { topEntries: TopChatEntry[] }) {
   const { address, authenticated } = useSIWE();
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<ChatMessageData[]>([]);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const myKey = authenticated && address
     ? address.toLowerCase()
@@ -55,7 +53,14 @@ export function TopChat({ topKeys }: { topKeys: string[] }) {
         return t ? `guest:${t}` : null;
       })();
 
+  const topKeys = topEntries.map((e) => e.address);
+  const knownNames = new Set(topEntries.map((e) => (e.name || '').toUpperCase()).filter(Boolean));
   const eligible = !!myKey && topKeys.includes(myKey);
+
+  function tagPlayer(name: string) {
+    setText((t) => (t ? `${t.trim()} @${name} ` : `@${name} `).slice(0, 240));
+    inputRef.current?.focus();
+  }
 
   const refresh = useCallback(() => {
     fetch('/api/chat')
@@ -112,11 +117,12 @@ export function TopChat({ topKeys }: { topKeys: string[] }) {
           <p className="text-xs text-white/25">No messages yet — the top 20 haven&apos;t said anything.</p>
         ) : (
           messages.map((m) => (
-            <div key={m.id} className="text-sm leading-snug">
-              <span className="font-bold text-cyan-300">{m.name}</span>
-              {m.verified && <span className="ml-1 text-cyan-300">✓</span>}
-              <span className="text-white/70">: {m.text}</span>
-            </div>
+            <ChatMessageLine
+              key={m.id}
+              message={m}
+              knownNames={knownNames}
+              onNameClick={eligible ? tagPlayer : undefined}
+            />
           ))
         )}
       </div>
@@ -125,6 +131,7 @@ export function TopChat({ topKeys }: { topKeys: string[] }) {
         {eligible ? (
           <div className="flex gap-2">
             <input
+              ref={inputRef}
               value={text}
               onChange={(e) => setText(e.target.value.slice(0, 240))}
               onKeyDown={(e) => {

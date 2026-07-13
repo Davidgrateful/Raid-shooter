@@ -1,19 +1,16 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { ChatMessageLine, type ChatMessageData } from '@/components/ChatMessageLine';
 
 // A persistent in-game chat icon, docked to the right edge, menu-screen only
 // (same visibility rule as GameOverlays' feedback/invite buttons - it never
 // sits on top of gameplay). Clicking it slides out the top-20 chat panel
 // without leaving the menu or navigating to the web leaderboard.
 
-interface ChatMessage {
-  id: string;
-  key: string;
-  name: string;
-  text: string;
-  verified: boolean;
-  at: number;
+interface TopEntry {
+  address: string;
+  name?: string;
 }
 
 const REFRESH_MS = 5_000;
@@ -32,13 +29,14 @@ export function GameChatWidget() {
   const [onMenu, setOnMenu] = useState(false);
   const [open, setOpen] = useState(false);
   const [me, setMe] = useState<string | null>(null);
-  const [topKeys, setTopKeys] = useState<string[]>([]);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [topEntries, setTopEntries] = useState<TopEntry[]>([]);
+  const [messages, setMessages] = useState<ChatMessageData[]>([]);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasUnread, setHasUnread] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const onState = (e: Event) => setOnMenu((e as CustomEvent).detail === 'menu');
@@ -54,7 +52,7 @@ export function GameChatWidget() {
       .catch(() => {});
     fetch('/api/leaderboard?limit=20')
       .then((r) => r.json())
-      .then((d) => setTopKeys((d.entries || []).map((e: { address: string }) => e.address)))
+      .then((d) => setTopEntries((d.entries || []).map((e: { address: string; name?: string }) => ({ address: e.address, name: e.name }))))
       .catch(() => {});
   }, [onMenu]);
 
@@ -144,8 +142,15 @@ export function GameChatWidget() {
     }
   }
 
+  function tagPlayer(name: string) {
+    setText((t) => (t ? `${t.trim()} @${name} ` : `@${name} `).slice(0, 240));
+    inputRef.current?.focus();
+  }
+
   if (!onMenu) return null;
 
+  const topKeys = topEntries.map((e) => e.address);
+  const knownNames = new Set(topEntries.map((e) => (e.name || '').toUpperCase()).filter(Boolean));
   const eligible = !!me && topKeys.includes(me);
 
   return (
@@ -185,11 +190,13 @@ export function GameChatWidget() {
               <p className="text-xs text-white/25">No messages yet — the top 20 haven&apos;t said anything.</p>
             ) : (
               messages.map((m) => (
-                <div key={m.id} className="text-xs leading-snug">
-                  <span className="font-bold text-cyan-300">{m.name}</span>
-                  {m.verified && <span className="ml-1 text-cyan-300">✓</span>}
-                  <span className="text-white/70">: {m.text}</span>
-                </div>
+                <ChatMessageLine
+                  key={m.id}
+                  message={m}
+                  knownNames={knownNames}
+                  iconSize={16}
+                  onNameClick={eligible ? tagPlayer : undefined}
+                />
               ))
             )}
           </div>
@@ -198,6 +205,7 @@ export function GameChatWidget() {
             {eligible ? (
               <div className="flex gap-1.5">
                 <input
+                  ref={inputRef}
                   value={text}
                   onChange={(e) => setText(e.target.value.slice(0, 240))}
                   onKeyDown={(e) => { if (e.key === 'Enter') send(); }}

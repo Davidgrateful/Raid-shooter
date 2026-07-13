@@ -96,6 +96,7 @@ export async function POST(req: NextRequest) {
           name: 'RAID SHOOTER',
           text: `${entry.name || 'A top pilot'} just equipped ${item.title}`,
           verified: true,
+          cosmetics: entry.cosmetics,
         });
       }
     } catch {

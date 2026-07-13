@@ -5,6 +5,7 @@
 // fallback for dev/no-KV.
 
 import { isKvConfigured, kvUrl, kvToken, redisCommand } from '@/lib/kv';
+import type { BoardEntry } from '@/lib/leaderboard';
 
 export interface ChatMessage {
   id: string;
@@ -13,6 +14,10 @@ export interface ChatMessage {
   text: string;
   verified: boolean;
   at: number;
+  // the sender's equipped loadout, straight from their leaderboard entry
+  // (already sanitized there) - lets the chat panel show the same pilot
+  // glyph as the board instead of a bare name.
+  cosmetics?: BoardEntry['cosmetics'];
 }
 
 const ZKEY = 'chat:messages';
@@ -30,6 +35,7 @@ export async function postMessage(input: {
   name: string;
   text: string;
   verified: boolean;
+  cosmetics?: BoardEntry['cosmetics'];
 }): Promise<ChatMessage> {
   const message: ChatMessage = {
     id: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`,
@@ -38,6 +44,7 @@ export async function postMessage(input: {
     text: input.text,
     verified: input.verified,
     at: Date.now(),
+    cosmetics: input.cosmetics,
   };
 
   if (isKvConfigured()) {
