@@ -149,9 +149,13 @@ $.usd = function( n ) {
 
 // spends one charge server-side first so a refresh can't duplicate it,
 // then runs the in-run effect; marks the run assisted (for operator audit -
-// the score still ranks; assists are tuned to be a bounded comeback aid)
+// the score still ranks; assists are tuned to be a bounded comeback aid).
+// Guests can own a consumable too (the streak reward grants one with no
+// wallet required), so this only checks stock, not wallet auth - a hard
+// authenticated-only gate here used to let a guest earn a consumable but
+// never spend it.
 $.useConsumable = function( id, effect ) {
-	if( $.consumableCount( id ) <= 0 || !$.session.authenticated ) {
+	if( $.consumableCount( id ) <= 0 ) {
 		return false;
 	}
 	$.profile.consumables[ id ]--;
@@ -160,7 +164,10 @@ $.useConsumable = function( id, effect ) {
 	fetch( '/api/consumable/use', {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify( { itemId: id } )
+		body: JSON.stringify( {
+			itemId: id,
+			guestToken: $.session.authenticated ? undefined : $.guestToken()
+		} )
 	} ).catch( function() {} );
 	return true;
 };

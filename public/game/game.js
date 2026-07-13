@@ -496,7 +496,7 @@ $.renderInterface = function() {
 		/*==============================================================================
 		Consumables - only shown to players who actually own one
 		==============================================================================*/
-		if( $.session.authenticated && ( $.consumableCount( 'consumable_health' ) > 0 || $.consumableCount( 'consumable_shield' ) > 0 ) ) {
+		if( $.consumableCount( 'consumable_health' ) > 0 || $.consumableCount( 'consumable_shield' ) > 0 ) {
 			$.ctxmg.beginPath();
 			$.text( {
 				ctx: $.ctxmg,
@@ -2861,6 +2861,52 @@ $.setState = function( state ) {
 				this.title = $.soundLevelLabels[ $.soundLevel ];
 			}
 		} ) );
+
+		// Touch players also have no 1/2 keys - a purchased Health Pack or
+		// Shield Charge had NO way to be used mid-run on touch at all (the
+		// stock showed in the corner HUD, the keyboard shortcut existed, but
+		// there was never a tap target). Second row, same dead zone, only
+		// shown for a consumable the player actually owns.
+		var hasHealthPack = $.consumableCount( 'consumable_health' ) > 0,
+			hasShieldPack = $.consumableCount( 'consumable_shield' ) > 0;
+		if( hasHealthPack || hasShieldPack ) {
+			var consumableBarY = touchBarY + touchBarHeight + 10,
+				consumableBarWidth = 110;
+			if( hasHealthPack ) {
+				$.buttons.push( new $.Button( {
+					x: $.cw / 2 - ( hasShieldPack ? touchBarGap / 2 + consumableBarWidth / 2 : 0 ),
+					y: consumableBarY,
+					lockedWidth: consumableBarWidth,
+					lockedHeight: touchBarHeight,
+					scale: 1,
+					title: 'HEALTH X' + $.consumableCount( 'consumable_health' ),
+					action: function() {
+						$.mouse.down = 0;
+						$.useConsumable( 'consumable_health', function() {
+							$.hero.life = Math.min( 1, $.hero.life + 0.4 );
+						} );
+						this.title = 'HEALTH X' + $.consumableCount( 'consumable_health' );
+					}
+				} ) );
+			}
+			if( hasShieldPack ) {
+				$.buttons.push( new $.Button( {
+					x: $.cw / 2 + ( hasHealthPack ? touchBarGap / 2 + consumableBarWidth / 2 : 0 ),
+					y: consumableBarY,
+					lockedWidth: consumableBarWidth,
+					lockedHeight: touchBarHeight,
+					scale: 1,
+					title: 'SHIELD X' + $.consumableCount( 'consumable_shield' ),
+					action: function() {
+						$.mouse.down = 0;
+						$.useConsumable( 'consumable_shield', function() {
+							$.powerupTimers[ 5 ] = $.powerupDuration;
+						} );
+						this.title = 'SHIELD X' + $.consumableCount( 'consumable_shield' );
+					}
+				} ) );
+			}
+		}
 	}
 
 	if( state == 'upgrade' ) {
@@ -2899,7 +2945,7 @@ $.setState = function( state ) {
 		$.continueTickMax = 540;          // ~9 seconds at 60fps
 
 		var coCompact = ( $.ch < 640 ),
-			hasRevive = ( $.consumableCount( 'consumable_revive' ) > 0 ) && $.session.authenticated,
+			hasRevive = $.consumableCount( 'consumable_revive' ) > 0,
 			coCx = $.cw / 2,
 			coBtnY = coCompact ? $.ch - 118 : $.ch / 2 + 30;
 
@@ -4851,7 +4897,7 @@ $.setupStates = function() {
 		$.ctxmg.fillRect( 0, 0, $.cw, $.ch );
 
 		var coC = ( $.ch < 640 ),
-			coHasRevive = ( $.consumableCount( 'consumable_revive' ) > 0 ) && $.session.authenticated,
+			coHasRevive = $.consumableCount( 'consumable_revive' ) > 0,
 			titleY = coC ? 70 : 150,
 			secsLeft = Math.max( 0, Math.ceil( ( $.continueTickMax - $.continueTick ) / 60 ) );
 
