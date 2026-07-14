@@ -683,10 +683,6 @@ $.Enemy.prototype.receiveDamage = function( i, val ) {
 		$.registerKill( this.value, this.radius );
 		$.level.kills++;
 		$.kills++;
-		// leaderboard check-in: post the run's current score every couple of
-		// kills instead of only once at game over, so the board visibly
-		// reflects a run in progress
-		if( $.maybeLiveSubmit ) { $.maybeLiveSubmit(); }
 		$.enemies.splice( i, 1 );
 	}
 };

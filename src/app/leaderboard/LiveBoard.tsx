@@ -29,7 +29,7 @@ export interface SeasonSummary {
   sponsorName: string | null;
 }
 
-const REFRESH_MS = 15_000;
+const REFRESH_MS = 5_000;
 
 function timeLeft(endsAt: number | null): string {
   if (!endsAt) return '';

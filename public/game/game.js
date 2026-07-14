@@ -297,7 +297,6 @@ $.reset = function() {
 	$.score = 0;
 	$.hitstop = 0;
 	$.runAssisted = false;
-	$.lastLiveSubmitKills = 0;
 	// XP boost is decided at run start (see $.activateXpBoost); progression
 	// only, so it never marks the run assisted
 	$.xpBoostThisRun = 0;

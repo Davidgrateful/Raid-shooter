@@ -22,7 +22,7 @@ interface Entry {
 
 interface CupSeason { id: string; name: string; endsAt: number | null; sponsorName: string | null }
 
-const REFRESH_MS = 15_000;
+const REFRESH_MS = 5_000;
 
 function TierChip({ score }: { score: number }) {
   const tier = tierFromScore(score);
