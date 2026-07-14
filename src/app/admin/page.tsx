@@ -934,6 +934,97 @@ function ChatModeration({ token }: { token: string }) {
   );
 }
 
+interface GuestMatch { guestKey: string; name?: string; score: number; kills: number; pilot: string; at: number }
+
+function GuestRecovery({ token }: { token: string }) {
+  const [query, setQuery] = useState('');
+  const [matches, setMatches] = useState<GuestMatch[] | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState('');
+  const [walletInputs, setWalletInputs] = useState<Record<string, string>>({});
+
+  async function search() {
+    if (query.trim().length < 2) { setMsg('Type at least 2 characters of the player\'s old call sign.'); return; }
+    setBusy(true); setMsg('');
+    try {
+      const res = await fetch(`/api/admin/recover-guest?q=${encodeURIComponent(query.trim())}`, { headers: { Authorization: `Bearer ${token}` } });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `Failed (${res.status})`);
+      setMatches(data.matches);
+      if (data.matches.length === 0) setMsg('No guest entries match that name.');
+    } catch (e) { setMsg(e instanceof Error ? e.message : 'Search failed.'); }
+    finally { setBusy(false); }
+  }
+
+  async function recover(guestKey: string) {
+    const walletAddress = (walletInputs[guestKey] || '').trim();
+    if (!/^0x[0-9a-fA-F]{40}$/.test(walletAddress)) {
+      setMsg('Enter a valid 0x wallet address for that row first.');
+      return;
+    }
+    setBusy(true); setMsg('');
+    try {
+      const res = await fetch('/api/admin/recover-guest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ guestKey, walletAddress }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `Failed (${res.status})`);
+      setMsg(`Merged into ${walletAddress} — score ${fmtNum(data.walletEntry?.score || 0)}, ${data.walletProfile?.items?.length || 0} items, ${Object.keys(data.walletProfile?.consumables || {}).length} consumable type(s).`);
+      setMatches((prev) => (prev ? prev.filter((m) => m.guestKey !== guestKey) : prev));
+    } catch (e) { setMsg(e instanceof Error ? e.message : 'Recovery failed.'); }
+    finally { setBusy(false); }
+  }
+
+  return (
+    <section className="mt-8">
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-cyan-300/80">Recover lost guest progress — search by old call sign</h2>
+      </div>
+      <div className="mb-3 flex gap-2">
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') search(); }}
+          placeholder="Player's call sign before they connected a wallet"
+          className="flex-1 rounded-md border border-white/15 bg-white/[0.04] px-3 py-1.5 text-sm text-white placeholder-white/30 outline-none focus:border-cyan-400/50"
+        />
+        <button onClick={search} disabled={busy} className="rounded-md bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20 disabled:opacity-40">Search</button>
+      </div>
+      {msg && <div className="mb-3 rounded-md border border-white/15 bg-white/[0.05] p-2 text-sm text-white/80">{msg}</div>}
+      {matches && matches.length > 0 && (
+        <div className="overflow-x-auto rounded-md border border-white/10">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-white/[0.04] text-white/40"><tr><th className="px-2 py-1.5">When</th><th className="px-2 py-1.5">Call sign</th><th className="px-2 py-1.5">Score</th><th className="px-2 py-1.5">Pilot</th><th className="px-2 py-1.5">Wallet to recover into</th><th className="px-2 py-1.5">Actions</th></tr></thead>
+            <tbody>
+              {matches.map((m) => (
+                <tr key={m.guestKey} className="border-t border-white/5">
+                  <td className="px-2 py-1.5 text-white/50">{fmtAgo(m.at)}</td>
+                  <td className="px-2 py-1.5 font-semibold text-white/80">{m.name || '—'}</td>
+                  <td className="px-2 py-1.5 tabular-nums text-white/70">{fmtNum(m.score)}</td>
+                  <td className="px-2 py-1.5 text-white/50">{m.pilot}</td>
+                  <td className="px-2 py-1.5">
+                    <input
+                      value={walletInputs[m.guestKey] || ''}
+                      onChange={(e) => setWalletInputs((prev) => ({ ...prev, [m.guestKey]: e.target.value }))}
+                      placeholder="0x..."
+                      className="w-full rounded border border-white/15 bg-white/[0.04] px-2 py-1 font-mono text-[11px] text-white placeholder-white/25 outline-none focus:border-cyan-400/50"
+                    />
+                  </td>
+                  <td className="px-2 py-1.5">
+                    <button onClick={() => recover(m.guestKey)} disabled={busy} className="rounded bg-emerald-500/15 px-2 py-1 text-[11px] text-emerald-300 hover:bg-emerald-500/25 disabled:opacity-40">Merge into wallet</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
 function LeaderboardView({ rows }: { rows: Stats['leaderboard']['top'] }) {
   if (!rows || rows.length === 0) {
     return <div className="rounded-lg border border-white/10 bg-white/[0.02] p-3 text-sm text-white/40">No ranked players yet.</div>;
@@ -1747,6 +1838,7 @@ function Dashboard(p: DashboardProps) {
                 <FlaggedRuns token={token} />
                 <WalletErrors token={token} />
                 <ChatModeration token={token} />
+                <GuestRecovery token={token} />
               {lb.topPilots.length > 0 && (
                 <>
                   <h3 className="mt-5 mb-2 text-xs uppercase tracking-wider text-white/40">Most-played pilots</h3>
