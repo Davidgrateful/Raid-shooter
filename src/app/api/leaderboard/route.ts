@@ -80,6 +80,13 @@ export async function POST(req: NextRequest) {
 
   const { score, level, kills, combo, pilot, time, name } = body as Record<string, unknown>;
   const assisted = (body as Record<string, unknown>).assisted === true;
+  // A mid-run check-in (posted every couple of kills while still playing,
+  // not just once at game over) - ranks exactly like any other submit, but
+  // skips the chat "new personal best!" callout, since a run improving on
+  // itself every couple of kills would otherwise spam chat with its own
+  // progress. The real end-of-run submit isn't flagged live and still
+  // fires the callout as before.
+  const live = (body as Record<string, unknown>).live === true;
 
   // Display name: 3-12 chars, letters/digits/spaces. Optional for wallet
   // players (they fall back to their address); required for guests, who
@@ -204,7 +211,7 @@ export async function POST(req: NextRequest) {
     // nothing, which is what keeps this from becoming a ticker of every
     // single game over. Podium/top-10 breaks get louder callouts.
     // Best-effort: chat being down must never fail a score submit.
-    if (result.improved && result.rank >= 1 && displayName) {
+    if (!live && result.improved && result.rank >= 1 && displayName) {
       const callout = result.rank === 1
         ? `${displayName} takes the CROWN with ${score.toLocaleString()}!`
         : result.rank <= 3

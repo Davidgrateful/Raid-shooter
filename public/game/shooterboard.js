@@ -216,7 +216,23 @@ $.trackRun = function( event, durationSec ) {
 	} catch( e ) {}
 };
 
-$.submitScore = function() {
+// Live in-run submits: every couple of kills, the CURRENT run's score
+// posts to the board mid-run instead of only once at game over - the
+// leaderboard visibly climbs while the player is still playing, not just
+// after the fact. Reuses $.submitScore exactly as-is (same payload, same
+// rate-limit retry) - it's still "your best run stands", just checked in
+// more often, so a still-in-progress run overtakes its own earlier
+// snapshot the moment it's actually ahead.
+$.lastLiveSubmitKills = 0;
+$.LIVE_SUBMIT_KILL_STEP = 2;
+$.maybeLiveSubmit = function() {
+	if( $.boardSubmit && $.boardSubmit.state === 'sending' ) { return; } // one in flight at a time
+	if( $.kills - $.lastLiveSubmitKills < $.LIVE_SUBMIT_KILL_STEP ) { return; }
+	$.lastLiveSubmitKills = $.kills;
+	$.submitScore( true );
+};
+
+$.submitScore = function( live ) {
 	var runScore = $.score,
 		runLevel = $.level.current + 1,
 		runKills = $.kills,
@@ -274,6 +290,12 @@ $.submitScore = function() {
 			// did this run lean on a paid combat consumable? recorded for
 			// operator audit only - it no longer blocks the score
 			assisted: !!$.runAssisted,
+			// a mid-run check-in, not the final result - tells the server to
+			// skip the "new personal best!" chat callout (a run improving on
+			// itself every couple of kills would otherwise spam chat) while
+			// still ranking normally; the real end-of-run submit still fires
+			// the callout exactly as before
+			live: !!live,
 			// equipped loadout at submit time - purely cosmetic, rendered as a
 			// small badge next to this row on every board so a purchase is
 			// visible to every other player scanning it, not just the buyer.
