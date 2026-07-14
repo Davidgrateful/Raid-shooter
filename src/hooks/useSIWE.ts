@@ -10,6 +10,24 @@ interface SIWEState {
   loading: boolean;
 }
 
+// The game engine's own storage blob (public/game/storage.js) - the same
+// durable guest token every score submission sends (see $.guestToken() in
+// shooterboard.js). Reading it here lets sign-in tell the server which
+// guest identity to merge progress FROM, instead of the server guessing
+// from the (much less durable) session cookie.
+function myGuestToken(): string | null {
+  try {
+    const raw = localStorage.getItem('radiusraid');
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { guesttoken?: string };
+    return typeof parsed.guesttoken === 'string' && parsed.guesttoken.length >= 8
+      ? parsed.guesttoken
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 export function useSIWE() {
   const { address, chainId, isConnected } = useAccount();
   const { signMessageAsync } = useSignMessage();
@@ -63,7 +81,7 @@ export function useSIWE() {
       const verifyRes = await fetch('/api/siwe/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: messageString, signature }),
+        body: JSON.stringify({ message: messageString, signature, guestToken: myGuestToken() || undefined }),
       });
       const result = await verifyRes.json();
 

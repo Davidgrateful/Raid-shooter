@@ -77,6 +77,30 @@ export async function spendConsumable(address: string, itemId: string): Promise<
   return true;
 }
 
+// Carries a guest's owned items/consumables over to the wallet they just
+// connected, mirroring mergeGuestIntoWallet in leaderboard.ts - without
+// this, everything a guest earned (streak-reward consumables; any items on
+// a future guest-ownable path) is silently orphaned under the old guest key
+// the moment they connect a wallet, forever invisible to them. Union items,
+// sum consumables, keep whichever exists; best-effort, never blocks sign-in.
+export async function mergeGuestProfileIntoWallet(guestKey: string, walletKey: string): Promise<void> {
+  const guestProfile = await getProfile(guestKey);
+  if (guestProfile.items.length === 0 && Object.keys(guestProfile.consumables).length === 0) {
+    return; // nothing to merge
+  }
+  const walletProfile = await getProfile(walletKey);
+  for (const id of guestProfile.items) {
+    if (!walletProfile.items.includes(id)) {
+      walletProfile.items.push(id);
+    }
+  }
+  for (const [id, count] of Object.entries(guestProfile.consumables)) {
+    walletProfile.consumables[id] = (walletProfile.consumables[id] || 0) + count;
+  }
+  await saveProfile(walletKey, walletProfile);
+  await saveProfile(guestKey, emptyProfile());
+}
+
 // each payment transaction may only ever grant one item
 export async function claimTx(txHash: string): Promise<boolean> {
   if (isKvConfigured()) {
