@@ -31,6 +31,19 @@ export async function submitCupEntry(seasonId: string, entry: BoardEntry): Promi
     const changed = (await redis(['ZADD', boardKey(seasonId), 'GT', 'CH', entry.score, entry.address])) as number;
     if (changed > 0) {
       await redis(['HSET', entriesKey(seasonId), entry.address, JSON.stringify(entry)]);
+    } else if (entry.name) {
+      // score didn't beat the cup PB, but a rename should still stick -
+      // otherwise a strong early cup score keeps showing a stale name.
+      const raw = (await redis(['HGET', entriesKey(seasonId), entry.address])) as string | null;
+      if (raw) {
+        try {
+          const stored = JSON.parse(raw) as BoardEntry;
+          if (stored.name !== entry.name) {
+            stored.name = entry.name;
+            await redis(['HSET', entriesKey(seasonId), entry.address, JSON.stringify(stored)]);
+          }
+        } catch { /* leave stored entry as-is */ }
+      }
     }
     // cups are time-boxed; let the raw board self-clean a week after the run
     await redis(['EXPIRE', boardKey(seasonId), 14 * 86400]);
@@ -39,7 +52,28 @@ export async function submitCupEntry(seasonId: string, entry: BoardEntry): Promi
   }
   const b = memBoard(seasonId);
   const existing = b.get(entry.address);
-  if (!existing || entry.score > existing.score) b.set(entry.address, entry);
+  if (!existing || entry.score > existing.score) {
+    b.set(entry.address, entry);
+  } else if (entry.name && existing.name !== entry.name) {
+    existing.name = entry.name;
+  }
+}
+
+// Patch a player's display name on a cup board without touching their
+// score - called whenever a rename happens so the cup board stays in sync.
+export async function updateCupName(seasonId: string, address: string, name: string): Promise<void> {
+  if (kvUrl && kvToken) {
+    const raw = (await redis(['HGET', entriesKey(seasonId), address])) as string | null;
+    if (!raw) return;
+    try {
+      const stored = JSON.parse(raw) as BoardEntry;
+      stored.name = name;
+      await redis(['HSET', entriesKey(seasonId), address, JSON.stringify(stored)]);
+    } catch { /* corrupt row, leave as-is */ }
+    return;
+  }
+  const existing = memBoard(seasonId).get(address);
+  if (existing) existing.name = name;
 }
 
 export async function getCupTop(seasonId: string, limit = 100): Promise<BoardEntry[]> {
