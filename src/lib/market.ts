@@ -41,7 +41,7 @@ export const CATALOG: MarketItem[] = [
     ability: 'EMBER WAKE: HEAL HP FROM KILLS',
   },
   {
-    id: 'pilot_voltrider', title: 'VOLT RIDER PILOT', kind: 'character', priceUsd: 1, priceEth: '0.00033',
+    id: 'pilot_voltrider', title: 'RIDER PILOT', kind: 'character', priceUsd: 0.99, priceEth: '0.00033',
     ability: 'HEAVY THROTTLE: SPEEDS UP THE LONGER YOU SURVIVE',
   },
   // unlock shortcuts for free pilots - same stats as the grind-unlocked
