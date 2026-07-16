@@ -176,8 +176,13 @@ export async function POST(req: NextRequest) {
     try {
       const season = await getActiveSeason();
       const now = Date.now();
-      if (season && season.status === 'active' && now >= season.createdAt && (!season.endsAt || now <= season.endsAt)) {
-        await submitCupEntry(season.id, entry);
+      const windowOpen = season && season.status === 'active' && now >= season.createdAt && (!season.endsAt || now <= season.endsAt);
+      // A sponsor cup can be gated to a specific pilot (the "entry fee" for a
+      // character-tie-in cup) - a run in any other pilot still posts to the
+      // global/weekly boards above, it just doesn't count toward this cup.
+      const eligiblePilot = !season?.requiredPilotId || entry.cosmetics?.pilotId === season.requiredPilotId;
+      if (windowOpen && eligiblePilot) {
+        await submitCupEntry(season!.id, entry);
       }
     } catch {
       // cup board unavailable - the global submit already succeeded

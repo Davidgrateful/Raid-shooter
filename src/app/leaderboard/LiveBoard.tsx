@@ -27,6 +27,7 @@ export interface SeasonSummary {
   poolUsd: number;
   endsAt: number | null;
   sponsorName: string | null;
+  requiredPilotId?: string | null;
 }
 
 const REFRESH_MS = 5_000;
@@ -161,6 +162,11 @@ export function LiveBoard({
             {season.endsAt && <div className="font-mono text-xs text-cyan-300">ENDS IN {timeLeft(season.endsAt)}</div>}
           </div>
         </Link>
+      )}
+      {season?.requiredPilotId && (
+        <div className="-mt-6 mb-8 text-center text-xs text-white/40">
+          Cup runs count only while flying <span className="font-semibold text-amber-300">{season.requiredPilotId.toUpperCase()}</span>
+        </div>
       )}
 
       {!persistent && (

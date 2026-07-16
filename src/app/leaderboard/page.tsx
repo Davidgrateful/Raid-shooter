@@ -39,6 +39,7 @@ export default async function LeaderboardPage() {
         poolUsd: seasonRes.season.poolUsd || 0,
         endsAt: seasonRes.season.endsAt || null,
         sponsorName: seasonRes.season.sponsorName || null,
+        requiredPilotId: seasonRes.season.requiredPilotId || null,
       }
     : null;
 
