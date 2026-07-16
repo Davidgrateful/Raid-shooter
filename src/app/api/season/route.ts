@@ -37,6 +37,7 @@ export async function GET() {
       poolUsd,
       endsAt: season.endsAt || null,
       sponsorName: sponsorName || null,
+      requiredPilotId: season.requiredPilotId || null,
       prizes: season.prizes.map((t) => ({
         fromRank: t.fromRank,
         toRank: t.toRank,

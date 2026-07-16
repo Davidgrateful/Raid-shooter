@@ -48,6 +48,20 @@ export async function submitWeekly(entry: BoardEntry): Promise<void> {
     const changed = (await redis(['ZADD', boardKey(week), 'GT', 'CH', entry.score, entry.address])) as number;
     if (changed > 0) {
       await redis(['HSET', entriesKey(week), entry.address, JSON.stringify(entry)]);
+    } else if (entry.name) {
+      // score didn't beat the stored best, but a rename should still stick -
+      // otherwise a player who already has a strong weekly score is stuck
+      // showing their old name here until they beat their own record.
+      const raw = (await redis(['HGET', entriesKey(week), entry.address])) as string | null;
+      if (raw) {
+        try {
+          const stored = JSON.parse(raw) as BoardEntry;
+          if (stored.name !== entry.name) {
+            stored.name = entry.name;
+            await redis(['HSET', entriesKey(week), entry.address, JSON.stringify(stored)]);
+          }
+        } catch { /* leave stored entry as-is */ }
+      }
     }
     // weekly boards are ephemeral - self-clean two weeks out
     await redis(['EXPIRE', boardKey(week), 21 * 86400]);
@@ -56,7 +70,30 @@ export async function submitWeekly(entry: BoardEntry): Promise<void> {
   }
   const b = memBoard(week);
   const existing = b.get(entry.address);
-  if (!existing || entry.score > existing.score) b.set(entry.address, entry);
+  if (!existing || entry.score > existing.score) {
+    b.set(entry.address, entry);
+  } else if (entry.name && existing.name !== entry.name) {
+    existing.name = entry.name;
+  }
+}
+
+// Patch a player's display name on this week's ladder without touching
+// their score - called whenever a rename happens, so weekly stays in sync
+// with the all-time board instead of only updating on their next PB.
+export async function updateWeeklyName(address: string, name: string): Promise<void> {
+  const week = weekKey();
+  if (kvUrl && kvToken) {
+    const raw = (await redis(['HGET', entriesKey(week), address])) as string | null;
+    if (!raw) return;
+    try {
+      const stored = JSON.parse(raw) as BoardEntry;
+      stored.name = name;
+      await redis(['HSET', entriesKey(week), address, JSON.stringify(stored)]);
+    } catch { /* corrupt row, leave as-is */ }
+    return;
+  }
+  const existing = memBoard(week).get(address);
+  if (existing) existing.name = name;
 }
 
 export async function getWeeklyTop(limit = 250): Promise<BoardEntry[]> {

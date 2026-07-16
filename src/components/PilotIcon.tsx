@@ -29,6 +29,7 @@ const FAMILY_BY_PILOT: Record<string, Family> = {
   glitchprince: 'diamond-blocks',
   ironhalo: 'ring',
   crimsonwisp: 'circle-tail',
+  voltrider: 'needle',
 };
 
 function Glyph({ family, color }: { family: Family; color: string }) {

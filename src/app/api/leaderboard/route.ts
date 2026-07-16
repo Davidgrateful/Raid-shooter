@@ -35,6 +35,7 @@ function isInt(value: unknown, min: number, max: number): value is number {
 const PILOT_IDS = new Set([
   'onyix', 'nova', 'tankrex', 'astravane', 'ironhalo', 'runepilot',
   'nebulafox', 'javelin9', 'atlasbeam', 'glitchprince', 'solstice', 'crimsonwisp',
+  'voltrider',
 ]);
 const DRONE_IDS = new Set([
   'drone_aegis', 'drone_voltmite', 'drone_needlefinch', 'drone_gravbeetle', 'drone_medicwisp', 'drone_champion',
@@ -128,7 +129,7 @@ export async function POST(req: NextRequest) {
   // that slip through still rank, but get copied to the admin review queue
   // (suspicionReason) - the actual anti-cheat gate for payouts.
   if (
-    !isInt(score, 1, 100_000_000) ||
+    !isInt(score, 1, 2_000_000_000) ||
     !isInt(level, 1, 500) ||
     !isInt(kills, 0, 500_000) ||
     !isInt(combo, 0, 500_000) ||
@@ -176,8 +177,13 @@ export async function POST(req: NextRequest) {
     try {
       const season = await getActiveSeason();
       const now = Date.now();
-      if (season && season.status === 'active' && now >= season.createdAt && (!season.endsAt || now <= season.endsAt)) {
-        await submitCupEntry(season.id, entry);
+      const windowOpen = season && season.status === 'active' && now >= season.createdAt && (!season.endsAt || now <= season.endsAt);
+      // A sponsor cup can be gated to a specific pilot (the "entry fee" for a
+      // character-tie-in cup) - a run in any other pilot still posts to the
+      // global/weekly boards above, it just doesn't count toward this cup.
+      const eligiblePilot = !season?.requiredPilotId || entry.cosmetics?.pilotId === season.requiredPilotId;
+      if (windowOpen && eligiblePilot) {
+        await submitCupEntry(season!.id, entry);
       }
     } catch {
       // cup board unavailable - the global submit already succeeded

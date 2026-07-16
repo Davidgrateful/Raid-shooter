@@ -35,6 +35,12 @@ export interface Season {
   status: 'draft' | 'active' | 'ended';
   createdAt: number;
   endsAt?: number;
+  // When set, a run only counts toward THIS cup if the player is flying this
+  // pilot id (see characters.js unlock.purchase ids, e.g. 'pilot_solstice').
+  // The run always still posts to the all-time/weekly boards regardless -
+  // this only gates the cup ranking, i.e. the "entry fee" for a sponsor cup
+  // tied to a specific character skin.
+  requiredPilotId?: string;
 }
 
 export interface WinnerRow {
@@ -98,6 +104,7 @@ export function cleanSeason(input: Partial<Season>): Season {
     status,
     createdAt: input.createdAt || Date.now(),
     endsAt: Number.isFinite(input.endsAt) ? Number(input.endsAt) : undefined,
+    requiredPilotId: (input.requiredPilotId || '').toString().trim().toLowerCase() || undefined,
   };
 }
 

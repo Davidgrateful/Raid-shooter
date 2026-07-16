@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/session';
 import { updateName } from '@/lib/leaderboard';
+import { updateWeeklyName } from '@/lib/weekly';
+import { updateCupName } from '@/lib/cup';
+import { getActiveSeason } from '@/lib/rewards';
 
 // Renames an existing Shooterboard entry immediately, so a name change
 // shows up without having to beat your personal best first. Works for both
@@ -28,6 +31,20 @@ export async function POST(req: NextRequest) {
 
   try {
     const updated = await updateName(key, name);
+
+    // fan the rename out to the weekly ladder and any live sponsor cup too -
+    // otherwise a player who already has a strong weekly/cup score keeps
+    // showing their old name there until they beat their own record.
+    await updateWeeklyName(key, name).catch(() => {});
+    try {
+      const season = await getActiveSeason();
+      if (season && season.status === 'active') {
+        await updateCupName(season.id, key, name).catch(() => {});
+      }
+    } catch {
+      // cup lookup unavailable - rename to the main/weekly boards already succeeded
+    }
+
     return NextResponse.json({ ok: true, updated });
   } catch {
     return NextResponse.json({ error: 'board_unavailable' }, { status: 503 });

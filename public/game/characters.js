@@ -251,6 +251,48 @@ $.definitions.characters = [
 			ctx.fillStyle = 'hsla(10, 100%, 55%, ' + flicker + ')';
 			ctx.fill();
 		}
+	},
+	{
+		// premium pilot: instant unlock via the market, no grind gate.
+		// sponsor tie-in cosmetic (CryptoRider crossover) - balanced like
+		// every other premium pilot, no power edge from the partnership.
+		id: 'voltrider', ability: { title: 'HEAVY THROTTLE', text: 'SPEEDS UP THE LONGER YOU SURVIVE', throttleRampMax: 0.22, throttleRampSeconds: 45 }, bulletStyle: { size: 18, lineWidth: 1.8 }, title: 'RIDER', desc: 'PREMIUM PILOT\nNEON SLIPSTREAM HULL',
+		speedMult: 1.12, damageTakenMult: 1.1, dashCooldownMult: 0.85, radius: 10,
+		unlock: { purchase: 'pilot_voltrider' },
+		draw: function( ctx, r, fillStyle, tick ) {
+			// low wide racer wedge with twin mirror-fairing pods
+			ctx.beginPath();
+			ctx.moveTo( r * 1.9, 0 );
+			ctx.lineTo( r * 0.5, r * 0.75 );
+			ctx.lineTo( -r * 0.7, r * 0.5 );
+			ctx.lineTo( -r * 1.35, 0.001 );
+			ctx.lineTo( -r * 0.7, -r * 0.5 );
+			ctx.lineTo( r * 0.5, -r * 0.75 );
+			ctx.closePath();
+			ctx.fillStyle = fillStyle;
+			ctx.fill();
+			ctx.beginPath();
+			ctx.ellipse( r * 0.15, r * 0.9, r * 0.28, r * 0.16, 0, 0, $.twopi );
+			ctx.fill();
+			ctx.beginPath();
+			ctx.ellipse( r * 0.15, -r * 0.9, r * 0.28, r * 0.16, 0, 0, $.twopi );
+			ctx.fill();
+			// neon purple arrow-trail, riding-a-chart flicker
+			var flicker = 0.5 + Math.sin( tick / 6 ) * 0.28;
+			ctx.beginPath();
+			ctx.moveTo( -r * 1.35, r * 0.25 );
+			ctx.lineTo( -r * 2.1, r * 0.5 );
+			ctx.lineTo( -r * 1.6, 0 );
+			ctx.lineTo( -r * 2.1, -r * 0.5 );
+			ctx.lineTo( -r * 1.35, -r * 0.25 );
+			ctx.closePath();
+			ctx.fillStyle = 'hsla(275, 100%, 65%, ' + flicker + ')';
+			ctx.fill();
+			ctx.beginPath();
+			ctx.arc( r * 1.1, 0, r * 0.2, 0, $.twopi );
+			ctx.fillStyle = 'hsla(275, 100%, 78%, ' + ( 0.55 + Math.cos( tick / 7 ) * 0.25 ) + ')';
+			ctx.fill();
+		}
 	}
 ];
 

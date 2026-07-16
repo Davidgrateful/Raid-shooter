@@ -40,6 +40,10 @@ export const CATALOG: MarketItem[] = [
     id: 'pilot_crimsonwisp', title: 'CRIMSON WISP PILOT', kind: 'character', priceUsd: 1, priceEth: '0.00033',
     ability: 'EMBER WAKE: HEAL HP FROM KILLS',
   },
+  {
+    id: 'pilot_voltrider', title: 'RIDER PILOT', kind: 'character', priceUsd: 0.99, priceEth: '0.00033',
+    ability: 'HEAVY THROTTLE: SPEEDS UP THE LONGER YOU SURVIVE',
+  },
   // unlock shortcuts for free pilots - same stats as the grind-unlocked
   // version, just skips the stat gate; never a power advantage, only convenience
   {

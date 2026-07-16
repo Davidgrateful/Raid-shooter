@@ -1064,10 +1064,20 @@ $.introMult = function() {
 	return Math.min( 1, 0.35 + ( $.level ? $.level.current : 0 ) * 0.16 );
 };
 
+// hard ceiling on simultaneous enemies - without this, a long/fast run at
+// high difficulty keeps spawning faster than enemies die, and the O(n*m)
+// bullet-vs-enemy collision scan each frame grows with the square of that
+// count. This caps the worst case without ever being visible in normal
+// play (a screen this full is already chaos long before the cap bites).
+$.MAX_ENEMIES = 140;
+
 $.spawnEnemies = function() {
 	// breathing room after an upgrade draft before the next wave
 	if( $.spawnLullTick > 0 ) {
 		$.spawnLullTick -= $.dt;
+		return;
+	}
+	if( $.enemies.length >= $.MAX_ENEMIES ) {
 		return;
 	}
 	var floorTick = Math.floor( $.tick );
@@ -1721,7 +1731,11 @@ $.updatePowerupTimers = function() {
 	}
 };
 
-// NUKE pickup: heavy damage to everything on the field except bosses
+// NUKE pickup: heavy damage to everything on the field except bosses.
+// Damage lowered from 6 -> 3: at 6 it was a guaranteed kill on anything
+// but the tankiest enemies, functioning as an undodgeable full-screen
+// clear button. At 3 it still hits every enemy on screen instantly and
+// finishes off anything already weakened, but tougher enemies survive it.
 $.detonateNuke = function() {
 	$.audio.play( 'explosion' );
 	$.rumble.level = 12;
@@ -1730,7 +1744,7 @@ $.detonateNuke = function() {
 	while( ei-- ) {
 		var enemy = $.enemies[ ei ];
 		if( !enemy.isBoss ) {
-			enemy.receiveDamage( ei, 6 );
+			enemy.receiveDamage( ei, 3 );
 		}
 	}
 };
