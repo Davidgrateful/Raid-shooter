@@ -1,111 +1,92 @@
-# Sponsor Cup Proposal — [Partner Game] × Raid Shooter
+# CryptoRider × Raid Shooter — 1-Week Cup
 
-*Fill in [Partner Game] / [Character] / [dates] before sending. Everything
-else reflects what we can ship with the systems we already have, plus a
-clear list of what's new.*
+*Final terms as agreed. This replaces the earlier draft version of this doc.*
 
 ---
 
-## The deal, plainly
+## The deal
 
-- **Partner puts up:** $50 prize pool, split across the top 5 finishers of a
-  time-boxed Cup.
-- **We put up:** the tournament infrastructure (live leaderboard, cup window,
-  chat, payout tooling) that already exists in Raid Shooter.
-- **Our revenue:** entry to the Cup requires playing as a **[Character]
-  pilot skin**, sold in our marketplace. Every entrant either already owns
-  it or buys it to compete — the prize pool draws the traffic, the skin
-  purchase is how we get paid.
-- **Their upside:** every run played in the Cup is played *as their
-  character*, in front of our leaderboard and top-20 chat, for the length
-  of the event. That's the cross-marketing.
+- **Duration:** 1 week.
+- **Prize:** $50 total, split across the **top 5** finishers on the Cup
+  leaderboard at close.
+- **Entry:** players must be flying the **RIDER** pilot — a CryptoRider-
+  branded pilot skin, $0.99 in the Raid Shooter marketplace — for a run to
+  count toward the Cup. Anyone can buy it; it's a normal wallet purchase,
+  no allowlist or invite required.
+- **Cross-placement, both directions:**
+  - CryptoRider places a Raid Shooter link inside their game.
+  - Raid Shooter places CryptoRider's name/ticker + image inside our game
+    (sponsor banner on the leaderboard + menu, already built — just needs
+    their logo and accent color dropped in).
+- **Transparency:** CryptoRider gets a full, real-time view of the
+  competition — the Cup leaderboard is public and live at all times
+  (`/leaderboard`), not a number we report after the fact.
+- **Co-promotion:** both sides post to launch it and both sides post the
+  results at close.
 
-This only works if it's honest about odds and framing — see "How we message
-it" below. A $50 pool across potentially hundreds of entrants is a raffle
-with skill attached, not a payday, and the pitch has to say that plainly or
-it reads as bait.
+## What's already built vs. what's new
 
-## The mechanic: entry fee = the skin, not a separate charge
+Nothing here is a leap of faith — most of this is existing Raid Shooter
+infrastructure, assembled for this specific Cup:
 
-We are **not** building a new "pay $X to enter" paywall. That would be a
-second checkout flow and it puts a price tag directly on competing, which
-cuts against the "free to play, always" rule the game is built on.
+| Piece | Status |
+|---|---|
+| RIDER pilot (art, ability, hangar entry, $0.99 market listing) | **Built** |
+| Cup entry gated to the RIDER pilot specifically | **Built** |
+| Live public leaderboard for the Cup | **Existing** |
+| Sponsor banner (logo/accent color) on menu + leaderboard | **Existing** — needs CryptoRider's logo + color |
+| $50 / top-5 prize configuration | **One admin step**, once funds are in hand |
+| Raid Shooter link placed in CryptoRider's game | **On CryptoRider's side** |
 
-Instead: **the [Character] pilot skin becomes a real, purchasable item in
-the marketplace** (same system as every other premium pilot — Solstice,
-Crimsonwisp, etc.), and the Cup is gated to runs played while that pilot is
-equipped. Buying the skin *is* the entry fee, but it's framed as "unlock the
-[Character] pilot" — a cosmetic purchase with a competition attached — not
-as "pay to enter a contest," which is a cleaner story for both brands and
-avoids any gambling-adjacent framing.
+The RIDER pilot is balanced like every other premium pilot in Raid
+Shooter — it's a cosmetic/identity purchase, not a power advantage. That's
+a hard rule for us (see `docs/VISION.md`): the leaderboard only means
+something if nobody can buy their way up it. HEAVY THROTTLE (its ability)
+is a small speed ramp that builds over a run and caps early — noticeable,
+never decisive.
 
-Anyone who already owns/likes the character just plays. Anyone new buys the
-skin once, keeps it forever, and can enter every future [Partner] cup we
-run — the first one is the expensive one for them, the rest are free.
+## What we need from CryptoRider
 
-## What we need to build (new work)
+1. Logo (transparent PNG) + one accent color, for the in-game sponsor
+   banner.
+2. The Raid Shooter link + suggested placement, wherever it fits their UI.
+3. Confirmation on the $50 — sent before the Cup opens.
+4. Their side of the launch post + the results post at close.
 
-1. **The pilot skin itself** — art, ability tuning, hangar entry, market
-   catalog listing. Same pattern as our existing premium pilots. Needs
-   [Partner]'s character art/likeness approval and any usage guidelines.
-2. **Cup entry gating** — right now a Cup counts *any* run played during
-   its window. We need a new rule: a run only posts to the Cup board if the
-   player's equipped pilot is [Character]. This is new logic (nothing like
-   it exists today) but it's a contained change to the cup-submission path.
-3. **Sponsor branding on the Cup** — we already have a full sponsor system
-   (logo, accent color, tagline, socials) that can be attached to a Cup's
-   banner on the leaderboard page and loading screen. [Partner] should send
-   a logo (transparent PNG), an accent color, and any social links they
-   want linked.
-4. **Announcement copy** — in-game and chat. See below.
+## Timeline
 
-## How the message gets posted
+1. CryptoRider sends logo/color + confirms funds.
+2. We flip the Cup live: RIDER-gated, banner branded, 7-day window starts.
+3. Both sides post launch (copy below).
+4. Cup closes after 7 days — top 5 paid out, both sides post results.
 
-- **In-game banner** (already exists, just needs [Partner]'s assets): the
-  Cup pool/timer shows on the main menu and the leaderboard page the moment
-  the season goes live — "presented by [Partner]" with their logo.
-- **Chat callout** (already exists): the moment someone takes the Cup lead
-  or breaks into the Cup top 3, it's announced in top-20 chat automatically,
-  same as any personal-best callout — free repeated visibility for
-  [Character] every time someone plays well as them.
-- **Launch post** (manual, both sides): one announcement each — ours to our
-  players ("new Cup, presented by [Partner], play as [Character] for a shot
-  at the pool"), theirs to their audience ("play as [Character] in Raid
-  Shooter, top 5 split $50"). This is the actual cross-marketing — each
-  audience gets pointed at the other's thing.
-- **Cup end recap** (manual): a short post naming the top 5 finishers and
-  final pool split, tagging [Partner]. Doubles as proof-of-payout for the
-  next sponsor conversation.
+---
 
-## What we need from [Partner]'s end
+## Launch post — Raid Shooter's side
 
-- Character art/reference for the pilot skin (and sign-off on our
-  interpretation before it ships).
-- Logo (transparent PNG) + one accent color for banner branding.
-- The $50 pool, sent before the Cup opens (we don't front sponsor prizes).
-- One launch post and one recap post on their channels — this is the actual
-  value exchange, not just the cash.
-- A named contact for approvals so art/copy doesn't stall on either side.
+> We've partnered with @CryptoRider for a 1-week Cup on Raid Shooter 🏁
+>
+> $50 to the top 5 pilots on the leaderboard.
+>
+> How to enter:
+> 1️⃣ Play as their in-game pilot, RIDER — $0.99 in the hangar
+> 2️⃣ Every run as RIDER counts toward the Cup leaderboard
+> 3️⃣ Follow @CryptoRider + @[our handle]
+> 4️⃣ RT this post
+>
+> Leaderboard's live all week — no waiting to see where you stand.
+>
+> Play free → [raidshooter.xyz link]
 
-## Payout
+*(Swap in the real handles/link before posting — placeholders left where
+I don't have the exact values.)*
 
-Existing tooling handles this already — no new build. Top 5 at Cup close,
-split however [Partner] wants to structure it (equal fifths vs. weighted;
-recommend weighted so #1 clearly means something: e.g. $20/$12/$8/$6/$4).
-Paid the same way our other Cup payouts run today.
+## Notes on the draft tweet you sent
 
-## Timeline shape
-
-1. Art + branding assets in.
-2. Pilot skin built, tested, live in marketplace (not yet Cup-gated).
-3. Cup window opens — entry gated to the [Character] pilot, banner live,
-   pool funded.
-4. Cup closes — payout, recap post, both sides.
-
-## The line we don't cross
-
-Same rule as every other feature in this game: **the skin never makes you
-stronger.** [Character]'s pilot ability is balanced like every other pilot
-— sponsorship buys visibility and a fair shot at the pool, never an
-in-game edge. That's worth stating explicitly in the partner-facing pitch;
-it's why our leaderboard is credible in the first place.
+Two small things worth fixing before it goes out:
+- **"Follow @ and @vcg_run"** — the first `@` has no handle attached; make
+  sure both handles are filled in before posting or it reads broken.
+- Consider naming the prize split up front (e.g. "$25/$10/$8/$4/$3" or
+  even split) in either the tweet or a reply — "top 5 split $50" is honest,
+  but people read prize pools fast and a visible split makes it feel more
+  concrete than a lump sum.
