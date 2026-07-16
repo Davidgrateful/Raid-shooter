@@ -256,7 +256,7 @@ $.definitions.characters = [
 		// premium pilot: instant unlock via the market, no grind gate.
 		// sponsor tie-in cosmetic (CryptoRider crossover) - balanced like
 		// every other premium pilot, no power edge from the partnership.
-		id: 'voltrider', ability: { title: 'SLIPSTREAM+', text: 'LONGER DASH, FASTER RECHARGE', dashDuration: 1.3, dashCooldownMult: 0.85 }, bulletStyle: { size: 18, lineWidth: 1.8 }, title: 'VOLT RIDER', desc: 'PREMIUM PILOT\nNEON SLIPSTREAM HULL',
+		id: 'voltrider', ability: { title: 'HEAVY THROTTLE', text: 'SPEEDS UP THE LONGER YOU SURVIVE', throttleRampMax: 0.22, throttleRampSeconds: 45 }, bulletStyle: { size: 18, lineWidth: 1.8 }, title: 'VOLT RIDER', desc: 'PREMIUM PILOT\nNEON SLIPSTREAM HULL',
 		speedMult: 1.12, damageTakenMult: 1.1, dashCooldownMult: 0.85, radius: 10,
 		unlock: { purchase: 'pilot_voltrider' },
 		draw: function( ctx, r, fillStyle, tick ) {

@@ -126,6 +126,16 @@ $.Hero.prototype.update = function() {
 		Apply Forces (input is overridden while dashing, or it would clamp
 		the dash velocity back down to vmax)
 		==============================================================================*/
+		// HEAVY THROTTLE (Volt Rider): top speed creeps up the longer this
+		// run survives, capped so it never becomes a real power spike -
+		// just a "the ride is getting faster" feel late into a good run.
+		var throttle = this.character.ability && this.character.ability.throttleRampMax,
+			effectiveVmax = this.vmax;
+		if( throttle ) {
+			var throttleSeconds = this.character.ability.throttleRampSeconds || 45,
+				ramp = Math.min( 1, $.elapsed / ( throttleSeconds * 60 ) );
+			effectiveVmax = this.vmax * ( 1 + throttle * ramp );
+		}
 		var controlMode = $.isTouchDevice ? 'hybrid' : ( $.storage['controls'] || 'hybrid' );
 		if( this.dashTick <= 0 && controlMode === 'mouse' ) {
 			// MOUSE mode: the ship flies toward the cursor
@@ -135,33 +145,33 @@ $.Hero.prototype.update = function() {
 			if( mdist > 30 ) {
 				this.vx += ( mdx / mdist ) * this.accel * $.dt;
 				this.vy += ( mdy / mdist ) * this.accel * $.dt;
-				if( this.vx > this.vmax ) { this.vx = this.vmax; }
-				if( this.vx < -this.vmax ) { this.vx = -this.vmax; }
-				if( this.vy > this.vmax ) { this.vy = this.vmax; }
-				if( this.vy < -this.vmax ) { this.vy = -this.vmax; }
+				if( this.vx > effectiveVmax ) { this.vx = effectiveVmax; }
+				if( this.vx < -effectiveVmax ) { this.vx = -effectiveVmax; }
+				if( this.vy > effectiveVmax ) { this.vy = effectiveVmax; }
+				if( this.vy < -effectiveVmax ) { this.vy = -effectiveVmax; }
 			}
 		}
 		if( this.dashTick <= 0 && controlMode !== 'mouse' ) {
 			if( $.keys.state.up ) {
 				this.vy -= this.accel * $.dt;
-				if( this.vy < -this.vmax ) {
-					this.vy = -this.vmax;
+				if( this.vy < -effectiveVmax ) {
+					this.vy = -effectiveVmax;
 				}
 			} else if( $.keys.state.down ) {
 				this.vy += this.accel * $.dt;
-				if( this.vy > this.vmax ) {
-					this.vy = this.vmax;
+				if( this.vy > effectiveVmax ) {
+					this.vy = effectiveVmax;
 				}
 			}
 			if( $.keys.state.left ) {
 				this.vx -= this.accel * $.dt;
-				if( this.vx < -this.vmax ) {
-					this.vx = -this.vmax;
+				if( this.vx < -effectiveVmax ) {
+					this.vx = -effectiveVmax;
 				}
 			} else if( $.keys.state.right ) {
 				this.vx += this.accel * $.dt;
-				if( this.vx > this.vmax ) {
-					this.vx = this.vmax;
+				if( this.vx > effectiveVmax ) {
+					this.vx = effectiveVmax;
 				}
 			}
 		}
