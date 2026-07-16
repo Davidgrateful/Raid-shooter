@@ -129,7 +129,7 @@ export async function POST(req: NextRequest) {
   // that slip through still rank, but get copied to the admin review queue
   // (suspicionReason) - the actual anti-cheat gate for payouts.
   if (
-    !isInt(score, 1, 100_000_000) ||
+    !isInt(score, 1, 2_000_000_000) ||
     !isInt(level, 1, 500) ||
     !isInt(kills, 0, 500_000) ||
     !isInt(combo, 0, 500_000) ||
