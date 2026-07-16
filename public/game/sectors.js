@@ -724,8 +724,12 @@ $.spawnBoss = function() {
 			// hard ceiling on live enemies while a boss bolt-attack fires, so a
 			// bad phase/timer formula (or just a long, sustained fight) can never
 			// balloon the entity count into unplayable lag - mirrors the cap
-			// already used for the summon attack below
-			var bossBoltsAllowed = $.enemies.length < 180;
+			// already used for the summon attack below. Aligned to the same
+			// $.MAX_ENEMIES the normal spawn loop respects; this used to be a
+			// separate, higher 180 constant, letting boss fights blow past the
+			// documented ceiling and contributing to the population getting
+			// stuck maxed out.
+			var bossBoltsAllowed = $.enemies.length < $.MAX_ENEMIES;
 
 			// continuous spiral spitter: the boss is never not shooting
 			if( this.variant.spiral && bossBoltsAllowed ) {

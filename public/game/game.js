@@ -1090,9 +1090,14 @@ $.spawnEnemies = function() {
 	for( var i = 0; i < $.level.distributionCount; i++ ) {
 		var timeCheck = Math.round( $.level.distribution[ i ] * bossMult * spawnScale );
 		if( $.levelDiffOffset > 0 ){
-			timeCheck = Math.max( 1, timeCheck - ( $.levelDiffOffset * 2) );
+			// floored at 3, not 1: uncapped this collapses to "eligible every
+			// tick" well before a very long run ends, which combined with
+			// enemies getting linearly tankier drives kill-rate below
+			// spawn-rate and pins the population at MAX_ENEMIES permanently -
+			// reads to the player as "enemies stopped spawning".
+			timeCheck = Math.max( 3, timeCheck - ( $.levelDiffOffset * 2) );
 		}
-		if( floorTick % timeCheck === 0 ) {
+		if( floorTick % timeCheck === 0 && $.enemies.length < $.MAX_ENEMIES ) {
 			var enemy = $.spawnEnemy( i );
 			// elites start appearing from level 4, getting more common with depth
 			if( $.level.current >= 3 && Math.random() < Math.min( 0.16, 0.04 + $.level.current * 0.01 ) ) {

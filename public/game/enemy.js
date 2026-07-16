@@ -452,9 +452,12 @@ $.Enemy = function( opt ) {
 		this.value += $.levelDiffOffset * 5;
 	}
 
-	// limitless scaling: every level makes everything tougher and faster
+	// every level makes everything tougher and faster, capped so a very
+	// long run doesn't grind kill-rate to a crawl while spawn pressure
+	// keeps climbing - that combination is what pins enemy count at the
+	// spawn cap and reads as "enemies stopped spawning".
 	if( $.level && $.level.current > 0 && !this.isBoss ) {
-		this.life *= 1 + $.level.current * 0.06;
+		this.life *= 1 + Math.min( 3, $.level.current * 0.06 );
 		this.speed *= 1 + Math.min( 1.2, $.level.current * 0.025 );
 	}
 	if( $.diff && !this.isBoss ) {
