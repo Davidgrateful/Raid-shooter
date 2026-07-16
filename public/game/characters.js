@@ -260,33 +260,37 @@ $.definitions.characters = [
 		speedMult: 1.12, damageTakenMult: 1.1, dashCooldownMult: 0.85, radius: 10,
 		unlock: { purchase: 'pilot_voltrider' },
 		draw: function( ctx, r, fillStyle, tick ) {
-			// fairing-nosed dart, motorcycle-windscreen silhouette
+			// low wide racer wedge with twin mirror-fairing pods
 			ctx.beginPath();
 			ctx.moveTo( r * 1.9, 0 );
-			ctx.lineTo( r * 0.7, r * 0.5 );
-			ctx.lineTo( -r * 0.3, r * 0.65 );
-			ctx.lineTo( -r * 1.2, r * 0.3 );
-			ctx.lineTo( -r * 1.2, -r * 0.3 );
-			ctx.lineTo( -r * 0.3, -r * 0.65 );
-			ctx.lineTo( r * 0.7, -r * 0.5 );
+			ctx.lineTo( r * 0.5, r * 0.75 );
+			ctx.lineTo( -r * 0.7, r * 0.5 );
+			ctx.lineTo( -r * 1.35, 0.001 );
+			ctx.lineTo( -r * 0.7, -r * 0.5 );
+			ctx.lineTo( r * 0.5, -r * 0.75 );
 			ctx.closePath();
 			ctx.fillStyle = fillStyle;
 			ctx.fill();
-			// neon purple slipstream trail, riding-a-chart flicker
-			var flicker = 0.45 + Math.sin( tick / 6 ) * 0.3,
-				kick = Math.sin( tick / 4 ) * r * 0.15;
 			ctx.beginPath();
-			ctx.moveTo( -r * 1.2, r * 0.15 );
-			ctx.lineTo( -r * 2.1, r * 0.35 + kick );
-			ctx.lineTo( -r * 1.5, 0 );
-			ctx.lineTo( -r * 2.1, -r * 0.35 - kick );
-			ctx.lineTo( -r * 1.2, -r * 0.15 );
+			ctx.ellipse( r * 0.15, r * 0.9, r * 0.28, r * 0.16, 0, 0, $.twopi );
+			ctx.fill();
+			ctx.beginPath();
+			ctx.ellipse( r * 0.15, -r * 0.9, r * 0.28, r * 0.16, 0, 0, $.twopi );
+			ctx.fill();
+			// neon purple arrow-trail, riding-a-chart flicker
+			var flicker = 0.5 + Math.sin( tick / 6 ) * 0.28;
+			ctx.beginPath();
+			ctx.moveTo( -r * 1.35, r * 0.25 );
+			ctx.lineTo( -r * 2.1, r * 0.5 );
+			ctx.lineTo( -r * 1.6, 0 );
+			ctx.lineTo( -r * 2.1, -r * 0.5 );
+			ctx.lineTo( -r * 1.35, -r * 0.25 );
 			ctx.closePath();
 			ctx.fillStyle = 'hsla(275, 100%, 65%, ' + flicker + ')';
 			ctx.fill();
 			ctx.beginPath();
-			ctx.arc( r * 0.6, 0, r * 0.22, 0, $.twopi );
-			ctx.fillStyle = 'hsla(275, 100%, 78%, ' + ( 0.6 + Math.cos( tick / 8 ) * 0.25 ) + ')';
+			ctx.arc( r * 1.1, 0, r * 0.2, 0, $.twopi );
+			ctx.fillStyle = 'hsla(275, 100%, 78%, ' + ( 0.55 + Math.cos( tick / 7 ) * 0.25 ) + ')';
 			ctx.fill();
 		}
 	}
