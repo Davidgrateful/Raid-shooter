@@ -41,28 +41,22 @@ function memBoard(week: string): Map<string, BoardEntry> {
   return b;
 }
 
-// Post a run to this week's ladder (best per identity, GT semantics).
+// Post a run to this week's ladder. CUMULATIVE like the all-time board:
+// every run's score adds to the week's running total instead of only
+// replacing a personal best, so consistent play keeps climbing the weekly
+// board too. Kills accumulate the same way; other fields (name, pilot,
+// etc.) reflect the most recent run.
 export async function submitWeekly(entry: BoardEntry): Promise<void> {
   const week = weekKey();
   if (kvUrl && kvToken) {
-    const changed = (await redis(['ZADD', boardKey(week), 'GT', 'CH', entry.score, entry.address])) as number;
-    if (changed > 0) {
-      await redis(['HSET', entriesKey(week), entry.address, JSON.stringify(entry)]);
-    } else if (entry.name) {
-      // score didn't beat the stored best, but a rename should still stick -
-      // otherwise a player who already has a strong weekly score is stuck
-      // showing their old name here until they beat their own record.
-      const raw = (await redis(['HGET', entriesKey(week), entry.address])) as string | null;
-      if (raw) {
-        try {
-          const stored = JSON.parse(raw) as BoardEntry;
-          if (stored.name !== entry.name) {
-            stored.name = entry.name;
-            await redis(['HSET', entriesKey(week), entry.address, JSON.stringify(stored)]);
-          }
-        } catch { /* leave stored entry as-is */ }
-      }
+    const raw = (await redis(['HGET', entriesKey(week), entry.address])) as string | null;
+    let prevKills = 0;
+    if (raw) {
+      try { prevKills = (JSON.parse(raw) as BoardEntry).kills || 0; } catch { /* corrupt row, treat as fresh */ }
     }
+    const newTotal = (await redis(['ZINCRBY', boardKey(week), entry.score, entry.address])) as string | number;
+    const stored: BoardEntry = { ...entry, score: Number(newTotal), kills: prevKills + entry.kills };
+    await redis(['HSET', entriesKey(week), entry.address, JSON.stringify(stored)]);
     // weekly boards are ephemeral - self-clean two weeks out
     await redis(['EXPIRE', boardKey(week), 21 * 86400]);
     await redis(['EXPIRE', entriesKey(week), 21 * 86400]);
@@ -70,11 +64,11 @@ export async function submitWeekly(entry: BoardEntry): Promise<void> {
   }
   const b = memBoard(week);
   const existing = b.get(entry.address);
-  if (!existing || entry.score > existing.score) {
-    b.set(entry.address, entry);
-  } else if (entry.name && existing.name !== entry.name) {
-    existing.name = entry.name;
-  }
+  b.set(entry.address, {
+    ...entry,
+    score: (existing?.score || 0) + entry.score,
+    kills: (existing?.kills || 0) + entry.kills,
+  });
 }
 
 // Patch a player's display name on this week's ladder without touching

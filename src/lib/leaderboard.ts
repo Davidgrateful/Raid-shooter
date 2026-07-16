@@ -85,6 +85,16 @@ export async function checkSubmitAllowed(address: string): Promise<boolean> {
   return true;
 }
 
+// The board is CUMULATIVE: every run's score adds to a lifetime running
+// total rather than only replacing a personal best. Consistent play keeps
+// climbing the board, not just a single great run. `kills` accumulates the
+// same way; name/level/combo/pilot/time/verified/cosmetics reflect the most
+// recent run (there's no meaningful "cumulative" version of a snapshot
+// field like equipped pilot). `improved` now means "this run moved the
+// player UP in rank" (not merely "posted a higher score than before" -
+// with cumulative totals every positive-score run raises the total, so
+// rank movement is the meaningful signal for the personal-best chat
+// callout, not raw score comparison).
 export async function submitEntry(
   entry: BoardEntry
 ): Promise<{ rank: number; improved: boolean }> {
@@ -94,48 +104,32 @@ export async function submitEntry(
     return { rank: 0, improved: false };
   }
   if (kvUrl && kvToken) {
-    const changed = (await redis([
-      'ZADD',
-      BOARD_KEY,
-      'GT',
-      'CH',
-      entry.score,
-      entry.address,
-    ])) as number;
-    const improved = changed > 0;
-    if (improved) {
-      await redis(['HSET', ENTRIES_KEY, entry.address, JSON.stringify(entry)]);
-    } else if (entry.name) {
-      // allow a name change to apply without beating the personal best
-      const raw = (await redis(['HGET', ENTRIES_KEY, entry.address])) as
-        | string
-        | null;
-      if (raw) {
-        try {
-          const stored = JSON.parse(raw) as BoardEntry;
-          if (stored.name !== entry.name) {
-            stored.name = entry.name;
-            await redis(['HSET', ENTRIES_KEY, entry.address, JSON.stringify(stored)]);
-          }
-        } catch {
-          // leave a corrupt row alone
-        }
-      }
+    const prevRank = (await redis(['ZREVRANK', BOARD_KEY, entry.address])) as number | null;
+    const raw = (await redis(['HGET', ENTRIES_KEY, entry.address])) as string | null;
+    let prevKills = 0;
+    if (raw) {
+      try { prevKills = (JSON.parse(raw) as BoardEntry).kills || 0; } catch { /* corrupt row, treat as fresh */ }
     }
-    const rank = (await redis(['ZREVRANK', BOARD_KEY, entry.address])) as
-      | number
-      | null;
-    return { rank: rank === null ? 0 : rank + 1, improved };
+    const newTotal = (await redis(['ZINCRBY', BOARD_KEY, entry.score, entry.address])) as string | number;
+    const stored: BoardEntry = { ...entry, score: Number(newTotal), kills: prevKills + entry.kills };
+    await redis(['HSET', ENTRIES_KEY, entry.address, JSON.stringify(stored)]);
+    const rank = (await redis(['ZREVRANK', BOARD_KEY, entry.address])) as number | null;
+    const newRank = rank === null ? 0 : rank + 1;
+    const improved = prevRank === null || (rank !== null && rank < prevRank);
+    return { rank: newRank, improved };
   }
 
   const existing = memoryBoard.get(entry.address);
-  const improved = !existing || entry.score > existing.score;
-  if (improved) {
-    memoryBoard.set(entry.address, entry);
-  } else if (existing && entry.name && existing.name !== entry.name) {
-    existing.name = entry.name;
-  }
-  return { rank: memoryRank(entry.address), improved };
+  const prevRankMem = existing ? memoryRank(entry.address) : 0;
+  const stored: BoardEntry = {
+    ...entry,
+    score: (existing?.score || 0) + entry.score,
+    kills: (existing?.kills || 0) + entry.kills,
+  };
+  memoryBoard.set(entry.address, stored);
+  const newRankMem = memoryRank(entry.address);
+  const improved = !existing || newRankMem < prevRankMem;
+  return { rank: newRankMem, improved };
 }
 
 // Carries a guest's rank over to their wallet the moment they connect, so
@@ -317,9 +311,8 @@ export async function resetBoard(): Promise<number> {
   return count;
 }
 
-// Every stored entry (one per address: their best run). Used by the admin
-// stats endpoint to aggregate - the board only keeps a player's best run,
-// so these numbers describe best-runs, not every session played.
+// Every stored entry (one per address: their cumulative lifetime total).
+// Used by the admin stats endpoint to aggregate.
 export async function getAllEntries(): Promise<BoardEntry[]> {
   if (kvUrl && kvToken) {
     const addresses = (await redis(['ZRANGE', BOARD_KEY, 0, -1, 'REV'])) as string[];
