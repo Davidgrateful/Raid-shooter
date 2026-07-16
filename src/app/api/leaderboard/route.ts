@@ -35,6 +35,7 @@ function isInt(value: unknown, min: number, max: number): value is number {
 const PILOT_IDS = new Set([
   'onyix', 'nova', 'tankrex', 'astravane', 'ironhalo', 'runepilot',
   'nebulafox', 'javelin9', 'atlasbeam', 'glitchprince', 'solstice', 'crimsonwisp',
+  'voltrider',
 ]);
 const DRONE_IDS = new Set([
   'drone_aegis', 'drone_voltmite', 'drone_needlefinch', 'drone_gravbeetle', 'drone_medicwisp', 'drone_champion',

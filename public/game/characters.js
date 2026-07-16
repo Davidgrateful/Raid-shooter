@@ -251,6 +251,44 @@ $.definitions.characters = [
 			ctx.fillStyle = 'hsla(10, 100%, 55%, ' + flicker + ')';
 			ctx.fill();
 		}
+	},
+	{
+		// premium pilot: instant unlock via the market, no grind gate.
+		// sponsor tie-in cosmetic (CryptoRider crossover) - balanced like
+		// every other premium pilot, no power edge from the partnership.
+		id: 'voltrider', ability: { title: 'SLIPSTREAM+', text: 'LONGER DASH, FASTER RECHARGE', dashDuration: 1.3, dashCooldownMult: 0.85 }, bulletStyle: { size: 18, lineWidth: 1.8 }, title: 'VOLT RIDER', desc: 'PREMIUM PILOT\nNEON SLIPSTREAM HULL',
+		speedMult: 1.12, damageTakenMult: 1.1, dashCooldownMult: 0.85, radius: 10,
+		unlock: { purchase: 'pilot_voltrider' },
+		draw: function( ctx, r, fillStyle, tick ) {
+			// fairing-nosed dart, motorcycle-windscreen silhouette
+			ctx.beginPath();
+			ctx.moveTo( r * 1.9, 0 );
+			ctx.lineTo( r * 0.7, r * 0.5 );
+			ctx.lineTo( -r * 0.3, r * 0.65 );
+			ctx.lineTo( -r * 1.2, r * 0.3 );
+			ctx.lineTo( -r * 1.2, -r * 0.3 );
+			ctx.lineTo( -r * 0.3, -r * 0.65 );
+			ctx.lineTo( r * 0.7, -r * 0.5 );
+			ctx.closePath();
+			ctx.fillStyle = fillStyle;
+			ctx.fill();
+			// neon purple slipstream trail, riding-a-chart flicker
+			var flicker = 0.45 + Math.sin( tick / 6 ) * 0.3,
+				kick = Math.sin( tick / 4 ) * r * 0.15;
+			ctx.beginPath();
+			ctx.moveTo( -r * 1.2, r * 0.15 );
+			ctx.lineTo( -r * 2.1, r * 0.35 + kick );
+			ctx.lineTo( -r * 1.5, 0 );
+			ctx.lineTo( -r * 2.1, -r * 0.35 - kick );
+			ctx.lineTo( -r * 1.2, -r * 0.15 );
+			ctx.closePath();
+			ctx.fillStyle = 'hsla(275, 100%, 65%, ' + flicker + ')';
+			ctx.fill();
+			ctx.beginPath();
+			ctx.arc( r * 0.6, 0, r * 0.22, 0, $.twopi );
+			ctx.fillStyle = 'hsla(275, 100%, 78%, ' + ( 0.6 + Math.cos( tick / 8 ) * 0.25 ) + ')';
+			ctx.fill();
+		}
 	}
 ];
 
