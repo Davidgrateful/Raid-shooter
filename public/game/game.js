@@ -5124,7 +5124,7 @@ $.setupStates = function() {
 			boardText = 'SUBMITTING TO SHOOTERBOARD';
 		} else if( $.boardSubmit.state === 'done' ) {
 			boardText = $.boardSubmit.rank
-				? 'SHOOTERBOARD RANK ' + $.boardSubmit.rank + ( $.boardSubmit.improved ? '' : '  /  PERSONAL BEST STANDS' )
+				? 'SHOOTERBOARD RANK ' + $.boardSubmit.rank
 				: 'SCORE SAVED TO SHOOTERBOARD';
 			boardColor = 'hsla(45, 100%, 65%, 1)';
 		} else if( $.boardSubmit.state === 'error' ) {
@@ -5132,12 +5132,18 @@ $.setupStates = function() {
 		} else if( $.boardSubmit.state === 'assisted' ) {
 			boardText = 'RUN NOT RANKED  /  CONSUMABLE USED';
 		}
-		// a gentle nudge for guests: their score is already ranked, the
-		// wallet is purely an optional verified upgrade
-		var boardSubText = '';
-		if( $.boardSubmit.state === 'done' && !$.boardSubmit.verified ) {
-			boardSubText = 'PLAYING AS GUEST  /  CONNECT WALLET FOR A VERIFIED BADGE';
+		// the board is cumulative now (every run adds to a lifetime total,
+		// not just your best one) - show that running total on the game
+		// over screen so it's visible after every single play, not just
+		// discoverable by opening the leaderboard separately.
+		var boardSubLines = [];
+		if( $.boardSubmit.state === 'done' && $.boardSubmit.total > 0 ) {
+			boardSubLines.push( 'LIFETIME TOTAL ' + $.util.commas( $.boardSubmit.total ) );
 		}
+		if( $.boardSubmit.state === 'done' && !$.boardSubmit.verified ) {
+			boardSubLines.push( 'PLAYING AS GUEST  /  CONNECT WALLET FOR A VERIFIED BADGE' );
+		}
+		var boardSubText = boardSubLines.join( '\n' );
 		if( boardText ) {
 			// desktop: below the fixed button stack (426 + 3 buttons + gaps),
 			// so the status can never print over PLAY AGAIN on short windows
@@ -5169,7 +5175,7 @@ $.setupStates = function() {
 					y: boardTextY + ( goCompact ? 12 : 16 ),
 					text: boardSubText,
 					hspacing: 1,
-					vspacing: 1,
+					vspacing: 6,
 					halign: 'center',
 					valign: 'top',
 					scale: 1,

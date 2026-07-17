@@ -316,7 +316,7 @@ $.submitScore = function() {
 				if( data.verified === false && !$.session.guestId ) {
 					$.fetchSession();
 				}
-				$.boardSubmit = { state: 'done', rank: data.rank || 0, improved: !!data.improved, verified: !!data.verified };
+				$.boardSubmit = { state: 'done', rank: data.rank || 0, improved: !!data.improved, verified: !!data.verified, total: data.total || 0 };
 
 				// if this pilot arrived through an invite, credit the inviter
 				// now that they've posted a real run (server gates on score)

@@ -53,7 +53,7 @@ export async function restoreScore(key: string): Promise<{ restored: boolean; sc
   }
   if (!rec || !rec.entry) return { restored: false };
   await unbanPlayer(key);          // must lift the ban first, or submitEntry no-ops
-  await submitEntry(rec.entry);    // re-adds to the all-time board (GT keeps the higher of the two)
+  await submitEntry(rec.entry);    // re-adds to the all-time board (removal fully ZREMs first, so this cumulative add lands as an exact restore, not a double-count)
   if (kvUrl && kvToken) { await redisCommand(['HDEL', REMOVED_KEY, key]); } else { memRemoved.delete(key); }
   return { restored: true, score: rec.entry.score };
 }

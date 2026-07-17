@@ -97,11 +97,11 @@ export async function checkSubmitAllowed(address: string): Promise<boolean> {
 // callout, not raw score comparison).
 export async function submitEntry(
   entry: BoardEntry
-): Promise<{ rank: number; improved: boolean }> {
+): Promise<{ rank: number; improved: boolean; total: number }> {
   // banned players (caught cheating) silently can't post - the client gets
   // a normal-looking response so there's nothing to probe or work around
   if (await isBanned(entry.address)) {
-    return { rank: 0, improved: false };
+    return { rank: 0, improved: false, total: 0 };
   }
   if (kvUrl && kvToken) {
     const prevRank = (await redis(['ZREVRANK', BOARD_KEY, entry.address])) as number | null;
@@ -111,25 +111,27 @@ export async function submitEntry(
       try { prevKills = (JSON.parse(raw) as BoardEntry).kills || 0; } catch { /* corrupt row, treat as fresh */ }
     }
     const newTotal = (await redis(['ZINCRBY', BOARD_KEY, entry.score, entry.address])) as string | number;
-    const stored: BoardEntry = { ...entry, score: Number(newTotal), kills: prevKills + entry.kills };
+    const total = Number(newTotal);
+    const stored: BoardEntry = { ...entry, score: total, kills: prevKills + entry.kills };
     await redis(['HSET', ENTRIES_KEY, entry.address, JSON.stringify(stored)]);
     const rank = (await redis(['ZREVRANK', BOARD_KEY, entry.address])) as number | null;
     const newRank = rank === null ? 0 : rank + 1;
     const improved = prevRank === null || (rank !== null && rank < prevRank);
-    return { rank: newRank, improved };
+    return { rank: newRank, improved, total };
   }
 
   const existing = memoryBoard.get(entry.address);
   const prevRankMem = existing ? memoryRank(entry.address) : 0;
+  const total = (existing?.score || 0) + entry.score;
   const stored: BoardEntry = {
     ...entry,
-    score: (existing?.score || 0) + entry.score,
+    score: total,
     kills: (existing?.kills || 0) + entry.kills,
   };
   memoryBoard.set(entry.address, stored);
   const newRankMem = memoryRank(entry.address);
   const improved = !existing || newRankMem < prevRankMem;
-  return { rank: newRankMem, improved };
+  return { rank: newRankMem, improved, total };
 }
 
 // Carries a guest's rank over to their wallet the moment they connect, so
