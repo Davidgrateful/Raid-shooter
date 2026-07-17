@@ -351,9 +351,7 @@ function PlayersTable({ token }: { token: string }) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || `Failed (${res.status})`);
-      setNote(data.applied
-        ? `✓ Re-added ${score.toLocaleString()} pts to ${shortId(p)} (rank #${data.rank}).`
-        : `Score submitted but not applied — the player already has an equal or higher score on the board.`);
+      setNote(`✓ Set ${shortId(p)}'s score to ${score.toLocaleString()} pts (rank #${data.rank}).`);
       await loadPlayers();
     } catch (e) {
       setNote(e instanceof Error ? e.message : 'Re-add failed.');

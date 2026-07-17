@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth } from '@/lib/admin-auth';
-import { unbanPlayer, submitEntry } from '@/lib/leaderboard';
+import { unbanPlayer, setEntry } from '@/lib/leaderboard';
 import { purgeScoresEverywhere, banEverywhere, restoreScore, listRemoved } from '@/lib/moderation';
 import { audit } from '@/lib/audit';
 
@@ -68,9 +68,11 @@ export async function POST(req: NextRequest) {
       at: Date.now(),
       verified: key.startsWith('0x'),
     };
-    const res = await submitEntry(entry);
+    // exact set, not a cumulative add - this is a manual correction, not a
+    // gameplay submission
+    const res = await setEntry(entry);
     await audit({ actor: auth.identity.actor, action: 'player.readd', target: key, detail: String(score) });
-    return NextResponse.json({ ok: true, action, id: key, score, rank: res.rank, applied: res.improved });
+    return NextResponse.json({ ok: true, action, id: key, score, rank: res.rank });
   }
   if (action === 'derank') {
     // strip the score from all-time AND the sponsored cup + weekly boards

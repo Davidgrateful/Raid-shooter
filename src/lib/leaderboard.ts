@@ -134,6 +134,22 @@ export async function submitEntry(
   return { rank: newRankMem, improved, total };
 }
 
+// Admin-only: set an identity's score to an EXACT value, overwriting
+// whatever total they currently have. Unlike submitEntry (which adds to
+// the running cumulative total - correct for real gameplay), this is for
+// manual corrections ("put their score back to exactly 45,000") where an
+// admin means "set", not "add". Bypasses the cumulative-add path entirely.
+export async function setEntry(entry: BoardEntry): Promise<{ rank: number }> {
+  if (kvUrl && kvToken) {
+    await redis(['ZADD', BOARD_KEY, entry.score, entry.address]);
+    await redis(['HSET', ENTRIES_KEY, entry.address, JSON.stringify(entry)]);
+    const rank = (await redis(['ZREVRANK', BOARD_KEY, entry.address])) as number | null;
+    return { rank: rank === null ? 0 : rank + 1 };
+  }
+  memoryBoard.set(entry.address, entry);
+  return { rank: memoryRank(entry.address) };
+}
+
 // Carries a guest's rank over to their wallet the moment they connect, so
 // upgrading to a verified badge never costs progress. Keeps whichever score
 // is higher (guest run or any pre-existing wallet entry) under the wallet's
