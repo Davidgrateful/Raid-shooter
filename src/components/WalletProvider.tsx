@@ -35,6 +35,31 @@ if (typeof window !== 'undefined') {
   } catch {
     // localStorage unavailable (private browsing, etc.) - nothing to clean up
   }
+
+  // The sweep above only clears AppKit's own auxiliary embedded-wallet keys.
+  // It doesn't touch wagmi's OWN persisted connection state (`wagmi.store`,
+  // `wagmi.recentConnectorId`) - the thing that actually drives silent
+  // auto-reconnect on page load. A player who hit the embedded email/social
+  // flow before `basic: true` shipped still has that connection saved
+  // there, so every time they open the game wagmi quietly reconnects them
+  // to a wallet they never asked for - exactly "showing an inbuilt wallet
+  // I didn't create," even after the flow itself was disabled going
+  // forward. Reown's embedded/social connector id is the constant 'AUTH'
+  // (@reown/appkit-common ConstantsUtil.CONNECTOR_ID.AUTH); if the raw
+  // store JSON references it anywhere, wipe wagmi's persisted state so
+  // startup begins clean instead of restoring that connection. A player
+  // with only a real wallet connection (injected/WalletConnect) never has
+  // 'AUTH' in their store, so this can't disconnect anyone with a genuine
+  // wallet.
+  try {
+    const store = window.localStorage.getItem('wagmi.store');
+    if (store && store.includes('"AUTH"')) {
+      window.localStorage.removeItem('wagmi.store');
+      window.localStorage.removeItem('wagmi.recentConnectorId');
+    }
+  } catch {
+    // localStorage unavailable - nothing to sweep
+  }
 }
 
 // Expired-session sweep, also BEFORE createAppKit(): the "old players can't
