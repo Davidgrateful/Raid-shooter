@@ -191,6 +191,10 @@ $.definitions.enemies = [
 					enemy.canSpawn = 0;
 					enemy.speed = 1;
 					enemy.life = 1;
+					// keep the bar in sync: lifeMax was computed from the
+					// parent's scaled life, so children rendered a mostly
+					// empty health bar from birth
+					enemy.lifeMax = 1;
 					enemy.value = 5;
 					enemy.x = this.x;
 					enemy.y = this.y;

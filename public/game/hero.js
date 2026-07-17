@@ -308,7 +308,10 @@ $.Hero.prototype.update = function() {
 				var resist = ( this.character.ability && this.character.ability.lowHpResist && this.life < 0.35 ) ? this.character.ability.lowHpResist : 1;
 				var droneResist = ( $.equippedDrone() && $.equippedDrone().id === 'drone_aegis' ) ? 0.85 : 1;
 				var levelResist = $.pilotLevelDamageMult( this.character.id );
-				this.life -= 0.011 * ( enemy.isBoss ? 2.5 : 1 ) * ( $.diff ? $.diff.dmg : 1 ) * $.introMult() * this.damageTakenMult * resist * droneResist * levelResist;
+				// scaled by $.dt like every other damage path - without it,
+				// contact damage ticked per rendered FRAME, so 120hz players
+				// took ~2x collision damage per real second
+				this.life -= 0.011 * $.dt * ( enemy.isBoss ? 2.5 : 1 ) * ( $.diff ? $.diff.dmg : 1 ) * $.introMult() * this.damageTakenMult * resist * droneResist * levelResist;
 				// enemies shove the hero on contact
 				var pushDirection = Math.atan2( this.y - enemy.y, this.x - enemy.x );
 				this.vx += Math.cos( pushDirection ) * 1.6 * $.dt;

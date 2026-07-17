@@ -293,9 +293,11 @@ $.updateHazards = function() {
 				}
 			}
 
-			// and hurt the hero on contact (the dash slips through)
+			// and hurt the hero on contact (the dash slips through) -
+			// dt-scaled like the enemy branch above, or 120hz players took
+			// double asteroid damage per real second
 			if( $.util.distance( rock.x, rock.y, $.hero.x, $.hero.y ) <= rock.radius + $.hero.radius ) {
-				$.hazardDamageHero( 0.0075 );
+				$.hazardDamageHero( 0.0075 * $.dt );
 			}
 
 			// bullets chip away and can shatter rocks
@@ -786,6 +788,12 @@ $.spawnBoss = function() {
 						speed: this.variant.burstSpeed,
 						life: 1,
 						radius: 7,
+						// isBolt keeps the hunt steering off these: without it
+						// they homed onto the hero AND had their lockBounds
+						// despawn cancelled, so every volley left permanent
+						// undying shards that crept the population toward
+						// MAX_ENEMIES and throttled real spawns
+						isBolt: 1,
 						hue: this.variant.hue,
 						saturation: this.variant.saturation,
 						lockBounds: 1,
@@ -810,6 +818,7 @@ $.spawnBoss = function() {
 						var idir = direction + ( ib / inner ) * $.twopi + 0.22;
 						$.enemies.push( new $.Enemy( {
 							value: 5, speed: this.variant.burstSpeed * 0.66, life: 1, radius: 7,
+							isBolt: 1,
 							hue: this.variant.hue, saturation: this.variant.saturation, lockBounds: 1,
 							x: this.x + Math.cos( idir ) * ( this.radius + 10 ),
 							y: this.y + Math.sin( idir ) * ( this.radius + 10 ),

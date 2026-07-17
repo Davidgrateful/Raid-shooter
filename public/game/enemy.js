@@ -564,8 +564,9 @@ $.Enemy.prototype.update = function( i ) {
 			hue: this.hue,
 			saturation: this.saturation
 		} ) );
-		// the dash i-frames also dodge the blast
-		if( $.hero.life > 0 && $.hero.dashTick <= 0 && $.util.distance( this.x, this.y, $.hero.x, $.hero.y ) <= this.blastRadius + $.hero.radius ) {
+		// the dash i-frames and the SHIELD powerup both dodge the blast,
+		// matching every other damage path (contact, hazards, black hole)
+		if( $.hero.life > 0 && $.hero.dashTick <= 0 && $.powerupTimers[ 5 ] <= 0 && $.util.distance( this.x, this.y, $.hero.x, $.hero.y ) <= this.blastRadius + $.hero.radius ) {
 			$.hero.life -= 0.2 * $.hero.damageTakenMult;
 			$.breakCombo();
 			$.rumble.level = 10;

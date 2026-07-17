@@ -12,6 +12,13 @@ $.session = { authenticated: false, address: null, guestId: null };
 // session cookie is dropped (iOS Safari ITP, in-app browsers) - the cause of
 // "my score/name only sticks with a wallet". Minted once, stable forever.
 $.guestToken = function() {
+	// market.js calls this at script load (before game.js's $.init has run
+	// $.setupStorage) - without this guard that read threw at boot and the
+	// initial profile fetch silently died, so owned items/consumables
+	// didn't load until the player opened the Market screen.
+	if( !$.storage ) {
+		$.setupStorage();
+	}
 	var t = $.storage[ 'guesttoken' ];
 	if( !t || t.length < 8 ) {
 		t = ( Date.now().toString( 36 ) + Math.random().toString( 36 ).slice( 2 ) ).replace( /[^a-z0-9]/g, '' ).slice( 0, 32 );

@@ -91,14 +91,19 @@ $.Bullet.prototype.update = function( i ) {
 						enemy.shieldFlash = 1;
 					}
 				}
+				// chain origin captured BEFORE the primary can die: if
+				// receiveDamage splices it, indices shift and `ci === ei`
+				// would skip a random live enemy instead of the primary -
+				// comparing by object reference stays correct either way
+				var chainX = enemy.x, chainY = enemy.y;
 				enemy.receiveDamage( ei, dmg );
 
 				// Volt Mite drone: zap one nearby enemy for partial damage
 				if( this.chain ) {
 					var nearest = null, nearestIndex = -1, nearestDist = 140;
 					for( var ci = $.enemies.length - 1; ci >= 0; ci-- ) {
-						if( ci === ei ) { continue; }
-						var d = $.util.distance( enemy.x, enemy.y, $.enemies[ ci ].x, $.enemies[ ci ].y );
+						if( $.enemies[ ci ] === enemy ) { continue; }
+						var d = $.util.distance( chainX, chainY, $.enemies[ ci ].x, $.enemies[ ci ].y );
 						if( d < nearestDist ) {
 							nearest = $.enemies[ ci ];
 							nearestIndex = ci;

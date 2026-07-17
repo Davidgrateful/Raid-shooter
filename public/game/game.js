@@ -1830,6 +1830,15 @@ $.setScrollMax = function( contentBottom, viewportBottom ) {
 };
 
 $.setState = function( state ) {
+	// Entering play resets the delta clock. Without this, any path into
+	// 'play' that didn't hand-set $.lt (keyboard unpause, the first frame
+	// of a fresh run where $.reset left lt=0) computed its first dt from
+	// the whole time since the last play frame - clamped to 10, so the
+	// world lurched 10 ticks in one frame and enemies teleported onto the
+	// hero. One reset here covers every entry path.
+	if( state === 'play' ) {
+		$.lt = Date.now();
+	}
 	// handle clean up between states
 	$.buttons.length = 0;
 	$.scroll.y = 0;
@@ -4697,7 +4706,10 @@ $.setupStates = function() {
 	$.states['play'] = function() {
 		$.updateDelta();
 		// hitstop: hold the world for a beat after a big impact (render still runs)
-		if( $.hitstop > 0 ) { $.hitstop -= 1; $.dt = 0; }
+		// decrement by the REAL frame delta (updateDelta just computed it),
+		// not 1 per frame - otherwise hitstop halves at 120hz / doubles on
+		// slow devices. The world still freezes via $.dt = 0 afterward.
+		if( $.hitstop > 0 ) { $.hitstop -= $.dt; $.dt = 0; }
 		$.updateScreen();
 		$.updateCombo();
 		$.updateLevel();
