@@ -52,6 +52,13 @@ export function useSIWE() {
   }, []);
 
   const signingRef = useRef(false);
+  // Set when the player actively REJECTS the signature prompt. Gates only
+  // the automatic re-prompts (auto-prompt on connect, visibility retry) -
+  // without it, declining once meant getting a fresh signature popup on
+  // every tab switch / app return for as long as the wallet stayed
+  // connected. Manual Sign In clicks ignore it, and it resets when the
+  // wallet disconnects.
+  const declinedRef = useRef(false);
   const signIn = useCallback(async () => {
     if (!address || !chainId || signingRef.current) return;
     signingRef.current = true;
@@ -90,7 +97,17 @@ export function useSIWE() {
       } else {
         setState((s) => ({ ...s, loading: false }));
       }
-    } catch {
+    } catch (err) {
+      // a deliberate rejection stops the automatic re-prompts; any other
+      // failure (network, dropped app switch) stays retryable
+      const e = err as { name?: string; code?: number; message?: string };
+      if (
+        e?.name === 'UserRejectedRequestError' ||
+        e?.code === 4001 ||
+        /rejected|denied/i.test(e?.message || '')
+      ) {
+        declinedRef.current = true;
+      }
       setState((s) => ({ ...s, loading: false }));
     } finally {
       signingRef.current = false;
@@ -121,6 +138,7 @@ export function useSIWE() {
   useEffect(() => {
     if (!isConnected) {
       setAutoPrompted(false);
+      declinedRef.current = false;
       return;
     }
     if (autoPrompted || state.loading || state.authenticated || !address || !chainId) {
@@ -142,6 +160,7 @@ export function useSIWE() {
         isConnected &&
         !state.authenticated &&
         !state.loading &&
+        !declinedRef.current &&
         address &&
         chainId
       ) {

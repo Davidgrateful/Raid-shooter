@@ -60,6 +60,31 @@ if (typeof window !== 'undefined') {
   } catch {
     // localStorage unavailable - nothing to sweep
   }
+
+  // ...and the SAME sweep against cookies, which is where wagmi actually
+  // persists here: wagmi-config.ts passes `createStorage({ storage:
+  // cookieStorage })`, so the connection state lives in document.cookie
+  // (`wagmi.store=...`, `wagmi.recentConnectorId=...`; see @wagmi/core
+  // utils/cookie.js - written with path=/ and removed via max-age=-1).
+  // The localStorage check above alone missed this entirely, which is why
+  // the embedded wallet kept auto-reconnecting even after that sweep
+  // shipped. Same safety property: 'AUTH' is only ever present when the
+  // embedded email/social connector made the connection, so a player
+  // using a real wallet (injected/WalletConnect) is never touched.
+  try {
+    const cookies = document.cookie.split('; ');
+    const storeCookie = cookies.find((c) => c.startsWith('wagmi.store='));
+    const recentCookie = cookies.find((c) => c.startsWith('wagmi.recentConnectorId='));
+    const authConnected =
+      (!!storeCookie && decodeURIComponent(storeCookie).includes('"AUTH"')) ||
+      (!!recentCookie && decodeURIComponent(recentCookie).includes('AUTH'));
+    if (authConnected) {
+      document.cookie = 'wagmi.store=;max-age=-1;path=/';
+      document.cookie = 'wagmi.recentConnectorId=;max-age=-1;path=/';
+    }
+  } catch {
+    // cookies unavailable - nothing to sweep
+  }
 }
 
 // Expired-session sweep, also BEFORE createAppKit(): the "old players can't
