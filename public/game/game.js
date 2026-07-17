@@ -307,6 +307,7 @@ $.reset = function() {
 	$.comboMultiplier = 1;
 	$.bestCombo = 0;
 	$.spawnLullTick = 0;
+	$.lastSpawnTick = 0;
 
 	// difficulty multipliers chosen in settings
 	$.diff = $.difficulties.extreme;
@@ -1113,7 +1114,18 @@ $.spawnEnemies = function() {
 				$.makeElite( enemy );
 			}
 			$.enemies.push( enemy );
+			$.lastSpawnTick = $.tick;
 		}
+	}
+
+	// watchdog: if 4+ real seconds pass with room under the cap but not a
+	// single enemy spawned, something has gone wrong with the timing math
+	// above (reported live as "enemies never come back" after a boss) -
+	// force one through rather than let the run sit empty for good.
+	if( $.tick - $.lastSpawnTick > 240 && $.enemies.length < $.MAX_ENEMIES ) {
+		var forced = $.spawnEnemy( Math.floor( $.util.rand( 0, $.level.distributionCount ) ) );
+		$.enemies.push( forced );
+		$.lastSpawnTick = $.tick;
 	}
 };
 
