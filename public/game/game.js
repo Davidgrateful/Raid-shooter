@@ -308,6 +308,7 @@ $.reset = function() {
 	$.bestCombo = 0;
 	$.spawnLullTick = 0;
 	$.lastSpawnTick = 0;
+	$.lastSpawnCheckTick = -1;
 
 	// difficulty multipliers chosen in settings
 	$.diff = $.difficulties.extreme;
@@ -1081,7 +1082,23 @@ $.spawnEnemies = function() {
 	if( $.enemies.length >= $.MAX_ENEMIES ) {
 		return;
 	}
-	var floorTick = Math.floor( $.tick );
+	// Spawn checks are per GAME TICK, never per rendered frame. This
+	// function runs every frame, but $.tick advances by $.dt (0.5 on a
+	// 120hz phone, ~1 at 60fps) - so checking eligibility on every call
+	// makes the spawn rate scale with the display's refresh rate. On
+	// high-refresh phones that flooded the field to MAX_ENEMIES with
+	// off-screen enemies within seconds, which then blocked all further
+	// spawns - the live "game is empty / enemies never show up" bug.
+	// Gating on whole-tick boundaries makes the rate identical on every
+	// device; `steps` covers slow devices where one frame spans several
+	// ticks (dt > 1) so their average rate stays right too.
+	var floorTick = Math.floor( $.tick ),
+		prevTick = ( $.lastSpawnCheckTick === undefined ) ? floorTick - 1 : $.lastSpawnCheckTick;
+	if( floorTick <= prevTick ) {
+		return;
+	}
+	var steps = Math.min( 4, floorTick - prevTick );
+	$.lastSpawnCheckTick = floorTick;
 	// during a boss fight, minions keep coming but at a slower cadence so the
 	// fight stays about the boss while never feeling empty
 	var bossMult = $.boss ? 2.2 : 1,
@@ -1099,14 +1116,15 @@ $.spawnEnemies = function() {
 			timeCheck = Math.max( 3, timeCheck - ( $.levelDiffOffset * 2) );
 		}
 		// enemy index 2 is the pink chevron ("move directly at hero") - it
-		// keeps its exact fixed-beat cadence. Every other enemy type spawns
-		// on a random roll instead of a fixed beat: same average rate
-		// (1/timeCheck chance per eligible tick == same long-run frequency
-		// as the modulo check), but the timing between spawns is no longer
-		// a predictable metronome.
+		// keeps its exact fixed-beat cadence (did a beat multiple fall
+		// inside the ticks this frame covered?). Every other enemy type
+		// spawns on a random roll instead of a fixed beat: same average
+		// rate (steps/timeCheck chance per whole tick advanced == the
+		// modulo check's long-run frequency), but the timing between
+		// spawns is no longer a predictable metronome.
 		var eligibleTick = ( i === 2 )
-			? ( floorTick % timeCheck === 0 )
-			: ( Math.random() < ( 1 / timeCheck ) );
+			? ( Math.floor( floorTick / timeCheck ) > Math.floor( prevTick / timeCheck ) )
+			: ( Math.random() < ( steps / timeCheck ) );
 		if( eligibleTick && $.enemies.length < $.MAX_ENEMIES ) {
 			var enemy = $.spawnEnemy( i );
 			// elites start appearing from level 4, getting more common with depth
