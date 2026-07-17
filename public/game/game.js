@@ -1097,7 +1097,16 @@ $.spawnEnemies = function() {
 			// reads to the player as "enemies stopped spawning".
 			timeCheck = Math.max( 3, timeCheck - ( $.levelDiffOffset * 2) );
 		}
-		if( floorTick % timeCheck === 0 && $.enemies.length < $.MAX_ENEMIES ) {
+		// enemy index 2 is the pink chevron ("move directly at hero") - it
+		// keeps its exact fixed-beat cadence. Every other enemy type spawns
+		// on a random roll instead of a fixed beat: same average rate
+		// (1/timeCheck chance per eligible tick == same long-run frequency
+		// as the modulo check), but the timing between spawns is no longer
+		// a predictable metronome.
+		var eligibleTick = ( i === 2 )
+			? ( floorTick % timeCheck === 0 )
+			: ( Math.random() < ( 1 / timeCheck ) );
+		if( eligibleTick && $.enemies.length < $.MAX_ENEMIES ) {
 			var enemy = $.spawnEnemy( i );
 			// elites start appearing from level 4, getting more common with depth
 			if( $.level.current >= 3 && Math.random() < Math.min( 0.16, 0.04 + $.level.current * 0.01 ) ) {
