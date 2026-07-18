@@ -307,8 +307,6 @@ $.reset = function() {
 	$.comboMultiplier = 1;
 	$.bestCombo = 0;
 	$.spawnLullTick = 0;
-	$.lastSpawnTick = 0;
-	$.lastSpawnCheckTick = -1;
 
 	// difficulty multipliers chosen in settings
 	$.diff = $.difficulties.extreme;
@@ -1066,39 +1064,20 @@ $.introMult = function() {
 	return Math.min( 1, 0.35 + ( $.level ? $.level.current : 0 ) * 0.16 );
 };
 
-// hard ceiling on simultaneous enemies - without this, a long/fast run at
-// high difficulty keeps spawning faster than enemies die, and the O(n*m)
-// bullet-vs-enemy collision scan each frame grows with the square of that
-// count. This caps the worst case without ever being visible in normal
-// play (a screen this full is already chaos long before the cap bites).
-$.MAX_ENEMIES = 140;
-
+// Restored VERBATIM to the last known-good deploy's spawn logic. The
+// population cap + randomization + watchdog experiment that replaced it
+// turned every population quirk into "enemies never spawn again" (a
+// blocked cap) instead of the worst case being some extra lag - the
+// no-cap design can never blank the field, which is why the previous
+// deploys "just worked". Do not re-introduce a spawn cap here without
+// re-reading that incident.
 $.spawnEnemies = function() {
 	// breathing room after an upgrade draft before the next wave
 	if( $.spawnLullTick > 0 ) {
 		$.spawnLullTick -= $.dt;
 		return;
 	}
-	if( $.enemies.length >= $.MAX_ENEMIES ) {
-		return;
-	}
-	// Spawn checks are per GAME TICK, never per rendered frame. This
-	// function runs every frame, but $.tick advances by $.dt (0.5 on a
-	// 120hz phone, ~1 at 60fps) - so checking eligibility on every call
-	// makes the spawn rate scale with the display's refresh rate. On
-	// high-refresh phones that flooded the field to MAX_ENEMIES with
-	// off-screen enemies within seconds, which then blocked all further
-	// spawns - the live "game is empty / enemies never show up" bug.
-	// Gating on whole-tick boundaries makes the rate identical on every
-	// device; `steps` covers slow devices where one frame spans several
-	// ticks (dt > 1) so their average rate stays right too.
-	var floorTick = Math.floor( $.tick ),
-		prevTick = ( $.lastSpawnCheckTick === undefined ) ? floorTick - 1 : $.lastSpawnCheckTick;
-	if( floorTick <= prevTick ) {
-		return;
-	}
-	var steps = Math.min( 4, floorTick - prevTick );
-	$.lastSpawnCheckTick = floorTick;
+	var floorTick = Math.floor( $.tick );
 	// during a boss fight, minions keep coming but at a slower cadence so the
 	// fight stays about the boss while never feeling empty
 	var bossMult = $.boss ? 2.2 : 1,
@@ -1108,42 +1087,16 @@ $.spawnEnemies = function() {
 	for( var i = 0; i < $.level.distributionCount; i++ ) {
 		var timeCheck = Math.round( $.level.distribution[ i ] * bossMult * spawnScale );
 		if( $.levelDiffOffset > 0 ){
-			// floored at 3, not 1: uncapped this collapses to "eligible every
-			// tick" well before a very long run ends, which combined with
-			// enemies getting linearly tankier drives kill-rate below
-			// spawn-rate and pins the population at MAX_ENEMIES permanently -
-			// reads to the player as "enemies stopped spawning".
-			timeCheck = Math.max( 3, timeCheck - ( $.levelDiffOffset * 2) );
+			timeCheck = Math.max( 1, timeCheck - ( $.levelDiffOffset * 2) );
 		}
-		// enemy index 2 is the pink chevron ("move directly at hero") - it
-		// keeps its exact fixed-beat cadence (did a beat multiple fall
-		// inside the ticks this frame covered?). Every other enemy type
-		// spawns on a random roll instead of a fixed beat: same average
-		// rate (steps/timeCheck chance per whole tick advanced == the
-		// modulo check's long-run frequency), but the timing between
-		// spawns is no longer a predictable metronome.
-		var eligibleTick = ( i === 2 )
-			? ( Math.floor( floorTick / timeCheck ) > Math.floor( prevTick / timeCheck ) )
-			: ( Math.random() < ( steps / timeCheck ) );
-		if( eligibleTick && $.enemies.length < $.MAX_ENEMIES ) {
+		if( floorTick % timeCheck === 0 ) {
 			var enemy = $.spawnEnemy( i );
 			// elites start appearing from level 4, getting more common with depth
 			if( $.level.current >= 3 && Math.random() < Math.min( 0.16, 0.04 + $.level.current * 0.01 ) ) {
 				$.makeElite( enemy );
 			}
 			$.enemies.push( enemy );
-			$.lastSpawnTick = $.tick;
 		}
-	}
-
-	// watchdog: if 4+ real seconds pass with room under the cap but not a
-	// single enemy spawned, something has gone wrong with the timing math
-	// above (reported live as "enemies never come back" after a boss) -
-	// force one through rather than let the run sit empty for good.
-	if( $.tick - $.lastSpawnTick > 240 && $.enemies.length < $.MAX_ENEMIES ) {
-		var forced = $.spawnEnemy( Math.floor( $.util.rand( 0, $.level.distributionCount ) ) );
-		$.enemies.push( forced );
-		$.lastSpawnTick = $.tick;
 	}
 };
 
