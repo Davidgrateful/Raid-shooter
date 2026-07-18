@@ -57,12 +57,20 @@ $.Bullet.prototype.update = function( i ) {
 	}
 
 	/*==============================================================================
-	Check Collisions
+	Check Collisions (broad-phase: only enemies near this bullet, not all of
+	them - see $.buildEnemyGrid. The grid is rebuilt each frame BEFORE the
+	bullet pass, so an enemy killed by an earlier bullet this same frame can
+	still sit in a bucket; the indexOf re-check below skips those safely.)
 	==============================================================================*/
-	var ei = $.enemies.length;
-	while( ei-- ) {
-		var enemy = $.enemies[ ei ];
+	var candidates = $.enemiesNear( this.x, this.y );
+	var ci0 = candidates.length;
+	while( ci0-- ) {
+		var enemy = candidates[ ci0 ];
 		if( $.util.distance( this.x, this.y, enemy.x, enemy.y ) <= enemy.radius ) {
+			// resolve the LIVE index only on an actual hit - dead/spliced
+			// enemies from earlier this frame resolve to -1 and are skipped
+			var ei = $.enemies.indexOf( enemy );
+			if( ei === -1 ) { continue; }
 			if( this.enemiesHit.indexOf( enemy.index ) == -1 ){
 				$.particleEmitters.push( new $.ParticleEmitter( {
 					x: this.x,

@@ -1042,19 +1042,28 @@ $.rollEnemyIntel = function() {
 	$.enemyIntel.tactic = chosen;
 	$.enemyIntel.flank = ( chosen === 'flank' ) ? 1 : 0;
 	$.enemyIntel.predictive = ( chosen === 'predictive' || chosen === 'sniper' ) ? 1 : 0;
-	$.enemyIntel.huntBoost = ( chosen === 'swarm' ) ? 1.6 : 1;
+	// swarm hunting sharpens with heat (1.6 -> 2.0 by full heat), and even
+	// the non-swarm tactics pick up a light hunt edge late in a run
+	$.enemyIntel.huntBoost = ( chosen === 'swarm' )
+		? 1.6 + ( $.heat() - 1 ) * 0.4
+		: 1 + ( $.heat() - 1 ) * 0.15;
 	$.enemyIntel.eliteBias = ( chosen === 'swarm' ) ? 'ARMORED' : ( chosen === 'flank' ? 'FAST' : ( ( chosen === 'predictive' || chosen === 'sniper' ) ? 'EVASIVE' : null ) );
 	$.enemyIntel.tick = 0;
-	$.enemyIntel.nextRoll = $.util.rand( 180, 480 );
+	// the read-and-counter loop tightens as heat builds: tactics re-roll up
+	// to twice as often at full heat, so late-run enemies adapt to the
+	// player's current state much faster - "smarter over the course of time"
+	$.enemyIntel.nextRoll = $.util.rand( 180, 480 ) / $.heat();
 };
 
 /*==============================================================================
 Difficulty
 ==============================================================================*/
 $.difficulties = {
-	// One setting only: Raid Shooter runs at a single, punishing difficulty.
-	// Faster spawns, relentless hunters, heavier hits, tankier enemies.
-	extreme: { label: 'EXTREME', spawn: 0.54, hunt: 1.7, dmg: 1.85, enemyHp: 1.7 }
+	// One setting only: Raid Shooter runs at a single, punishing difficulty -
+	// cranked to the hardest baseline the game has ever shipped (operator
+	// call: intensity IS the product). Heat then ramps it further over the
+	// course of every run.
+	extreme: { label: 'EXTREME', spawn: 0.46, hunt: 1.9, dmg: 2.0, enemyHp: 1.8 }
 };
 
 // eases the opening: with EXTREME as the only difficulty, the ramp now
@@ -1064,13 +1073,74 @@ $.introMult = function() {
 	return Math.min( 1, 0.35 + ( $.level ? $.level.current : 0 ) * 0.16 );
 };
 
-// Restored VERBATIM to the last known-good deploy's spawn logic. The
-// population cap + randomization + watchdog experiment that replaced it
-// turned every population quirk into "enemies never spawn again" (a
-// blocked cap) instead of the worst case being some extra lag - the
-// no-cap design can never blank the field, which is why the previous
-// deploys "just worked". Do not re-introduce a spawn cap here without
-// re-reading that incident.
+/*==============================================================================
+Enemy broad-phase grid - the freeze workaround that keeps enemies UNLIMITED
+==============================================================================*/
+// The late-run freeze was never about how many enemies exist - it was the
+// bullet collision scan distance-checking EVERY enemy for EVERY bullet,
+// every frame (bullets x enemies). Capping the population "fixed" the cost
+// by emptying the field, which killed the intensity the game is built on.
+// This is the real fix: enemies are bucketed into 160px cells once per
+// frame, and a bullet only checks its own cell plus the 8 neighbors.
+// Oversized enemies (bosses, the fatty) go in a small always-checked list.
+// Population stays uncapped - a packed arena costs bullets almost nothing.
+$.ENEMY_GRID_CELL = 160;
+$.enemyGrid = null;
+$.enemyGridBig = [];
+
+$.buildEnemyGrid = function() {
+	var cell = $.ENEMY_GRID_CELL,
+		grid = {},
+		big = [];
+	for( var i = 0; i < $.enemies.length; i++ ) {
+		var e = $.enemies[ i ];
+		// anything with a radius near/over the cell size could straddle more
+		// than the neighbor ring - keep those in the always-checked list
+		if( e.radius >= cell * 0.75 ) {
+			big.push( e );
+			continue;
+		}
+		var key = Math.floor( e.x / cell ) + '_' + Math.floor( e.y / cell );
+		if( grid[ key ] ) { grid[ key ].push( e ); } else { grid[ key ] = [ e ]; }
+	}
+	$.enemyGrid = grid;
+	$.enemyGridBig = big;
+};
+
+// candidate enemies near a point: own cell + 8 neighbors + the big list.
+// Falls back to the full array if the grid hasn't been built this frame,
+// so nothing breaks if a state forgets to build it.
+$.enemiesNear = function( x, y ) {
+	if( !$.enemyGrid ) { return $.enemies; }
+	var cell = $.ENEMY_GRID_CELL,
+		cx = Math.floor( x / cell ),
+		cy = Math.floor( y / cell ),
+		out = [];
+	for( var gx = cx - 1; gx <= cx + 1; gx++ ) {
+		for( var gy = cy - 1; gy <= cy + 1; gy++ ) {
+			var bucket = $.enemyGrid[ gx + '_' + gy ];
+			if( bucket ) { out.push.apply( out, bucket ); }
+		}
+	}
+	if( $.enemyGridBig.length ) { out.push.apply( out, $.enemyGridBig ); }
+	return out;
+};
+
+/*==============================================================================
+Heat - the run gets relentlessly harder and smarter the longer it lasts
+==============================================================================*/
+// Multiplier that climbs from 1 to 2 over the first ~6 minutes of a run
+// (on top of the per-level scaling): spawn pressure doubles, elites get
+// more common, and the enemy-intel tactics re-read the player faster.
+$.heat = function() {
+	return 1 + Math.min( 1, ( $.elapsed || 0 ) / 21600 );
+};
+
+// Spawn cadence restored to the last known-good deploy's structure (modulo
+// beat, NO population cap - a cap turns quirks into an empty field; see
+// the incident notes). The only additions since: heat scales the cadence
+// and the elite chance, both of which only ever ADD enemies/pressure -
+// they can never block a spawn.
 $.spawnEnemies = function() {
 	// breathing room after an upgrade draft before the next wave
 	if( $.spawnLullTick > 0 ) {
@@ -1082,8 +1152,9 @@ $.spawnEnemies = function() {
 	// fight stays about the boss while never feeling empty
 	var bossMult = $.boss ? 2.2 : 1,
 		// larger interval = slower spawns: difficulty scales it, intro ramp
-		// stretches it further during the opening levels
-		spawnScale = ( $.diff ? $.diff.spawn : 1 ) / $.introMult();
+		// stretches it further during the opening levels, heat compresses it
+		// as the run goes long
+		spawnScale = ( $.diff ? $.diff.spawn : 1 ) / $.introMult() / $.heat();
 	for( var i = 0; i < $.level.distributionCount; i++ ) {
 		var timeCheck = Math.round( $.level.distribution[ i ] * bossMult * spawnScale );
 		if( $.levelDiffOffset > 0 ){
@@ -1091,8 +1162,9 @@ $.spawnEnemies = function() {
 		}
 		if( floorTick % timeCheck === 0 ) {
 			var enemy = $.spawnEnemy( i );
-			// elites start appearing from level 4, getting more common with depth
-			if( $.level.current >= 3 && Math.random() < Math.min( 0.16, 0.04 + $.level.current * 0.01 ) ) {
+			// elites start appearing from level 4, getting more common with
+			// depth - and the ceiling itself climbs with heat (0.16 -> 0.30)
+			if( $.level.current >= 3 && Math.random() < Math.min( 0.16 + ( $.heat() - 1 ) * 0.14, 0.04 + $.level.current * 0.01 ) ) {
 				$.makeElite( enemy );
 			}
 			$.enemies.push( enemy );
@@ -4687,6 +4759,10 @@ $.setupStates = function() {
 			i = $.particleEmitters.length; while( i-- ){ $.particleEmitters[ i ].update( i ) }
 			i = $.textPops.length; while( i-- ){ $.textPops[ i ].update( i ) }
 			i = $.levelPops.length; while( i-- ){ $.levelPops[ i ].update( i ) }
+			// broad-phase grid built AFTER enemies moved, right before the
+			// bullets that consume it - keeps bullet collision near-O(1) per
+			// bullet however packed the arena gets
+			$.buildEnemyGrid();
 			i = $.bullets.length; while( i-- ){ $.bullets[ i ].update( i ) }
 		$.hero.update();
 
