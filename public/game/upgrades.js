@@ -1,60 +1,67 @@
 /*==============================================================================
 Upgrade Definitions
 ==============================================================================*/
+// Every stack is CAPPED. These were 999 ("endless boost"), and several
+// scale exponentially per stack - by ~level 30 a surviving player had
+// 90%+ damage reduction (hull), near-permanent shield uptime
+// (lucky + overcharge), and effectively couldn't die, so deep runs were
+// decided by immortality, not skill. Caps keep the power fantasy but
+// bound it: a maxed build is strong, never unkillable - late-game
+// survival comes back to piloting.
 $.definitions.upgrades = [
 	{
 		id: 'rapid',
 		title: 'RAPID FIRE',
 		desc: 'SHOOT FASTER',
-		max: 999
+		max: 6      // 0.85^6 = ~2.6x fire rate ceiling
 	},
 	{
 		id: 'multi',
 		title: 'MULTI SHOT',
 		desc: '+1 BULLET PER SHOT',
-		max: 999
+		max: 5      // 6 bullets per shot ceiling
 	},
 	{
 		id: 'heavy',
 		title: 'HEAVY ROUNDS',
 		desc: 'BULLETS HIT HARDER',
-		max: 999
+		max: 6      // 1.4^6 = ~7.5x damage ceiling
 	},
 	{
 		id: 'pierce',
 		title: 'PIERCING ROUNDS',
 		desc: 'SHOTS PASS THROUGH\nMORE ENEMIES',
-		max: 999
+		max: 4      // pierce cap tops out at 9 enemies
 	},
 	{
 		id: 'velocity',
 		title: 'VELOCITY ROUNDS',
 		desc: 'FASTER BULLETS',
-		max: 999
+		max: 5
 	},
 	{
 		id: 'thrusters',
 		title: 'THRUSTERS',
 		desc: 'MOVE FASTER',
-		max: 999
+		max: 5      // ~1.76x speed ceiling
 	},
 	{
 		id: 'hull',
 		title: 'HARDENED HULL',
 		desc: 'TAKE LESS DAMAGE',
-		max: 999
+		max: 4      // ~48 PCT reduction ceiling - you can ALWAYS still die
 	},
 	{
 		id: 'lucky',
 		title: 'LUCKY STAR',
 		desc: 'ENEMIES DROP\nMORE POWERUPS',
-		max: 999
+		max: 4      // drop chance ceiling ~34 PCT, no guaranteed-drop loop
 	},
 	{
 		id: 'overcharge',
 		title: 'OVERCHARGE',
 		desc: 'POWERUPS LAST LONGER',
-		max: 999
+		max: 3      // 2.5x duration ceiling - shields can't approach 100 PCT uptime
 	}
 ];
 
