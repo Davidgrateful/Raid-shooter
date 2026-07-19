@@ -1150,11 +1150,22 @@ $.spawnEnemies = function() {
 	var floorTick = Math.floor( $.tick );
 	// during a boss fight, minions keep coming but at a slower cadence so the
 	// fight stays about the boss while never feeling empty
+	// Spawn pressure uses a SOFTENED heat (max +40% cadence compression,
+	// not +100%): at full heat the steady-state field was hitting 800-1500
+	// enemies - unreadable, phone-melting, and deaths stopped feeling
+	// earned. ~1.4x lands the field around 300-500: still a wall of ships,
+	// still renderable. And during a boss fight heat doesn't apply AT ALL:
+	// the deliberate 2.2x boss spawn-relief was being almost exactly
+	// cancelled by full heat, which is why boss arenas drowned in 1300+
+	// adds and the boss itself was unreachable. Full-strength heat still
+	// drives elites, hunting, and the intel reroll - the run keeps getting
+	// smarter at the original rate.
 	var bossMult = $.boss ? 2.2 : 1,
+		spawnHeat = $.boss ? 1 : ( 1 + ( $.heat() - 1 ) * 0.4 ),
 		// larger interval = slower spawns: difficulty scales it, intro ramp
 		// stretches it further during the opening levels, heat compresses it
 		// as the run goes long
-		spawnScale = ( $.diff ? $.diff.spawn : 1 ) / $.introMult() / $.heat();
+		spawnScale = ( $.diff ? $.diff.spawn : 1 ) / $.introMult() / spawnHeat;
 	for( var i = 0; i < $.level.distributionCount; i++ ) {
 		var timeCheck = Math.round( $.level.distribution[ i ] * bossMult * spawnScale );
 		if( $.levelDiffOffset > 0 ){
@@ -1720,16 +1731,20 @@ $.updateLevel = function() {
 		if( $.level.current + 1 < $.levelCount ){
 			$.level.current++;
 			$.level.kills = 0;
-			$.level.killsToLevel = $.definitions.levels[ $.level.current ].killsToLevel;
+			// kill quota scales with heat: at full heat the swarm feeds
+			// itself into your guns so fast that flat quotas made levels
+			// 8-second sprints (five upgrade drafts in half a minute in
+			// playtesting). Scaling the quota restores the level rhythm.
+			// Set once at level start (heat moves slowly), so the HUD bar
+			// and the boss force-complete stay consistent automatically.
+			$.level.killsToLevel = Math.round( $.definitions.levels[ $.level.current ].killsToLevel * $.heat() );
 			$.level.distribution = $.definitions.levels[ $.level.current ].distribution;
 			$.level.distributionCount = $.level.distribution.length;
 		} else {
 			$.level.current++;
 			$.level.kills = 0;
-			// no more level definitions, so take the last level and increase the spawn rate slightly
-			//for( var i = 0; i < $.level.distributionCount; i++ ) {
-				//$.level.distribution[ i ] = Math.max( 1, $.level.distribution[ i ] - 5 );
-			//}
+			// past the defined list: keep the last level's (already
+			// heat-scaled) quota and distribution
 		}
 		$.levelDiffOffset = $.level.current + 1 - $.levelCount;
 		// clearing a level patches the hull — the main way pilots recover
