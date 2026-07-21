@@ -106,28 +106,46 @@ export function TopChat({ topEntries }: { topEntries: TopChatEntry[] }) {
     }
   }
 
+  // tactical HUD corner cuts (matches the in-game comms panel)
+  const panelClip = { clipPath: 'polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px)' } as const;
+  const btnClip = { clipPath: 'polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px)' } as const;
+
   return (
-    <div className="mt-8 overflow-hidden rounded-2xl border border-white/10 bg-black/30">
-      <div className="border-b border-white/10 bg-white/[0.03] px-4 py-2">
-        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">Top 20 chat</span>
+    <div
+      style={panelClip}
+      className="mt-8 border border-cyan-400/25 bg-[#070b12]/90 shadow-[0_0_40px_rgba(0,0,0,0.5),inset_0_0_60px_rgba(34,211,238,0.03)] backdrop-blur-sm"
+    >
+      {/* top accent rail */}
+      <div className="h-0.5 w-full bg-gradient-to-r from-cyan-400/0 via-cyan-400/80 to-cyan-400/0" />
+
+      {/* header */}
+      <div className="flex items-center gap-2 border-b border-cyan-400/15 bg-cyan-500/[0.04] px-4 py-2.5">
+        <span className="relative flex h-1.5 w-1.5">
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+          <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
+        </span>
+        <span className="font-mono text-[11px] font-bold uppercase tracking-[0.25em] text-cyan-300/90">Top-20 Comms</span>
       </div>
 
-      <div ref={listRef} className="max-h-64 space-y-2 overflow-y-auto px-4 py-3">
+      {/* message feed — kill-feed rows */}
+      <div ref={listRef} className="max-h-72 space-y-1 overflow-y-auto px-3 py-3" style={{ backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 24px, rgba(34,211,238,0.02) 24px, rgba(34,211,238,0.02) 25px)' }}>
         {messages.length === 0 ? (
-          <p className="text-xs text-white/25">No messages yet — the top 20 haven&apos;t said anything.</p>
+          <p className="py-4 text-center font-mono text-xs uppercase tracking-wider text-white/25">— NO TRANSMISSIONS —</p>
         ) : (
           messages.map((m) => (
-            <ChatMessageLine
-              key={m.id}
-              message={m}
-              knownNames={knownNames}
-              onNameClick={eligible ? tagPlayer : undefined}
-            />
+            <div key={m.id} className="border-l-2 border-cyan-400/20 bg-white/[0.015] px-2.5 py-1 transition-colors hover:border-cyan-400/50 hover:bg-cyan-400/[0.04]">
+              <ChatMessageLine
+                message={m}
+                knownNames={knownNames}
+                onNameClick={eligible ? tagPlayer : undefined}
+              />
+            </div>
           ))
         )}
       </div>
 
-      <div className="border-t border-white/10 px-4 py-3">
+      {/* composer */}
+      <div className="border-t border-cyan-400/15 bg-black/40 px-3 py-3">
         {eligible ? (
           <div className="flex gap-2">
             <input
@@ -137,21 +155,23 @@ export function TopChat({ topEntries }: { topEntries: TopChatEntry[] }) {
               onKeyDown={(e) => {
                 if (e.key === 'Enter') send();
               }}
-              placeholder="Talk to the top 20..."
-              className="flex-1 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white placeholder-white/25 outline-none focus:border-cyan-400/50"
+              placeholder="> transmit to squad..."
+              style={btnClip}
+              className="flex-1 border border-cyan-400/20 bg-black/60 px-3 py-2 font-mono text-sm text-cyan-100 placeholder-cyan-300/25 outline-none focus:border-cyan-400/60 focus:bg-black/80"
             />
             <button
               onClick={send}
               disabled={sending || !text.trim()}
-              className="rounded-lg bg-cyan-400 px-4 py-2 text-xs font-black uppercase tracking-wide text-black transition-colors hover:bg-cyan-300 disabled:opacity-40"
+              style={btnClip}
+              className="bg-cyan-400 px-4 py-2 font-mono text-xs font-black uppercase tracking-wider text-black shadow-[0_0_12px_rgba(34,211,238,0.4)] transition-colors hover:bg-cyan-300 disabled:opacity-40 disabled:shadow-none"
             >
-              Send
+              ▶ Send
             </button>
           </div>
         ) : (
-          <p className="text-xs text-white/30">Chat is open to the current top 20 ranked pilots. Climb the board to unlock it.</p>
+          <p className="font-mono text-[11px] uppercase tracking-wide text-white/30">// Access restricted — reach the top 20 to open comms.</p>
         )}
-        {error && <p className="mt-1.5 text-xs text-amber-300">{error}</p>}
+        {error && <p className="mt-1.5 font-mono text-[11px] uppercase tracking-wide text-amber-400">! {error}</p>}
       </div>
     </div>
   );
