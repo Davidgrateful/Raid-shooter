@@ -115,5 +115,36 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, payout });
   }
 
+  // record-onchain: the operator paid from their OWN connected wallet in the
+  // browser (client-side USDC transfers). We didn't send anything server-side
+  // - we just record the per-recipient tx hashes they got back, mark those
+  // rows paid, and notify those winners. A recipient with no hash stays
+  // unpaid so a partial run can be finished later.
+  if (body?.action === 'record-onchain') {
+    const results = Array.isArray((body as { results?: unknown }).results)
+      ? ((body as { results: { address?: string; txHash?: string }[] }).results)
+      : [];
+    const byAddr = new Map<string, string>();
+    for (const r of results) {
+      if (typeof r?.address === 'string' && typeof r?.txHash === 'string' && /^0x[0-9a-fA-F]{64}$/.test(r.txHash)) {
+        byAddr.set(r.address.toLowerCase(), r.txHash);
+      }
+    }
+    let paidCount = 0;
+    for (const row of payout.rows) {
+      const hash = byAddr.get(row.address.toLowerCase());
+      if (hash) {
+        row.paid = true;
+        row.txHash = hash;
+        paidCount++;
+      }
+    }
+    payout.status = payout.rows.every((r) => r.paid) ? 'sent' : payout.status;
+    await savePayout(payout);
+    await notifyPaidWinners(payout);
+    await audit({ actor: auth.identity.actor, action: 'payout.onchain', target: payout.id, detail: `${paidCount} paid from operator wallet` });
+    return NextResponse.json({ ok: true, payout, paidCount });
+  }
+
   return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
 }

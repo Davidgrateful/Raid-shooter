@@ -1,8 +1,27 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useAccount } from 'wagmi';
+import { useAccount, useWriteContract, useSwitchChain, useChainId } from 'wagmi';
 import { useAppKit } from '@reown/appkit/react';
+import { parseUnits } from 'viem';
+
+// Minimal ERC-20 transfer ABI for paying winners directly from the operator's
+// connected wallet (USDC on Base).
+const ERC20_TRANSFER_ABI = [
+  {
+    type: 'function',
+    name: 'transfer',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'to', type: 'address' },
+      { name: 'amount', type: 'uint256' },
+    ],
+    outputs: [{ name: '', type: 'bool' }],
+  },
+] as const;
+
+// token.network ('base' | 'baseSepolia') -> chain id
+const CHAIN_ID: Record<string, number> = { base: 8453, baseSepolia: 84532 };
 import { useSIWE } from '@/hooks/useSIWE';
 
 // Visual dev dashboard for /api/admin/stats. The token never ships in the
@@ -1305,7 +1324,13 @@ function short(addr: string) { return addr.length > 14 ? `${addr.slice(0, 6)}…
 function RewardsManager({ token }: { token: string }) {
   const [seasons, setSeasons] = useState<Season[] | null>(null);
   const [payouts, setPayouts] = useState<PayoutBatch[]>([]);
-  const [tokenInfo, setTokenInfo] = useState<{ symbol: string; network: string; autoSend: boolean } | null>(null);
+  const [tokenInfo, setTokenInfo] = useState<{ symbol: string; network: string; autoSend: boolean; address: string; decimals: number } | null>(null);
+  const { isConnected, address: walletAddress } = useAccount();
+  const { open } = useAppKit();
+  const { writeContractAsync } = useWriteContract();
+  const { switchChainAsync } = useSwitchChain();
+  const chainId = useChainId();
+  const [payProgress, setPayProgress] = useState('');
   const [form, setForm] = useState<Season | null>(null);
   const [winners, setWinners] = useState<{ seasonId: string; rows: WinnerRow[] } | null>(null);
   const [exported, setExported] = useState<{ csv: string; paste: string } | null>(null);
@@ -1320,7 +1345,7 @@ function RewardsManager({ token }: { token: string }) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || `Failed (${res.status})`);
       setSeasons(data.seasons); setPayouts(data.payouts || []);
-      setTokenInfo({ symbol: data.payout.token.symbol, network: data.payout.token.network, autoSend: data.payout.autoSend });
+      setTokenInfo({ symbol: data.payout.token.symbol, network: data.payout.token.network, autoSend: data.payout.autoSend, address: data.payout.token.address, decimals: data.payout.token.decimals });
     } catch (e) { setMsg(e instanceof Error ? e.message : 'Failed to load.'); }
     finally { setBusy(false); }
   }
@@ -1371,6 +1396,58 @@ function RewardsManager({ token }: { token: string }) {
       await load();
     } catch (e) { setMsg(e instanceof Error ? e.message : 'Failed.'); }
     finally { setBusy(false); }
+  }
+
+  // Pay winners directly from the operator's OWN connected wallet: one USDC
+  // transfer per recipient, signed in the wallet. Nothing server-side moves
+  // funds. Tx hashes are recorded back so the batch shows paid + winners get
+  // notified. A failed/declined transfer just leaves that row unpaid to
+  // retry - the loop keeps going for the rest.
+  async function payFromWallet(b: PayoutBatch) {
+    if (!tokenInfo?.address) { setMsg('Payout token not configured.'); return; }
+    const targetChain = CHAIN_ID[tokenInfo.network] || 8453;
+    const recipients = b.rows.filter((r) => r.usd && r.usd > 0 && /^0x[0-9a-fA-F]{40}$/.test(r.address) && !r.paid);
+    if (recipients.length === 0) { setMsg('Nothing left to pay in this batch.'); return; }
+    if (!isConnected) { open(); return; }
+    if (!confirm(`Pay ${recipients.length} winner(s) a total of ${recipients.reduce((s, r) => s + (r.usd || 0), 0)} ${tokenInfo.symbol} from your connected wallet? You'll sign one transaction per winner.`)) return;
+
+    setBusy(true); setMsg(''); setPayProgress('');
+    try {
+      if (chainId !== targetChain) {
+        setPayProgress(`Switching wallet to ${tokenInfo.network}…`);
+        await switchChainAsync({ chainId: targetChain });
+      }
+      const results: { address: string; txHash: string }[] = [];
+      for (let i = 0; i < recipients.length; i++) {
+        const r = recipients[i];
+        setPayProgress(`Paying ${i + 1}/${recipients.length}: ${short(r.address)} — confirm in your wallet…`);
+        try {
+          const hash = await writeContractAsync({
+            abi: ERC20_TRANSFER_ABI,
+            address: tokenInfo.address as `0x${string}`,
+            functionName: 'transfer',
+            args: [r.address as `0x${string}`, parseUnits(String(r.usd), tokenInfo.decimals)],
+            chainId: targetChain,
+          });
+          results.push({ address: r.address, txHash: hash });
+        } catch {
+          setPayProgress(`Skipped ${short(r.address)} (declined or failed) — you can retry this batch.`);
+        }
+      }
+      if (results.length > 0) {
+        await fetch(`/api/admin/rewards/payout`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ payoutId: b.id, action: 'record-onchain', results }),
+        });
+      }
+      setMsg(`✓ Paid ${results.length}/${recipients.length} winner(s) from your wallet.`);
+      setPayProgress('');
+      await load();
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : 'Wallet payment failed.');
+      setPayProgress('');
+    } finally { setBusy(false); }
   }
 
   function setPrize(i: number, patch: Partial<PrizeTier>) {
@@ -1491,17 +1568,38 @@ function RewardsManager({ token }: { token: string }) {
       {/* payouts */}
       {payouts.length > 0 && (
         <div className="mt-6">
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-cyan-300/70">Payout batches</h3>
+          <h3 className="mb-1 text-xs font-semibold uppercase tracking-wider text-cyan-300/70">Payout batches</h3>
+          <div className="mb-2 flex flex-wrap items-center gap-2 text-[11px]">
+            {isConnected
+              ? <span className="text-white/50">Wallet <span className="font-mono text-emerald-300">{walletAddress ? short(walletAddress) : ''}</span> connected — use “Pay from my wallet” to send USDC directly.</span>
+              : <button onClick={() => open()} className="rounded bg-violet-500/80 px-2 py-1 font-semibold text-black hover:bg-violet-400">Connect wallet to pay players</button>}
+          </div>
+          {payProgress && <div className="mb-2 rounded-md bg-violet-500/10 p-2 text-xs text-violet-200">{payProgress}</div>}
           <div className="space-y-2">
             {payouts.map((b) => (
               <div key={b.id} className="rounded-lg border border-white/10 bg-white/[0.02] p-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="text-sm text-white/85">{b.rows.length} wallets · <span className="font-semibold text-white">{b.totalUsd} {b.tokenSymbol}</span> <span className={`ml-1 rounded px-1.5 py-0.5 text-[10px] ${b.status === 'sent' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-white/10 text-white/40'}`}>{b.status}</span></div>
                   <div className="flex flex-wrap gap-1.5">
+                    <button onClick={() => payFromWallet(b)} disabled={busy || b.status === 'sent'} className="rounded bg-violet-500/80 px-2 py-1 text-xs font-semibold text-black hover:bg-violet-400 disabled:opacity-40">💜 Pay from my wallet</button>
                     <button onClick={() => payoutAction(b.id, 'export')} disabled={busy} className="rounded bg-cyan-500/20 px-2 py-1 text-xs text-cyan-200 hover:bg-cyan-500/30">Export to sign</button>
                     {tokenInfo?.autoSend && <button onClick={() => payoutAction(b.id, 'send')} disabled={busy} className="rounded bg-emerald-500/20 px-2 py-1 text-xs text-emerald-200 hover:bg-emerald-500/30">Auto-send</button>}
                     <button onClick={() => payoutAction(b.id, 'mark-sent')} disabled={busy} className="rounded bg-white/10 px-2 py-1 text-xs hover:bg-white/20">Mark paid</button>
                   </div>
+                </div>
+                {/* per-winner rows so the operator sees who gets what + paid state */}
+                <div className="mt-2 space-y-0.5 border-t border-white/5 pt-2 text-[11px]">
+                  {b.rows.map((w) => (
+                    <div key={w.address} className="flex items-center justify-between gap-2 text-white/50">
+                      <span>#{w.rank} <span className="font-mono">{short(w.address)}</span>{w.name ? ` · ${w.name}` : ''}</span>
+                      <span className="flex items-center gap-2">
+                        <span className="text-white/70">{w.usd} {b.tokenSymbol}</span>
+                        {w.paid
+                          ? <a href={w.txHash ? `https://basescan.org/tx/${w.txHash}` : undefined} target="_blank" rel="noopener noreferrer" className="text-emerald-300 underline">paid{w.txHash ? ' ↗' : ''}</a>
+                          : <span className="text-white/30">unpaid</span>}
+                      </span>
+                    </div>
+                  ))}
                 </div>
               </div>
             ))}
