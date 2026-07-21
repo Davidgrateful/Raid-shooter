@@ -133,6 +133,16 @@ export async function summarizeFeedback(items: string[]): Promise<string | null>
   );
 }
 
+// A guaranteed-response ping for the admin "Test the AI" button - this one
+// always answers (unlike replyToChat, which is designed to sometimes stay
+// silent), so a green test is an unambiguous "the model is connected".
+export async function pingModel(): Promise<string | null> {
+  return generate(
+    'The operator is testing the connection. Reply with one short, upbeat line in the RAID SHOOTER voice confirming you are online and ready.',
+    120
+  );
+}
+
 // Autonomously decide whether to reply to a player's chat message, and if so
 // what to say - as the RAID SHOOTER admin persona, live in top-20 chat. The
 // model returns the sentinel NO_REPLY when a message doesn't warrant a

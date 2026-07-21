@@ -7,7 +7,7 @@ import {
   summarizeFeedback,
   isChatAutoReplyOn,
   setChatAutoReply,
-  replyToChat,
+  pingModel,
 } from '@/lib/ai-admin';
 import { listFeedback } from '@/lib/feedback';
 
@@ -44,11 +44,11 @@ export async function POST(req: NextRequest) {
     // Live ping so the operator can SEE the model actually respond once the
     // key is set - "show the llm". Returns the raw generated line.
     if (action === 'test') {
-      const out = await replyToChat(
-        body?.message || 'Is the AI working? Say hi to the operator in one line.',
-        []
-      );
-      return NextResponse.json({ ok: true, output: out || '(the model chose not to reply)' });
+      const out = await pingModel();
+      return NextResponse.json({
+        ok: true,
+        output: out || '(no response — check that ANTHROPIC_API_KEY is valid and has credit)',
+      });
     }
 
     // Flip the autonomous chat auto-reply on/off (persists in KV).
