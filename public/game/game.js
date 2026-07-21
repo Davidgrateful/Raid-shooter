@@ -620,7 +620,11 @@ $.renderInterface = function() {
 	/*==============================================================================
 	Health (compact sizing keeps the whole HUD row on narrow phone screens)
 	==============================================================================*/
-	var hudCompact = ( $.cw < 900 ),
+	// Compact HUD on every touch device (not just narrow ones): a large phone
+	// in landscape - iPhone Pro Max is 932pt wide - clears the 900 width test
+	// and would otherwise render the desktop 2x HUD, making the score/labels
+	// look oversized on mobile. Any touch device stays compact.
+	var hudCompact = ( $.isTouchDevice || $.cw < 900 ),
 		hudScale = hudCompact ? 1 : 2,
 		hudBarWidth = hudCompact ? 70 : 110,
 		hudGap = hudCompact ? 18 : 40,

@@ -30,7 +30,50 @@ const BUNDLE = {
   priceEth: '0.00033',
 };
 
-const SEEN_KEY = 'starterBundleSeen';
+// Paced re-appearance. The pack is no longer a one-shot; it resurfaces
+// occasionally so it feels like a rotating offer, not nagware:
+//   * never for someone who already bought it (purchased flag) or owns items
+//   * only after a few *plays* since it was last shown (random 3-4)
+//   * at most a couple times a day, spaced hours apart
+//   * even when eligible, only shows with some probability, so it lands on
+//     random days rather than the same trigger every time
+const STATE_KEY = 'starterBundlePace';
+const MIN_HOURS_BETWEEN = 3;          // gap between two shows in one day
+const MAX_PER_DAY = 2;                // ceiling on daily appearances
+const SHOW_PROBABILITY = 0.6;         // roll once eligible, so it's not clockwork
+const PLAYS_BETWEEN = () => 3 + Math.floor(Math.random() * 2); // 3 or 4
+
+interface PaceState {
+  purchased?: boolean;
+  playsSinceShown?: number;
+  needPlays?: number;      // plays required before the next eligible show
+  showsToday?: number;
+  day?: string;            // YYYY-MM-DD the counts belong to
+  lastShownAt?: number;    // ms epoch
+}
+
+function todayStamp(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function loadPace(): PaceState {
+  try {
+    const raw = localStorage.getItem(STATE_KEY);
+    const s = raw ? (JSON.parse(raw) as PaceState) : {};
+    // roll the daily counter over at midnight
+    if (s.day !== todayStamp()) { s.day = todayStamp(); s.showsToday = 0; }
+    if (typeof s.needPlays !== 'number') s.needPlays = PLAYS_BETWEEN();
+    if (typeof s.playsSinceShown !== 'number') s.playsSinceShown = 0;
+    return s;
+  } catch {
+    return {};
+  }
+}
+
+function savePace(s: PaceState) {
+  try { localStorage.setItem(STATE_KEY, JSON.stringify(s)); } catch { /* ignore */ }
+}
+
 const bundleWas = BUNDLE.items.reduce((sum, i) => sum + i.was, 0);
 const savedPct = Math.round((1 - BUNDLE.priceUsd / bundleWas) * 100);
 
@@ -61,30 +104,54 @@ export function StarterBundleModal() {
   const busyRef = useRef(false);
 
   useEffect(() => {
-    const seen = () => {
-      try { return localStorage.getItem(SEEN_KEY) === '1'; } catch { return false; }
-    };
-    // never shown twice, and never to anyone who's already bought something.
-    // Re-checked on EVERY menu visit, not just once at mount - the menu
-    // fires this event repeatedly for as long as the tab stays open (game
-    // over -> menu -> play again -> game over -> menu ...), so a check that
-    // only ran once at mount would miss a dismissal that happened after the
-    // listener was already registered and show the popup again next lap.
-    if (seen()) return;
-
     let cancelled = false;
+    // count a play once the player enters a run, then re-evaluate when they
+    // land back on the menu. The state event fires many times for as long as
+    // the tab is open (play -> menu -> play ...), so tracking the transition
+    // rather than mount is what keeps the pacing honest across a session.
+    let inRun = false;
+
+    const eligibleNow = (s: PaceState): boolean => {
+      if (s.purchased) return false;
+      if ((s.showsToday || 0) >= MAX_PER_DAY) return false;
+      if (s.lastShownAt && Date.now() - s.lastShownAt < MIN_HOURS_BETWEEN * 3600_000) return false;
+      if ((s.playsSinceShown || 0) < (s.needPlays || PLAYS_BETWEEN())) return false;
+      return Math.random() < SHOW_PROBABILITY;
+    };
+
     const onState = (e: Event) => {
-      if (cancelled || seen()) return;
-      const isMenu = (e as CustomEvent).detail === 'menu';
-      if (!isMenu) return;
+      if (cancelled) return;
+      const detail = (e as CustomEvent).detail;
+
+      if (detail === 'play') { inRun = true; return; }
+      if (detail !== 'menu') return;
+
+      const s = loadPace();
+      if (s.purchased) { savePace(s); return; }
+
+      // returning to the menu after a run counts as one completed play
+      if (inRun) {
+        inRun = false;
+        s.playsSinceShown = (s.playsSinceShown || 0) + 1;
+      }
+
+      if (!eligibleNow(s)) { savePace(s); return; }
+
+      // eligible + rolled true: confirm they still own nothing before showing
       fetch('/api/profile')
         .then((r) => r.json())
         .then((d) => {
           if (cancelled) return;
           const ownsSomething = Array.isArray(d.items) && d.items.length > 0;
-          if (!ownsSomething) setOpen(true);
+          if (ownsSomething) { s.purchased = true; savePace(s); return; }
+          s.showsToday = (s.showsToday || 0) + 1;
+          s.lastShownAt = Date.now();
+          s.playsSinceShown = 0;
+          s.needPlays = PLAYS_BETWEEN();
+          savePace(s);
+          setOpen(true);
         })
-        .catch(() => {});
+        .catch(() => { savePace(s); });
     };
     window.addEventListener('raidshooter:state', onState as EventListener);
     return () => { cancelled = true; window.removeEventListener('raidshooter:state', onState as EventListener); };
@@ -101,7 +168,7 @@ export function StarterBundleModal() {
       if (detail.status === 'done') {
         setStatus(null);
         setDone(true);
-        try { localStorage.setItem(SEEN_KEY, '1'); } catch { /* ignore */ }
+        { const s = loadPace(); s.purchased = true; savePace(s); }
         const $ = engine();
         $?.fetchProfile?.();
         $?.audio?.play?.('levelup');
@@ -115,7 +182,10 @@ export function StarterBundleModal() {
 
   function dismiss() {
     setOpen(false);
-    try { localStorage.setItem(SEEN_KEY, '1'); } catch { /* ignore */ }
+    // a dismissal isn't "never again" anymore - the pace state already
+    // recorded this show (showsToday++/lastShownAt) when it opened, so the
+    // daily cap + gap + play threshold naturally hold it back until it's due
+    // to rotate in again on some later day.
   }
 
   function shopThePack() {
@@ -143,12 +213,21 @@ export function StarterBundleModal() {
     <div
       data-game-ui=""
       onClick={dismiss}
-      style={{ position: 'fixed', inset: 0, zIndex: 70 }}
-      className="flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 70,
+        paddingTop: 'calc(env(safe-area-inset-top, 0px) + 16px)',
+        paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)',
+        paddingLeft: 'calc(env(safe-area-inset-left, 0px) + 16px)',
+        paddingRight: 'calc(env(safe-area-inset-right, 0px) + 16px)',
+      }}
+      className="flex items-center justify-center overflow-y-auto bg-black/70 backdrop-blur-sm"
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-sm overflow-hidden rounded-2xl border border-amber-400/30 bg-[#0b0e16] shadow-[0_0_60px_rgba(255,207,77,0.12)]"
+        style={{ maxHeight: '100%' }}
+        className="relative my-auto w-full max-w-sm overflow-y-auto rounded-2xl border border-amber-400/30 bg-[#0b0e16] shadow-[0_0_60px_rgba(255,207,77,0.12)]"
       >
         {/* header banner */}
         <div className="relative bg-gradient-to-b from-amber-400/15 to-transparent px-5 pb-4 pt-5 text-center">
@@ -156,7 +235,7 @@ export function StarterBundleModal() {
             New pilot offer
           </div>
           <h2 className="text-xl font-black tracking-tight text-white">{BUNDLE.title}</h2>
-          <p className="mt-1 text-xs text-white/50">One-time bundle — won&apos;t show again</p>
+          <p className="mt-1 text-xs text-white/50">Limited recruit offer — save {savedPct}%</p>
           <button
             onClick={dismiss}
             aria-label="Close"
