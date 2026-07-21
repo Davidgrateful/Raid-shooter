@@ -1144,7 +1144,7 @@ function FeedbackInbox({ token }: { token: string }) {
 
 // ---- tournament rewards: seasons, prize tables, grants & USDC payouts ----
 interface PrizeTier { fromRank: number; toRank: number; itemId?: string; usd?: number }
-interface Season { id: string; name: string; sponsorId?: string; prizes: PrizeTier[]; status: 'draft' | 'active' | 'ended'; createdAt: number; endsAt?: number; requiredPilotId?: string }
+interface Season { id: string; name: string; sponsorId?: string; prizes: PrizeTier[]; status: 'draft' | 'active' | 'ended'; createdAt: number; endsAt?: number; requiredPilotId?: string; thanksMessage?: string }
 
 // <input type="datetime-local"> speaks "YYYY-MM-DDTHH:MM" in local time
 function msToLocalInput(ms?: number): string {
@@ -1268,6 +1268,7 @@ function RewardsManager({ token }: { token: string }) {
             <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Season name (e.g. WEEK 1 — $PEPE CUP)" className={inputCls} />
             <input value={form.sponsorId || ''} onChange={(e) => setForm({ ...form, sponsorId: e.target.value })} placeholder="Presenting sponsor id (optional)" className={inputCls} />
             <input value={form.requiredPilotId || ''} onChange={(e) => setForm({ ...form, requiredPilotId: e.target.value.trim().toLowerCase() })} placeholder="Required pilot id to enter cup (optional, e.g. voltrider)" className={inputCls} />
+            <input value={form.thanksMessage || ''} onChange={(e) => setForm({ ...form, thanksMessage: e.target.value })} placeholder="Thanks message when cup ends (optional — auto-sent to all players)" className={inputCls} />
             <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as Season['status'] })} className={inputCls}>
               <option value="draft">draft</option><option value="active">active</option><option value="ended">ended</option>
             </select>

@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth } from '@/lib/admin-auth';
 import { audit } from '@/lib/audit';
-import { getPayout, savePayout } from '@/lib/rewards';
+import { getPayout, savePayout, getSeason } from '@/lib/rewards';
+import { sendToInbox } from '@/lib/inbox';
+import type { PayoutBatch } from '@/lib/rewards';
 import {
   buildDisperse,
   buildCsv,
@@ -10,6 +12,30 @@ import {
   tokenConfig,
   type PayoutRow,
 } from '@/lib/payout';
+
+// Drop a "you've been paid" note into each paid winner's inbox. Best-effort:
+// a messaging failure must never make a real payout look unsent.
+async function notifyPaidWinners(payout: PayoutBatch): Promise<void> {
+  let cupName = 'the cup';
+  try {
+    const season = await getSeason(payout.seasonId);
+    if (season?.name) cupName = season.name;
+  } catch {
+    /* fall back to the generic name */
+  }
+  for (const row of payout.rows) {
+    if (!row.paid || !row.usd) continue;
+    await sendToInbox(row.address, {
+      kind: 'payout',
+      title: `You've been paid ${row.usd} ${payout.tokenSymbol}!`,
+      body:
+        `Your #${row.rank} finish in ${cupName} has been paid: ${row.usd} ${payout.tokenSymbol} ` +
+        `sent to your wallet on ${payout.network}.` +
+        (row.txHash ? ' Tap to view the transaction.' : ''),
+      meta: { txHash: row.txHash, amountUsd: row.usd, rank: row.rank },
+    }).catch(() => {});
+  }
+}
 
 // Admin: act on a created payout batch.
 //   action: "export"  -> returns Disperse batch + CSV to sign from your own
@@ -72,6 +98,7 @@ export async function POST(req: NextRequest) {
     }
     payout.status = result.ok ? 'sent' : payout.status;
     await savePayout(payout);
+    await notifyPaidWinners(payout);
     await audit({ actor: auth.identity.actor, action: 'payout.send', target: payout.id, detail: `${payout.totalUsd} ${payout.tokenSymbol} to ${rows.length}` });
     return NextResponse.json({ ok: result.ok, payout, result });
   }
@@ -83,6 +110,7 @@ export async function POST(req: NextRequest) {
       if (body?.txHash) row.txHash = body.txHash;
     }
     await savePayout(payout);
+    await notifyPaidWinners(payout);
     await audit({ actor: auth.identity.actor, action: 'payout.mark-sent', target: payout.id, detail: `${payout.totalUsd} ${payout.tokenSymbol}` });
     return NextResponse.json({ ok: true, payout });
   }

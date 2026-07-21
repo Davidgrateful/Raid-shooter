@@ -41,6 +41,13 @@ export interface Season {
   // this only gates the cup ranking, i.e. the "entry fee" for a sponsor cup
   // tied to a specific character skin.
   requiredPilotId?: string;
+  // Optional custom "thanks for participating" copy shown/broadcast when the
+  // cup ends. Falls back to a default if unset.
+  thanksMessage?: string;
+  // Set once when the cup has been auto-settled after endsAt passed (status
+  // flipped to 'ended' + thanks broadcast + participants notified). Guards
+  // the settlement from firing more than once.
+  endedNotified?: boolean;
 }
 
 export interface WinnerRow {
@@ -105,6 +112,8 @@ export function cleanSeason(input: Partial<Season>): Season {
     createdAt: input.createdAt || Date.now(),
     endsAt: Number.isFinite(input.endsAt) ? Number(input.endsAt) : undefined,
     requiredPilotId: (input.requiredPilotId || '').toString().trim().toLowerCase() || undefined,
+    thanksMessage: (input.thanksMessage || '').toString().trim().slice(0, 200) || undefined,
+    endedNotified: input.endedNotified === true ? true : undefined,
   };
 }
 

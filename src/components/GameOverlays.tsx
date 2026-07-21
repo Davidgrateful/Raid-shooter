@@ -12,6 +12,7 @@ interface Announcement { id: string; title: string; body: string }
 interface WeeklyGift { available: boolean; claimed?: boolean; item: { id: string; title: string } | null }
 interface StreakState { days: number; claimedAt: number; goal: number }
 interface CupSeason { id: string; name: string; live: boolean; prize1Usd?: number; poolUsd?: number; endsAt: number | null; sponsorName: string | null }
+interface InboxMessage { id: string; kind: 'payout' | 'cup' | 'system'; title: string; body: string; at: number; meta?: { txHash?: string; url?: string; amountUsd?: number; rank?: number } }
 
 function myGuestToken(): string | null {
   try {
@@ -43,6 +44,9 @@ export function GameOverlays() {
   const [streakBusy, setStreakBusy] = useState(false);
   const [streakMsg, setStreakMsg] = useState('');
   const [cup, setCup] = useState<CupSeason | null>(null);
+  const [inbox, setInbox] = useState<InboxMessage[]>([]);
+  const [unread, setUnread] = useState(0);
+  const [inboxOpen, setInboxOpen] = useState(false);
 
   useEffect(() => {
     fetch('/api/season')
@@ -59,6 +63,12 @@ export function GameOverlays() {
       // re-check the weekly gift whenever the menu is entered (the player
       // may have connected a wallet since the last look)
       if (isMenu) {
+        // pull the player's inbox (payout confirmations, cup thank-yous)
+        const gt = myGuestToken();
+        fetch(`/api/inbox${gt ? `?guestToken=${encodeURIComponent(gt)}` : ''}`)
+          .then((r) => r.json())
+          .then((d) => { setInbox(d.messages || []); setUnread(d.unread || 0); })
+          .catch(() => {});
         fetch('/api/claim/weekly').then((r) => r.json()).then(setGift).catch(() => {});
         // record today's play, then read back the full streak state
         // (claimedAt isn't in the record response) - works with no wallet,
@@ -119,6 +129,19 @@ export function GameOverlays() {
   }
 
   const inviteLink = inv?.code ? `${typeof window !== 'undefined' ? window.location.origin : 'https://raidshooter.xyz'}/?ref=${inv.code}` : '';
+
+  async function openInbox() {
+    setInboxOpen(true);
+    if (unread > 0) {
+      setUnread(0); // optimistic clear
+      const gt = myGuestToken();
+      fetch('/api/inbox', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ guestToken: gt || undefined }),
+      }).catch(() => {});
+    }
+  }
 
   async function openInvite() {
     setInvOpen(true);
@@ -239,17 +262,56 @@ export function GameOverlays() {
         </div>
       )}
 
-      {/* feedback + invite buttons, bottom-left */}
+      {/* inbox + feedback + invite buttons, bottom-left */}
       <div data-game-ui="" style={{ position: 'fixed', left: 12, bottom: 12, zIndex: 45 }} className="flex items-center gap-2">
+        {inbox.length > 0 && (
+          <button onClick={openInbox}
+            className="relative rounded-full border border-white/10 bg-black/50 px-3 py-1.5 text-xs text-white/70 backdrop-blur-sm hover:border-cyan-400/40 hover:text-white">
+            ✉ Inbox
+            {unread > 0 && (
+              <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white">
+                {unread > 9 ? '9+' : unread}
+              </span>
+            )}
+          </button>
+        )}
         <button onClick={() => setFbOpen(true)}
           className="rounded-full border border-white/10 bg-black/50 px-3 py-1.5 text-xs text-white/70 backdrop-blur-sm hover:border-cyan-400/40 hover:text-white">
-          ✉ Feedback
+          ✎ Feedback
         </button>
         <button onClick={openInvite}
           className="rounded-full border border-amber-400/30 bg-black/50 px-3 py-1.5 text-xs text-amber-200/90 backdrop-blur-sm hover:border-amber-400/60 hover:text-amber-100">
           ✦ Invite
         </button>
       </div>
+
+      {/* inbox modal: the player's targeted messages (payouts, cup thanks) */}
+      {inboxOpen && (
+        <div data-game-ui="" onClick={() => setInboxOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 60 }} className="flex items-center justify-center bg-black/60 p-6">
+          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0b0e16] p-6 text-white">
+            <div className="text-base font-semibold text-cyan-200">Your inbox</div>
+            <div className="mt-3 max-h-[60vh] space-y-2 overflow-y-auto">
+              {inbox.length === 0 ? (
+                <div className="rounded-lg border border-white/10 bg-white/[0.02] p-4 text-center text-sm text-white/40">No messages yet.</div>
+              ) : inbox.map((m) => (
+                <div key={m.id} className={`rounded-lg border p-3 ${m.kind === 'payout' ? 'border-emerald-400/30 bg-emerald-400/[0.06]' : m.kind === 'cup' ? 'border-amber-400/30 bg-amber-400/[0.06]' : 'border-white/10 bg-white/[0.03]'}`}>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-semibold">{m.kind === 'payout' ? '💸 ' : m.kind === 'cup' ? '🏁 ' : ''}{m.title}</span>
+                    <span className="shrink-0 text-[10px] text-white/30">{new Date(m.at).toLocaleDateString()}</span>
+                  </div>
+                  <p className="mt-1 text-xs leading-relaxed text-white/60">{m.body}</p>
+                  {m.meta?.txHash && (
+                    <a href={`https://basescan.org/tx/${m.meta.txHash}`} target="_blank" rel="noopener noreferrer" className="mt-1.5 inline-block text-[11px] text-cyan-300 underline">View transaction ↗</a>
+                  )}
+                </div>
+              ))}
+            </div>
+            <div className="mt-5 text-right">
+              <button onClick={() => setInboxOpen(false)} className="rounded-lg bg-white/10 px-4 py-2 text-sm hover:bg-white/20">Close</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* invite modal: personal link, invite count, top recruiters */}
       {invOpen && (

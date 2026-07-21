@@ -1,11 +1,17 @@
 import { NextResponse } from 'next/server';
 import { getActiveSeason } from '@/lib/rewards';
 import { listSponsors } from '@/lib/sponsors';
+import { settleExpiredSeasons } from '@/lib/cup-lifecycle';
 
 // Public: the currently active tournament season, summarized for the game
 // client (menu/leaderboard banner). Presentational fields only - the full
 // prize table and payout state stay behind the admin gate.
 export async function GET() {
+  // Lazy cup settlement, no cron needed: a cup whose endsAt has passed gets
+  // flipped to 'ended' + a thanks broadcast here. Awaited so the response
+  // this call returns already reflects the closed state; it's idempotent and
+  // cheap (a no-op once every cup is settled).
+  await settleExpiredSeasons().catch(() => {});
   const season = await getActiveSeason();
   if (!season) {
     return NextResponse.json({ season: null });
