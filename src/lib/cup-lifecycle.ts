@@ -13,12 +13,34 @@
 // import types from leaderboard.ts; rewards.ts is imported widely).
 
 import { listSeasons, upsertSeason, type Season } from '@/lib/rewards';
-import { getCupTop } from '@/lib/cup';
+import { getCupTop, getCupCount } from '@/lib/cup';
 import { postMessage as postChatMessage } from '@/lib/chat';
 import { sendToInbox } from '@/lib/inbox';
+import { aiEnabled, cupCopy } from '@/lib/ai-admin';
 
 function defaultThanks(season: Season): string {
   return `${season.name} has ended - thanks to everyone who played! Winners are being settled now.`;
+}
+
+// Pick the thanks line: an operator's custom message wins; otherwise the AI
+// assistant writes one (if enabled); otherwise a deterministic default. The
+// AI call is best-effort - cupCopy already returns null on any failure - so
+// this can never block or fail settlement.
+async function resolveThanks(season: Season): Promise<string> {
+  if (season.thanksMessage) return season.thanksMessage;
+  if (aiEnabled()) {
+    try {
+      const players = await getCupCount(season.id).catch(() => 0);
+      const ai = await cupCopy(
+        'thanks',
+        `Cup name: ${season.name}. Participants: ${players}. It just ended; winners are being settled.`
+      );
+      if (ai) return ai;
+    } catch {
+      // fall through to the deterministic default
+    }
+  }
+  return defaultThanks(season);
 }
 
 // Settle a single season that has passed its endsAt. Safe to call on any
@@ -32,7 +54,7 @@ async function settleSeason(season: Season): Promise<boolean> {
   const ended: Season = { ...season, status: 'ended', endedNotified: true };
   await upsertSeason(ended);
 
-  const thanks = season.thanksMessage || defaultThanks(season);
+  const thanks = await resolveThanks(season);
 
   // 2. global chat shout-out (best-effort - never let messaging fail the flip)
   await postChatMessage({

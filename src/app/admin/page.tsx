@@ -1061,6 +1061,116 @@ function LeaderboardView({ rows }: { rows: Stats['leaderboard']['top'] }) {
   );
 }
 
+// ---- AI assistant: drafts announcements / replies / feedback digests ----
+// Every result is a DRAFT the operator reviews before it goes anywhere. The
+// assistant never posts or acts on its own - "Publish" below routes through
+// the same announcements endpoint a human uses.
+function AIAssistant({ token }: { token: string }) {
+  const [enabled, setEnabled] = useState<boolean | null>(null);
+  const [brief, setBrief] = useState('');
+  const [draft, setDraft] = useState<{ title: string; body: string } | null>(null);
+  const [replyMsg, setReplyMsg] = useState('');
+  const [reply, setReply] = useState('');
+  const [summary, setSummary] = useState('');
+  const [busy, setBusy] = useState('');
+  const [note, setNote] = useState('');
+  const inputCls = 'w-full rounded-md border border-white/15 bg-white/[0.05] px-3 py-2 text-sm outline-none focus:border-cyan-400/60';
+
+  useEffect(() => {
+    fetch('/api/admin/ai', { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => r.json())
+      .then((d) => setEnabled(!!d.enabled))
+      .catch(() => setEnabled(false));
+  }, [token]);
+
+  async function call(action: string, payload: object) {
+    setBusy(action); setNote('');
+    try {
+      const r = await fetch('/api/admin/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ action, ...payload }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || `Failed (${r.status})`);
+      return d;
+    } catch (e) {
+      setNote(e instanceof Error ? e.message : 'AI request failed.');
+      return null;
+    } finally {
+      setBusy('');
+    }
+  }
+
+  async function publishDraft() {
+    if (!draft) return;
+    setBusy('publish');
+    try {
+      await fetch('/api/admin/announcements', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ title: draft.title, body: draft.body, active: true }),
+      });
+      setNote('✓ Published to the in-game news banner.');
+      setDraft(null); setBrief('');
+    } finally { setBusy(''); }
+  }
+
+  if (enabled === null) return null;
+
+  return (
+    <div className="rounded-xl border border-violet-400/20 bg-violet-500/[0.04] p-5">
+      <div className="flex items-center gap-2">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-violet-300/80">AI assistant</h3>
+        <span className="rounded bg-violet-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-violet-200">DRAFTS ONLY</span>
+      </div>
+      {!enabled ? (
+        <p className="mt-3 text-sm text-white/40">
+          Off. Set <code className="rounded bg-white/10 px-1">ANTHROPIC_API_KEY</code> in the environment to turn on AI drafting.
+        </p>
+      ) : (
+        <div className="mt-4 space-y-6">
+          {note && <div className="rounded-md bg-white/[0.04] p-2 text-xs text-white/70">{note}</div>}
+
+          {/* draft an announcement */}
+          <div className="space-y-2">
+            <div className="text-xs font-medium text-white/60">Draft an announcement</div>
+            <div className="flex gap-2">
+              <input value={brief} onChange={(e) => setBrief(e.target.value)} placeholder="Brief, e.g. new cup starts Friday, $50 to top 5" className={inputCls} />
+              <button onClick={async () => { const d = await call('draft-announcement', { brief }); if (d?.draft) setDraft(d.draft); }} disabled={!brief || !!busy} className="shrink-0 rounded-md bg-violet-500/80 px-3 py-1.5 text-xs font-semibold text-black hover:bg-violet-400 disabled:opacity-40">{busy === 'draft-announcement' ? 'Drafting…' : 'Draft'}</button>
+            </div>
+            {draft && (
+              <div className="rounded-lg border border-white/10 bg-black/30 p-3">
+                <input value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} className={`${inputCls} mb-2 font-semibold`} />
+                <textarea value={draft.body} onChange={(e) => setDraft({ ...draft, body: e.target.value })} rows={3} className={inputCls} />
+                <div className="mt-2 flex gap-2">
+                  <button onClick={publishDraft} disabled={!!busy} className="rounded-md bg-emerald-500/80 px-3 py-1.5 text-xs font-semibold text-black hover:bg-emerald-400 disabled:opacity-40">{busy === 'publish' ? 'Publishing…' : 'Publish'}</button>
+                  <button onClick={() => setDraft(null)} className="rounded-md bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20">Discard</button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* draft a reply */}
+          <div className="space-y-2">
+            <div className="text-xs font-medium text-white/60">Draft a reply to a player</div>
+            <textarea value={replyMsg} onChange={(e) => setReplyMsg(e.target.value)} rows={2} placeholder="Paste the player's message…" className={inputCls} />
+            <button onClick={async () => { const d = await call('draft-reply', { message: replyMsg }); if (d?.reply) setReply(d.reply); }} disabled={!replyMsg || !!busy} className="rounded-md bg-violet-500/80 px-3 py-1.5 text-xs font-semibold text-black hover:bg-violet-400 disabled:opacity-40">{busy === 'draft-reply' ? 'Drafting…' : 'Draft reply'}</button>
+            {reply && <div className="rounded-lg border border-white/10 bg-black/30 p-3 text-sm text-white/80 whitespace-pre-wrap">{reply}</div>}
+          </div>
+
+          {/* summarize feedback */}
+          <div className="space-y-2">
+            <div className="text-xs font-medium text-white/60">Summarize recent feedback</div>
+            <button onClick={async () => { const d = await call('summarize-feedback', {}); if (d?.summary) setSummary(d.summary); }} disabled={!!busy} className="rounded-md bg-violet-500/80 px-3 py-1.5 text-xs font-semibold text-black hover:bg-violet-400 disabled:opacity-40">{busy === 'summarize-feedback' ? 'Summarizing…' : 'Summarize'}</button>
+            {summary && <div className="rounded-lg border border-white/10 bg-black/30 p-3 text-sm text-white/80 whitespace-pre-wrap">{summary}</div>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ---- announcements ("make content" shown in-game) ----
 interface Announcement { id: string; title: string; body: string; active: boolean; createdAt: number }
 function AnnouncementsManager({ token }: { token: string }) {
@@ -1864,6 +1974,7 @@ function Dashboard(p: DashboardProps) {
             {/* ===== CONTENT ===== */}
             {tab === 'Content' && (
               <section className="space-y-8">
+                <AIAssistant token={token} />
                 <AnnouncementsManager token={token} />
                 <FeedbackInbox token={token} />
               </section>
