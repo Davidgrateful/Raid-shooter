@@ -47,6 +47,17 @@ export function GameOverlays() {
   const [inbox, setInbox] = useState<InboxMessage[]>([]);
   const [unread, setUnread] = useState(0);
   const [inboxOpen, setInboxOpen] = useState(false);
+  const [narrow, setNarrow] = useState(false);
+
+  // track a phone-width breakpoint so docked overlays can restack instead of
+  // colliding the way they would if the desktop layout were forced onto a
+  // narrow screen (the top cup pill vs the centered news banner especially)
+  useEffect(() => {
+    const f = () => setNarrow(window.innerWidth < 640);
+    f();
+    window.addEventListener('resize', f);
+    return () => window.removeEventListener('resize', f);
+  }, []);
 
   useEffect(() => {
     fetch('/api/season')
@@ -188,7 +199,7 @@ export function GameOverlays() {
       {/* live cup: free "why play today" hook, points into the board's cup
           tab - only shown while a season is actually live */}
       {cup && (
-        <div data-game-ui="" style={{ position: 'fixed', top: 8, left: 8, zIndex: 45, maxWidth: '60vw' }}>
+        <div data-game-ui="" style={{ position: 'fixed', top: 'calc(env(safe-area-inset-top, 0px) + 8px)', left: 'calc(env(safe-area-inset-left, 0px) + 8px)', zIndex: 45, maxWidth: '55vw' }}>
           <button
             onClick={openCup}
             className="flex items-center gap-2 rounded-full border border-amber-400/40 bg-black/70 px-3 py-1.5 text-xs text-amber-200 backdrop-blur-md hover:border-amber-400/70 hover:text-amber-100"
@@ -204,7 +215,7 @@ export function GameOverlays() {
 
       {/* news banner */}
       {news && !dismissed && (
-        <div data-game-ui="" style={{ position: 'fixed', top: 8, left: '50%', transform: 'translateX(-50%)', zIndex: 45, maxWidth: '92vw' }}>
+        <div data-game-ui="" style={{ position: 'fixed', top: `calc(env(safe-area-inset-top, 0px) + ${cup && narrow ? 48 : 8}px)`, left: '50%', transform: 'translateX(-50%)', zIndex: 45, maxWidth: '92vw' }}>
           <div className="flex items-center gap-3 rounded-full border border-cyan-400/30 bg-black/70 px-4 py-1.5 text-sm text-white/90 backdrop-blur-md">
             <span className="rounded-full bg-cyan-400/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-cyan-300">News</span>
             <button onClick={() => setOpen(true)} className="max-w-[60vw] truncate font-medium hover:text-white">{news.title}</button>
@@ -227,7 +238,7 @@ export function GameOverlays() {
       {/* daily streak: no wallet needed, works identically for guests -
           re-arms every {goal} days so it's a repeat hook, not a one-off */}
       {streak && streak.days >= streak.goal && streak.days - streak.claimedAt >= streak.goal && (
-        <div data-game-ui="" style={{ position: 'fixed', right: 12, bottom: gift?.item && !gift.claimed ? 52 : 12, zIndex: 45, maxWidth: '80vw' }}>
+        <div data-game-ui="" style={{ position: 'fixed', right: 'calc(env(safe-area-inset-right, 0px) + 12px)', bottom: `calc(env(safe-area-inset-bottom, 0px) + ${gift?.item && !gift.claimed ? 52 : 12}px)`, zIndex: 45, maxWidth: '80vw' }}>
           <div className="flex items-center gap-2 rounded-full border border-orange-400/40 bg-black/60 px-3 py-1.5 text-xs text-white/85 backdrop-blur-sm">
             <span>🔥</span>
             <span className="hidden sm:inline">{streak.days}-day streak! Free consumable ready</span>
@@ -243,7 +254,7 @@ export function GameOverlays() {
       {/* weekly gift: shown to wallet players until claimed; guests see the
           hook that makes connecting a wallet worth it */}
       {gift?.item && !gift.claimed && (
-        <div data-game-ui="" style={{ position: 'fixed', right: 12, bottom: 12, zIndex: 45, maxWidth: '80vw' }}>
+        <div data-game-ui="" style={{ position: 'fixed', right: 'calc(env(safe-area-inset-right, 0px) + 12px)', bottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)', zIndex: 45, maxWidth: '80vw' }}>
           <div className="flex items-center gap-2 rounded-full border border-amber-400/40 bg-black/60 px-3 py-1.5 text-xs text-white/85 backdrop-blur-sm">
             <span>🎁</span>
             {gift.available ? (
@@ -263,7 +274,7 @@ export function GameOverlays() {
       )}
 
       {/* inbox + feedback + invite buttons, bottom-left */}
-      <div data-game-ui="" style={{ position: 'fixed', left: 12, bottom: 12, zIndex: 45 }} className="flex items-center gap-2">
+      <div data-game-ui="" style={{ position: 'fixed', left: 'calc(env(safe-area-inset-left, 0px) + 12px)', bottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)', zIndex: 45, maxWidth: 'calc(100vw - 24px)' }} className="flex flex-wrap items-center gap-2">
         {inbox.length > 0 && (
           <button onClick={openInbox}
             className="relative rounded-full border border-white/10 bg-black/50 px-3 py-1.5 text-xs text-white/70 backdrop-blur-sm hover:border-cyan-400/40 hover:text-white">
