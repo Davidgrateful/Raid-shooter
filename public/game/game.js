@@ -4119,13 +4119,7 @@ $.setupStates = function() {
 		Your live rank banner - so a player can always spot where they stand,
 		even when their own row has scrolled out of the top-100 list below
 		==============================================================================*/
-		var myKeyTop = $.myKey(),
-			myIndexTop = -1;
-		if( myKeyTop ) {
-			for( var mq = 0; mq < $.board.entries.length; mq++ ) {
-				if( $.board.entries[ mq ].address === myKeyTop ) { myIndexTop = mq; break; }
-			}
-		}
+		var myIndexTop = $.findMyEntryIndex( $.board.entries );
 		if( !$.board.loading && !$.board.error && $.board.entries.length ) {
 			var rankY = tierY + ( boardCompact ? 36 : 48 ),
 				rankText = ( myIndexTop >= 0 )
@@ -4210,11 +4204,13 @@ $.setupStates = function() {
 			// medal colours for the podium - top 3 stand out from the pack
 			var medalColors = [ 'hsla(45, 100%, 62%, 1)', 'hsla(0, 0%, 80%, 1)', 'hsla(28, 75%, 55%, 1)' ];
 			$.boardMyScrollTarget = -1;
+			// resolve the player's own row once (identity-desync resilient), then
+			// match rows by index so highlight + JUMP TO ME agree with the banner
+			var mineIndex = $.findMyEntryIndex( $.board.entries );
 
 			for( var ri = 0; ri < rowCount; ri++ ) {
 				var entry = $.board.entries[ ri ],
-					myKey = $.myKey(),
-					mine = ( myKey && entry.address === myKey ),
+					mine = ( ri === mineIndex ),
 					medal = ( ri < 3 ) ? medalColors[ ri ] : null,
 					rowColor = mine ? 'hsla(45, 100%, 70%, 1)' : ( medal ? medal : 'hsla(0, 0%, 100%, 0.65)' ),
 					// wallet-verified players carry a badge glyph after their name

@@ -36,6 +36,46 @@ $.myKey = function() {
 	}
 	return 'guest:' + $.guestToken();
 };
+
+// EVERY identity that could be "me" on the board, not just the current one.
+// A row is keyed at submit time, so the player's live key can desync from it:
+//   - played as a guest, THEN connected a wallet -> the row is guest-keyed but
+//     $.myKey() now returns the wallet address
+//   - the wallet session cookie was dropped (iOS Safari ITP / in-app browser)
+//     -> the client looks unauthenticated so $.myKey() returns the guest key,
+//     while the row is address-keyed
+// Either way "see me / jump to me" and the YOU-RANK banner would fail even
+// though the player is plainly on the board. Matching against all known keys
+// (plus a name fallback) fixes that.
+$.myKeys = function() {
+	var keys = [];
+	if( $.session.authenticated && $.session.address ) { keys.push( $.session.address ); }
+	if( $.guestToken ) { keys.push( 'guest:' + $.guestToken() ); }
+	return keys;
+};
+
+// Find the player's own row in a list, resilient to identity desync. Two
+// passes so an exact key match always wins over the weaker name fallback:
+//   pass 1 - match any known key (address or guest token)
+//   pass 2 - match the player's stored custom pilot name (skips the shared
+//            auto-default "PILOT 1234", which many players carry)
+// Returns the row index, or -1 if the player isn't ranked.
+$.findMyEntryIndex = function( entries ) {
+	if( !entries || !entries.length ) { return -1; }
+	var keys = $.myKeys(), i, k;
+	for( i = 0; i < entries.length; i++ ) {
+		for( k = 0; k < keys.length; k++ ) {
+			if( entries[ i ].address === keys[ k ] ) { return i; }
+		}
+	}
+	var myName = ( $.storage && $.storage['pilotname'] ) ? String( $.storage['pilotname'] ).toUpperCase() : '';
+	if( myName && myName.length >= 3 && !/^PILOT \d{4}$/.test( myName ) ) {
+		for( i = 0; i < entries.length; i++ ) {
+			if( entries[ i ].name && String( entries[ i ].name ).toUpperCase() === myName ) { return i; }
+		}
+	}
+	return -1;
+};
 $.board = { loading: 0, error: 0, fetched: 0, entries: [], persistent: 1 };
 $.boardSubmit = { state: 'idle', rank: 0, improved: false };
 
