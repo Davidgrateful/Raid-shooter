@@ -3240,7 +3240,7 @@ $.renderAmbientShips = function() {
 		ctx.translate( s.x, s.y );
 		ctx.rotate( s.rot );
 		// drones are drawn upright; ship hulls point along their heading
-		s.def.draw( ctx, s.scale, s.drone ? 'hsla(190, 60%, 70%, 1)' : 'hsla(210, 35%, 72%, 1)', $.tick );
+		s.def.draw( ctx, s.scale, s.drone ? ( s.def.color || 'hsla(190, 60%, 70%, 1)' ) : 'hsla(210, 35%, 72%, 1)', $.tick );
 		ctx.restore();
 	}
 	ctx.globalAlpha = 1;
@@ -3813,7 +3813,7 @@ $.setupStates = function() {
 				ddy = previewY + Math.sin( orbitAngle ) * orbitR * 0.55;
 			$.ctxmg.save();
 			$.ctxmg.translate( ddx, ddy );
-			hangarDrone.draw( $.ctxmg, hangarCompact ? 9 : 12, 'hsla(190, 100%, 70%, 0.95)', $.tick );
+			hangarDrone.draw( $.ctxmg, hangarCompact ? 9 : 12, hangarDrone.color || 'hsla(190, 100%, 70%, 0.95)', $.tick );
 			$.ctxmg.restore();
 		}
 
@@ -4576,7 +4576,7 @@ $.setupStates = function() {
 							dy = cy + Math.sin( ang ) * r * 1.3;
 						$.ctxmg.save();
 						$.ctxmg.translate( dx, dy );
-						drone.draw( $.ctxmg, r * 0.3, 'hsla(190, 100%, 70%, 1)', $.tick );
+						drone.draw( $.ctxmg, r * 0.3, drone.color || 'hsla(190, 100%, 70%, 1)', $.tick );
 						$.ctxmg.restore();
 					}
 				}

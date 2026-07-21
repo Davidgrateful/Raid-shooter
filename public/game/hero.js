@@ -361,7 +361,7 @@ $.Hero.prototype.render = function() {
 				dy = this.y + Math.sin( orbitAngle ) * orbitR;
 			$.ctxmg.save();
 			$.ctxmg.translate( dx, dy );
-			drone.draw( $.ctxmg, 7, 'hsla(190, 100%, 70%, 0.95)', $.tick );
+			drone.draw( $.ctxmg, 7, drone.color || 'hsla(190, 100%, 70%, 0.95)', $.tick );
 			$.ctxmg.restore();
 		}
 	}

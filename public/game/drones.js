@@ -37,7 +37,7 @@ function droneOutline( ctx, r ) {
 
 $.definitions.drones = [
 	{
-		id: 'drone_aegis', title: 'AEGIS HALO', desc: 'REDUCES COLLISION DAMAGE', xpBonus: 0.10,
+		id: 'drone_aegis', title: 'AEGIS HALO', desc: 'REDUCES COLLISION DAMAGE', xpBonus: 0.10, color: 'hsla(190, 78%, 60%, 1)',
 		// tech shield: a bracket halo ring around a hex energy core
 		draw: function( ctx, r, fillStyle, tick ) {
 			var c = droneHsl( fillStyle ), t = tick || 0,
@@ -80,7 +80,7 @@ $.definitions.drones = [
 		}
 	},
 	{
-		id: 'drone_voltmite', title: 'VOLT MITE', desc: 'SHOTS CHAIN TO A NEARBY ENEMY', xpBonus: 0.15,
+		id: 'drone_voltmite', title: 'VOLT MITE', desc: 'SHOTS CHAIN TO A NEARBY ENEMY', xpBonus: 0.15, color: 'hsla(52, 92%, 58%, 1)',
 		// a jagged spark - lit leading facet + bright pulsing tip
 		draw: function( ctx, r, fillStyle, tick ) {
 			var c = droneHsl( fillStyle ), t = tick || 0;
@@ -112,7 +112,7 @@ $.definitions.drones = [
 		}
 	},
 	{
-		id: 'drone_needlefinch', title: 'NEEDLE FINCH', desc: 'BULLETS PIERCE ENEMIES', xpBonus: 0.15,
+		id: 'drone_needlefinch', title: 'NEEDLE FINCH', desc: 'BULLETS PIERCE ENEMIES', xpBonus: 0.15, color: 'hsla(16, 85%, 57%, 1)',
 		// a thin needle - bright leading edge, shaded trailing half
 		draw: function( ctx, r, fillStyle, tick ) {
 			var c = droneHsl( fillStyle );
@@ -140,7 +140,7 @@ $.definitions.drones = [
 		}
 	},
 	{
-		id: 'drone_gravbeetle', title: 'GRAV BEETLE', desc: 'PULLS NEARBY ENEMIES INWARD', xpBonus: 0.20,
+		id: 'drone_gravbeetle', title: 'GRAV BEETLE', desc: 'PULLS NEARBY ENEMIES INWARD', xpBonus: 0.20, color: 'hsla(280, 58%, 62%, 1)',
 		// a spiral pulling inward, over a shaded gravity well core
 		draw: function( ctx, r, fillStyle, tick ) {
 			var c = droneHsl( fillStyle ), t = tick || 0;
@@ -173,7 +173,7 @@ $.definitions.drones = [
 		}
 	},
 	{
-		id: 'drone_medicwisp', title: 'MEDIC WISP', desc: 'SLOWLY REGENERATES HULL', xpBonus: 0.10,
+		id: 'drone_medicwisp', title: 'MEDIC WISP', desc: 'SLOWLY REGENERATES HULL', xpBonus: 0.10, color: 'hsla(145, 60%, 52%, 1)',
 		// a beveled orb with a lit medical cross and a soft pulse
 		draw: function( ctx, r, fillStyle, tick ) {
 			var c = droneHsl( fillStyle ), t = tick || 0,
@@ -201,7 +201,7 @@ $.definitions.drones = [
 		// reward-only champion crest: a gold crown. Never sold - granted to
 		// tournament winners from the admin so it reads as a flex in-game.
 		// Keeps its fixed gold (ignores tint) but gains base shade + jewel.
-		id: 'drone_champion', title: 'CHAMPION CREST', desc: 'WINNERS-ONLY COSMETIC CREST', xpBonus: 0.25,
+		id: 'drone_champion', title: 'CHAMPION CREST', desc: 'WINNERS-ONLY COSMETIC CREST', xpBonus: 0.25, color: 'hsla(45, 100%, 58%, 1)',
 		reward: true,
 		draw: function( ctx, r, fillStyle, tick ) {
 			var t = tick || 0;
