@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminGate } from '@/lib/admin-auth';
-import { aiEnabled, draftAnnouncement, draftReply, summarizeFeedback } from '@/lib/ai-admin';
+import {
+  aiEnabled,
+  draftAnnouncement,
+  draftReply,
+  summarizeFeedback,
+  isChatAutoReplyOn,
+  setChatAutoReply,
+  replyToChat,
+} from '@/lib/ai-admin';
 import { listFeedback } from '@/lib/feedback';
 
 // AI admin assistant. The operator drives it from the dashboard; it drafts
@@ -13,7 +21,7 @@ import { listFeedback } from '@/lib/feedback';
 export async function GET(req: NextRequest) {
   const denied = await adminGate(req, 'content.manage');
   if (denied) return denied;
-  return NextResponse.json({ enabled: aiEnabled() });
+  return NextResponse.json({ enabled: aiEnabled(), autoReply: await isChatAutoReplyOn() });
 }
 
 export async function POST(req: NextRequest) {
@@ -28,11 +36,27 @@ export async function POST(req: NextRequest) {
   }
 
   const body = (await req.json().catch(() => null)) as
-    | { action?: string; brief?: string; message?: string; context?: string }
+    | { action?: string; brief?: string; message?: string; context?: string; on?: boolean }
     | null;
   const action = body?.action;
 
   try {
+    // Live ping so the operator can SEE the model actually respond once the
+    // key is set - "show the llm". Returns the raw generated line.
+    if (action === 'test') {
+      const out = await replyToChat(
+        body?.message || 'Is the AI working? Say hi to the operator in one line.',
+        []
+      );
+      return NextResponse.json({ ok: true, output: out || '(the model chose not to reply)' });
+    }
+
+    // Flip the autonomous chat auto-reply on/off (persists in KV).
+    if (action === 'set-autoreply') {
+      await setChatAutoReply(!!body?.on);
+      return NextResponse.json({ ok: true, autoReply: await isChatAutoReplyOn() });
+    }
+
     if (action === 'draft-announcement') {
       if (!body?.brief) return NextResponse.json({ error: 'brief required' }, { status: 400 });
       const draft = await draftAnnouncement(body.brief);

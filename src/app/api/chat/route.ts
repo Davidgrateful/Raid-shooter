@@ -3,6 +3,15 @@ import { getSession, getOrCreateGuestId } from '@/lib/session';
 import { getTop } from '@/lib/leaderboard';
 import { postMessage, getRecent, isMuted, containsProfanity } from '@/lib/chat';
 import { rateLimit, clientIp } from '@/lib/ratelimit';
+import { isChatAutoReplyOn, replyToChat } from '@/lib/ai-admin';
+
+// Cheap pre-filter so the LLM isn't called on every message: only messages
+// that look like they want a reply (a question, or help/cup/payout talk)
+// are even considered. The model still makes the final call and can decline.
+function looksLikeAQuestion(text: string): boolean {
+  if (text.includes('?')) return true;
+  return /\b(how|why|when|what|where|help|cup|payout|prize|paid|wallet|connect|bug|lag)\b/i.test(text);
+}
 
 // Top-20 chat. Reads are public (anyone watching the board can spectate);
 // posting requires the caller to currently hold a top-20 spot, checked
@@ -67,6 +76,26 @@ export async function POST(req: NextRequest) {
     verified,
     cosmetics: entry.cosmetics,
   });
+
+  // Autonomous AI reply (opt-in from admin). Best-effort and heavily gated:
+  // only question-like messages are considered, a global rate limit caps how
+  // often the AI speaks (cost + anti-spam), and the model itself declines on
+  // anything not worth a reply. Never fails or delays the player's own post
+  // beyond the one awaited call, and any error is swallowed.
+  try {
+    if (looksLikeAQuestion(text) && (await isChatAutoReplyOn())) {
+      const aiAllowed = await rateLimit('ai_chat_reply', 'global', 1, 25_000);
+      if (aiAllowed) {
+        const recent = (await getRecent(6)).map((m) => `${m.name}: ${m.text}`);
+        const reply = await replyToChat(text, recent);
+        if (reply) {
+          await postMessage({ key: 'system', name: 'RAID SHOOTER', text: reply, verified: true });
+        }
+      }
+    }
+  } catch {
+    // AI reply is a bonus, never a dependency - the player's message already posted
+  }
 
   return NextResponse.json({ message });
 }

@@ -1067,11 +1067,13 @@ function LeaderboardView({ rows }: { rows: Stats['leaderboard']['top'] }) {
 // the same announcements endpoint a human uses.
 function AIAssistant({ token }: { token: string }) {
   const [enabled, setEnabled] = useState<boolean | null>(null);
+  const [autoReply, setAutoReply] = useState(false);
   const [brief, setBrief] = useState('');
   const [draft, setDraft] = useState<{ title: string; body: string } | null>(null);
   const [replyMsg, setReplyMsg] = useState('');
   const [reply, setReply] = useState('');
   const [summary, setSummary] = useState('');
+  const [testOut, setTestOut] = useState('');
   const [busy, setBusy] = useState('');
   const [note, setNote] = useState('');
   const inputCls = 'w-full rounded-md border border-white/15 bg-white/[0.05] px-3 py-2 text-sm outline-none focus:border-cyan-400/60';
@@ -1079,7 +1081,7 @@ function AIAssistant({ token }: { token: string }) {
   useEffect(() => {
     fetch('/api/admin/ai', { headers: { Authorization: `Bearer ${token}` } })
       .then((r) => r.json())
-      .then((d) => setEnabled(!!d.enabled))
+      .then((d) => { setEnabled(!!d.enabled); setAutoReply(!!d.autoReply); })
       .catch(() => setEnabled(false));
   }, [token]);
 
@@ -1131,6 +1133,28 @@ function AIAssistant({ token }: { token: string }) {
       ) : (
         <div className="mt-4 space-y-6">
           {note && <div className="rounded-md bg-white/[0.04] p-2 text-xs text-white/70">{note}</div>}
+
+          {/* live test — see the model actually respond */}
+          <div className="flex flex-wrap items-center gap-3 rounded-lg border border-white/10 bg-black/20 p-3">
+            <button onClick={async () => { setTestOut(''); const d = await call('test', {}); if (d) setTestOut(d.output || ''); }} disabled={!!busy} className="rounded-md bg-cyan-500/80 px-3 py-1.5 text-xs font-semibold text-black hover:bg-cyan-400 disabled:opacity-40">{busy === 'test' ? 'Pinging…' : 'Test the AI'}</button>
+            <span className="text-xs text-white/50">Ping the model live to confirm it's working.</span>
+            {testOut && <div className="w-full rounded-md bg-cyan-500/[0.06] p-2 text-sm text-cyan-100">🤖 {testOut}</div>}
+          </div>
+
+          {/* autonomous chat auto-reply toggle */}
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-400/20 bg-amber-500/[0.05] p-3">
+            <div>
+              <div className="text-xs font-semibold text-amber-200">Auto-reply in live chat</div>
+              <div className="text-[11px] text-white/40">When on, the AI answers players&apos; questions in top-20 chat on its own (rate-limited, only when it adds value). It posts text only — it can never move money.</div>
+            </div>
+            <button
+              onClick={async () => { const d = await call('set-autoreply', { on: !autoReply }); if (d) setAutoReply(!!d.autoReply); }}
+              disabled={!!busy}
+              className={`shrink-0 rounded-full px-4 py-1.5 text-xs font-bold transition-colors ${autoReply ? 'bg-emerald-500/80 text-black hover:bg-emerald-400' : 'bg-white/10 text-white/70 hover:bg-white/20'} disabled:opacity-40`}
+            >
+              {autoReply ? 'ON' : 'OFF'}
+            </button>
+          </div>
 
           {/* draft an announcement */}
           <div className="space-y-2">
