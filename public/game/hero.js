@@ -41,6 +41,7 @@ $.Hero = function() {
 			damage: 1,
 			speed: 10,
 			piercing: 0,
+			kind: 'bolt',
 			strokeStyle: shipColor.color
 		},
 		fireFlag: 0
@@ -273,6 +274,7 @@ $.Hero.prototype.update = function() {
 						damage: this.weapon.bullet.damage,
 						size: this.weapon.bullet.size,
 						lineWidth: this.weapon.bullet.lineWidth,
+						kind: this.weapon.bullet.kind,
 						strokeStyle: color,
 						piercing: this.weapon.bullet.piercing || ( $.equippedDrone() && $.equippedDrone().id === 'drone_needlefinch' ),
 						pierceCap: this.weapon.pierceCap,

@@ -90,6 +90,7 @@ $.recomputeUpgrades = function() {
 	weapon.bullet.damage = ( ability.damage || 1 ) * Math.pow( 1.4, u['heavy'] || 0 );
 	weapon.bullet.size = bulletStyle.size;
 	weapon.bullet.lineWidth = bulletStyle.lineWidth;
+	weapon.bullet.kind = bulletStyle.kind || 'bolt';
 
 	$.hero.vmax = 6 * character.speedMult * Math.pow( 1.12, u['thrusters'] || 0 );
 	$.hero.accel = 0.5 * character.speedMult * Math.pow( 1.12, u['thrusters'] || 0 );

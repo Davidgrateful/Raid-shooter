@@ -12,7 +12,7 @@ center and rotated so +x is the facing direction.
 ==============================================================================*/
 $.definitions.characters = [
 	{
-		id: 'onyix', ability: { title: 'FOUNDER', text: 'START WITH A FREE UPGRADE', startUpgrade: 1 }, bulletStyle: { size: 15, lineWidth: 2 }, title: 'ONYIX', desc: 'BALANCED FIGHTER',
+		id: 'onyix', ability: { title: 'FOUNDER', text: 'START WITH A FREE UPGRADE', startUpgrade: 1 }, bulletStyle: { kind: 'bolt', size: 15, lineWidth: 2 }, title: 'ONYIX', desc: 'BALANCED FIGHTER',
 		speedMult: 1, damageTakenMult: 1, dashCooldownMult: 1, radius: 10,
 		unlock: null,
 		draw: function( ctx, r, fillStyle, tick ) {
@@ -37,7 +37,7 @@ $.definitions.characters = [
 		}
 	},
 	{
-		id: 'nova', ability: { title: 'SLIPSTREAM', text: 'LONGER DASH', dashDuration: 1.4 }, bulletStyle: { size: 22, lineWidth: 1.5 }, title: 'NOVA', desc: 'FAST AND FRAGILE,\nRAPID DASH',
+		id: 'nova', ability: { title: 'SLIPSTREAM', text: 'LONGER DASH', dashDuration: 1.4 }, bulletStyle: { kind: 'tracer', size: 22, lineWidth: 1.5 }, title: 'NOVA', desc: 'FAST AND FRAGILE,\nRAPID DASH',
 		speedMult: 1.25, damageTakenMult: 1.33, dashCooldownMult: 0.7, radius: 9,
 		unlock: { purchase: 'pilot_nova' },
 		draw: function( ctx, r, fillStyle, tick ) {
@@ -54,7 +54,7 @@ $.definitions.characters = [
 		}
 	},
 	{
-		id: 'tankrex', ability: { title: 'BULWARK', text: 'RESIST WHEN BADLY HURT', lowHpResist: 0.65 }, bulletStyle: { size: 11, lineWidth: 4 }, title: 'TANK REX', desc: 'SLOW AND ARMORED',
+		id: 'tankrex', ability: { title: 'BULWARK', text: 'RESIST WHEN BADLY HURT', lowHpResist: 0.65 }, bulletStyle: { kind: 'slug', size: 11, lineWidth: 4 }, title: 'TANK REX', desc: 'SLOW AND ARMORED',
 		speedMult: 0.8, damageTakenMult: 0.7, dashCooldownMult: 1.3, radius: 13,
 		unlock: { purchase: 'pilot_tankrex' },
 		draw: function( ctx, r, fillStyle, tick ) {
@@ -76,7 +76,7 @@ $.definitions.characters = [
 		}
 	},
 	{
-		id: 'astravane', ability: { title: 'TAILWIND', text: 'LONGER COMBO WINDOW', combo: 1.35 }, bulletStyle: { size: 18, lineWidth: 2 }, title: 'ASTRA VANE', desc: 'SWIFT KITE,\nLIGHT ARMOR',
+		id: 'astravane', ability: { title: 'TAILWIND', text: 'LONGER COMBO WINDOW', combo: 1.35 }, bulletStyle: { kind: 'dart', size: 18, lineWidth: 2 }, title: 'ASTRA VANE', desc: 'SWIFT KITE,\nLIGHT ARMOR',
 		speedMult: 1.2, damageTakenMult: 1.2, dashCooldownMult: 0.85, radius: 9,
 		unlock: { purchase: 'pilot_astravane' },
 		draw: function( ctx, r, fillStyle, tick ) {
@@ -99,7 +99,7 @@ $.definitions.characters = [
 		}
 	},
 	{
-		id: 'ironhalo', ability: { title: 'OVERCHARGER', text: 'POWERUPS LAST LONGER', powerupDuration: 1.4 }, bulletStyle: { size: 12, lineWidth: 3.5 }, title: 'IRON HALO', desc: 'ARMORED RING HULL',
+		id: 'ironhalo', ability: { title: 'OVERCHARGER', text: 'POWERUPS LAST LONGER', powerupDuration: 1.4 }, bulletStyle: { kind: 'pulse', size: 12, lineWidth: 3.5 }, title: 'IRON HALO', desc: 'ARMORED RING HULL',
 		speedMult: 0.82, damageTakenMult: 0.7, dashCooldownMult: 1.3, radius: 12,
 		unlock: { purchase: 'pilot_ironhalo' },
 		draw: function( ctx, r, fillStyle, tick ) {
@@ -115,7 +115,7 @@ $.definitions.characters = [
 		}
 	},
 	{
-		id: 'runepilot', ability: { title: 'SCAVENGER', text: 'MORE POWERUP DROPS', drop: 1.4 }, bulletStyle: { size: 15, lineWidth: 2.5 }, title: 'RUNE PILOT', desc: 'GLYPHS ORBIT\nTHE HULL',
+		id: 'runepilot', ability: { title: 'SCAVENGER', text: 'MORE POWERUP DROPS', drop: 1.4 }, bulletStyle: { kind: 'glyph', size: 15, lineWidth: 2.5 }, title: 'RUNE PILOT', desc: 'GLYPHS ORBIT\nTHE HULL',
 		speedMult: 1, damageTakenMult: 0.95, dashCooldownMult: 1, radius: 10,
 		unlock: { purchase: 'pilot_runepilot' },
 		draw: function( ctx, r, fillStyle, tick ) {
@@ -136,7 +136,7 @@ $.definitions.characters = [
 		}
 	},
 	{
-		id: 'nebulafox', ability: { title: 'VAMPIRE', text: 'HEAL HP FROM KILLS', killHealMult: 2 }, bulletStyle: { size: 17, lineWidth: 1.8 }, title: 'NEBULA FOX', desc: 'QUICK HUNTER,\nTWIN TAILS',
+		id: 'nebulafox', ability: { title: 'VAMPIRE', text: 'HEAL HP FROM KILLS', killHealMult: 2 }, bulletStyle: { kind: 'twin', size: 17, lineWidth: 1.8 }, title: 'NEBULA FOX', desc: 'QUICK HUNTER,\nTWIN TAILS',
 		speedMult: 1.25, damageTakenMult: 1.25, dashCooldownMult: 0.8, radius: 9,
 		unlock: { purchase: 'pilot_nebulafox' },
 		draw: function( ctx, r, fillStyle, tick ) {
@@ -159,7 +159,7 @@ $.definitions.characters = [
 		}
 	},
 	{
-		id: 'javelin9', ability: { title: 'LANCER', text: 'FASTER BULLETS', bulletSpeed: 1.25 }, bulletStyle: { size: 26, lineWidth: 1.5 }, title: 'JAVELIN 9', desc: 'NEEDLE NOSE,\nPURE SPEED',
+		id: 'javelin9', ability: { title: 'LANCER', text: 'FASTER BULLETS', bulletSpeed: 1.25 }, bulletStyle: { kind: 'lance', size: 26, lineWidth: 1.5 }, title: 'JAVELIN 9', desc: 'NEEDLE NOSE,\nPURE SPEED',
 		speedMult: 1.3, damageTakenMult: 1.3, dashCooldownMult: 0.75, radius: 8,
 		unlock: { purchase: 'pilot_javelin9' },
 		draw: function( ctx, r, fillStyle, tick ) {
@@ -175,7 +175,7 @@ $.definitions.characters = [
 		}
 	},
 	{
-		id: 'atlasbeam', ability: { title: 'HEAVY CAL', text: 'SHARPER DAMAGE', damage: 1.2 }, bulletStyle: { size: 13, lineWidth: 5 }, title: 'ATLAS BEAM', desc: 'HEAVY CANNON FRAME',
+		id: 'atlasbeam', ability: { title: 'HEAVY CAL', text: 'SHARPER DAMAGE', damage: 1.2 }, bulletStyle: { kind: 'beam', size: 13, lineWidth: 5 }, title: 'ATLAS BEAM', desc: 'HEAVY CANNON FRAME',
 		speedMult: 0.78, damageTakenMult: 0.68, dashCooldownMult: 1.35, radius: 13,
 		unlock: { purchase: 'pilot_atlasbeam' },
 		draw: function( ctx, r, fillStyle, tick ) {
@@ -190,7 +190,7 @@ $.definitions.characters = [
 		}
 	},
 	{
-		id: 'glitchprince', ability: { title: 'JITTER', text: 'FASTER FIRING', fireRate: 0.88 }, bulletStyle: { size: 16, lineWidth: 2.5 }, title: 'GLITCH PRINCE', desc: 'FRAGMENTED HULL',
+		id: 'glitchprince', ability: { title: 'JITTER', text: 'FASTER FIRING', fireRate: 0.88 }, bulletStyle: { kind: 'glitch', size: 16, lineWidth: 2.5 }, title: 'GLITCH PRINCE', desc: 'FRAGMENTED HULL',
 		speedMult: 1.05, damageTakenMult: 1.05, dashCooldownMult: 0.95, radius: 10,
 		unlock: { purchase: 'pilot_glitchprince' },
 		draw: function( ctx, r, fillStyle, tick ) {
@@ -210,7 +210,7 @@ $.definitions.characters = [
 		// premium pilot: instant unlock via the market, no grind gate.
 		// kept mid-roster power (sidegrade, not best-in-class) so paying
 		// skips the wait for a look, not a score advantage.
-		id: 'solstice', ability: { title: 'OVERDRIVE', text: 'FASTER BULLETS, LIGHTER ARMOR', bulletSpeed: 1.15 }, bulletStyle: { size: 20, lineWidth: 1.6 }, title: 'SOLSTICE', desc: 'PREMIUM PILOT\nGLASS CANNON',
+		id: 'solstice', ability: { title: 'OVERDRIVE', text: 'FASTER BULLETS, LIGHTER ARMOR', bulletSpeed: 1.15 }, bulletStyle: { kind: 'plasma', size: 20, lineWidth: 1.6 }, title: 'SOLSTICE', desc: 'PREMIUM PILOT\nGLASS CANNON',
 		speedMult: 1.05, damageTakenMult: 1.1, dashCooldownMult: 1, radius: 10,
 		unlock: { purchase: 'pilot_solstice' },
 		draw: function( ctx, r, fillStyle, tick ) {
@@ -233,7 +233,7 @@ $.definitions.characters = [
 	},
 	{
 		// premium pilot: instant unlock via the market, no grind gate.
-		id: 'crimsonwisp', ability: { title: 'EMBER WAKE', text: 'HEAL HP FROM KILLS', killHealMult: 1.5 }, bulletStyle: { size: 15, lineWidth: 2.2 }, title: 'CRIMSON WISP', desc: 'PREMIUM PILOT\nDRIFTING EMBER HULL',
+		id: 'crimsonwisp', ability: { title: 'EMBER WAKE', text: 'HEAL HP FROM KILLS', killHealMult: 1.5 }, bulletStyle: { kind: 'ember', size: 15, lineWidth: 2.2 }, title: 'CRIMSON WISP', desc: 'PREMIUM PILOT\nDRIFTING EMBER HULL',
 		speedMult: 1, damageTakenMult: 1, dashCooldownMult: 1.05, radius: 10,
 		unlock: { purchase: 'pilot_crimsonwisp' },
 		draw: function( ctx, r, fillStyle, tick ) {
@@ -256,7 +256,7 @@ $.definitions.characters = [
 		// premium pilot: instant unlock via the market, no grind gate.
 		// sponsor tie-in cosmetic (CryptoRider crossover) - balanced like
 		// every other premium pilot, no power edge from the partnership.
-		id: 'voltrider', ability: { title: 'HEAVY THROTTLE', text: 'SPEEDS UP THE LONGER YOU SURVIVE', throttleRampMax: 0.22, throttleRampSeconds: 45 }, bulletStyle: { size: 18, lineWidth: 1.8 }, title: 'RIDER', desc: 'PREMIUM PILOT\nNEON SLIPSTREAM HULL',
+		id: 'voltrider', ability: { title: 'HEAVY THROTTLE', text: 'SPEEDS UP THE LONGER YOU SURVIVE', throttleRampMax: 0.22, throttleRampSeconds: 45 }, bulletStyle: { kind: 'neon', size: 18, lineWidth: 1.8 }, title: 'RIDER', desc: 'PREMIUM PILOT\nNEON SLIPSTREAM HULL',
 		speedMult: 1.12, damageTakenMult: 1.1, dashCooldownMult: 0.85, radius: 10,
 		unlock: { purchase: 'pilot_voltrider' },
 		draw: function( ctx, r, fillStyle, tick ) {

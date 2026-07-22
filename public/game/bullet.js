@@ -156,12 +156,116 @@ $.Bullet.prototype.update = function( i ) {
 Render
 ==============================================================================*/
 $.Bullet.prototype.render = function( i ) {
-	if( this.inView ) {
-		$.ctxmg.beginPath();
-		$.ctxmg.moveTo( this.x, this.y );
-		$.ctxmg.lineTo( this.ex, this.ey );
-		$.ctxmg.lineWidth = this.lineWidth;		
-		$.ctxmg.strokeStyle = this.strokeStyle;
-		$.ctxmg.stroke();
+	if( !this.inView ) { return; }
+	var c = $.ctxmg,
+		x = this.x, y = this.y,
+		ex = this.ex, ey = this.ey,
+		w = this.lineWidth,
+		s = this.size,
+		col = this.strokeStyle,
+		dx = Math.cos( this.direction ), dy = Math.sin( this.direction ),
+		// perpendicular unit vector, for offset twin/neon rails
+		nx = -dy, ny = dx,
+		t = $.tick;
+
+	// each pilot fires its own bullet TYPE (shape). Colour still comes from the
+	// player's ship colour / active power-up (this.strokeStyle) so cosmetics and
+	// power-up feedback are untouched, and every kind deals identical damage -
+	// purely visual, never affects a run or score.
+	switch( this.kind ) {
+		case 'tracer': // NOVA - long faint streak + bright core
+			c.strokeStyle = col; c.globalAlpha = 0.3; c.lineWidth = w;
+			c.beginPath(); c.moveTo( x, y ); c.lineTo( x - dx * s * 1.9, y - dy * s * 1.9 ); c.stroke();
+			c.globalAlpha = 1;
+			c.beginPath(); c.moveTo( x, y ); c.lineTo( ex, ey ); c.stroke();
+			break;
+		case 'slug': // TANK REX - short fat round-capped slug
+			c.strokeStyle = col; c.lineWidth = w * 2.2; c.lineCap = 'round';
+			c.beginPath(); c.moveTo( x, y ); c.lineTo( x - dx * s * 0.5, y - dy * s * 0.5 ); c.stroke();
+			c.lineCap = 'butt';
+			break;
+		case 'dart': // ASTRA VANE - small filled arrowhead
+			c.fillStyle = col;
+			c.beginPath();
+			c.moveTo( x, y );
+			c.lineTo( ex + nx * s * 0.18, ey + ny * s * 0.18 );
+			c.lineTo( ex - nx * s * 0.18, ey - ny * s * 0.18 );
+			c.closePath(); c.fill();
+			break;
+		case 'pulse': { // IRON HALO - ring with a core dot
+			var pr = Math.max( 3, s * 0.28 );
+			c.strokeStyle = col; c.lineWidth = 1.6;
+			c.beginPath(); c.arc( x, y, pr, 0, $.twopi ); c.stroke();
+			c.fillStyle = col; c.beginPath(); c.arc( x, y, pr * 0.45, 0, $.twopi ); c.fill();
+			break;
+		}
+		case 'glyph': // RUNE PILOT - spinning diamond shard
+			c.save(); c.translate( x, y ); c.rotate( t * 0.2 );
+			c.fillStyle = col; var gr = Math.max( 3, s * 0.24 );
+			c.beginPath(); c.moveTo( 0, -gr ); c.lineTo( gr, 0 ); c.lineTo( 0, gr ); c.lineTo( -gr, 0 ); c.closePath(); c.fill();
+			c.restore();
+			break;
+		case 'twin': // NEBULA FOX - two parallel fangs
+			c.strokeStyle = col; c.lineWidth = Math.max( 1, w * 0.8 );
+			c.beginPath();
+			c.moveTo( x + nx * 3, y + ny * 3 ); c.lineTo( ex + nx * 3, ey + ny * 3 );
+			c.moveTo( x - nx * 3, y - ny * 3 ); c.lineTo( ex - nx * 3, ey - ny * 3 );
+			c.stroke();
+			break;
+		case 'lance': // JAVELIN 9 - very long thin needle + bright tip
+			c.strokeStyle = col; c.lineWidth = Math.max( 1, w * 0.7 );
+			c.beginPath(); c.moveTo( x, y ); c.lineTo( x - dx * s * 1.5, y - dy * s * 1.5 ); c.stroke();
+			c.fillStyle = col; c.beginPath(); c.arc( x, y, Math.max( 1.2, w ), 0, $.twopi ); c.fill();
+			break;
+		case 'beam': // ATLAS BEAM - thick glowing beam
+			c.strokeStyle = col; c.globalAlpha = 0.28; c.lineWidth = w * 3;
+			c.beginPath(); c.moveTo( x, y ); c.lineTo( ex, ey ); c.stroke();
+			c.globalAlpha = 1; c.lineWidth = w * 1.5;
+			c.beginPath(); c.moveTo( x, y ); c.lineTo( ex, ey ); c.stroke();
+			break;
+		case 'glitch': { // GLITCH PRINCE - fragmented, jittering segments
+			var j = ( Math.floor( t / 4 ) % 2 ) ? 2 : -2;
+			c.strokeStyle = col; c.lineWidth = w;
+			c.beginPath();
+			c.moveTo( x, y ); c.lineTo( x - dx * s * 0.4, y - dy * s * 0.4 );
+			c.moveTo( x - dx * s * 0.5 + nx * j, y - dy * s * 0.5 + ny * j );
+			c.lineTo( x - dx * s * 0.9 + nx * j, y - dy * s * 0.9 + ny * j );
+			c.stroke();
+			break;
+		}
+		case 'plasma': { // SOLSTICE - glowing plasma orb with white core
+			var g = 0.6 + 0.4 * Math.sin( t / 4 ), pr2 = Math.max( 3, s * 0.32 );
+			c.globalAlpha = 0.4 * g; c.fillStyle = col;
+			c.beginPath(); c.arc( x, y, pr2, 0, $.twopi ); c.fill();
+			c.globalAlpha = 0.85; c.fillStyle = 'hsla(0,0%,100%,1)';
+			c.beginPath(); c.arc( x, y, pr2 * 0.5, 0, $.twopi ); c.fill();
+			c.globalAlpha = 1;
+			break;
+		}
+		case 'ember': // CRIMSON WISP - bolt with a flickering ember trail
+			c.strokeStyle = col; c.lineWidth = w;
+			c.beginPath(); c.moveTo( x, y ); c.lineTo( x - dx * s * 0.7, y - dy * s * 0.7 ); c.stroke();
+			c.fillStyle = col;
+			for( var k = 1; k <= 3; k++ ) {
+				c.globalAlpha = 0.5 - k * 0.12;
+				var wob = Math.sin( ( t + k * 7 ) / 5 ) * 2;
+				c.beginPath();
+				c.arc( x - dx * s * ( 0.7 + k * 0.22 ) + nx * wob, y - dy * s * ( 0.7 + k * 0.22 ) + ny * wob, 1.6, 0, $.twopi );
+				c.fill();
+			}
+			c.globalAlpha = 1;
+			break;
+		case 'neon': // RIDER - purple neon glow with twin bright rails
+			c.strokeStyle = col; c.globalAlpha = 0.35; c.lineWidth = w * 2.4;
+			c.beginPath(); c.moveTo( x, y ); c.lineTo( ex, ey ); c.stroke();
+			c.globalAlpha = 1; c.strokeStyle = 'hsla(280,100%,90%,1)'; c.lineWidth = Math.max( 1, w * 0.7 );
+			c.beginPath();
+			c.moveTo( x + nx * 2.5, y + ny * 2.5 ); c.lineTo( ex + nx * 2.5, ey + ny * 2.5 );
+			c.moveTo( x - nx * 2.5, y - ny * 2.5 ); c.lineTo( ex - nx * 2.5, ey - ny * 2.5 );
+			c.stroke();
+			break;
+		default: // 'bolt' - the classic line (ONYIX and fallback)
+			c.strokeStyle = col; c.lineWidth = w;
+			c.beginPath(); c.moveTo( x, y ); c.lineTo( ex, ey ); c.stroke();
 	}
 };
