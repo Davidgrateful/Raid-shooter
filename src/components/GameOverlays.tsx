@@ -10,7 +10,7 @@ import { useEffect, useState } from 'react';
 
 interface Announcement { id: string; title: string; body: string }
 interface WeeklyGift { available: boolean; claimed?: boolean; item: { id: string; title: string } | null }
-interface StreakState { days: number; claimedAt: number; goal: number }
+interface StreakState { days: number; claimedAt: number; goal: number; pilotGoal?: number; pilotClaimed?: boolean }
 interface CupSeason { id: string; name: string; live: boolean; prize1Usd?: number; poolUsd?: number; endsAt: number | null; sponsorName: string | null }
 interface InboxMessage { id: string; kind: 'payout' | 'cup' | 'system'; title: string; body: string; at: number; meta?: { txHash?: string; url?: string; amountUsd?: number; rank?: number } }
 
@@ -294,6 +294,15 @@ export function GameOverlays() {
           className="rounded-full border border-amber-400/30 bg-black/50 px-3 py-1.5 text-xs text-amber-200/90 backdrop-blur-sm hover:border-amber-400/60 hover:text-amber-100">
           ✦ Invite
         </button>
+        {streak && streak.days > 0 && (
+          <button onClick={() => window.dispatchEvent(new CustomEvent('raidshooter:openstreak'))}
+            className="relative rounded-full border border-cyan-400/30 bg-black/50 px-3 py-1.5 text-xs text-cyan-200/90 backdrop-blur-sm hover:border-cyan-400/60 hover:text-cyan-100">
+            🔥 Streak {streak.days}
+            {typeof streak.pilotGoal === 'number' && streak.days >= streak.pilotGoal && !streak.pilotClaimed && (
+              <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(255,207,77,.8)]" />
+            )}
+          </button>
+        )}
       </div>
 
       {/* inbox modal: the player's targeted messages (payouts, cup thanks) */}

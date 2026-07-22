@@ -48,7 +48,15 @@ export function StreakBoard() {
   useEffect(() => {
     const onState = (e: Event) => setOnMenu((e as CustomEvent).detail === 'menu');
     window.addEventListener('raidshooter:state', onState as EventListener);
-    return () => window.removeEventListener('raidshooter:state', onState as EventListener);
+    // opened from the menu's STREAK button (rendered in the bottom-left
+    // button cluster by GameOverlays, so there's a single non-overlapping
+    // row of menu actions rather than a separate floating chip)
+    const onOpen = () => setOpen(true);
+    window.addEventListener('raidshooter:openstreak', onOpen);
+    return () => {
+      window.removeEventListener('raidshooter:state', onState as EventListener);
+      window.removeEventListener('raidshooter:openstreak', onOpen);
+    };
   }, []);
 
   // On menu entry, record + read the streak, then auto-open once per day.
@@ -114,22 +122,6 @@ export function StreakBoard() {
 
   return (
     <>
-      {/* persistent flame chip on the menu, bottom-right-ish, safe-area aware */}
-      <div
-        data-game-ui=""
-        style={{ position: 'fixed', right: 'calc(env(safe-area-inset-right, 0px) + 12px)', bottom: 'calc(env(safe-area-inset-bottom, 0px) + 92px)', zIndex: 46 }}
-      >
-        <button
-          onClick={() => setOpen(true)}
-          style={btnClip}
-          className="flex items-center gap-1.5 border border-cyan-400/40 bg-black/70 px-3 py-1.5 font-mono text-xs text-cyan-200 backdrop-blur-sm transition-colors hover:border-cyan-300/70 hover:text-cyan-100"
-        >
-          <span>🔥</span>
-          <span className="font-bold tabular-nums">{days}</span>
-          {pilotReady && <span className="ml-0.5 h-2 w-2 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(255,207,77,.8)]" />}
-        </button>
-      </div>
-
       {open && (
         <div
           data-game-ui=""
