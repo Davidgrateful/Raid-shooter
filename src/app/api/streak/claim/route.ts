@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession, getOrCreateGuestId } from '@/lib/session';
-import { claimStreak, STREAK_REWARD_ITEM_ID } from '@/lib/streak';
+import { claimStreak, claimStreakPilot, STREAK_REWARD_ITEM_ID, STREAK_PILOT_ITEM_ID } from '@/lib/streak';
 import { getItem } from '@/lib/market';
 import { grantItem } from '@/lib/profile';
 import { rateLimit, clientIp } from '@/lib/ratelimit';
@@ -23,6 +23,22 @@ export async function POST(req: NextRequest) {
   const key = session.siwe
     ? session.siwe.address.toLowerCase()
     : (clientGuestToken || (await getOrCreateGuestId(session)));
+
+  // Day-30 grand prize: a fixed pilot, granted once. The board sends
+  // target:'pilot' for this; everything else is the recurring 3-day
+  // consumable claim below.
+  if ((body as Record<string, unknown> | null)?.target === 'pilot') {
+    const pilotResult = await claimStreakPilot(key);
+    if (!pilotResult.ok) {
+      return NextResponse.json({ error: pilotResult.error }, { status: 409 });
+    }
+    const pilot = getItem(STREAK_PILOT_ITEM_ID);
+    if (!pilot) {
+      return NextResponse.json({ error: 'no_reward_configured' }, { status: 503 });
+    }
+    const profile = await grantItem(key, pilot);
+    return NextResponse.json({ ok: true, granted: { id: pilot.id, title: pilot.title, kind: 'pilot' }, items: profile.items });
+  }
 
   const result = await claimStreak(key);
   if (!result.ok) {

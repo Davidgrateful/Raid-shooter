@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession, getOrCreateGuestId } from '@/lib/session';
-import { recordPlay, getStreak, STREAK_GOAL_DAYS } from '@/lib/streak';
+import { recordPlay, getStreak, STREAK_GOAL_DAYS, STREAK_PILOT_GOAL_DAYS } from '@/lib/streak';
 import { rateLimit, clientIp } from '@/lib/ratelimit';
 
 // Same guest-identity resolution as /api/leaderboard and /api/chat: prefer
@@ -20,10 +20,10 @@ export async function GET(req: NextRequest) {
     ? session.siwe.address.toLowerCase()
     : (clientGuestToken || session.guestId || null);
   if (!key) {
-    return NextResponse.json({ days: 0, claimedAt: 0, goal: STREAK_GOAL_DAYS });
+    return NextResponse.json({ days: 0, claimedAt: 0, pilotClaimed: false, goal: STREAK_GOAL_DAYS, pilotGoal: STREAK_PILOT_GOAL_DAYS });
   }
   const streak = await getStreak(key);
-  return NextResponse.json({ ...streak, goal: STREAK_GOAL_DAYS });
+  return NextResponse.json({ ...streak, goal: STREAK_GOAL_DAYS, pilotGoal: STREAK_PILOT_GOAL_DAYS });
 }
 
 // POST: record today's play. Called once per menu visit by the client -

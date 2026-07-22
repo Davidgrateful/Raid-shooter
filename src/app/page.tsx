@@ -7,6 +7,7 @@ import { GameOverlays } from '@/components/GameOverlays';
 import { BoardOverlay } from '@/components/BoardOverlay';
 import { GameOverOverlay } from '@/components/GameOverOverlay';
 import { StarterBundleModal } from '@/components/StarterBundleModal';
+import { StreakBoard } from '@/components/StreakBoard';
 import { GameChatWidget } from '@/components/GameChatWidget';
 import { SettingsOverlay } from '@/components/SettingsOverlay';
 
@@ -22,6 +23,7 @@ export default function Home() {
       <BoardOverlay />
       <GameOverOverlay />
       <StarterBundleModal />
+      <StreakBoard />
       <GameChatWidget />
       <SettingsOverlay />
       <div id="rotate-overlay">
