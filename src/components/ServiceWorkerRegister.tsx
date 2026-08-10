@@ -13,9 +13,12 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
 }
 
+const DISMISS_KEY = 'pwaInstallDismissed';
+
 export function ServiceWorkerRegister() {
   const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null);
-  const [dismissed, setDismissed] = useState(false);
+  const [dismissed, setDismissed] = useState(true); // start hidden; enabled after we read storage
+  const [onMenu, setOnMenu] = useState(false);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
@@ -27,12 +30,33 @@ export function ServiceWorkerRegister() {
     else window.addEventListener('load', register, { once: true });
   }, []);
 
+  // read the persisted dismissal once on mount (dismiss stays dismissed across
+  // reloads - the old version only tracked it in memory, so a reload or a
+  // re-fired beforeinstallprompt made the banner pop straight back "stuck")
+  useEffect(() => {
+    let wasDismissed = false;
+    try { wasDismissed = localStorage.getItem(DISMISS_KEY) === '1'; } catch { /* ignore */ }
+    setDismissed(wasDismissed);
+  }, []);
+
+  // only show on the menu, never over live gameplay
+  useEffect(() => {
+    const onState = (e: Event) => setOnMenu((e as CustomEvent).detail === 'menu');
+    window.addEventListener('raidshooter:state', onState as EventListener);
+    return () => window.removeEventListener('raidshooter:state', onState as EventListener);
+  }, []);
+
   useEffect(() => {
     const onPrompt = (e: Event) => {
       e.preventDefault();
       setDeferred(e as BeforeInstallPromptEvent);
     };
-    const onInstalled = () => setDeferred(null);
+    const onInstalled = () => {
+      setDeferred(null);
+      // once installed it must never nag again
+      try { localStorage.setItem(DISMISS_KEY, '1'); } catch { /* ignore */ }
+      setDismissed(true);
+    };
     window.addEventListener('beforeinstallprompt', onPrompt);
     window.addEventListener('appinstalled', onInstalled);
     return () => {
@@ -41,10 +65,22 @@ export function ServiceWorkerRegister() {
     };
   }, []);
 
-  if (!deferred || dismissed) return null;
+  // Already running as an installed app? Never show the prompt.
+  const standalone =
+    typeof window !== 'undefined' &&
+    (window.matchMedia?.('(display-mode: standalone)').matches ||
+      (window.navigator as unknown as { standalone?: boolean }).standalone === true);
+
+  if (!deferred || dismissed || !onMenu || standalone) return null;
+
+  function close() {
+    setDismissed(true);
+    try { localStorage.setItem(DISMISS_KEY, '1'); } catch { /* ignore */ }
+  }
 
   return (
     <div
+      data-game-ui=""
       style={{
         position: 'fixed',
         left: '50%',
@@ -63,6 +99,8 @@ export function ServiceWorkerRegister() {
         onClick={async () => {
           const d = deferred;
           setDeferred(null);
+          try { localStorage.setItem(DISMISS_KEY, '1'); } catch { /* ignore */ }
+          setDismissed(true);
           try {
             await d.prompt();
             await d.userChoice;
@@ -79,7 +117,7 @@ export function ServiceWorkerRegister() {
         ▶ Install
       </button>
       <button
-        onClick={() => setDismissed(true)}
+        onClick={close}
         aria-label="Dismiss"
         className="font-mono text-xs text-white/40 hover:text-cyan-300"
       >

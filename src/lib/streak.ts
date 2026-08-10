@@ -10,6 +10,7 @@ const DAYS_KEY = 'streak:days';
 const LAST_KEY = 'streak:last';
 const CLAIMED_KEY = 'streak:claimed';
 const PILOT_KEY = 'streak:pilotclaimed';
+const FREEZE_KEY = 'streak:freeze'; // '1' once this streak's single freeze is spent
 
 export const STREAK_GOAL_DAYS = 3;
 export const STREAK_REWARD_ITEM_ID = 'consumable_shield';
@@ -25,6 +26,7 @@ const memDays = new Map<string, number>();
 const memLast = new Map<string, string>();
 const memClaimed = new Map<string, number>();
 const memPilot = new Map<string, number>();
+const memFreeze = new Map<string, boolean>();
 
 function localDateKey(offsetDays = 0): string {
   const d = new Date(Date.now() - offsetDays * 86400000);
@@ -36,11 +38,20 @@ function localDateKey(offsetDays = 0): string {
 export async function recordPlay(key: string): Promise<number> {
   const today = localDateKey(0);
   const yesterday = localDateKey(1);
-  // One-day "freeze": a single missed day doesn't reset the streak, so a
-  // month-long run survives real life. The streak continues if the last play
-  // was yesterday OR the day before (one gap forgiven); a bigger gap resets.
   const dayBefore = localDateKey(2);
-  const continues = (last: string | null) => last === yesterday || last === dayBefore;
+
+  // Streak progression with a ONE-TIME "freeze": exactly one missed day per
+  // streak is forgiven, so real life doesn't nuke a month-long run - but it is
+  // NOT an every-other-day loophole. Returns the new day count and the new
+  // freeze-used flag from the previous state.
+  //   last === yesterday        -> normal continue (freeze untouched)
+  //   last === dayBefore & fresh -> forgive the gap, consume the one freeze
+  //   otherwise                 -> reset streak to 1 and refresh the freeze
+  function progress(last: string | null, prevDays: number, freezeUsed: boolean) {
+    if (last === yesterday) return { days: prevDays + 1, freeze: freezeUsed };
+    if (last === dayBefore && !freezeUsed) return { days: prevDays + 1, freeze: true };
+    return { days: 1, freeze: false };
+  }
 
   if (isKvConfigured()) {
     const last = (await redis(['HGET', LAST_KEY, key])) as string | null;
@@ -48,19 +59,22 @@ export async function recordPlay(key: string): Promise<number> {
       const days = (await redis(['HGET', DAYS_KEY, key])) as string | null;
       return days ? parseInt(days, 10) : 1;
     }
-    const prevDays = (await redis(['HGET', DAYS_KEY, key])) as string | null;
-    const newDays = continues(last) ? (prevDays ? parseInt(prevDays, 10) : 0) + 1 : 1;
+    const prevDays = parseInt(((await redis(['HGET', DAYS_KEY, key])) as string | null) || '0', 10);
+    const freezeUsed = ((await redis(['HGET', FREEZE_KEY, key])) as string | null) === '1';
+    const next = progress(last, prevDays, freezeUsed);
     await redis(['HSET', LAST_KEY, key, today]);
-    await redis(['HSET', DAYS_KEY, key, newDays]);
-    return newDays;
+    await redis(['HSET', DAYS_KEY, key, next.days]);
+    await redis(['HSET', FREEZE_KEY, key, next.freeze ? '1' : '0']);
+    return next.days;
   }
 
   const last = memLast.get(key) || null;
   if (last === today) return memDays.get(key) || 1;
-  const newDays = continues(last) ? (memDays.get(key) || 0) + 1 : 1;
+  const next = progress(last, memDays.get(key) || 0, memFreeze.get(key) === true);
   memLast.set(key, today);
-  memDays.set(key, newDays);
-  return newDays;
+  memDays.set(key, next.days);
+  memFreeze.set(key, next.freeze);
+  return next.days;
 }
 
 export async function getStreak(key: string): Promise<{ days: number; claimedAt: number; pilotClaimed: boolean }> {
