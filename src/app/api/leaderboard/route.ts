@@ -5,7 +5,7 @@ import { getActiveSeason } from '@/lib/rewards';
 import { submitCupEntry } from '@/lib/cup';
 import { submitWeekly } from '@/lib/weekly';
 import { verifyTurnstile } from '@/lib/turnstile';
-import { clientIp } from '@/lib/ratelimit';
+import { clientIp, rateLimit } from '@/lib/ratelimit';
 import { postMessage as postChatMessage } from '@/lib/chat';
 
 export async function GET(req: NextRequest) {
@@ -119,6 +119,17 @@ export async function POST(req: NextRequest) {
     const ok = await verifyTurnstile((body as Record<string, unknown>).turnstileToken as string | undefined, clientIp(req));
     if (!ok) {
       return NextResponse.json({ error: 'captcha_failed' }, { status: 403 });
+    }
+
+    // IP-based guest rate limit: a guest can cycle fresh guestTokens
+    // (new random localStorage IDs) to bypass the per-identity 20s cooldown.
+    // Capping by IP closes that hole. 10 submissions per 5 minutes is
+    // generous for real humans (games take longer than 30s) but stops
+    // automated token-cycling spam. Wallet players skip this check because
+    // their identity is SIWE-verified — they can't fabricate a new address.
+    const ipAllowed = await rateLimit('board:ip', clientIp(req), 10, 5 * 60 * 1000);
+    if (!ipAllowed) {
+      return NextResponse.json({ error: 'rate_limited' }, { status: 429 });
     }
   }
   // Structural bounds are deliberately WIDE - they exist only to reject
