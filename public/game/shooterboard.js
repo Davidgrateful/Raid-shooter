@@ -486,12 +486,27 @@ $.fetchSeason = function() {
 				prizeLine: prizeLine,
 				prizeShort: prizeShort,
 				endsAt: ( d.season.endsAt && d.season.endsAt > Date.now() ) ? d.season.endsAt : 0,
-				sponsorLine: d.season.sponsorName ? clean( 'WITH ' + d.season.sponsorName, 30 ) : ''
+				sponsorLine: d.season.sponsorName ? clean( 'WITH ' + d.season.sponsorName, 30 ) : '',
+				// rank -> USD prize table, straight from the public season summary
+				// (presentational only - never the full admin payout state). Used
+				// by the CUP board to show what each rank is currently earning.
+				prizes: Array.isArray( d.season.prizes ) ? d.season.prizes : []
 			};
 		} )
 		.catch( function() {} );
 };
 $.fetchSeason();
+
+// USD prize for a 1-based CUP board rank, or 0 when that rank isn't in the
+// active season's prize table (no cup live, or rank outside every tier).
+$.prizeForRank = function( rank ) {
+	if( !$.activeSeason || !$.activeSeason.prizes ) { return 0; }
+	for( var i = 0; i < $.activeSeason.prizes.length; i++ ) {
+		var tier = $.activeSeason.prizes[ i ];
+		if( rank >= tier.fromRank && rank <= tier.toRank ) { return tier.usd || 0; }
+	}
+	return 0;
+};
 
 // Live "time left" for the cup, formatted in the bitmap font's glyph set:
 // "2D 14:33:07" when days remain, else "14:33:07". Returns '' when no cup

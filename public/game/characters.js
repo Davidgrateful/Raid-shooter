@@ -299,6 +299,18 @@ $.definitions.characters = [
 /*==============================================================================
 Character Helpers
 ==============================================================================*/
+// Look up a pilot definition by id (e.g. the cosmetics.pilotId a leaderboard
+// entry carries) - used to draw a small identity glyph next to a row without
+// needing a second art asset; returns undefined for an unknown/missing id so
+// callers can gracefully skip the glyph rather than throw.
+$.characterById = function( id ) {
+	if( !id ) { return undefined; }
+	for( var i = 0; i < $.definitions.characters.length; i++ ) {
+		if( $.definitions.characters[ i ].id === id ) { return $.definitions.characters[ i ]; }
+	}
+	return undefined;
+};
+
 $.characterUnlocked = function( def ) {
 	if( def.comingSoon ) {
 		return false;

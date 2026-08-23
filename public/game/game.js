@@ -4208,6 +4208,12 @@ $.setupStates = function() {
 			// match rows by index so highlight + JUMP TO ME agree with the banner
 			var mineIndex = $.findMyEntryIndex( $.board.entries );
 
+			// CUP board only: what each rank is currently earning, straight from
+			// the live season's prize table. Drives the payout-row treatment
+			// below (green $ amount, gold #1 glow) without touching the
+			// ALL-TIME board, which stays a pure skill/score list.
+			var cupBoard = ( $.boardTab === 'cup' );
+
 			for( var ri = 0; ri < rowCount; ri++ ) {
 				var entry = $.board.entries[ ri ],
 					mine = ( ri === mineIndex ),
@@ -4219,7 +4225,9 @@ $.setupStates = function() {
 					row = ( ri < perColumn ) ? ri : ri - perColumn,
 					leftX = ( col === 0 ) ? col0Left : col1Left,
 					rightX = ( col === 0 ) ? col0Right : col1Right,
-					rowY = rowStartY + row * rowSpacing - $.scroll.y;
+					rowY = rowStartY + row * rowSpacing - $.scroll.y,
+					prizeUsd = cupBoard ? $.prizeForRank( ri + 1 ) : 0,
+					goldRow = ( cupBoard && ri === 0 && prizeUsd > 0 );
 
 				// remember how far to scroll to bring the player's own row to
 				// the top of the list, for the JUMP TO ME button
@@ -4238,9 +4246,39 @@ $.setupStates = function() {
 					$.ctxmg.fill();
 				}
 
-				// small medal dot for the podium ranks
-				if( medal ) {
-					$.util.fillCircle( $.ctxmg, leftX - ( boardCompact ? 8 : 12 ), rowY + rowSpacing / 2 - 4, boardCompact ? 3 : 4, medal );
+				// cup rank #1: a pulsing gold glow so the current cup leader
+				// reads as "real money is being won right now" - stacks fine
+				// with the "mine" highlight above since both use the same hue
+				if( goldRow ) {
+					var goldPulse = 0.14 + Math.sin( $.tick / 20 ) * 0.06;
+					$.ctxmg.beginPath();
+					$.roundRect( leftX - 8, rowY - 3, ( rightX - leftX ) + 16, rowSpacing - 2, 4 );
+					$.ctxmg.fillStyle = 'hsla(45, 100%, 60%, ' + goldPulse + ')';
+					$.ctxmg.fill();
+					$.ctxmg.beginPath();
+					$.roundRect( leftX - 8, rowY - 3, ( rightX - leftX ) + 16, rowSpacing - 2, 4 );
+					$.ctxmg.strokeStyle = 'hsla(45, 100%, 65%, 0.5)';
+					$.ctxmg.lineWidth = 1;
+					$.ctxmg.stroke();
+				}
+
+				// small medal dot for the podium ranks (all-time board), or on
+				// the cup board a tiny pilot glyph in the player's own colour
+				// when their run carried known cosmetics - same gutter slot,
+				// gracefully skipped when the entry has no cosmetics on file
+				var gutterX = leftX - ( boardCompact ? 8 : 12 ),
+					gutterY = rowY + rowSpacing / 2 - 4,
+					pilotDef = cupBoard && entry.cosmetics ? $.characterById( entry.cosmetics.pilotId ) : undefined;
+				if( pilotDef ) {
+					var glyphColor = entry.cosmetics.shipColor || medal || rowColor,
+						glyphR = boardCompact ? 4 : 5.5;
+					$.ctxmg.save();
+					$.ctxmg.translate( gutterX, gutterY );
+					$.ctxmg.rotate( -$.pi / 2 );
+					pilotDef.draw( $.ctxmg, glyphR, glyphColor, $.tick );
+					$.ctxmg.restore();
+				} else if( medal ) {
+					$.util.fillCircle( $.ctxmg, gutterX, gutterY, boardCompact ? 3 : 4, medal );
 				}
 
 				$.ctxmg.beginPath();
@@ -4257,7 +4295,7 @@ $.setupStates = function() {
 					snap: 1,
 					render: 1
 				} );
-				$.ctxmg.fillStyle = rowColor;
+				$.ctxmg.fillStyle = goldRow ? 'hsla(45, 100%, 75%, 1)' : rowColor;
 				$.ctxmg.fill();
 
 				$.ctxmg.beginPath();
@@ -4265,7 +4303,11 @@ $.setupStates = function() {
 					ctx: $.ctxmg,
 					x: rightX,
 					y: rowY,
-					text: $.util.commas( entry.score ),
+					// cup rows with a prize show what that rank is earning right
+					// now instead of the raw score - the payout IS the metric
+					// that matters on this board; every other row (and the
+					// entire all-time board) keeps showing score as always
+					text: prizeUsd > 0 ? ( '+$' + $.util.commas( prizeUsd ) ) : $.util.commas( entry.score ),
 					hspacing: 1,
 					vspacing: 1,
 					halign: 'right',
@@ -4274,8 +4316,9 @@ $.setupStates = function() {
 					snap: 1,
 					render: 1
 				} );
-				// each player's score is shown in their tier colour
-				$.ctxmg.fillStyle = $.tierFor( entry.score ).color;
+				// prize amounts render in green (a real earning), otherwise
+				// each player's score is shown in their tier colour as before
+				$.ctxmg.fillStyle = prizeUsd > 0 ? 'hsla(152, 70%, 55%, 1)' : $.tierFor( entry.score ).color;
 				$.ctxmg.fill();
 			}
 
