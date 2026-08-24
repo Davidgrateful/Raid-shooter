@@ -81,7 +81,12 @@ $.Button.prototype.update = function( i ) {
 /*==============================================================================
 Render
 ==============================================================================*/
-$.Button.prototype.render = function( i ) {	
+$.Button.prototype.render = function( i ) {
+	// Opt-in "glass" style: rounded, translucent, gradient-on-active - used
+	// by the menu hub (PLAY + the nav rail) for the rounded-glass look
+	// without touching how every OTHER button in the game renders (hangar,
+	// market, settings, etc. all keep their original sharp/opaque look).
+	if( this.glass ) { this.renderGlass(); return; }
 	if( this.hovering ) {
 		$.ctxmg.fillStyle = 'hsla(0, 0%, 10%, 1)';
 		$.ctxmg.fillRect( Math.floor( this.sx ), Math.floor( this.sy ), this.width, this.height );
@@ -145,6 +150,65 @@ $.Button.prototype.render = function( i ) {
 		this.icon.draw( $.ctxmg, this.icon.r || 12, this.icon.color, $.tick || 0 );
 		$.ctxmg.restore();
 	}
+};
+
+/*==============================================================================
+Glass Render - rounded, translucent panel with a gradient fill when this.active
+is set (the current hub nav item / the PLAY CTA), a soft highlight on hover,
+otherwise a barely-there frosted rect. Deliberately low-opacity so whatever is
+drawn behind it (the ambient background ships) stays visible through it -
+the hub reads as glass panels floating over a living scene, not a solid UI
+wall painted on top of it.
+==============================================================================*/
+$.Button.prototype.renderGlass = function() {
+	var ctx = $.ctxmg,
+		x = Math.floor( this.sx ), y = Math.floor( this.sy ),
+		r = Math.min( 14, this.height / 2, this.width / 2 );
+
+	ctx.beginPath();
+	$.roundRect( x, y, this.width, this.height, r );
+	if( this.active ) {
+		var grad = ctx.createLinearGradient( x, 0, x + this.width, 0 );
+		grad.addColorStop( 0, 'hsla(190, 90%, 60%, 0.95)' );
+		grad.addColorStop( 1, 'hsla(192, 70%, 48%, 0.75)' );
+		ctx.fillStyle = grad;
+	} else if( this.hovering ) {
+		ctx.fillStyle = 'hsla(0, 0%, 100%, 0.11)';
+	} else {
+		ctx.fillStyle = 'hsla(0, 0%, 100%, 0.045)';
+	}
+	ctx.fill();
+
+	ctx.beginPath();
+	$.roundRect( x + 0.5, y + 0.5, this.width - 1, this.height - 1, r );
+	ctx.lineWidth = 1;
+	ctx.strokeStyle = this.active ? 'hsla(190, 100%, 78%, 0.55)' : ( this.hovering ? 'hsla(190, 80%, 70%, 0.35)' : 'hsla(0, 0%, 100%, 0.09)' );
+	ctx.stroke();
+
+	if( this.icon ) {
+		ctx.save();
+		ctx.translate( x + ( this.iconAreaWidth || 32 ) / 2, this.cy );
+		ctx.rotate( -$.pi / 2 );
+		this.icon.draw( ctx, this.icon.r || 9, this.active ? 'hsla(200, 60%, 12%, 0.9)' : ( this.icon.color || 'hsla(190, 80%, 72%, 0.85)' ), $.tick || 0 );
+		ctx.restore();
+	}
+
+	ctx.beginPath();
+	$.text( {
+		ctx: ctx,
+		x: this.cx + ( this.icon ? ( this.iconAreaWidth || 32 ) / 2 : 0 ),
+		y: this.cy,
+		text: this.title,
+		hspacing: 1,
+		vspacing: this.vspacing || 0,
+		halign: 'center',
+		valign: 'center',
+		scale: this.scale,
+		snap: 1,
+		render: true
+	} );
+	ctx.fillStyle = this.active ? 'hsla(200, 65%, 11%, 1)' : ( this.hovering ? 'hsla(0, 0%, 100%, 1)' : 'hsla(0, 0%, 100%, 0.78)' );
+	ctx.fill();
 };
 
 /*==============================================================================

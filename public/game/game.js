@@ -1951,14 +1951,11 @@ $.setState = function( state ) {
 		$.celebrationStart = $.tick;
 
 		// PLAY stays exactly where it always has - centered, first, full width,
-		// unchanged in every way. It's the single most-used button in the
-		// game; the hub layout below only touches the four SECONDARY
-		// destinations, so PLAY carries zero risk from this change.
-		var fullW = Math.min( $.cw - 40, menuCompact ? 420 : 620 );
-		$.buttons.push( new $.Button( {
-			x: $.cw / 2, y: menuStartY, lockedWidth: fullW, lockedHeight: menuButtonHeight,
-			scale: menuCompact ? 2 : 3, title: 'PLAY',
-			action: function() {
+		// unchanged in position/size. It's the single most-used button in the
+		// game. Now rendered in the rounded-glass style (glass+active) to
+		// match the hub, but its hitbox/position/action are untouched.
+		var fullW = Math.min( $.cw - 40, menuCompact ? 420 : 620 ),
+			playAction = function() {
 				$.mouse.down = 0;
 				// first-time players choose a call sign before their first
 				// run, so their very first score lands on the board under a
@@ -1968,17 +1965,23 @@ $.setState = function( state ) {
 					$.ensurePilotName();
 				}
 				$.setState( 'playmode' );
-			}
+			};
+		$.buttons.push( new $.Button( {
+			x: $.cw / 2, y: menuStartY, lockedWidth: fullW, lockedHeight: menuButtonHeight,
+			scale: menuCompact ? 2 : 3, title: 'PLAY', glass: 1, active: 1,
+			action: playAction
 		} ) );
 
-		// Hub nav rail: the four secondary destinations, left-anchored in a
-		// vertical list instead of the old centered 2x2 grid - a persistent,
-		// predictable place to reach them from, same idea as the top HTML
-		// currency bar (GameOverlays.tsx) consolidating the scattered status
-		// chips. Same $.Button component and the same "compress if it would
-		// run off-screen" safeguard the old grid used, just laid out as a
-		// single left column instead of centered full/half rows.
+		// Hub nav rail: PLAY (repeated here as the highlighted top row, same
+		// action as the big button above - reinforces the one primary action
+		// instead of duplicating it) plus the four secondary destinations,
+		// left-anchored in a vertical list instead of the old centered 2x2
+		// grid. Vertically centred on PLAY's own y so the rail and the
+		// logo/PLAY column share one visual band rather than reading as two
+		// unrelated pieces of layout. Same $.Button component and the same
+		// "compress if it would run off-screen" safeguard the old grid used.
 		var navDefs = [
+			{ title: 'PLAY', active: 1, action: playAction },
 			{ title: 'PILOT: ' + $.currentCharacter().title, action: function() {
 				$.mouse.down = 0;
 				$.setState( 'hangar' );
@@ -2005,25 +2008,40 @@ $.setState = function( state ) {
 		];
 
 		var navW = menuCompact ? 168 : 216,
-			navH = menuCompact ? 38 : 44,
-			navGap = menuCompact ? 7 : 10,
+			navH = menuCompact ? 34 : 40,
+			navGap = menuCompact ? 6 : 9,
 			navPitch = navH + navGap,
+			navPad = 12,
+			navX = $.safeAreaLeft + 18 + navW / 2,
+			// centred on PLAY's y, so the rail reads as sharing PLAY's band
+			// instead of floating separately near the top of the screen
+			navStartY = menuStartY - Math.floor( ( navDefs.length - 1 ) / 2 ) * navPitch,
 			// clears the HTML top currency bar (GameOverlays.tsx) and the
 			// safe-area inset on notched phones
-			navStartY = $.safeAreaTop + ( menuCompact ? 60 : 74 ) + navH / 2,
-			navX = $.safeAreaLeft + 18 + navW / 2,
+			navMinY = $.safeAreaTop + ( menuCompact ? 58 : 70 ) + navH / 2,
 			// don't run into the HTML Feedback/Invite row pinned bottom-left
 			navMaxY = $.ch - $.safeAreaBottom - ( menuCompact ? 66 : 56 ) - navH / 2;
 
+		if( navStartY < navMinY ) { navStartY = navMinY; }
 		if( navStartY + ( navDefs.length - 1 ) * navPitch > navMaxY && navDefs.length > 1 ) {
-			navPitch = Math.max( 26, Math.floor( ( navMaxY - navStartY ) / ( navDefs.length - 1 ) ) );
-			if( navPitch < navH + 2 ) { navH = Math.max( 24, navPitch - 3 ); }
+			navPitch = Math.max( 24, Math.floor( ( navMaxY - navStartY ) / ( navDefs.length - 1 ) ) );
+			if( navPitch < navH + 2 ) { navH = Math.max( 22, navPitch - 3 ); }
 		}
+
+		// glass container panel behind the whole rail, drawn every frame in
+		// the per-frame menu render (below) so ambient ships stay visible
+		// through its translucency - stored here since this setup code only
+		// runs once per state entry, not every frame
+		$.navRailPanel = {
+			x: navX - navW / 2 - navPad, y: navStartY - navH / 2 - navPad,
+			w: navW + navPad * 2, h: ( navDefs.length - 1 ) * navPitch + navH + navPad * 2
+		};
 
 		for( var ni = 0; ni < navDefs.length; ni++ ) {
 			$.buttons.push( new $.Button( {
 				x: navX, y: navStartY + ni * navPitch, lockedWidth: navW, lockedHeight: navH,
-				scale: 1, title: navDefs[ ni ].title, action: navDefs[ ni ].action
+				scale: 1, glass: 1, active: navDefs[ ni ].active ? 1 : 0,
+				title: navDefs[ ni ].title, action: navDefs[ ni ].action
 			} ) );
 		}
 	}
@@ -3329,10 +3347,27 @@ $.setupStates = function() {
 		$.clearScreen();
 		$.updateScreen();
 
-		// dormant ships drifting behind the menu for a lively, space feel
+		// dormant ships drifting behind the menu for a lively, space feel -
+		// drawn BEFORE the hub glass panel/buttons so they stay visible
+		// through the panel's translucency, not hidden behind a solid UI
 		$.renderAmbientShips();
 		// keep the drift animation alive on the menu (play/menu reset tick)
 		$.tick += 1;
+
+		// glass container behind the nav rail - translucent so the ambient
+		// ships drawn above still show through it, matching the individual
+		// rail buttons' own glass look (see button.js renderGlass)
+		if( $.navRailPanel ) {
+			$.ctxmg.beginPath();
+			$.roundRect( $.navRailPanel.x, $.navRailPanel.y, $.navRailPanel.w, $.navRailPanel.h, 16 );
+			$.ctxmg.fillStyle = 'hsla(205, 45%, 14%, 0.4)';
+			$.ctxmg.fill();
+			$.ctxmg.beginPath();
+			$.roundRect( $.navRailPanel.x + 0.5, $.navRailPanel.y + 0.5, $.navRailPanel.w - 1, $.navRailPanel.h - 1, 16 );
+			$.ctxmg.strokeStyle = 'hsla(190, 60%, 70%, 0.14)';
+			$.ctxmg.lineWidth = 1;
+			$.ctxmg.stroke();
+		}
 
 		var i = $.buttons.length; while( i-- ){ if( $.buttons[ i ] ) { $.buttons[ i ].update( i ) } }
 			i = $.buttons.length; while( i-- ){ if( $.buttons[ i ] ) { $.buttons[ i ].render( i ) } }

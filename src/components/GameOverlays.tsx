@@ -211,9 +211,11 @@ export function GameOverlays() {
             left: 'calc(env(safe-area-inset-left, 0px) + 8px)',
             right: 'calc(env(safe-area-inset-right, 0px) + 8px)',
             zIndex: 45,
-            clipPath: 'polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px)',
           }}
-          className="flex items-center gap-1.5 overflow-x-auto border border-cyan-400/20 bg-black/70 px-2.5 py-1.5 font-mono text-xs backdrop-blur-md sm:gap-2"
+          // rounded glass pill (matches the canvas hub's rail/PLAY glass
+          // treatment) - translucent + backdrop-blur so the ambient
+          // background ships stay visible drifting behind/through it
+          className="flex items-center gap-1.5 overflow-x-auto rounded-full border border-white/10 bg-white/[0.06] px-2.5 py-1.5 font-mono text-xs shadow-[0_4px_20px_rgba(0,0,0,.3)] backdrop-blur-md sm:gap-2"
         >
           {cup && (
             <button
