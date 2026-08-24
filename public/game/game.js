@@ -3372,6 +3372,110 @@ $.setupStates = function() {
 		var i = $.buttons.length; while( i-- ){ if( $.buttons[ i ] ) { $.buttons[ i ].update( i ) } }
 			i = $.buttons.length; while( i-- ){ if( $.buttons[ i ] ) { $.buttons[ i ].render( i ) } }
 
+		/*==============================================================================
+		Hub Hero Pilot - the selected pilot, big, on a lit display pad in the
+		open space right of the rail/PLAY column. Reuses the hangar's "choose
+		your fighter" display language (spotlight, glowing pad, exhaust,
+		orbiting drone) at hub scale, plus an idle turntable illusion: a slow
+		horizontal squash/stretch that reads as the ship slowly turning to
+		show its profile and back - not a real 3D rotation (this engine is
+		flat 2D canvas, there's no 3D asset pipeline to drive one), but the
+		same trick 2D games have always used to fake one.
+		Gracefully skipped whenever there isn't clearly enough open width
+		beside the rail to fit it without crowding - same "degrade rather
+		than crowd" rule the rest of the responsive menu already follows.
+		==============================================================================*/
+		var heroCompact = ( $.ch < 640 ),
+			// same anchor formula the button-setup step used for PLAY's y,
+			// duplicated here on purpose - the per-frame draw already
+			// recomputes logoBottomY independently below rather than reading
+			// it back from the one-time setup closure
+			heroCenterY = heroCompact ? 112 : $.ch / 2 - 110,
+			heroRailRight = $.navRailPanel ? ( $.navRailPanel.x + $.navRailPanel.w ) : 0,
+			heroPlayRight = $.cw / 2 + Math.min( $.cw - 40, heroCompact ? 420 : 620 ) / 2,
+			heroLeftBound = Math.max( heroRailRight, heroPlayRight ) + ( heroCompact ? 30 : 60 ),
+			// reserve extra room on the right so the pilot doesn't crowd the
+			// docked COMMS chat tab (GameChatWidget.tsx, fixed right-edge,
+			// vertically centred - the same band this hero sits in)
+			heroAvailW = $.cw - heroLeftBound - ( heroCompact ? 92 : 118 ),
+			// radius adapts to whatever room is actually left instead of a
+			// fixed size with a hard show/hide cliff - shrinks gracefully on
+			// narrower windows rather than popping in and out of existence
+			heroR = Math.max( 30, Math.min( heroCompact ? 46 : 78, heroAvailW / 2.3 ) );
+
+		if( heroAvailW > 70 ) {
+			var heroDef = $.currentCharacter(),
+				heroIndex = $.storage[ 'character' ] || 0,
+				heroHue = $.pilotAccentHue( heroIndex ),
+				heroShipColor = $.definitions.shipColors[ $.storage[ 'ship' ] || 0 ] || $.definitions.shipColors[ 0 ],
+				heroX = heroLeftBound + heroR + Math.min( heroAvailW - heroR * 2, heroCompact ? 30 : 70 ),
+				heroY = heroCenterY,
+				heroBob = Math.sin( $.tick / 24 ) * ( heroCompact ? 2 : 4 ),
+				// turntable illusion: eases through a thin edge-on moment
+				// instead of ever fully vanishing, so it never looks glitched
+				heroTurn = 0.4 + 0.6 * Math.abs( Math.cos( $.tick / 150 ) ),
+				heroPadRx = heroR * 1.7, heroPadRy = heroPadRx * 0.16,
+				heroGlowR = heroR * 3.1;
+
+			var heroSpot = $.ctxmg.createRadialGradient( heroX, heroY, 4, heroX, heroY, heroGlowR );
+			heroSpot.addColorStop( 0, $.hsla( heroHue, 90, 55, 0.16 ) );
+			heroSpot.addColorStop( 1, $.hsla( heroHue, 90, 55, 0 ) );
+			$.ctxmg.fillStyle = heroSpot;
+			$.ctxmg.fillRect( heroX - heroGlowR, heroY - heroGlowR, heroGlowR * 2, heroGlowR * 2 );
+
+			// glowing display pad beneath the pilot's feet, pulsing rings
+			$.ctxmg.save();
+			$.ctxmg.translate( heroX, heroY + heroR * 1.05 );
+			$.ctxmg.scale( 1, heroPadRy / heroPadRx );
+			var heroPadGrad = $.ctxmg.createRadialGradient( 0, 0, 3, 0, 0, heroPadRx );
+			heroPadGrad.addColorStop( 0, $.hsla( heroHue, 80, 55, 0.16 ) );
+			heroPadGrad.addColorStop( 1, 'hsla(0, 0%, 0%, 0)' );
+			$.ctxmg.fillStyle = heroPadGrad;
+			$.ctxmg.beginPath(); $.ctxmg.arc( 0, 0, heroPadRx, 0, $.twopi ); $.ctxmg.fill();
+			var heroRing = ( ( $.tick / 80 ) % 1 );
+			$.ctxmg.beginPath();
+			$.ctxmg.arc( 0, 0, heroPadRx * ( 0.4 + heroRing * 0.55 ), 0, $.twopi );
+			$.ctxmg.strokeStyle = $.hsla( heroHue, 90, 62, 0.26 * ( 1 - heroRing ) );
+			$.ctxmg.lineWidth = 2; $.ctxmg.stroke();
+			$.ctxmg.restore();
+
+			// exhaust flicker beneath (nose points up, plume streams down)
+			for( var hf = 0; hf < 3; hf++ ) {
+				var hfLen = heroR * ( 0.35 + hf * 0.28 + Math.random() * 0.3 );
+				$.ctxmg.beginPath();
+				$.ctxmg.moveTo( heroX - heroR * 0.13, heroY + heroBob + heroR * 0.5 );
+				$.ctxmg.lineTo( heroX, heroY + heroBob + heroR * 0.5 + hfLen );
+				$.ctxmg.lineTo( heroX + heroR * 0.13, heroY + heroBob + heroR * 0.5 );
+				$.ctxmg.closePath();
+				$.ctxmg.fillStyle = $.hsla( 30 - hf * 8, 100, 60 + hf * 10, 0.4 - hf * 0.11 );
+				$.ctxmg.fill();
+			}
+
+			// the pilot itself: nose up, bobbing, squashed on X to fake a slow
+			// turntable spin (a real 3D rotation would need a 3D asset this
+			// flat-canvas engine doesn't have - this reads the same at a glance)
+			$.ctxmg.save();
+			$.ctxmg.translate( heroX, heroY + heroBob );
+			$.ctxmg.rotate( -$.pi / 2 );
+			$.ctxmg.scale( heroTurn, 1 );
+			heroDef.draw( $.ctxmg, heroR, heroShipColor.color, $.tick );
+			$.ctxmg.restore();
+
+			// equipped drone orbiting beside the hero, same as the hangar
+			var heroDrone = $.equippedDrone && $.equippedDrone();
+			if( heroDrone && heroDrone.draw ) {
+				var heroDroneR = heroCompact ? 12 : 18,
+					heroOrbitR = heroR + ( heroCompact ? 26 : 40 ),
+					heroOrbitA = $.tick / 40,
+					hdx = heroX + Math.cos( heroOrbitA ) * heroOrbitR,
+					hdy = heroY + heroBob + Math.sin( heroOrbitA ) * heroOrbitR * 0.4;
+				$.ctxmg.save();
+				$.ctxmg.translate( hdx, hdy );
+				heroDrone.draw( $.ctxmg, heroDroneR, heroDrone.color || 'hsla(190, 100%, 70%, 0.95)', $.tick );
+				$.ctxmg.restore();
+			}
+		}
+
 		var menuCompact = ( $.ch < 640 ),
 			logoBottomY = menuCompact ? 74 : $.ch / 2 - 150;
 
