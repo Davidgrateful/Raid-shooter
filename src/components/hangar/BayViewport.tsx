@@ -44,6 +44,12 @@ interface Props {
   swapKey: number;
   swapDir: number;
   compact?: boolean;
+  /**
+   * What is on the cradle. A `hull` is drawn nose-up with an engine wash,
+   * because that is how a ship parks. An `object` - a drone on the armory's
+   * inspection cradle - has no engine and no facing, so it gets neither.
+   */
+  subject?: 'hull' | 'object';
 }
 
 interface Mote {
@@ -64,15 +70,16 @@ export function BayViewport({
   swapKey,
   swapDir,
   compact = false,
+  subject = 'hull',
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const frameRef = useRef(0);
-  const propsRef = useRef({ ship, color, accentHue, trailHue, drone, unlocked, compact });
+  const propsRef = useRef({ ship, color, accentHue, trailHue, drone, unlocked, compact, subject });
   const swapRef = useRef({ t: 0, dir: 1 });
 
   useEffect(() => {
-    propsRef.current = { ship, color, accentHue, trailHue, drone, unlocked, compact };
-  }, [ship, color, accentHue, trailHue, drone, unlocked, compact]);
+    propsRef.current = { ship, color, accentHue, trailHue, drone, unlocked, compact, subject };
+  }, [ship, color, accentHue, trailHue, drone, unlocked, compact, subject]);
 
   // a hull change arms the swap; the loop eases it back to rest
   useEffect(() => {
@@ -133,8 +140,10 @@ export function BayViewport({
 
     const draw = () => {
       frameRef.current = requestAnimationFrame(draw);
-      const { ship: def, color: hull, accentHue: hue, trailHue: trail, drone: wing, unlocked: live, compact: small } =
-        propsRef.current;
+      const {
+        ship: def, color: hull, accentHue: hue, trailHue: trail, drone: wing,
+        unlocked: live, compact: small, subject: kind,
+      } = propsRef.current;
       tick += 1;
       ctx.clearRect(0, 0, width, height);
       if (!width || !height) return;
@@ -319,7 +328,7 @@ export function BayViewport({
       ctx.translate(cx + slideX, cradleY + padRy * 0.1);
       ctx.scale(1, -0.16);
       ctx.rotate(roll + spin);
-      ctx.rotate(-Math.PI / 2);
+      if (kind === 'hull') ctx.rotate(-Math.PI / 2);
       def.draw(ctx, shipR, hull, tick);
       ctx.restore();
 
@@ -327,7 +336,7 @@ export function BayViewport({
       ctx.translate(cx + slideX, hullY);
 
       // engine wash, tinted by the equipped trail when there is one
-      if (live) {
+      if (live && kind === 'hull') {
         const trailColor = trail !== null ? `hsla(${trail}, 95%, 62%,` : 'rgba(53, 232, 255,';
         const thrust = 0.5 + Math.sin(tick / 9) * 0.12;
         // never past the cradle - exhaust that overshoots the pad stops
@@ -348,8 +357,9 @@ export function BayViewport({
       }
 
       ctx.rotate(roll + spin);
-      // the engine draws hulls facing +x; the bay presents them nose-up
-      ctx.rotate(-Math.PI / 2);
+      // the engine draws hulls facing +x; the bay presents them nose-up. An
+      // object on the cradle has no facing, so it is left as it is drawn.
+      if (kind === 'hull') ctx.rotate(-Math.PI / 2);
       if (live) {
         ctx.shadowColor = hull;
         ctx.shadowBlur = 30;

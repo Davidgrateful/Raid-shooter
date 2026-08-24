@@ -32,7 +32,18 @@ export interface ShipDef {
 
 export interface TrailDef { id: string; title: string; hue: number }
 export interface ColorDef { title: string; color: string }
-export interface MarketItem { id: string; title: string; kind: string; priceUsd?: number }
+export interface MarketItem {
+  id: string;
+  title: string;
+  kind: string;
+  priceUsd?: number;
+  priceEth?: string;
+  /** Charges granted per purchase (consumables only). */
+  stack?: number;
+  /** The catalogue's own effect line, e.g. "PASSIVE: BULLETS PIERCE ENEMIES". */
+  ability?: string;
+  comingSoon?: boolean;
+}
 
 export interface Engine {
   state?: string;
@@ -89,9 +100,22 @@ export interface Engine {
   droneXpLabel?: (drone: ShipDef | null) => string;
   consumableCount?: (id: string) => number;
   profile?: { items: string[]; consumables: Record<string, number> };
-  marketState?: { fetched?: number; loading?: number; enabled?: boolean; items?: MarketItem[] };
+  marketState?: { fetched?: number; loading?: number; enabled?: boolean; network?: string; treasury?: string | null; items?: MarketItem[] };
   fetchMarket?: () => void;
   audio?: { play?: (name: string) => void };
+
+  /*--- armory surface ------------------------------------------------------
+  The purchase pipeline is the engine's, not ours: buyItem enforces the wallet
+  and treasury gates and hands off to MarketBridge, which settles on Base and
+  reports back. The overlay drives that pipeline and reads its status - it
+  never simulates a purchase. */
+  buyItem?: (item: MarketItem) => void;
+  purchase?: { status: string; itemId: string | null };
+  purchaseStatusText?: () => string;
+  itemRarity?: (item: MarketItem) => { label: string; color: string } | null;
+  usd?: (n: number) => string;
+  applyOwnedItems?: () => void;
+  guestToken?: () => string;
 }
 
 export function engine(): Engine | null {

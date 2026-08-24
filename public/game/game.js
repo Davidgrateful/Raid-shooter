@@ -2100,7 +2100,7 @@ $.setState = function( state ) {
 	}
 
 	// mobile gets a thumb-reach BACK button on every sub-screen
-	if( $.isTouchDevice && ( ( state == 'hangar' && !window.__htmlHangar ) || state == 'market' || state == 'board' || state == 'stats' || state == 'credits' || state == 'settings' ) ) {
+	if( $.isTouchDevice && ( ( state == 'hangar' && !window.__htmlHangar ) || ( state == 'market' && !window.__htmlMarket ) || state == 'board' || state == 'stats' || state == 'credits' || state == 'settings' ) ) {
 		$.buttons.push( new $.Button( {
 			x: 54,
 			y: 70,
@@ -2581,7 +2581,19 @@ $.setState = function( state ) {
 		}
 	}
 
-	if( state == 'market' ) {
+	// The HTML armory overlay owns this screen when it is mounted; the engine
+	// keeps the catalogue/profile fetches (the overlay reads the same state)
+	// but builds no canvas chrome. Same contract as __htmlHangar.
+	if( state == 'market' && window.__htmlMarket ) {
+		$.mouse.down = 0;
+		$.purchase = { status: '', itemId: null };
+		if( !$.marketState.fetched && !$.marketState.loading ) {
+			$.fetchMarket();
+			$.fetchProfile();
+		}
+	}
+
+	if( state == 'market' && !window.__htmlMarket ) {
 		$.mouse.down = 0;
 		$.purchase = { status: '', itemId: null };
 		// fetch once; the fetch callback rebuilds this screen when it lands
@@ -4133,6 +4145,16 @@ $.setupStates = function() {
 	$.states['market'] = function() {
 
 		$.clearScreen();
+
+		// HTML armory owns the deck chrome. As on the menu and in the hangar,
+		// the engine keeps painting the living backdrop underneath so the
+		// overlay sits inside the game world.
+		if( window.__htmlMarket ) {
+			$.updateScreen();
+			$.renderAmbientShips();
+			$.tick += 1;
+			return;
+		}
 
 		var marketCompact = ( $.ch < 640 );
 		$.ctxmg.beginPath();

@@ -67,6 +67,22 @@ export function WalletButton() {
     try { open({ view: 'Account' }); } catch (e) { console.error('[wallet] open failed', e); }
   };
 
+  // Other screens need to start a connect or a sign-in without owning a second
+  // copy of this logic - the armory's requisition CTA is one. They ask here, so
+  // this component stays the single place wallet auth actually happens, and
+  // there is never a competing connect path to keep in sync.
+  useEffect(() => {
+    const onAsk = () => {
+      try {
+        if (!isConnected) { open(); } else if (!authenticated) { signIn(); }
+      } catch (e) {
+        console.error('[wallet] connect request failed', e);
+      }
+    };
+    window.addEventListener('raidshooter:wallet', onAsk);
+    return () => window.removeEventListener('raidshooter:wallet', onAsk);
+  }, [isConnected, authenticated, open, signIn]);
+
   // Run both teardown steps as real, independently-caught promises so a
   // failure in one (e.g. the session DELETE) never blocks the other (the
   // wallet disconnect itself).

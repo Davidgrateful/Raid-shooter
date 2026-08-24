@@ -958,8 +958,8 @@ on screen without a scroll.
   }
   .rs-cc-tabs { display: none; }
   .rs-cc-ship { width: min(34vh, 170px); margin-bottom: 0; }
-  /* a 170px bay cannot hold a readout without truncating it to "ON…" */
-  .rs-bay-tag { display: none; }
+  /* the bay tags stand down here too - see the rule beside .rs-bay-tag's own
+     declaration, which is where it has to live to actually win */
   .rs-cc-cta { margin-top: 10px; max-width: 360px; }
   .rs-cc-veil { background: linear-gradient(180deg, rgba(4,6,11,0.86) 0%, rgba(4,6,11,0.32) 30%, rgba(4,6,11,0.8) 100%); }
 }
@@ -1745,9 +1745,16 @@ there is no room beside it.
   pointer-events: none;
 }
 
-/* the bay is too narrow beside the ring on a phone - the tags would sit on
-   top of the hull, so they stand down and the loadout badges carry it */
-@media (max-width: 560px) {
+/* The bay is too narrow beside the ring on a phone - the tags would sit on
+   top of the hull, so they stand down and the loadout badges carry it. The
+   same is true of a short landscape screen, where the bay drops to ~170px and
+   a readout truncates to "ON…".
+
+   This has to live HERE, after `.rs-bay-tag`'s own `display: flex` above:
+   there is an identical rule earlier in the file that has never had any
+   effect, because at equal specificity the later declaration wins. Caught by
+   measuring the rendered box rather than by reading the stylesheet. */
+@media (max-width: 560px), (max-height: 560px) {
   .rs-bay-tag { display: none; }
 }
 
@@ -1910,11 +1917,11 @@ changes the colour of the room, not the layout of it.
 .rs-hg-bayframe > canvas {
   -webkit-mask-image:
     radial-gradient(96% 92% at 50% 46%, #000 24%, transparent 84%),
-    linear-gradient(180deg, transparent 0%, #000 13%, #000 88%, transparent 100%),
+    linear-gradient(180deg, transparent 0%, #000 22%, #000 88%, transparent 100%),
     linear-gradient(90deg, transparent 0%, #000 11%, #000 89%, transparent 100%);
   mask-image:
     radial-gradient(96% 92% at 50% 46%, #000 24%, transparent 84%),
-    linear-gradient(180deg, transparent 0%, #000 13%, #000 88%, transparent 100%),
+    linear-gradient(180deg, transparent 0%, #000 22%, #000 88%, transparent 100%),
     linear-gradient(90deg, transparent 0%, #000 11%, #000 89%, transparent 100%);
   -webkit-mask-composite: source-in;
   mask-composite: intersect;
@@ -2547,4 +2554,477 @@ the bay and the pane switch disappears.
   .rs-hg-bayframe { width: 92vw; }
   .rs-roster-slot { min-width: 18px; }
   .rs-stat { grid-template-columns: 34px minmax(0, 1fr) 22px 24px; gap: 6px; }
+}
+
+/*==============================================================================
+ARMORY — the procurement deck
+
+Third room, same facility. Everything structural is inherited from the hangar
+on purpose: the shell grid, the instrument sections, the tabular figures, the
+bay frame and its mask. What is new here is the RACK WALL, and it is
+deliberately not a product grid.
+
+A product grid gives every item a card, a picture, a price and a button, and
+asks the player to compare fifteen of them at once. A rack gives every item a
+SLOT — small, uniform, showing the real object — and puts the comparison in one
+place: the cradle and the instrument column beside it. That is the difference
+between a storefront and an outfitting terminal, and it is the whole reason
+this screen does not look like a marketplace.
+
+Colour keeps its jobs. Cyan is selection and the equip action. Gold is money
+and only money — prices, the requisition CTA, stock counts. Green is
+possession: what is already yours. Violet stays on the ability layer. Rarity
+uses the same scale as the reward drops, because it is the same idea.
+==============================================================================*/
+
+.rs-am-veil {
+  background:
+    radial-gradient(1000px 560px at 46% 34%, rgba(10, 18, 30, 0.4), transparent 74%),
+    linear-gradient(180deg, rgba(4, 6, 11, 0.92) 0%, rgba(4, 6, 11, 0.24) 28%, rgba(4, 6, 11, 0.4) 64%, rgba(4, 6, 11, 0.95) 100%);
+}
+
+/*--- header -----------------------------------------------------------------*/
+.rs-am-head-right { display: flex; align-items: center; gap: 12px; min-width: 0; }
+
+/* Settlement is a footnote. The old build put "SETTLED ON BASE" in the
+   subtitle under a giant ARMORY wordmark, which made the payment rail the
+   headline of a screen about equipment. */
+.rs-am-channel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--rs-font-ui);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--rs-text-faint);
+  white-space: nowrap;
+}
+.rs-am-channel-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.rs-am-channel[data-live="1"] { color: rgba(62, 233, 164, 0.75); }
+.rs-am-channel[data-live="1"] .rs-am-channel-dot { box-shadow: 0 0 8px var(--rs-green); }
+@media (max-width: 900px) { .rs-am-channel { display: none; } }
+
+/*--- stage ------------------------------------------------------------------*/
+.rs-am-main { padding: 0 14px 10px; }
+.rs-am-stage {
+  display: flex;
+  width: 100%;
+  max-width: 640px;
+  flex-direction: column;
+  align-items: center;
+}
+.rs-am-inspect { display: flex; width: 100%; flex-direction: column; align-items: center; }
+.rs-am-bayframe { width: min(84vw, 380px); }
+
+/* A field kit has no model in this game. Rather than draw an invented one,
+   the cradle reports the object as a technical plate. */
+.rs-am-plate {
+  display: flex;
+  width: min(84vw, 380px);
+  min-height: 190px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 22px;
+  border: 1px solid var(--rs-line);
+  background:
+    repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.012) 0 7px, transparent 7px 14px),
+    linear-gradient(160deg, rgba(20, 27, 40, 0.5), rgba(9, 12, 20, 0.7));
+  clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px);
+}
+.rs-am-plate-cap {
+  font-family: var(--rs-font-ui);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: var(--rs-text-faint);
+}
+.rs-am-plate-name {
+  font-family: var(--rs-font-display);
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #fff;
+}
+.rs-am-plate-stack { font-family: var(--rs-font-mono); font-size: 11px; color: var(--rs-gold); }
+.rs-am-plate-held { font-family: var(--rs-font-ui); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--rs-text-dim); }
+.rs-am-plate-held .rs-num { color: var(--rs-text); }
+
+/*--- identity under the cradle ----------------------------------------------*/
+.rs-am-inspect-id { width: 100%; max-width: 420px; margin-top: 8px; text-align: center; }
+.rs-am-inspect-line {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 20px;
+  flex-wrap: wrap;
+}
+.rs-am-name { font-size: clamp(22px, 5vw, 32px); margin-top: 7px; }
+.rs-am-effect {
+  margin-top: 5px;
+  font-family: var(--rs-font-ui);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--rs-purple);
+}
+.rs-am-effect-soft { color: var(--rs-text-faint); }
+
+.rs-am-rarity {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  font-family: var(--rs-font-ui);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+}
+
+/*--- the one action ---------------------------------------------------------*/
+.rs-am-act { width: 100%; max-width: 420px; margin-top: 12px; }
+.rs-am-cta { display: block; width: 100%; border: 0; background: none; padding: 0; cursor: pointer; }
+.rs-am-cta-face {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 10px;
+  padding: 13px 18px;
+  clip-path: polygon(11px 0, 100% 0, 100% calc(100% - 11px), calc(100% - 11px) 100%, 0 100%, 0 11px);
+  font-family: var(--rs-font-display);
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  transition: filter 130ms ease, background 130ms ease;
+}
+.rs-am-cta-price { font-family: var(--rs-font-mono); font-size: 13px; letter-spacing: 0; }
+.rs-am-cta:hover:not(:disabled) .rs-am-cta-face { filter: brightness(1.12); }
+.rs-am-cta:active:not(:disabled) .rs-am-cta-face { transform: translateY(1px); }
+.rs-am-cta:disabled { cursor: default; }
+
+/* ACQUIRE spends money, so it is gold — the same gold as every price on the
+   screen. EQUIP changes state and costs nothing, so it is cyan, the same cyan
+   as DEPLOY. The two are never the same colour, because they are never the
+   same kind of commitment. */
+.rs-am-cta[data-kind="acquire"] .rs-am-cta-face {
+  background: linear-gradient(135deg, var(--rs-gold), #c98f12);
+  color: #1a1204;
+  box-shadow: 0 0 30px -10px var(--rs-gold);
+}
+.rs-am-cta[data-kind="equip"] .rs-am-cta-face {
+  background: linear-gradient(135deg, var(--rs-cyan), var(--rs-cyan-deep));
+  color: #04121a;
+  box-shadow: 0 0 30px -10px var(--rs-cyan);
+}
+.rs-am-cta[data-kind="authorize"] .rs-am-cta-face {
+  border: 1px solid rgba(255, 207, 77, 0.45);
+  background: rgba(255, 207, 77, 0.1);
+  color: var(--rs-gold);
+}
+.rs-am-cta[data-kind="equipped"] .rs-am-cta-face {
+  border: 1px solid rgba(62, 233, 164, 0.35);
+  background: rgba(62, 233, 164, 0.08);
+  color: var(--rs-green);
+}
+.rs-am-cta[data-kind="offline"] .rs-am-cta-face,
+.rs-am-cta[data-kind="soon"] .rs-am-cta-face,
+.rs-am-cta[data-kind="pending"] .rs-am-cta-face {
+  border: 1px dashed rgba(125, 165, 205, 0.28);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--rs-text-faint);
+}
+
+.rs-am-deploy { width: 100%; margin-top: 8px; }
+
+/* the purchase pipeline's own state, spoken in the game's voice */
+.rs-am-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin-top: 9px;
+  font-family: var(--rs-font-ui);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--rs-text-dim);
+}
+.rs-am-status-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; flex: none; }
+.rs-am-status[data-tone="work"] { color: var(--rs-cyan); }
+.rs-am-status[data-tone="work"] .rs-am-status-dot { animation: rs-pulse 1.1s ease-in-out infinite; }
+.rs-am-status[data-tone="good"] { color: var(--rs-green); }
+.rs-am-status[data-tone="bad"] { color: var(--rs-red); }
+
+@keyframes rs-pulse {
+  0%, 100% { opacity: 0.3; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1.15); }
+}
+
+/*==============================================================================
+THE RACK WALL
+==============================================================================*/
+.rs-am-wall { width: 100%; max-width: 560px; margin-top: 14px; }
+
+.rs-am-racks {
+  display: flex;
+  gap: 2px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--rs-line);
+  scrollbar-width: none;
+}
+.rs-am-racks::-webkit-scrollbar { display: none; }
+.rs-am-rack {
+  display: flex;
+  flex: 1 1 0;
+  min-width: 84px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  padding: 8px 10px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--rs-text-faint);
+  cursor: pointer;
+  transition: color 130ms ease, border-color 130ms ease, background 130ms ease;
+}
+.rs-am-rack:hover { color: var(--rs-text-dim); background: rgba(255, 255, 255, 0.03); }
+.rs-am-rack[data-on="1"] { color: var(--rs-cyan); border-bottom-color: var(--rs-cyan); }
+.rs-am-rack-label {
+  font-family: var(--rs-font-ui);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.rs-am-rack-label-sm { display: none; }
+/* the count is possession, so it is green when you hold any of the wall */
+.rs-am-rack-count { font-family: var(--rs-font-mono); font-size: 10px; color: rgba(233, 241, 255, 0.3); }
+.rs-am-rack[data-on="1"] .rs-am-rack-count { color: var(--rs-green); }
+.rs-am-rack-of { color: rgba(233, 241, 255, 0.22); }
+
+/*--- slots ------------------------------------------------------------------*/
+.rs-am-slots {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+  gap: 4px;
+  margin-top: 8px;
+}
+.rs-am-slot {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 9px;
+  overflow: hidden;
+  border: 1px solid transparent;
+  border-radius: var(--rs-radius-sm);
+  background: rgba(255, 255, 255, 0.03);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 130ms ease, background 130ms ease;
+}
+.rs-am-slot:hover { border-color: var(--rs-line-strong); background: rgba(255, 255, 255, 0.06); }
+/* SELECTED is the cyan edge — it means "this is what the cradle is showing",
+   which is a pointer, not a possession */
+.rs-am-slot[data-on="1"] {
+  border-color: rgba(53, 232, 255, 0.55);
+  background: rgba(53, 232, 255, 0.09);
+}
+/* OWNED and EQUIPPED are possession, so they are green, and they read on the
+   slot's own left edge rather than as another badge */
+.rs-am-slot[data-state="owned"]::before,
+.rs-am-slot[data-state="equipped"]::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: rgba(62, 233, 164, 0.45);
+}
+.rs-am-slot[data-state="equipped"]::before {
+  background: var(--rs-green);
+  box-shadow: 0 0 10px var(--rs-green);
+}
+.rs-am-slot[data-state="soon"] { opacity: 0.45; }
+
+.rs-am-slot-art {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  flex: none;
+}
+.rs-am-slot-canvas { width: 34px; height: 34px; }
+.rs-am-slot-swatch {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+.rs-am-slot-kit { font-family: var(--rs-font-mono); font-size: 12px; color: var(--rs-text-faint); }
+
+.rs-am-slot-body { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
+.rs-am-slot-name {
+  font-family: var(--rs-font-ui);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--rs-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rs-am-slot-meta { display: flex; align-items: baseline; gap: 8px; }
+.rs-am-slot-price { font-family: var(--rs-font-mono); font-size: 11px; color: var(--rs-gold); }
+/* an unloaded catalogue shows dashes, never a placeholder $0.00 */
+.rs-am-slot-price-wait { color: rgba(233, 241, 255, 0.22); letter-spacing: 0.1em; }
+.rs-am-slot-held { font-family: var(--rs-font-mono); font-size: 9px; color: var(--rs-text-faint); }
+
+.rs-am-tag {
+  font-family: var(--rs-font-ui);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--rs-text-faint);
+}
+.rs-am-tag-owned { color: rgba(62, 233, 164, 0.8); }
+.rs-am-tag-on { color: var(--rs-green); }
+
+/* rarity rides the slot's top edge as a hairline, the way a shelf label does */
+.rs-am-slot-rarity { position: absolute; left: 0; right: 0; top: 0; height: 1px; opacity: 0.55; }
+
+/*--- catalogue not loaded ---------------------------------------------------*/
+.rs-am-wait {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 20px 2px;
+  font-family: var(--rs-font-ui);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--rs-text-faint);
+}
+.rs-am-wait-bar {
+  position: relative;
+  width: 60px;
+  height: 2px;
+  flex: none;
+  overflow: hidden;
+  border-radius: 1px;
+  background: rgba(255, 255, 255, 0.08);
+}
+.rs-am-wait-bar::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 40%;
+  background: var(--rs-cyan);
+  animation: rs-scan 1.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+@keyframes rs-scan {
+  0% { transform: translateX(-110%); }
+  100% { transform: translateX(260%); }
+}
+
+/*--- manifest ---------------------------------------------------------------*/
+.rs-am-manifest-link {
+  border: 0;
+  background: none;
+  color: var(--rs-cyan);
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+}
+.rs-am-manifest-link:hover { color: #8df4ff; }
+.rs-am-kit { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
+.rs-am-kit-item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-family: var(--rs-font-ui);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--rs-text-dim);
+}
+.rs-am-kit-item .rs-num { color: var(--rs-gold); font-size: 11px; }
+
+/*==============================================================================
+ARMORY — RESPONSIVE
+==============================================================================*/
+@media (min-width: 1100px) {
+  .rs-am .rs-am-tabs { display: none; }
+  .rs-am .rs-hg-pane[data-on="0"] { display: block; }
+  .rs-am-main { align-items: safe start; padding: 8px 20px 20px; }
+  .rs-am-bayframe { width: min(28vw, 330px); }
+  .rs-am-plate { width: min(28vw, 330px); }
+  .rs-am-stage { max-width: 620px; }
+  .rs-am-wall { max-width: 620px; }
+}
+
+@media (min-width: 1500px) {
+  .rs-am-bayframe, .rs-am-plate { width: 360px; }
+}
+
+/* Phone landscape: the cradle and the wall sit side by side rather than the
+   wall being pushed off the bottom of a 390px-tall screen. */
+/* Narrow strips swap to the short labels and stop reserving width, so all
+   five walls are reachable without the last one hanging off the edge. */
+@media (max-width: 760px), (max-height: 560px) {
+  .rs-am-rack { min-width: 0; padding: 7px 5px; }
+  .rs-am-rack-label { display: none; letter-spacing: 0.1em; }
+  .rs-am-rack-label-sm { display: block; font-size: 9px; letter-spacing: 0.1em; }
+  .rs-am-rack-count { font-size: 9px; }
+}
+
+@media (max-height: 560px) and (min-width: 640px) {
+  .rs-am-main { padding: 0 10px 8px; }
+  .rs-am-stage { max-width: none; flex-direction: row; align-items: flex-start; gap: 14px; }
+  .rs-am-inspect { width: 42%; flex: none; }
+  .rs-am-bayframe, .rs-am-plate { width: min(40vh, 210px); }
+  .rs-am-plate { min-height: 130px; padding: 14px; }
+  .rs-am-wall { margin-top: 0; flex: 1; min-width: 0; }
+  .rs-am-name { font-size: 18px; }
+  .rs-am-effect { display: none; }
+  .rs-am-cta-face { padding: 9px 14px; font-size: 12px; }
+  .rs-am-slots { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+  .rs-am-rack { min-width: 68px; padding: 6px 8px; }
+}
+
+@media (max-width: 640px) {
+  .rs-am-main { padding: 0 12px 4px; }
+  .rs-am-sys { padding-left: 12px; padding-right: 12px; }
+  .rs-am-bayframe, .rs-am-plate { width: min(80vw, 320px); }
+  .rs-am-slots { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+}
+
+@media (max-width: 400px) {
+  .rs-am-slots { grid-template-columns: 1fr; }
+  .rs-am-rack { min-width: 74px; }
 }
