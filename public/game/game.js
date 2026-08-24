@@ -305,6 +305,8 @@ $.reset = function() {
 	$.comboTimer = 0;
 	$.comboTimerMax = 120;
 	$.comboMultiplier = 1;
+	$.feed = [];
+	$.runXp = 0;
 	$.bestCombo = 0;
 	$.spawnLullTick = 0;
 
@@ -377,70 +379,223 @@ $.renderFavicon = function() {
 /*==============================================================================
 Render Backgrounds
 ==============================================================================*/
+/*==============================================================================
+Background - four parallax plates, painted once per resize
+
+The rule the whole interface follows: BACKGROUND IS ATMOSPHERE. These plates
+carry depth, colour and a sense of place, and then get out of the way. Nothing
+here is bright enough to compete with a panel, a reward, or the CTA.
+
+  bg1  deep field: nebula wash + dense faint starfield (slowest parallax)
+  bg2  mid field: brighter stars with a little colour in them
+  bg3  near field: a distant planet, its orbital track, and drifting debris
+  bg4  the technology layer: a faint survey grid with lit sector nodes
+
+Colour discipline holds even out here: the nebulae use the interface's own
+cyan and purple, so the background reads as the same world as the UI rather
+than a stock space photo behind it.
+==============================================================================*/
+
+// Deterministic-ish helper: a soft radial cloud used for every nebula.
+$.paintNebula = function( ctx, x, y, radius, hue, alpha ) {
+	var g = ctx.createRadialGradient( x, y, 0, x, y, radius );
+	g.addColorStop( 0, 'hsla(' + hue + ', 85%, 60%, ' + alpha + ')' );
+	g.addColorStop( 0.45, 'hsla(' + hue + ', 80%, 45%, ' + ( alpha * 0.38 ) + ')' );
+	g.addColorStop( 1, 'hsla(' + hue + ', 80%, 40%, 0)' );
+	ctx.fillStyle = g;
+	ctx.fillRect( x - radius, y - radius, radius * 2, radius * 2 );
+};
+
 $.renderBackground1 = function() {
-	var gradient = $.ctxbg1.createRadialGradient( $.cbg1.width / 2, $.cbg1.height / 2, 0, $.cbg1.width / 2, $.cbg1.height / 2, $.cbg1.height );
-	gradient.addColorStop( 0, 'hsla(0, 0%, 100%, 0.1)' );
-	gradient.addColorStop( 0.65, 'hsla(0, 0%, 100%, 0)' );
-	$.ctxbg1.fillStyle = gradient;
-	$.ctxbg1.fillRect( 0, 0, $.cbg1.width, $.cbg1.height );
+	var w = $.cbg1.width,
+		h = $.cbg1.height,
+		ctx = $.ctxbg1;
 
-	var i = 2000;
+	// base: not flat black. A cold vertical wash gives the field a top and a
+	// bottom, which is most of what makes a starfield feel like space at all.
+	var base = ctx.createLinearGradient( 0, 0, 0, h );
+	base.addColorStop( 0, 'hsl(224, 44%, 8%)' );
+	base.addColorStop( 0.55, 'hsl(228, 40%, 5%)' );
+	base.addColorStop( 1, 'hsl(232, 45%, 7%)' );
+	ctx.fillStyle = base;
+	ctx.fillRect( 0, 0, w, h );
+
+	// nebulae in the interface's own palette - big, soft, and low contrast
+	$.paintNebula( ctx, w * 0.74, h * 0.2, Math.max( w, h ) * 0.55, 190, 0.1 );
+	$.paintNebula( ctx, w * 0.16, h * 0.82, Math.max( w, h ) * 0.48, 272, 0.085 );
+	$.paintNebula( ctx, w * 0.44, h * 0.52, Math.max( w, h ) * 0.36, 205, 0.05 );
+
+	// the deep field: thousands of pinpricks, almost all of them very dim
+	var i = 1700;
 	while( i-- ) {
-		$.util.fillCircle( $.ctxbg1, $.util.rand( 0, $.cbg1.width ), $.util.rand( 0, $.cbg1.height ), $.util.rand( 0.2, 0.5 ), 'hsla(0, 0%, 100%, ' + $.util.rand( 0.05, 0.2 ) + ')' );
+		$.util.fillCircle( ctx, $.util.rand( 0, w ), $.util.rand( 0, h ), $.util.rand( 0.2, 0.5 ),
+			'hsla(210, 40%, 92%, ' + $.util.rand( 0.05, 0.22 ) + ')' );
 	}
 
-	var i = 800;
+	// a scattering of slightly larger, slightly warmer stars for variety
+	i = 500;
 	while( i-- ) {
-		$.util.fillCircle( $.ctxbg1, $.util.rand( 0, $.cbg1.width ), $.util.rand( 0, $.cbg1.height ), $.util.rand( 0.1, 0.8 ), 'hsla(0, 0%, 100%, ' + $.util.rand( 0.05, 0.5 ) + ')' );
+		var starHue = ( Math.random() < 0.7 ) ? 210 : ( Math.random() < 0.5 ? 35 : 190 );
+		$.util.fillCircle( ctx, $.util.rand( 0, w ), $.util.rand( 0, h ), $.util.rand( 0.2, 0.75 ),
+			'hsla(' + starHue + ', 60%, 88%, ' + $.util.rand( 0.15, 0.5 ) + ')' );
 	}
-}
+};
 
 $.renderBackground2 = function() {
-	var i = 80;
+	var w = $.cbg2.width,
+		h = $.cbg2.height,
+		ctx = $.ctxbg2;
+
+	// the bright handful: a few dozen stars with a visible glow, so the eye
+	// has something to focus on when the parallax moves
+	var i = 70;
 	while( i-- ) {
-		$.util.fillCircle( $.ctxbg2, $.util.rand( 0, $.cbg2.width ), $.util.rand( 0, $.cbg2.height ), $.util.rand( 1, 2 ), 'hsla(0, 0%, 100%, ' + $.util.rand( 0.05, 0.15 ) + ')' );
+		var x = $.util.rand( 0, w ),
+			y = $.util.rand( 0, h ),
+			r = $.util.rand( 0.8, 1.9 ),
+			hue = ( Math.random() < 0.6 ) ? 200 : ( Math.random() < 0.5 ? 45 : 280 );
+		var glow = ctx.createRadialGradient( x, y, 0, x, y, r * 5 );
+		glow.addColorStop( 0, 'hsla(' + hue + ', 90%, 80%, 0.2)' );
+		glow.addColorStop( 1, 'hsla(' + hue + ', 90%, 70%, 0)' );
+		ctx.fillStyle = glow;
+		ctx.fillRect( x - r * 5, y - r * 5, r * 10, r * 10 );
+		$.util.fillCircle( ctx, x, y, r, 'hsla(' + hue + ', 70%, 92%, ' + $.util.rand( 0.35, 0.75 ) + ')' );
 	}
-}
+};
 
 $.renderBackground3 = function() {
-	var i = 40;
+	var w = $.cbg3.width,
+		h = $.cbg3.height,
+		ctx = $.ctxbg3;
+
+	/*--- a distant planet: the single landmark that fixes the scale --------*/
+	var pr = Math.max( w, h ) * 0.19,
+		px = w * 0.83,
+		py = h * 0.17;
+
+	// atmosphere halo
+	var halo = ctx.createRadialGradient( px, py, pr * 0.9, px, py, pr * 1.5 );
+	halo.addColorStop( 0, 'hsla(196, 90%, 60%, 0.07)' );
+	halo.addColorStop( 1, 'hsla(196, 90%, 60%, 0)' );
+	ctx.fillStyle = halo;
+	ctx.fillRect( px - pr * 1.5, py - pr * 1.5, pr * 3, pr * 3 );
+
+	// body, lit from the lower left so it agrees with the menu's key light
+	var body = ctx.createRadialGradient( px - pr * 0.45, py + pr * 0.5, pr * 0.1, px, py, pr );
+	body.addColorStop( 0, 'hsla(200, 45%, 18%, 0.8)' );
+	body.addColorStop( 0.55, 'hsla(215, 45%, 9%, 0.82)' );
+	body.addColorStop( 1, 'hsla(228, 50%, 5%, 0.88)' );
+	ctx.beginPath();
+	ctx.arc( px, py, pr, 0, $.twopi );
+	ctx.fillStyle = body;
+	ctx.fill();
+
+	// terminator rim light
+	ctx.beginPath();
+	ctx.arc( px, py, pr, $.pi * 0.35, $.pi * 1.05 );
+	ctx.strokeStyle = 'hsla(190, 100%, 72%, 0.13)';
+	ctx.lineWidth = 1.5;
+	ctx.stroke();
+
+	// orbital track around it - technology, not geology
+	ctx.save();
+	ctx.translate( px, py );
+	ctx.rotate( -0.42 );
+	ctx.beginPath();
+	ctx.ellipse( 0, 0, pr * 1.62, pr * 0.42, 0, 0, $.twopi );
+	ctx.strokeStyle = 'hsla(190, 90%, 70%, 0.13)';
+	ctx.lineWidth = 1;
+	ctx.stroke();
+	ctx.restore();
+
+	/*--- drifting debris: near-field specks, larger than the deep stars ----*/
+	var i = 34;
 	while( i-- ) {
-		$.util.fillCircle( $.ctxbg3, $.util.rand( 0, $.cbg3.width ), $.util.rand( 0, $.cbg3.height ), $.util.rand( 1, 2.5 ), 'hsla(0, 0%, 100%, ' + $.util.rand( 0.05, 0.1 ) + ')' );
+		$.util.fillCircle( ctx, $.util.rand( 0, w ), $.util.rand( 0, h ), $.util.rand( 1, 2.4 ),
+			'hsla(210, 30%, 88%, ' + $.util.rand( 0.05, 0.13 ) + ')' );
 	}
-}
+};
 
 $.renderBackground4 = function() {
-	var size = 50;
-	$.ctxbg4.fillStyle = 'hsla(0, 0%, 50%, 0.05)';
-	var i = Math.round( $.cbg4.height / size );
-	while( i-- ) {
-		$.ctxbg4.fillRect( 0, i * size + 25, $.cbg4.width, 1 );
+	var size = 64,
+		w = $.cbg4.width,
+		h = $.cbg4.height,
+		ctx = $.ctxbg4;
+
+	// the survey grid: quieter than the old one (it used to read as graph
+	// paper laid over the game) and now fading out toward the edges so it
+	// suggests a scanned volume rather than a sheet
+	var cols = Math.round( w / size ),
+		rows = Math.round( h / size );
+
+	ctx.strokeStyle = 'hsla(196, 60%, 70%, 0.045)';
+	ctx.lineWidth = 1;
+	ctx.beginPath();
+	for( var r = 0; r <= rows; r++ ) {
+		ctx.moveTo( 0, r * size + 0.5 );
+		ctx.lineTo( w, r * size + 0.5 );
 	}
-	i = Math.round( $.cbg4.width / size );
-	while( i-- ) {
-		$.ctxbg4.fillRect( i * size, 0, 1, $.cbg4.height );
+	for( var c = 0; c <= cols; c++ ) {
+		ctx.moveTo( c * size + 0.5, 0 );
+		ctx.lineTo( c * size + 0.5, h );
 	}
-}
+	ctx.stroke();
+
+	// lit sector nodes at a few intersections - the grid reads as a live
+	// instrument rather than a texture
+	for( var n = 0; n < 26; n++ ) {
+		var gx = Math.floor( $.util.rand( 0, cols ) ) * size,
+			gy = Math.floor( $.util.rand( 0, rows ) ) * size;
+		$.util.fillCircle( ctx, gx, gy, 1.4, 'hsla(190, 100%, 75%, ' + $.util.rand( 0.1, 0.3 ) + ')' );
+	}
+
+	// a couple of long survey vectors cutting across the plate
+	ctx.strokeStyle = 'hsla(190, 90%, 70%, 0.07)';
+	for( var v = 0; v < 3; v++ ) {
+		ctx.beginPath();
+		ctx.moveTo( $.util.rand( -w * 0.2, w ), -10 );
+		ctx.lineTo( $.util.rand( 0, w * 1.2 ), h + 10 );
+		ctx.stroke();
+	}
+};
 
 /*==============================================================================
 Render Foreground
 ==============================================================================*/
 $.renderForeground = function() {
-	var gradient = $.ctxfg.createRadialGradient( $.cw / 2, $.ch / 2, $.ch / 3, $.cw / 2, $.ch / 2, $.ch );
-	gradient.addColorStop( 0, 'hsla(0, 0%, 0%, 0)' );
-	gradient.addColorStop( 1, 'hsla(0, 0%, 0%, 0.5)' );
+	// Vignette: darker at the corners than before so the eye is pulled to the
+	// centre of the screen, where the ship (in a run) and the CTA (on the
+	// menu) both live. Depth and focus, in one cheap pass.
+	var gradient = $.ctxfg.createRadialGradient( $.cw / 2, $.ch / 2, $.ch / 3.4, $.cw / 2, $.ch / 2, $.ch * 0.92 );
+	gradient.addColorStop( 0, 'hsla(228, 60%, 2%, 0)' );
+	gradient.addColorStop( 0.62, 'hsla(228, 60%, 2%, 0.3)' );
+	gradient.addColorStop( 1, 'hsla(228, 60%, 2%, 0.72)' );
 	$.ctxfg.fillStyle = gradient;
 	$.ctxfg.fillRect( 0, 0, $.cw, $.ch );
 
-	$.ctxfg.fillStyle = 'hsla(0, 0%, 50%, 0.1)';
-	var i = Math.round( $.ch / 2 );
+	// Scanlines used to run edge to edge at every 2px - the single biggest
+	// source of visual noise on the old screens, and what made panels and
+	// text look dirty. They now sit at a third of the old strength and fade
+	// out entirely across the middle of the screen, where the ship, the HUD
+	// and the CTA live. Texture at the edges, clean glass where it counts.
+	var scan = $.ctxfg.createLinearGradient( 0, 0, 0, $.ch );
+	scan.addColorStop( 0, 'hsla(0, 0%, 60%, 0.05)' );
+	scan.addColorStop( 0.32, 'hsla(0, 0%, 60%, 0)' );
+	scan.addColorStop( 0.68, 'hsla(0, 0%, 60%, 0)' );
+	scan.addColorStop( 1, 'hsla(0, 0%, 60%, 0.05)' );
+	$.ctxfg.save();
+	$.ctxfg.fillStyle = scan;
+	var i = Math.round( $.ch / 3 );
 	while( i-- ) {
-		$.ctxfg.fillRect( 0, i * 2, $.cw, 1 );
+		$.ctxfg.fillRect( 0, i * 3, $.cw, 1 );
 	}
+	$.ctxfg.restore();
 
+	// key light: a soft wash from the upper right, the same direction the
+	// planet on bg3 is lit from, so every plate agrees about where the sun is
 	var gradient2 = $.ctxfg.createLinearGradient( $.cw, 0, 0, $.ch );
-	gradient2.addColorStop( 0, 'hsla(0, 0%, 100%, 0.04)' );
-	gradient2.addColorStop( 0.75, 'hsla(0, 0%, 100%, 0)' );
+	gradient2.addColorStop( 0, 'hsla(196, 90%, 78%, 0.05)' );
+	gradient2.addColorStop( 0.75, 'hsla(196, 90%, 78%, 0)' );
 	$.ctxfg.beginPath();
 	$.ctxfg.moveTo( 0, 0 );
 	$.ctxfg.lineTo( $.cw, 0 );
@@ -455,65 +610,6 @@ User Interface / UI / GUI / Minimap
 ==============================================================================*/
 
 $.renderInterface = function() {
-	/*==============================================================================
-	Powerup Timers
-	==============================================================================*/
-		for( var i = 0; i < $.definitions.powerups.length; i++ ) {
-			var powerup = $.definitions.powerups[ i ],
-				powerupOn = ( $.powerupTimers[ i ] > 0 );
-			$.ctxmg.beginPath();
-			var powerupText = $.text( {
-				ctx: $.ctxmg,
-				x: $.minimap.x + $.minimap.width + 90,
-				y: $.minimap.y + 4 + ( i * 12 ),
-				text: powerup.title,
-				hspacing: 1,
-				vspacing: 1,
-				halign: 'right',
-				valign: 'top',
-				scale: 1,
-				snap: 1,
-				render: 1
-			} );
-			if( powerupOn ) {
-				$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, ' + ( 0.25 + ( ( $.powerupTimers[ i ] / $.powerupDuration ) * 0.75 ) ) + ')';
-			} else {
-				$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 0.25)';
-			}
-			$.ctxmg.fill();
-			if( powerupOn ) {
-				var powerupBar = {
-					x: powerupText.ex + 5,
-					y: powerupText.sy,
-					width: 110,
-					height: 5
-				};
-				$.ctxmg.fillStyle = 'hsl(' + powerup.hue + ', ' + powerup.saturation + '%, ' + powerup.lightness + '%)';
-				$.ctxmg.fillRect( powerupBar.x, powerupBar.y, ( $.powerupTimers[ i ] / $.powerupDuration ) * powerupBar.width, powerupBar.height );
-			}
-		}
-
-		/*==============================================================================
-		Consumables - only shown to players who actually own one
-		==============================================================================*/
-		if( $.consumableCount( 'consumable_health' ) > 0 || $.consumableCount( 'consumable_shield' ) > 0 ) {
-			$.ctxmg.beginPath();
-			$.text( {
-				ctx: $.ctxmg,
-				x: $.minimap.x,
-				y: $.minimap.y + $.minimap.height + 14,
-				text: '1: HEALTH x' + $.consumableCount( 'consumable_health' ) + '\n2: SHIELD x' + $.consumableCount( 'consumable_shield' ),
-				hspacing: 1,
-				vspacing: 10,
-				halign: 'left',
-				valign: 'top',
-				scale: 1,
-				snap: 1,
-				render: 1
-			} );
-			$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 0.6)';
-			$.ctxmg.fill();
-		}
 
 		/*==============================================================================
 		First-run tutorial banner
@@ -618,7 +714,21 @@ $.renderInterface = function() {
 		}
 
 	/*==============================================================================
-	Health (compact sizing keeps the whole HUD row on narrow phone screens)
+	COMBAT HUD
+
+	One system, three corners, and a strict rule about where the eye goes:
+
+	  TOP LEFT     SURVIVAL   hull, dash charge, field kits - things that keep
+	                          you alive, closest to where you watch your ship
+	  TOP CENTRE   SCORE      the number you are here for, and the combo chain
+	                          that multiplies it, directly beneath it
+	  TOP RIGHT    PROGRESS   sector, level quota, active powerups counting down
+
+	Everything is anchored to a corner and clear of the safe-area insets, so the
+	middle of the screen - where the shooting happens - stays empty. Colour does
+	the talking: hull shifts red as it drops, the combo runs gold->white as it
+	climbs, powerups keep their own hue. No label is repeated twice, and nothing
+	here requires the player to stop playing in order to read it.
 	==============================================================================*/
 	// Compact HUD on every touch device (not just narrow ones): a large phone
 	// in landscape - iPhone Pro Max is 932pt wide - clears the 900 width test
@@ -626,45 +736,76 @@ $.renderInterface = function() {
 	// look oversized on mobile. Any touch device stays compact.
 	var hudCompact = ( $.isTouchDevice || $.cw < 900 ),
 		hudScale = hudCompact ? 1 : 2,
-		hudBarWidth = hudCompact ? 70 : 110,
-		hudGap = hudCompact ? 18 : 40,
 		hudLeft = 20 + $.safeAreaLeft,
-		hudTop = 64 + $.safeAreaTop;
-	$.ctxmg.beginPath();
-	var healthText = $.text( {
-		ctx: $.ctxmg,
-		x: hudLeft,
-		y: hudTop,
-		text: 'HEALTH',
-		hspacing: 1,
-		vspacing: 1,
-		halign: 'top',
-		valign: 'left',
-		scale: hudScale,
-		snap: 1,
-		render: 1
-	} );
-	$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 0.5)';
-	$.ctxmg.fill();
-	var healthBar = {
-		x: healthText.ex + 10,
-		y: healthText.sy,
-		width: hudBarWidth,
-		height: 10
+		hudRight = $.cw - 20 - $.safeAreaRight,
+		hudTop = 58 + $.safeAreaTop,
+		barW = hudCompact ? 96 : 150,
+		barH = hudCompact ? 7 : 9;
+
+	/*--------------------------------------------------------------------------
+	Meter primitive - every bar in the game is drawn by this one function, so a
+	hull bar, a dash charge and a powerup timer are visibly the same instrument
+	at different sizes: dark channel, filled body, bright leading edge.
+	--------------------------------------------------------------------------*/
+	var hudMeter = function( x, y, w, h, ratio, hue, sat, light ) {
+		ratio = Math.max( 0, Math.min( 1, ratio ) );
+		var ctx = $.ctxmg;
+		ctx.fillStyle = 'hsla(220, 30%, 100%, 0.09)';
+		ctx.fillRect( x, y, w, h );
+		if( ratio <= 0 ) { return; }
+		var fillW = Math.max( 1, ratio * w );
+		ctx.fillStyle = 'hsla(' + hue + ', ' + sat + '%, ' + light + '%, 0.95)';
+		ctx.fillRect( x, y, fillW, h );
+		// upper half catches the light, same as the HTML meters
+		ctx.fillStyle = 'hsla(' + hue + ', ' + sat + '%, ' + Math.min( 96, light + 22 ) + '%, 0.9)';
+		ctx.fillRect( x, y, fillW, Math.max( 1, h / 2 ) );
+		// leading edge - reads as a live value, not a painted rectangle
+		if( ratio < 1 ) {
+			ctx.fillStyle = 'hsla(0, 0%, 100%, 0.9)';
+			ctx.fillRect( x + fillW - 1, y, 1.5, h );
+		}
 	};
-	$.ctxmg.fillStyle = 'hsla(0, 0%, 20%, 1)';
-	$.ctxmg.fillRect( healthBar.x, healthBar.y, healthBar.width, healthBar.height );
-	$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 0.25)';
-	$.ctxmg.fillRect( healthBar.x, healthBar.y, healthBar.width, healthBar.height / 2 );
-	$.ctxmg.fillStyle = 'hsla(' + $.hero.life * 120 + ', 100%, 40%, 1)';
-	$.ctxmg.fillRect( healthBar.x, healthBar.y, $.hero.life * healthBar.width, healthBar.height );
-	$.ctxmg.fillStyle = 'hsla(' + $.hero.life * 120 + ', 100%, 75%, 1)';
-	$.ctxmg.fillRect( healthBar.x, healthBar.y, $.hero.life * healthBar.width, healthBar.height / 2 );
+
+	var hudLabel = function( text, x, y, align, scale, color ) {
+		$.ctxmg.beginPath();
+		var m = $.text( {
+			ctx: $.ctxmg, x: x, y: y, text: text,
+			hspacing: 1, vspacing: 1, halign: align, valign: 'top',
+			scale: scale, snap: 1, render: 1
+		} );
+		$.ctxmg.fillStyle = color;
+		$.ctxmg.fill();
+		return m;
+	};
+
+	/*==========================================================================
+	TOP LEFT - survival
+	==========================================================================*/
+	var lifeRatio = Math.max( 0, $.hero.life ),
+		// hue walks red -> amber -> green with hull integrity, so the player
+		// reads their state from colour in peripheral vision alone
+		lifeHue = lifeRatio * 120,
+		hullY = hudTop;
+
+	hudLabel( 'HULL', hudLeft, hullY, 'left', hudScale, 'hsla(0, 0%, 100%, 0.45)' );
+	// integrity as a number, right-aligned over the end of the bar. No % glyph
+	// exists in the bitmap font, so the bar itself carries the unit.
+	hudLabel( '' + Math.round( lifeRatio * 100 ), hudLeft + barW, hullY,
+		'right', hudScale, 'hsla(' + lifeHue + ', 90%, 72%, 0.95)' );
+
+	var hullBarY = hullY + ( hudCompact ? 11 : 18 );
+	hudMeter( hudLeft, hullBarY, barW, barH, lifeRatio, lifeHue, 100, 45 );
+
+	// critical hull: the bar itself pulses rather than adding another warning
+	if( lifeRatio > 0 && lifeRatio < 0.3 ) {
+		$.ctxmg.fillStyle = 'hsla(0, 100%, 60%, ' + ( 0.18 + Math.sin( $.tick / 5 ) * 0.16 ) + ')';
+		$.ctxmg.fillRect( hudLeft - 2, hullBarY - 2, barW + 4, barH + 4 );
+	}
 
 	if( $.hero.takingDamage && $.hero.life > 0.01 ) {
 		$.particleEmitters.push( new $.ParticleEmitter( {
-			x: -$.screen.x + healthBar.x + $.hero.life * healthBar.width,
-			y: -$.screen.y + healthBar.y + healthBar.height / 2,
+			x: -$.screen.x + hudLeft + lifeRatio * barW,
+			y: -$.screen.y + hullBarY + barH / 2,
 			count: 1,
 			spawnRange: 2,
 			friction: 0.85,
@@ -672,199 +813,196 @@ $.renderInterface = function() {
 			maxSpeed: 20,
 			minDirection: $.pi / 2 - 0.2,
 			maxDirection: $.pi / 2 + 0.2,
-			hue: $.hero.life * 120,
+			hue: lifeHue,
 			saturation: 100
 		} ) );
 	}
 
-	/*==============================================================================
-	Progress
-	==============================================================================*/
+	/*--- dash charge: the ability the player uses most, so it gets its own
+	  meter directly under the hull rather than an unlabelled sliver --------*/
+	var dashReady = 1 - Math.max( 0, $.hero.dashCooldown ) / $.hero.dashCooldownMax,
+		dashY = hullBarY + barH + ( hudCompact ? 5 : 7 );
+	hudLabel( 'DASH', hudLeft, dashY - 1, 'left', 1,
+		dashReady >= 1 ? 'hsla(190, 100%, 72%, 0.9)' : 'hsla(0, 0%, 100%, 0.3)' );
+	hudMeter( hudLeft + ( hudCompact ? 30 : 34 ), dashY, barW - ( hudCompact ? 30 : 34 ), 3,
+		dashReady, 190, 100, dashReady >= 1 ? 60 : 38 );
+
+	/*--- field kits: only shown to a player who actually holds one --------*/
+	var kitY = dashY + ( hudCompact ? 10 : 12 ),
+		healthKits = $.consumableCount( 'consumable_health' ),
+		shieldKits = $.consumableCount( 'consumable_shield' );
+	if( healthKits > 0 || shieldKits > 0 ) {
+		var kitX = hudLeft,
+			drawKit = function( key, count, hue ) {
+				if( count <= 0 ) { return; }
+				var label = key + ' X' + count,
+					m = $.text( { ctx: $.ctxmg, x: 0, y: 0, text: label, hspacing: 1, vspacing: 0,
+						halign: 'left', valign: 'top', scale: 1, snap: 1, render: 0 } ),
+					w = m.width + 14;
+				$.ctxmg.beginPath();
+				$.cutRect( $.ctxmg, kitX, kitY, w, 14, 4 );
+				$.ctxmg.fillStyle = 'hsla(' + hue + ', 70%, 45%, 0.16)';
+				$.ctxmg.fill();
+				$.ctxmg.beginPath();
+				$.cutRect( $.ctxmg, kitX + 0.5, kitY + 0.5, w - 1, 13, 4 );
+				$.ctxmg.strokeStyle = 'hsla(' + hue + ', 90%, 65%, 0.45)';
+				$.ctxmg.lineWidth = 1;
+				$.ctxmg.stroke();
+				hudLabel( label, kitX + 7, kitY + 4, 'left', 1, 'hsla(' + hue + ', 95%, 78%, 0.95)' );
+				kitX += w + 5;
+			};
+		// the keycap is the label: what to press IS the name of the item
+		drawKit( '1', healthKits, 140 );
+		drawKit( '2', shieldKits, 190 );
+	}
+
+	/*==========================================================================
+	TOP CENTRE - the number you are playing for
+	==========================================================================*/
+	var centreX = $.cw / 2,
+		scoreScale = hudCompact ? 3 : 5,
+		// touch builds run a PAUSE/MUTE bar across the top centre (kept there
+		// deliberately, clear of the thumb joysticks), so the score starts
+		// below it rather than underneath it
+		centreTop = $.isTouchDevice ? ( $.safeAreaTop + 64 ) : hudTop;
+
+	// the number needs no label on a phone - it is the only big figure on
+	// screen, and the row above it is already spoken for
+	if( !$.isTouchDevice ) {
+		hudLabel( 'SCORE', centreX, centreTop - 10, 'center', 1, 'hsla(0, 0%, 100%, 0.35)' );
+	}
+
 	$.ctxmg.beginPath();
-	var progressText = $.text( {
-		ctx: $.ctxmg,
-		x: healthBar.x + healthBar.width + hudGap,
-		y: hudTop,
-		text: 'PROGRESS',
-		hspacing: 1,
-		vspacing: 1,
-		halign: 'top',
-		valign: 'left',
-		scale: hudScale,
-		snap: 1,
-		render: 1
+	var scoreText = $.text( {
+		ctx: $.ctxmg, x: centreX, y: centreTop + ( hudCompact ? 2 : 3 ),
+		text: $.util.commas( $.score ),
+		hspacing: 1, vspacing: 1, halign: 'center', valign: 'top',
+		scale: scoreScale, snap: 1, render: 1
 	} );
-	$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 0.5)';
-	$.ctxmg.fill();
-	var progressBar = {
-		x: progressText.ex + 10,
-		y: progressText.sy,
-		width: healthBar.width,
-		height: healthBar.height
-	};
-	$.ctxmg.fillStyle = 'hsla(0, 0%, 20%, 1)';
-	$.ctxmg.fillRect( progressBar.x, progressBar.y, progressBar.width, progressBar.height );
-	$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 0.25)';
-	$.ctxmg.fillRect( progressBar.x, progressBar.y, progressBar.width, progressBar.height / 2 );
-	$.ctxmg.fillStyle = 'hsla(0, 0%, 50%, 1)';
-	$.ctxmg.fillRect( progressBar.x, progressBar.y, ( $.level.kills / $.level.killsToLevel ) * progressBar.width, progressBar.height );
 	$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 1)';
-	$.ctxmg.fillRect( progressBar.x, progressBar.y, ( $.level.kills / $.level.killsToLevel ) * progressBar.width, progressBar.height / 2 );
+	$.ctxmg.fill();
+
+	// personal best sits under the live score - the target, quietly stated
+	var best = Math.max( $.storage['score'] || 0, $.score ),
+		beatenBest = ( $.score > ( $.storage['score'] || 0 ) && ( $.storage['score'] || 0 ) > 0 );
+	hudLabel(
+		beatenBest ? 'NEW BEST' : ( 'BEST ' + $.util.commas( best ) ),
+		centreX, scoreText.ey + 4, 'center', 1,
+		beatenBest
+			? 'hsla(45, 100%, 65%, ' + ( 0.7 + Math.sin( $.tick / 10 ) * 0.3 ) + ')'
+			: 'hsla(0, 0%, 100%, 0.3)'
+	);
+
+	/*--- combo chain: the loudest thing in the HUD, and only while it is
+	  actually running. Climbing the chain visibly heats the colour up. ----*/
+	if( $.combo > 0 ) {
+		var comboY = scoreText.ey + ( hudCompact ? 18 : 20 ),
+			comboHeat = Math.min( 1, ( $.comboMultiplier - 1 ) / 7 ),
+			comboHue = 45 - comboHeat * 45,
+			comboScale = hudCompact ? 2 : 3,
+			comboWidth = hudCompact ? 110 : 160;
+
+		$.ctxmg.beginPath();
+		var comboText = $.text( {
+			ctx: $.ctxmg, x: centreX, y: comboY,
+			text: 'X' + $.comboMultiplier,
+			hspacing: 1, vspacing: 1, halign: 'center', valign: 'top',
+			scale: comboScale, snap: 1, render: 1
+		} );
+		$.ctxmg.fillStyle = 'hsla(' + comboHue + ', 100%, ' + ( 62 + comboHeat * 25 ) + '%, 1)';
+		$.ctxmg.fill();
+
+		hudLabel( $.combo + ' CHAIN', centreX + ( hudCompact ? 26 : 36 ), comboY + 3,
+			'left', 1, 'hsla(' + comboHue + ', 90%, 70%, 0.6)' );
+
+		// the decay bar IS the tension: it is the thing draining, so it gets
+		// the full width of the combo block rather than a hairline
+		hudMeter( centreX - comboWidth / 2, comboText.ey + 4, comboWidth, 3,
+			$.comboTimer / $.comboTimerMax, comboHue, 100, 60 );
+	}
+
+	/*==========================================================================
+	TOP RIGHT - progress and active effects
+	==========================================================================*/
+	var rightY = hudTop,
+		sectorName = ( $.sector && $.sector.title ) || '';
+
+	hudLabel( 'LEVEL ' + ( $.level.current + 1 ), hudRight, rightY, 'right', hudScale, 'hsla(0, 0%, 100%, 0.7)' );
+	if( sectorName ) {
+		hudLabel( sectorName, hudRight, rightY - ( hudCompact ? 8 : 10 ), 'right', 1, 'hsla(190, 90%, 70%, 0.5)' );
+	}
+
+	var progRatio = $.level.killsToLevel ? ( $.level.kills / $.level.killsToLevel ) : 0,
+		progY = rightY + ( hudCompact ? 11 : 18 );
+	hudMeter( hudRight - barW, progY, barW, barH, progRatio, 190, 85, 55 );
 
 	if( $.level.kills == $.level.killsToLevel ) {
 		$.particleEmitters.push( new $.ParticleEmitter( {
-			x: -$.screen.x + progressBar.x + progressBar.width,
-			y: -$.screen.y + progressBar.y + progressBar.height / 2,
+			x: -$.screen.x + hudRight,
+			y: -$.screen.y + progY + barH / 2,
 			count: 30,
 			spawnRange: 5,
 			friction: 0.95,
 			minSpeed: 2,
 			maxSpeed: 25,
-			minDirection: 0,
 			minDirection: $.pi / 2 - $.pi / 4,
 			maxDirection: $.pi / 2 + $.pi / 4,
-			hue: 0,
-			saturation: 0
+			hue: 190,
+			saturation: 90
 		} ) );
 	}
 
-	/*==============================================================================
-	Score
-	==============================================================================*/
-	$.ctxmg.beginPath();
-	var scoreLabel = $.text( {
-		ctx: $.ctxmg,
-		x: progressBar.x + progressBar.width + hudGap,
-		y: hudTop,
-		text: 'SCORE',
-		hspacing: 1,
-		vspacing: 1,
-		halign: 'top',
-		valign: 'left',
-		scale: hudScale,
-		snap: 1,
-		render: 1
-	} );
-	$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 0.5)';
-	$.ctxmg.fill();
+	/*--- active powerups: chips that drain, stacked under the level bar.
+	  Inactive powerups are NOT listed - an always-on list of things you do
+	  not have is noise, and it was pushing the real ones off the read. ---*/
+	var chipY = progY + barH + ( hudCompact ? 6 : 8 );
+	for( var pi = 0; pi < $.definitions.powerups.length; pi++ ) {
+		if( $.powerupTimers[ pi ] <= 0 ) { continue; }
+		var pu = $.definitions.powerups[ pi ],
+			left = $.powerupTimers[ pi ] / $.powerupDuration,
+			pm = $.text( { ctx: $.ctxmg, x: 0, y: 0, text: pu.title, hspacing: 1, vspacing: 0,
+				halign: 'left', valign: 'top', scale: 1, snap: 1, render: 0 } ),
+			chipW = Math.max( 74, pm.width + 16 ),
+			chipX = hudRight - chipW;
 
-	$.ctxmg.beginPath();
-	var scoreText = $.text( {
-		ctx: $.ctxmg,
-		x: scoreLabel.ex + 10,
-		y: hudTop,
-		text: $.util.pad( $.score, 6 ),
-		hspacing: 1,
-		vspacing: 1,
-		halign: 'top',
-		valign: 'left',
-		scale: hudScale,
-		snap: 1,
-		render: 1
-	} );
-	$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 1)';
-	$.ctxmg.fill();
-
-		// XP BOOST active this run: a small pulsing badge after the score so the
-		// player sees the perk they paid for is working
-		if( $.xpBoostThisRun ) {
-			$.ctxmg.beginPath();
-			$.text( { ctx: $.ctxmg, x: scoreLabel.sx, y: scoreText.ey + 3, text: '2X XP', hspacing: 1, vspacing: 1, halign: 'top', valign: 'left', scale: 1, snap: 1, render: 1 } );
-			$.ctxmg.fillStyle = 'hsla(140, 90%, 62%, ' + ( 0.7 + Math.sin( $.tick / 12 ) * 0.3 ) + ')';
-			$.ctxmg.fill();
-		}
-
-	$.ctxmg.beginPath();
-	var bestLabel = $.text( {
-		ctx: $.ctxmg,
-		x: scoreText.ex + hudGap,
-		y: hudTop,
-		text: 'BEST',
-		hspacing: 1,
-		vspacing: 1,
-		halign: 'top',
-		valign: 'left',
-		scale: hudScale,
-		snap: 1,
-		render: 1
-	} );
-	$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 0.5)';
-	$.ctxmg.fill();
-
-	$.ctxmg.beginPath();
-	var bestText = $.text( {
-		ctx: $.ctxmg,
-		x: bestLabel.ex + 10,
-		y: hudTop,
-		text: $.util.pad( Math.max( $.storage['score'], $.score ), 6 ),
-		hspacing: 1,
-		vspacing: 1,
-		halign: 'top',
-		valign: 'left',
-		scale: hudScale,
-		snap: 1,
-		render: 1
-	} );
-	$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 1)';
-	$.ctxmg.fill();
-
-	/*==============================================================================
-	Combo Meter
-	==============================================================================*/
-	if( $.combo > 0 ) {
 		$.ctxmg.beginPath();
-		var comboText = $.text( {
-			ctx: $.ctxmg,
-			x: bestText.ex + hudGap,
-			y: hudTop,
-			text: 'COMBO ' + $.combo + ' X' + $.comboMultiplier,
-			hspacing: 1,
-			vspacing: 1,
-			halign: 'top',
-			valign: 'left',
-			scale: hudScale,
-			snap: 1,
-			render: 1
-		} );
-		$.ctxmg.fillStyle = 'hsla(' + ( 40 + $.comboMultiplier * 5 ) + ', 100%, 60%, 1)';
+		$.cutRect( $.ctxmg, chipX, chipY, chipW, 17, 5 );
+		$.ctxmg.fillStyle = 'hsla(' + pu.hue + ', ' + pu.saturation + '%, ' + pu.lightness + '%, 0.14)';
 		$.ctxmg.fill();
+		$.ctxmg.beginPath();
+		$.cutRect( $.ctxmg, chipX + 0.5, chipY + 0.5, chipW - 1, 16, 5 );
+		$.ctxmg.strokeStyle = 'hsla(' + pu.hue + ', ' + pu.saturation + '%, ' + pu.lightness + '%, 0.5)';
+		$.ctxmg.lineWidth = 1;
+		$.ctxmg.stroke();
 
-		// chain decay bar
-		$.ctxmg.fillStyle = 'hsla(0, 0%, 20%, 1)';
-		$.ctxmg.fillRect( comboText.sx, comboText.ey + 4, comboText.ex - comboText.sx, 3 );
-		$.ctxmg.fillStyle = 'hsla(' + ( 40 + $.comboMultiplier * 5 ) + ', 100%, 60%, 1)';
-		$.ctxmg.fillRect( comboText.sx, comboText.ey + 4, ( $.comboTimer / $.comboTimerMax ) * ( comboText.ex - comboText.sx ), 3 );
+		hudLabel( pu.title, chipX + 8, chipY + 4, 'left', 1,
+			'hsla(' + pu.hue + ', ' + pu.saturation + '%, ' + Math.min( 88, pu.lightness + 25 ) + '%, 1)' );
+		// the chip drains along its own bottom edge - the timer is the chip
+		$.ctxmg.fillStyle = 'hsla(' + pu.hue + ', ' + pu.saturation + '%, ' + pu.lightness + '%, 0.95)';
+		$.ctxmg.fillRect( chipX + 1, chipY + 15, ( chipW - 2 ) * left, 1.5 );
+
+		chipY += 21;
 	}
 
-	/*==============================================================================
-	Dash Cooldown
-	==============================================================================*/
-	var dashReady = 1 - Math.max( 0, $.hero.dashCooldown ) / $.hero.dashCooldownMax;
-	$.ctxmg.fillStyle = 'hsla(0, 0%, 20%, 1)';
-	$.ctxmg.fillRect( healthBar.x, healthBar.y + healthBar.height + 4, healthBar.width, 3 );
-	$.ctxmg.fillStyle = ( dashReady >= 1 ) ? 'hsla(0, 0%, 100%, 0.9)' : 'hsla(0, 0%, 60%, 0.6)';
-	$.ctxmg.fillRect( healthBar.x, healthBar.y + healthBar.height + 4, dashReady * healthBar.width, 3 );
+	// the run's own commentary, directly under the active-effect chips
+	chipY = $.renderFeed( hudRight, chipY + 2 );
 
-	/*==============================================================================
-	Autofire Indicator
-	==============================================================================*/
+	if( $.xpBoostThisRun ) {
+		hudLabel( '2X XP', hudRight, chipY + 2, 'right', 1,
+			'hsla(140, 90%, 62%, ' + ( 0.7 + Math.sin( $.tick / 12 ) * 0.3 ) + ')' );
+		chipY += 12;
+	}
+
 	if( $.autofire ) {
-		$.ctxmg.beginPath();
-		$.text( {
-			ctx: $.ctxmg,
-			x: $.cw - 20 - $.safeAreaRight,
-			y: 210 + $.safeAreaTop,
-			text: 'AUTOFIRE',
-			hspacing: 1,
-			vspacing: 1,
-			halign: 'right',
-			valign: 'top',
-			scale: 1,
-			snap: 1,
-			render: 1
-		} );
-		$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 0.4)';
-		$.ctxmg.fill();
+		hudLabel( 'AUTOFIRE', hudRight, chipY + 2, 'right', 1, 'hsla(0, 0%, 100%, 0.3)' );
+	}
+
+	/*==========================================================================
+	Slow-enemies screen tint - the one full-screen effect, and it stays faint
+	==========================================================================*/
+	if( $.powerupTimers[ 1 ] > 0 ) {
+		$.ctxmg.fillStyle = 'hsla(200, 100%, 20%, 0.05)';
+		$.ctxmg.fillRect( 0, 0, $.cw, $.ch );
 	}
 };
 
@@ -1691,6 +1829,59 @@ $.updateScreen = function() {
 /*==============================================================================
 Combo
 ==============================================================================*/
+/*==============================================================================
+Event feed
+
+An arcade kill feed, adapted to a game with no other players in it: instead of
+"who killed whom", it reports what just happened TO YOU that you would
+otherwise have to stop and check - a level cleared, an elite down, a chain
+milestone, a powerup running. Three lines maximum, top right, each one alive
+for about two seconds.
+
+The point is that the player never has to look away from their ship to know
+the run is going well. Feedback arrives in peripheral vision and leaves on its
+own.
+==============================================================================*/
+$.feed = [];
+$.pushFeed = function( text, hue ) {
+	if( !$.feed ) { $.feed = []; }
+	// a repeat of the line already on top just re-arms it, so a fast chain of
+	// identical events reads as one live entry rather than a stack of three
+	if( $.feed.length && $.feed[ 0 ].text === text ) {
+		$.feed[ 0 ].born = $.tick;
+		return;
+	}
+	$.feed.unshift( { text: text, hue: ( hue === undefined ) ? 190 : hue, born: $.tick } );
+	if( $.feed.length > 3 ) { $.feed.length = 3; }
+};
+
+$.renderFeed = function( x, y ) {
+	if( !$.feed || !$.feed.length ) { return y; }
+	var life = 120;
+	for( var i = 0; i < $.feed.length; i++ ) {
+		var e = $.feed[ i ],
+			age = $.tick - e.born;
+		if( age > life ) { $.feed.length = i; break; }
+		// slide in from the right, hold, then fade out
+		var appear = Math.min( 1, age / 8 ),
+			fade = Math.min( 1, ( life - age ) / 25 ),
+			alpha = Math.min( appear, fade ) * ( 1 - i * 0.22 ),
+			slide = ( 1 - appear ) * 14;
+
+		$.ctxmg.beginPath();
+		$.text( {
+			ctx: $.ctxmg, x: x + slide, y: y,
+			text: e.text,
+			hspacing: 1, vspacing: 1, halign: 'right', valign: 'top',
+			scale: 1, snap: 1, render: 1
+		} );
+		$.ctxmg.fillStyle = 'hsla(' + e.hue + ', 95%, 72%, ' + alpha + ')';
+		$.ctxmg.fill();
+		y += 12;
+	}
+	return y;
+};
+
 $.registerKill = function( value, radius ) {
 	$.score += value * $.comboMultiplier;
 	$.combo++;
@@ -1705,12 +1896,21 @@ $.registerKill = function( value, radius ) {
 		$.hero.life = Math.min( 1, $.hero.life + heal );
 	}
 	if( $.hero.character ) {
-		$.gainPilotXp( $.hero.character.id, $.xpGainMult ? $.xpGainMult() : 1 );
+		// XP is banked per kill, but the player only ever sees it as a total,
+		// so keep a run tally for the debrief screen to report and animate
+		var gained = $.xpGainMult ? $.xpGainMult() : 1;
+		$.gainPilotXp( $.hero.character.id, gained );
+		$.runXp = ( $.runXp || 0 ) + gained;
 	}
 	$.bestCombo = Math.max( $.bestCombo, $.combo );
 	var multiplier = Math.min( 8, 1 + Math.floor( $.combo / 4 ) );
 	if( multiplier > $.comboMultiplier ) {
 		$.audio.play( 'powerup' );
+	}
+	// a rising multiplier is the single best thing that can happen mid-run, so
+	// it gets called out the moment it steps up - and only then
+	if( multiplier > $.comboMultiplier && multiplier > 1 ) {
+		$.pushFeed( 'CHAIN X' + multiplier, Math.max( 0, 45 - ( multiplier - 1 ) * 6 ) );
 	}
 	$.comboMultiplier = multiplier;
 };
@@ -1758,6 +1958,7 @@ $.updateLevel = function() {
 		$.levelPops.push( new $.LevelPop( {
 			level: $.level.current + 1
 		} ) );
+		$.pushFeed( 'LEVEL ' + ( $.level.current + 1 ) + '  HULL PATCHED', 150 );
 		$.updateSector();
 		// a boss guards every fifth level
 		if( ( $.level.current + 1 ) % 5 === 0 ) {
@@ -1935,116 +2136,126 @@ $.setState = function( state ) {
 
 		$.reset();
 
-		// compact layout: two columns of buttons on short screens (phone
-		// landscape), where a single stacked column runs off the bottom
-		var menuCompact = ( $.ch < 640 ),
-			menuSpacing = menuCompact ? 8 : 22,
-			menuButtonHeight = menuCompact ? 45 : 49,
-			menuStartY = menuCompact ? 112 : $.ch / 2 - 110;
-
 		$.fetchSession();
-		// refresh the live tournament banner whenever the menu is entered
 		if( $.fetchSeason ) { $.fetchSeason(); }
-		// tournament reward won since last visit? start the one-time
-		// congratulation (marked seen after it has been displayed once)
+
+		// Tournament reward won since last visit? Arm the one-time
+		// congratulation. This is game state, not canvas chrome, so it is
+		// resolved on BOTH menu paths - the command centre reads $.celebration
+		// and reports it as a reward drop; the canvas fallback draws its own
+		// strip below. Either way it is marked seen once shown, so it never
+		// nags twice.
 		$.celebration = $.rewardCelebration ? $.rewardCelebration() : null;
 		$.celebrationStart = $.tick;
 
-		// Trimmed top level: PLAY and SETTINGS are full-width bookends, with
-		// the four core destinations in a 2x2 grid between them. Secondary
-		// items (call sign, stats, credits) live inside SETTINGS now, so the
-		// menu is 4 rows on every device instead of an overflowing 5.
-		var menuDefs = [
-			// PLAY opens a two-option chooser (ENDLESS / DAILY RUN) instead of a
-			// separate DAILY menu row - one less button, and the daily mode sits
-			// right on the play path where every player sees it
-			{ title: 'PLAY', full: 1, scale: menuCompact ? 2 : 3, action: function() {
-				$.mouse.down = 0;
-				// first-time players choose a call sign before their first
-				// run, so their very first score lands on the board under a
-				// name they picked - not a silent auto-generated default
-				if( !$.storage['pilotname'] ) {
-					$.promptPilotName();
+		// The HTML command centre owns this screen (see CommandCenter.tsx), so
+		// the engine builds no canvas buttons for it. They would be invisible
+		// under the overlay but still hoverable and clickable, swallowing taps
+		// meant for the HTML above them.
+		if( !window.__htmlMenu ) {
+			// compact layout: two columns of buttons on short screens (phone
+			// landscape), where a single stacked column runs off the bottom
+			var menuCompact = ( $.ch < 640 ),
+				menuSpacing = menuCompact ? 8 : 22,
+				menuButtonHeight = menuCompact ? 45 : 49,
+				menuStartY = menuCompact ? 112 : $.ch / 2 - 110;
+
+			// Trimmed top level: PLAY and SETTINGS are full-width bookends, with
+			// the four core destinations in a 2x2 grid between them. Secondary
+			// items (call sign, stats, credits) live inside SETTINGS now, so the
+			// menu is 4 rows on every device instead of an overflowing 5.
+			var menuDefs = [
+				// PLAY opens a two-option chooser (ENDLESS / DAILY RUN) instead of a
+				// separate DAILY menu row - one less button, and the daily mode sits
+				// right on the play path where every player sees it
+				{ title: 'PLAY', full: 1, scale: menuCompact ? 2 : 3, action: function() {
+					$.mouse.down = 0;
+					// first-time players choose a call sign before their first
+					// run, so their very first score lands on the board under a
+					// name they picked - not a silent auto-generated default
+					if( !$.storage['pilotname'] ) {
+						$.promptPilotName();
+						$.ensurePilotName();
+					}
+					$.setState( 'playmode' );
+				} },
+				{ title: 'PILOT: ' + $.currentCharacter().title, scale: menuCompact ? 1 : 2, action: function() {
+					$.mouse.down = 0;
+					$.setState( 'hangar' );
+				} },
+				{ title: 'ARMORY', scale: menuCompact ? 1 : 2, action: function() {
+					$.mouse.down = 0;
+					$.setState( 'market' );
+				} },
+				{ title: 'SHOOTERBOARD', full: 1, scale: menuCompact ? 2 : 3, action: function() {
+					$.mouse.down = 0;
+					// a name is required before the board is shown the first time,
+					// so every row on screen — including the player's own — has a
+					// real, chosen name rather than a silent auto-generated default
+					if( !$.storage['pilotname'] ) {
+						$.promptPilotName();
+					}
 					$.ensurePilotName();
-				}
-				$.setState( 'playmode' );
-			} },
-			{ title: 'PILOT: ' + $.currentCharacter().title, scale: menuCompact ? 1 : 2, action: function() {
-				$.mouse.down = 0;
-				$.setState( 'hangar' );
-			} },
-			{ title: 'MARKET', scale: menuCompact ? 1 : 2, action: function() {
-				$.mouse.down = 0;
-				$.setState( 'market' );
-			} },
-			{ title: 'SHOOTERBOARD', full: 1, scale: menuCompact ? 2 : 3, action: function() {
-				$.mouse.down = 0;
-				// a name is required before the board is shown the first time,
-				// so every row on screen — including the player's own — has a
-				// real, chosen name rather than a silent auto-generated default
-				if( !$.storage['pilotname'] ) {
-					$.promptPilotName();
-				}
-				$.ensurePilotName();
-				$.setState( 'board' );
-			} },
-			{ title: 'SETTINGS', full: 1, scale: menuCompact ? 2 : 3, action: function() {
-				$.mouse.down = 0;
-				$.setState( 'settings' );
-			} }
-		];
+					$.setState( 'board' );
+				} },
+				{ title: 'SETTINGS', full: 1, scale: menuCompact ? 2 : 3, action: function() {
+					$.mouse.down = 0;
+					$.setState( 'settings' );
+				} }
+			];
 
-		// responsive row-based layout: full-width rows for PLAY/SETTINGS,
-		// paired half-width rows for everything else; vertical metrics scale
-		// with the viewport so it never overlaps the logo or runs off-screen
-		var rowPitch = menuButtonHeight + menuSpacing,
-			halfX = menuCompact ? 106 : 156,
-			halfW = menuCompact ? 199 : 299,
-			fullW = Math.min( $.cw - 40, menuCompact ? 420 : 620 ),
-			my = menuStartY,
-			mcol = 0;
+			// responsive row-based layout: full-width rows for PLAY/SETTINGS,
+			// paired half-width rows for everything else; vertical metrics scale
+			// with the viewport so it never overlaps the logo or runs off-screen
+			var rowPitch = menuButtonHeight + menuSpacing,
+				halfX = menuCompact ? 106 : 156,
+				halfW = menuCompact ? 199 : 299,
+				fullW = Math.min( $.cw - 40, menuCompact ? 420 : 620 ),
+				my = menuStartY,
+				mcol = 0;
 
-		// Guarantee the whole stack fits: count the rows the defs will take,
-		// and if the last row would land below the viewport (players reported
-		// SETTINGS missing on short screens), compress the pitch - and the
-		// button height if needed - so every row is always on screen.
-		var rowsNeeded = 0, colCount = 0;
-		for( var rc = 0; rc < menuDefs.length; rc++ ) {
-			if( menuDefs[ rc ].full ) {
-				if( colCount === 1 ) { rowsNeeded++; colCount = 0; }
-				rowsNeeded++;
-			} else {
-				if( colCount === 1 ) { rowsNeeded++; colCount = 0; } else { colCount = 1; }
+			// Guarantee the whole stack fits: count the rows the defs will take,
+			// and if the last row would land below the viewport (players reported
+			// SETTINGS missing on short screens), compress the pitch - and the
+			// button height if needed - so every row is always on screen.
+			var rowsNeeded = 0, colCount = 0;
+			for( var rc = 0; rc < menuDefs.length; rc++ ) {
+				if( menuDefs[ rc ].full ) {
+					if( colCount === 1 ) { rowsNeeded++; colCount = 0; }
+					rowsNeeded++;
+				} else {
+					if( colCount === 1 ) { rowsNeeded++; colCount = 0; } else { colCount = 1; }
+				}
 			}
-		}
-		if( colCount === 1 ) { rowsNeeded++; }
-		// clearance also accounts for the HTML pill row (Feedback / Invite /
-		// weekly gift) pinned to the bottom of the page - on short screens it
-		// was covering SETTINGS, which is what players reported as "missing"
-		var lastRowY = menuStartY + ( rowsNeeded - 1 ) * rowPitch,
-			maxRowY = $.ch - ( menuCompact ? 56 : 16 ) - menuButtonHeight / 2;
-		if( lastRowY > maxRowY && rowsNeeded > 1 ) {
-			rowPitch = Math.max( 30, Math.floor( ( maxRowY - menuStartY ) / ( rowsNeeded - 1 ) ) );
-			if( rowPitch < menuButtonHeight + 2 ) {
-				menuButtonHeight = Math.max( 26, rowPitch - 3 );
+			if( colCount === 1 ) { rowsNeeded++; }
+			// clearance also accounts for the HTML pill row (Feedback / Invite /
+			// weekly gift) pinned to the bottom of the page - on short screens it
+			// was covering SETTINGS, which is what players reported as "missing"
+			var lastRowY = menuStartY + ( rowsNeeded - 1 ) * rowPitch,
+				maxRowY = $.ch - ( menuCompact ? 56 : 16 ) - menuButtonHeight / 2;
+			if( lastRowY > maxRowY && rowsNeeded > 1 ) {
+				rowPitch = Math.max( 30, Math.floor( ( maxRowY - menuStartY ) / ( rowsNeeded - 1 ) ) );
+				if( rowPitch < menuButtonHeight + 2 ) {
+					menuButtonHeight = Math.max( 26, rowPitch - 3 );
+				}
 			}
-		}
-		for( var mi = 0; mi < menuDefs.length; mi++ ) {
-			var d = menuDefs[ mi ];
-			if( d.full ) {
-				if( mcol === 1 ) { my += rowPitch; mcol = 0; }
-				$.buttons.push( new $.Button( {
-					x: $.cw / 2, y: my, lockedWidth: fullW, lockedHeight: menuButtonHeight,
-					scale: d.scale, title: d.title, action: d.action
-				} ) );
-				my += rowPitch;
-			} else {
-				$.buttons.push( new $.Button( {
-					x: $.cw / 2 + ( mcol ? halfX : -halfX ), y: my,
-					lockedWidth: halfW, lockedHeight: menuButtonHeight,
-					scale: d.scale, title: d.title, action: d.action
-				} ) );
-				if( mcol === 1 ) { my += rowPitch; mcol = 0; } else { mcol = 1; }
+			for( var mi = 0; mi < menuDefs.length; mi++ ) {
+				var d = menuDefs[ mi ];
+				if( d.full ) {
+					if( mcol === 1 ) { my += rowPitch; mcol = 0; }
+					$.buttons.push( new $.Button( {
+						x: $.cw / 2, y: my, lockedWidth: fullW, lockedHeight: menuButtonHeight,
+						scale: d.scale, title: d.title, action: d.action
+					} ) );
+					my += rowPitch;
+				} else {
+					$.buttons.push( new $.Button( {
+						x: $.cw / 2 + ( mcol ? halfX : -halfX ), y: my,
+						lockedWidth: halfW, lockedHeight: menuButtonHeight,
+						scale: d.scale, title: d.title, action: d.action
+					} ) );
+					if( mcol === 1 ) { my += rowPitch; mcol = 0; } else { mcol = 1; }
+				}
 			}
 		}
 	}
@@ -2059,7 +2270,7 @@ $.setState = function( state ) {
 			pmW = Math.min( $.cw - 40, pmCompact ? 420 : 520 );
 		$.buttons.push( new $.Button( {
 			x: $.cw / 2, y: pmY, lockedWidth: pmW, lockedHeight: pmCompact ? 48 : 56,
-			scale: pmCompact ? 2 : 3, title: 'ENDLESS RUN',
+			scale: pmCompact ? 2 : 3, title: 'ENDLESS RUN', primary: 1,
 			action: function() {
 				$.mouse.down = 0;
 				$.reset();
@@ -2251,7 +2462,7 @@ $.setState = function( state ) {
 				lockedWidth: 199,
 				lockedHeight: 45,
 				scale: 2,
-				title: 'SELECT',
+				title: 'SELECT', primary: 1,
 				scrollable: 1,
 				action: function() {
 					$.mouse.down = 0;
@@ -2431,7 +2642,11 @@ $.setState = function( state ) {
 					lockedWidth: marketCompact ? 102 : 132,
 					lockedHeight: marketCompact ? 28 : 36,
 					scale: marketCompact ? 1 : 1.4,
-					title: ( $.marketTab === tab.id ? '> ' : '' ) + tab.title,
+					// the selected tab lights up like every other active thing
+					// in the interface, instead of being marked by a '>' that
+					// also shifted the label off centre
+					primary: ( $.marketTab === tab.id ) ? 1 : 0,
+					title: tab.title,
 					action: function() {
 						$.mouse.down = 0;
 						$.marketTab = tab.id;
@@ -2510,13 +2725,18 @@ $.setState = function( state ) {
 				};
 			}
 
-			// per-category identity stripe: pilots steel-blue, drones cyan,
-			// boosts gold - owned items go green to read as unlocked
-			var accent = owned
-				? 'hsla(140, 80%, 55%, 0.9)'
-				: ( item.kind === 'character' ? 'hsla(205, 90%, 62%, 0.9)'
-					: item.kind === 'drone' ? 'hsla(190, 100%, 60%, 0.9)'
-					: 'hsla(45, 100%, 62%, 0.9)' );
+			// The stripe carries RARITY where the catalogue's pricing supports
+			// one - it is the thing a player scans a storefront for, in the
+			// same colour scale used on reward drops and tier badges. Where
+			// there is no spread to read (see buildRarityScale), it falls back
+			// to the category stripe rather than colouring everything alike.
+			// Ownership is a state, so it stays in the note column as a green
+			// OWNED, never in the item's identity colour.
+			var rarity = $.itemRarity( item ),
+				accent = rarity ? rarity.color
+					: ( item.kind === 'character' ? 'hsla(205, 90%, 62%, 0.9)'
+						: item.kind === 'drone' ? 'hsla(190, 100%, 60%, 0.9)'
+						: 'hsla(45, 100%, 62%, 0.9)' );
 
 			$.buttons.push( new $.Button( {
 				x: x,
@@ -2526,6 +2746,8 @@ $.setState = function( state ) {
 				scale: 1,
 				card: 1,
 				accent: accent,
+				rarity: rarity ? rarity.label : '',
+				rarityColor: rarity ? rarity.color : '',
 				name: item.title,
 				subtitle: subtitle,
 				note: note,
@@ -3064,7 +3286,7 @@ $.setState = function( state ) {
 			// owns a revive: one tap to resurrect and keep the run going
 			$.buttons.push( new $.Button( {
 				x: coCx, y: coBtnY, lockedWidth: coCompact ? 260 : 320, lockedHeight: coCompact ? 48 : 56,
-				scale: coCompact ? 2 : 3, title: 'CONTINUE',
+				scale: coCompact ? 2 : 3, title: 'CONTINUE', primary: 1,
 				action: function() { $.mouse.down = 0; $.continueRun(); }
 			} ) );
 		} else {
@@ -3110,7 +3332,7 @@ $.setState = function( state ) {
 			lockedWidth: goCompact ? 199 : 299,
 			lockedHeight: goCompact ? 45 : 49,
 			scale: goCompact ? 2 : 3,
-			title: 'PLAY AGAIN',
+			title: 'PLAY AGAIN', primary: 1,
 			action: function() {
 				$.reset();
 				$.trackRun( 'run_start' );
@@ -3354,6 +3576,14 @@ $.setupStates = function() {
 		$.renderAmbientShips();
 		// keep the drift animation alive on the menu (play/menu reset tick)
 		$.tick += 1;
+
+		// HTML command centre owns the menu chrome. The engine keeps painting
+		// the living backdrop underneath it - starfield, drifting hangar
+		// traffic - so the overlay sits inside the game world instead of on
+		// top of a dead black rectangle.
+		if( window.__htmlMenu ) {
+			return;
+		}
 
 		var i = $.buttons.length; while( i-- ){ if( $.buttons[ i ] ) { $.buttons[ i ].update( i ) } }
 			i = $.buttons.length; while( i-- ){ if( $.buttons[ i ] ) { $.buttons[ i ].render( i ) } }
@@ -3897,7 +4127,7 @@ $.setupStates = function() {
 			ctx: $.ctxmg,
 			x: $.cw / 2,
 			y: marketCompact ? 60 : 120,
-			text: 'MARKET',
+			text: 'ARMORY',
 			hspacing: 3,
 			vspacing: 1,
 			halign: 'center',
@@ -3917,7 +4147,10 @@ $.setupStates = function() {
 			ctx: $.ctxmg,
 			x: $.cw / 2,
 			y: marketTitle.ey + ( marketCompact ? 6 : 14 ),
-			text: $.marketState.enabled ? 'PILOTS / DRONES / BOOSTS. SETTLED ON BASE' : 'PILOTS / DRONES / BOOSTS. PAYMENTS LIVE SOON',
+			// Equipment first, settlement second. The armory is a place you
+			// outfit a ship; where the payment clears is a footnote, not the
+			// headline it used to be.
+			text: $.marketState.enabled ? 'HULLS / DRONES / FIELD KITS    SETTLED ON BASE' : 'HULLS / DRONES / FIELD KITS    PAYMENTS LIVE SOON',
 			hspacing: 1,
 			vspacing: 1,
 			halign: 'center',
@@ -4626,7 +4859,7 @@ $.setupStates = function() {
 			},
 			{
 				title: 'CLIMB THE RANKS',
-				lines: 'TOP THE SHOOTERBOARD\nEARN TIERS BRONZE TO MASTER\nMARKET ITEMS ARE COSMETIC\nAND NEVER AFFECT YOUR SCORE',
+				lines: 'TOP THE SHOOTERBOARD\nEARN TIERS BRONZE TO MASTER\nARMORY ITEMS ARE COSMETIC\nAND NEVER AFFECT YOUR SCORE',
 				draw: function( cx, cy, r ) {
 					var tiers = $.definitions.tiers, n = tiers.length,
 						gap = r * 0.62, x0 = cx - ( ( n - 1 ) * gap ) / 2;

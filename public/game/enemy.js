@@ -678,6 +678,13 @@ $.Enemy.prototype.receiveDamage = function( i, val ) {
 				if( this.isBoss ) { $.addHitstop( 10 ); }
 				else if( this.elite || this.value >= 30 ) { $.addHitstop( 2 ); }
 			}
+			// call out the kills that were actually a fight. Trash never
+			// reaches the feed - a line per mob would be wallpaper, and the
+			// score pop already confirms every ordinary kill.
+			if( $.pushFeed ) {
+				if( this.isBoss ) { $.pushFeed( 'BOSS DESTROYED', 45 ); }
+				else if( this.elite ) { $.pushFeed( 'ELITE DOWN', 285 ); }
+			}
 		}
 		this.death();
 		$.spawnPowerup( this.x, this.y );

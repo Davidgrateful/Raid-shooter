@@ -70,6 +70,22 @@ $.roundRect = function( x, y, w, h, r ) {
 	ctx.closePath();
 };
 
+// Adds a CUT-CORNER rect subpath (caller handles beginPath/fill/stroke). This
+// is the one geometric motif shared by every surface in the game - canvas
+// buttons, HTML panels, the DEPLOY CTA - so a hangar button and a menu card
+// visibly belong to the same interface. `c` is the corner bite in pixels,
+// taken out of the top-left and bottom-right.
+$.cutRect = function( ctx, x, y, w, h, c ) {
+	c = Math.min( c, w / 2, h / 2 );
+	ctx.moveTo( x + c, y );
+	ctx.lineTo( x + w, y );
+	ctx.lineTo( x + w, y + h - c );
+	ctx.lineTo( x + w - c, y + h );
+	ctx.lineTo( x, y + h );
+	ctx.lineTo( x, y + c );
+	ctx.closePath();
+};
+
 $.util.strokeCircle = function( ctx, x, y, radius, strokeStyle, lineWidth ) {
 	$.util.circle( ctx, x, y, radius );
 	ctx.lineWidth = lineWidth;

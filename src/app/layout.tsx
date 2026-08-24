@@ -1,7 +1,15 @@
 import type { Metadata, Viewport } from 'next';
+import { Orbitron, Chakra_Petch, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
 import { WalletProvider } from '@/components/WalletProvider';
 import { ServiceWorkerRegister } from '@/components/ServiceWorkerRegister';
+
+// Three faces, three jobs - see the TYPOGRAPHY ROLES block in globals.css.
+// next/font self-hosts them, which keeps the CSP's `font-src 'self'` intact
+// (a Google Fonts <link> would be blocked outright).
+const display = Orbitron({ subsets: ['latin'], weight: ['700', '900'], variable: '--font-rs-display', display: 'swap' });
+const ui = Chakra_Petch({ subsets: ['latin'], weight: ['500', '600', '700'], variable: '--font-rs-ui', display: 'swap' });
+const mono = JetBrains_Mono({ subsets: ['latin'], weight: ['500', '700'], variable: '--font-rs-mono', display: 'swap' });
 
 // Absolute base so OG/Twitter image URLs resolve on the real domain instead
 // of localhost. Set NEXT_PUBLIC_SITE_URL in prod; falls back to the Vercel
@@ -65,7 +73,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className={`${display.variable} ${ui.variable} ${mono.variable}`} data-rs-portrait-ok="1">
       <body>
         <WalletProvider>
           {children}

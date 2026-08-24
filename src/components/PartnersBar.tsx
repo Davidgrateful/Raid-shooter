@@ -17,9 +17,18 @@ function trackAd(id: string, type: 'impression' | 'click') {
   }
 }
 
-// Clickable partner logos overlaid at the bottom of the menu/loading screens.
-// Reads the public /api/sponsors feed, so the operator manages it entirely
-// from the admin dashboard. Hidden during gameplay and on other screens.
+/*==============================================================================
+Partner strip
+
+Operator-managed sponsor placements. It used to run as two separate floating
+bars - one pinned over the top of the screen, one at the bottom - which is
+precisely the kind of page furniture that made the menu read as a website.
+
+Both placements now collapse into a single quiet strip along the bottom edge,
+sitting behind the command centre's own chrome: readable, clickable, credited,
+and never in front of anything the player came here to do. On phones it rides
+above the tab bar rather than under it.
+==============================================================================*/
 
 interface Sponsor {
   id: string;
@@ -70,66 +79,51 @@ export function PartnersBar() {
   if (!visible) return null;
 
   const linkFor = (s: Sponsor) => s.socials?.website || s.socials?.twitter || s.socials?.telegram || '#';
-  const partners = sponsors.filter((s) => s.slots?.includes('partners'));
-  // the "menu" slot is a single featured headline placement; show the first one
   const featured = sponsors.find((s) => s.slots?.includes('menu'));
+  const partners = sponsors.filter((s) => s.slots?.includes('partners') && s.id !== featured?.id);
 
   if (partners.length === 0 && !featured) return null;
 
   return (
-    <>
-      {featured ? (
-        <div
-          style={{ position: 'fixed', left: 0, right: 0, top: 12, zIndex: 40, pointerEvents: 'none' }}
-          className="flex flex-col items-center gap-1"
-        >
-          <div className="text-[10px] uppercase tracking-[0.3em] text-white/30">Powered by</div>
+    <div data-game-ui="" className="rs-partners">
+      <span className="rs-label shrink-0">Backed by</span>
+      <div className="rs-scroll flex min-w-0 items-center gap-3 overflow-x-auto">
+        {featured && (
           <a
+            key={featured.id}
             href={linkFor(featured)}
             target="_blank"
             rel="noopener noreferrer"
             title={`Follow ${featured.name}`}
             onClick={() => trackAd(featured.id, 'click')}
-            style={{ pointerEvents: 'auto', borderColor: featured.accentColor || undefined }}
-            className="flex items-center gap-2 rounded-lg border border-cyan-400/40 bg-black/50 px-4 py-1.5 text-sm font-medium text-white/90 backdrop-blur-sm transition-colors hover:text-white"
+            className="flex shrink-0 items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.12em] transition-colors"
+            style={{ color: featured.accentColor || 'var(--rs-cyan)' }}
           >
             {featured.logoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={featured.logoUrl} alt="" className="h-5 w-5 rounded object-contain" />
+              <img src={featured.logoUrl} alt="" className="h-4 w-4 rounded-sm object-contain" />
             ) : null}
             <span>{featured.name}</span>
-            {featured.tagline ? <span className="text-white/40">— {featured.tagline}</span> : null}
           </a>
-        </div>
-      ) : null}
-
-      {partners.length > 0 ? (
-        <div
-          style={{ position: 'fixed', left: 0, right: 0, bottom: 6, zIndex: 40, pointerEvents: 'none' }}
-          className="flex flex-col items-center gap-1"
-        >
-          <div className="text-[10px] uppercase tracking-[0.3em] text-white/30">Partners</div>
-          <div className="flex items-center gap-4" style={{ pointerEvents: 'auto' }}>
-            {partners.map((s) => (
-              <a
-                key={s.id}
-                href={linkFor(s)}
-                target="_blank"
-                rel="noopener noreferrer"
-                title={`Follow ${s.name}`}
-                onClick={() => trackAd(s.id, 'click')}
-                className="flex items-center gap-2 rounded-md border border-white/10 bg-black/40 px-2.5 py-1 text-xs text-white/70 backdrop-blur-sm transition-colors hover:border-cyan-400/40 hover:text-white"
-              >
-                {s.logoUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={s.logoUrl} alt="" className="h-4 w-4 rounded object-contain" />
-                ) : null}
-                <span>{s.name}</span>
-              </a>
-            ))}
-          </div>
-        </div>
-      ) : null}
-    </>
+        )}
+        {partners.map((s) => (
+          <a
+            key={s.id}
+            href={linkFor(s)}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={`Follow ${s.name}`}
+            onClick={() => trackAd(s.id, 'click')}
+            className="flex shrink-0 items-center gap-1.5 text-[11px] uppercase tracking-[0.12em] text-white/35 transition-colors hover:text-white"
+          >
+            {s.logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={s.logoUrl} alt="" className="h-3.5 w-3.5 rounded-sm object-contain opacity-70" />
+            ) : null}
+            <span>{s.name}</span>
+          </a>
+        ))}
+      </div>
+    </div>
   );
 }

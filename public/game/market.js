@@ -114,6 +114,7 @@ $.fetchMarket = function() {
 			$.marketState.network = data.network || '';
 			$.marketState.treasury = data.treasury || null;
 			$.marketState.items = data.items || [];
+			$.buildRarityScale( $.marketState.items );
 			$.marketState.loading = 0;
 			$.marketState.fetched = 1;
 			// the screen may have been built before the catalog arrived
@@ -143,6 +144,58 @@ $.consumableCount = function( id ) {
 };
 
 // consistent storefront price, e.g. 0.9 -> "$0.90", 1 -> "$1.00"
+/*==============================================================================
+Rarity
+
+The catalogue carries no rarity field, and inventing absolute price bands would
+be wrong the moment the operator repriced anything. So rarity is derived from
+the catalogue's OWN price spread, recomputed whenever the catalogue loads: the
+distinct prices are sorted, and each one is mapped onto as many tiers as the
+spread can honestly support.
+
+If every item costs the same there is no spread, and no rarity is shown at
+all - a list where everything reads COMMON tells the player nothing and is
+just one more column of noise.
+
+Cosmetic only, like everything else in the armory: rarity changes how an item
+LOOKS in the list, never what it does in a run.
+==============================================================================*/
+$.definitions.rarities = [
+	{ label: 'COMMON', color: 'hsla(205, 30%, 72%, 0.9)' },
+	{ label: 'RARE', color: 'hsla(190, 100%, 62%, 0.9)' },
+	{ label: 'EPIC', color: 'hsla(272, 90%, 74%, 0.9)' },
+	{ label: 'LEGENDARY', color: 'hsla(45, 100%, 62%, 0.95)' }
+];
+
+// price -> tier index, built from whatever the live catalogue actually costs
+$.rarityScale = null;
+
+$.buildRarityScale = function( items ) {
+	var prices = [], seen = {};
+	for( var i = 0; i < items.length; i++ ) {
+		if( items[ i ].comingSoon ) { continue; }
+		var p = Number( items[ i ].priceUsd );
+		if( !isFinite( p ) || seen[ p ] ) { continue; }
+		seen[ p ] = 1;
+		prices.push( p );
+	}
+	prices.sort( function( a, b ) { return a - b; } );
+	// one price (or none) means no ladder to climb - show no rarity at all
+	$.rarityScale = ( prices.length < 2 ) ? null : prices;
+};
+
+$.itemRarity = function( item ) {
+	if( !$.rarityScale || !item || item.comingSoon ) { return null; }
+	var price = Number( item.priceUsd ),
+		index = $.rarityScale.indexOf( price );
+	if( index < 0 ) { return null; }
+	// spread the distinct prices across the available tiers, using only as
+	// many tiers as there are prices to distinguish
+	var tiers = Math.min( $.definitions.rarities.length, $.rarityScale.length ),
+		slot = Math.floor( ( index / ( $.rarityScale.length - 1 ) ) * ( tiers - 1 ) );
+	return $.definitions.rarities[ Math.max( 0, Math.min( tiers - 1, slot ) ) ];
+};
+
 $.usd = function( n ) {
 	return '$' + Number( n ).toFixed( 2 );
 };

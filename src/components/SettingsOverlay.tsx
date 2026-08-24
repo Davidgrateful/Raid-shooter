@@ -39,10 +39,10 @@ function Row({ label, value, onClick }: { label: string; value: string; onClick:
   return (
     <button
       onClick={onClick}
-      className="flex w-full items-center justify-between rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-left transition-colors hover:border-cyan-400/40 hover:bg-white/[0.06]"
+      className="rs-panel rs-cut-sm flex w-full items-center justify-between px-4 py-3 text-left transition-colors hover:border-[color:var(--rs-cyan)]"
     >
-      <span className="text-xs font-black uppercase tracking-[0.2em] text-white/50">{label}</span>
-      <span className="font-mono text-sm font-bold text-cyan-300">{value}</span>
+      <span className="rs-label text-white/50">{label}</span>
+      <span className="rs-num text-sm text-[color:var(--rs-cyan)]">{value}</span>
     </button>
   );
 }
@@ -136,13 +136,17 @@ export function SettingsOverlay() {
       }}
     >
       <BoardBackdrop />
-      <div aria-hidden className="pointer-events-none absolute inset-0 opacity-40" style={{ background: 'repeating-linear-gradient(to bottom, rgba(255,255,255,0.015) 0 1px, transparent 1px 3px)' }} />
+      {/* the same whisper of texture the rest of the game now uses - the old
+          full-strength scanline field made every label look smudged */}
+      <div aria-hidden className="pointer-events-none absolute inset-0 opacity-25" style={{ background: 'repeating-linear-gradient(to bottom, rgba(255,255,255,0.012) 0 1px, transparent 1px 4px)' }} />
 
       <div className="relative z-10 mx-auto w-full max-w-md flex-1 overflow-y-auto px-4 py-8 sm:py-12">
         <div className="text-center">
-          <div className="text-[10px] font-black uppercase tracking-[0.4em] text-cyan-300">Raid Shooter</div>
-          <h1 className="mt-1 text-4xl font-black tracking-tight sm:text-5xl" style={{ textShadow: '0 0 30px rgba(51,230,255,0.25)' }}>
-            SETTINGS
+          <div className="rs-label text-[color:var(--rs-cyan)]" style={{ letterSpacing: '0.4em' }}>Raid Shooter</div>
+          {/* named to match the nav rail's SYSTEM slot - one destination, one
+              name, wherever the player reaches it from */}
+          <h1 className="rs-display mt-1.5 text-4xl sm:text-5xl" style={{ textShadow: '0 0 30px rgba(53,232,255,0.25)' }}>
+            SYSTEM
           </h1>
         </div>
 
@@ -161,22 +165,13 @@ export function SettingsOverlay() {
         </p>
 
         <div className="mt-6 grid grid-cols-3 gap-2">
-          <button onClick={goHowTo} className="rounded-lg border border-white/10 bg-white/[0.03] py-2.5 text-[11px] font-black uppercase tracking-wide text-white/70 hover:border-cyan-400/40 hover:text-white">
-            How to play
-          </button>
-          <button onClick={() => $?.setState('stats')} className="rounded-lg border border-white/10 bg-white/[0.03] py-2.5 text-[11px] font-black uppercase tracking-wide text-white/70 hover:border-cyan-400/40 hover:text-white">
-            Stats
-          </button>
-          <button onClick={() => $?.setState('credits')} className="rounded-lg border border-white/10 bg-white/[0.03] py-2.5 text-[11px] font-black uppercase tracking-wide text-white/70 hover:border-cyan-400/40 hover:text-white">
-            Credits
-          </button>
+          <button onClick={goHowTo} className="rs-btn rs-btn-ghost">How to play</button>
+          <button onClick={() => $?.setState('stats')} className="rs-btn rs-btn-ghost">Stats</button>
+          <button onClick={() => $?.setState('credits')} className="rs-btn rs-btn-ghost">Credits</button>
         </div>
 
-        <button
-          onClick={toMenu}
-          className="mt-6 w-full rounded-lg bg-cyan-400 py-3 text-sm font-black uppercase tracking-wider text-black hover:bg-cyan-300"
-        >
-          Back to menu
+        <button onClick={toMenu} className="rs-btn rs-btn-solid mt-6 w-full py-3">
+          Back to command
         </button>
       </div>
     </div>

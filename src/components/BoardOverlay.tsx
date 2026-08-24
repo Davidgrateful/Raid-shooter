@@ -27,10 +27,7 @@ const REFRESH_MS = 5_000;
 function TierChip({ score }: { score: number }) {
   const tier = tierFromScore(score);
   return (
-    <span
-      className="rounded px-1.5 py-0.5 text-[10px] font-black tracking-widest"
-      style={{ color: TIER_COLORS[tier], background: `${TIER_COLORS[tier]}1a`, border: `1px solid ${TIER_COLORS[tier]}40` }}
-    >
+    <span className="rs-badge" style={{ color: TIER_COLORS[tier], background: `${TIER_COLORS[tier]}1a` }}>
       {tier}
     </span>
   );
@@ -154,10 +151,13 @@ export function BoardOverlay() {
     try { (window as unknown as { $: { setState: (s: string) => void } }).$.setState('menu'); } catch { /* engine not ready */ }
   };
 
+  // The champion is not "one of three". Their card is taller, wider, lit, and
+  // carries a bigger number - a player scanning this board should be able to
+  // tell who is winning from across the room, without reading a rank.
   const podiumMeta = [
-    { label: 'CHAMPION', ring: '#ffd75e', glow: 'rgba(255,215,94,0.14)' },
-    { label: 'RUNNER UP', ring: '#c9d1e8', glow: 'rgba(201,209,232,0.10)' },
-    { label: 'THIRD', ring: '#d08a4a', glow: 'rgba(208,138,74,0.10)' },
+    { label: 'CHAMPION', ring: '#ffd75e', glow: 'rgba(255,215,94,0.18)' },
+    { label: 'RUNNER UP', ring: '#c9d1e8', glow: 'rgba(201,209,232,0.09)' },
+    { label: 'THIRD', ring: '#d08a4a', glow: 'rgba(208,138,74,0.09)' },
   ];
 
   return (
@@ -173,8 +173,9 @@ export function BoardOverlay() {
       {/* ambient blurred combat behind the rows: ships firing at enemies */}
       <BoardBackdrop />
 
-      {/* scanlines */}
-      <div aria-hidden className="pointer-events-none absolute inset-0 opacity-40" style={{ background: 'repeating-linear-gradient(to bottom, rgba(255,255,255,0.015) 0 1px, transparent 1px 3px)' }} />
+      {/* a whisper of scanline texture - a third of what was here, so rows
+          and scores read as clean type rather than through a screen door */}
+      <div aria-hidden className="pointer-events-none absolute inset-0 opacity-25" style={{ background: 'repeating-linear-gradient(to bottom, rgba(255,255,255,0.012) 0 1px, transparent 1px 4px)' }} />
 
       {/* header: title on its own line, controls beneath it - keeps the
           top-right corner clear of the site's Connect Wallet button */}
@@ -191,7 +192,7 @@ export function BoardOverlay() {
             <>SHOOTER<span className="text-cyan-300">BOARD</span></>
           )}
         </h1>
-        <div className="mt-2 inline-flex overflow-hidden rounded-lg border border-white/15 text-[11px] font-black uppercase tracking-wider">
+        <div className="rs-cut-sm mt-2 inline-flex overflow-hidden border border-white/15 text-[11px] font-black uppercase tracking-wider">
           <button onClick={() => setTab('all')} className={`px-3 py-1.5 ${tab === 'all' ? 'bg-cyan-400 text-black' : 'bg-white/[0.04] text-white/60 hover:text-white'}`}>All-time</button>
           {season && (
             <button onClick={() => setTab('cup')} className={`px-3 py-1.5 ${tab === 'cup' ? 'bg-amber-400 text-black' : 'bg-white/[0.04] text-white/60 hover:text-white'}`}>{cupLabel.length > 12 ? 'Cup' : cupLabel}</button>
@@ -225,26 +226,56 @@ export function BoardOverlay() {
         ) : (
           <>
             {podium.length === 3 && (
-              <div className="mx-auto mb-5 flex max-w-3xl flex-col gap-2 sm:flex-row sm:items-end">
-                {[1, 0, 2].map((pi) => {
+              /* On a phone the old stack cost three full screens of scrolling
+                 before a single ranked row appeared. The champion keeps the
+                 full width they have earned; second and third pair up beneath
+                 in a compact two-up, and the list starts inside one screen. */
+              <div className="mx-auto mb-5 grid max-w-3xl grid-cols-2 gap-2 sm:flex sm:items-end">
+                {[0, 1, 2].map((pi) => {
                   const e = podium[pi];
                   const m = podiumMeta[pi];
                   const isMe = me && e.address === me;
+                  const champion = pi === 0;
                   return (
                     <div
                       key={e.address}
                       ref={isMe ? myRowRef : undefined}
-                      className={`flex-1 rounded-xl border p-3 text-center ${pi === 0 ? 'sm:-mt-3' : ''}`}
-                      style={{ borderColor: isMe ? '#ffd75e' : `${m.ring}55`, background: `linear-gradient(180deg, ${m.glow}, rgba(10,12,20,0.6))` }}
+                      className={`rs-cut relative overflow-hidden border p-3 text-center ${
+                        champion
+                          ? 'col-span-2 sm:order-2 sm:-mt-6 sm:flex-[1.45] sm:pb-5 sm:pt-5'
+                          : pi === 1
+                            ? 'sm:order-1 sm:flex-1'
+                            : 'sm:order-3 sm:flex-1'
+                      }`}
+                      style={{
+                        borderColor: isMe ? '#ffd75e' : `${m.ring}${champion ? '99' : '44'}`,
+                        background: `linear-gradient(180deg, ${m.glow}, rgba(8,11,18,0.72))`,
+                        boxShadow: champion ? `0 0 44px -14px ${m.ring}` : undefined,
+                      }}
                     >
-                      <div className="text-[9px] font-black tracking-[0.3em]" style={{ color: m.ring }}>{m.label}</div>
+                      {/* the champion's own light, spilling up out of the card */}
+                      {champion && (
+                        <span
+                          aria-hidden
+                          className="pointer-events-none absolute inset-x-0 -top-16 h-32"
+                          style={{ background: `radial-gradient(closest-side, ${m.ring}33, transparent 70%)` }}
+                        />
+                      )}
+                      <div className="rs-label relative" style={{ color: m.ring, letterSpacing: champion ? '0.4em' : '0.3em' }}>
+                        {m.label}
+                      </div>
                       {/* the pilot's actual loadout, not just a label - the
                           champion's cosmetics are the first thing you see */}
                       <div
-                        className="relative mx-auto mt-1.5 flex h-11 w-11 items-center justify-center rounded-full border-2 bg-black/30"
-                        style={{ borderColor: isMe ? '#ffd75e' : m.ring }}
+                        className={`relative mx-auto mt-2 flex items-center justify-center rounded-full border-2 bg-black/40 ${
+                          champion ? 'h-16 w-16' : 'h-9 w-9 sm:h-11 sm:w-11'
+                        }`}
+                        style={{
+                          borderColor: isMe ? '#ffd75e' : m.ring,
+                          boxShadow: champion ? `0 0 26px -6px ${m.ring}` : undefined,
+                        }}
                       >
-                        <PilotIcon cosmetics={e.cosmetics} size={26} />
+                        <PilotIcon cosmetics={e.cosmetics} size={champion ? 38 : 22} />
                         <span
                           className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full border bg-[#0b0e16] text-[9px] font-black"
                           style={{ borderColor: m.ring, color: m.ring }}
@@ -252,15 +283,20 @@ export function BoardOverlay() {
                           {pi + 1}
                         </span>
                       </div>
-                      <div className="mt-1 flex items-center justify-center gap-1.5">
-                        <span className="truncate text-base font-extrabold tracking-wide">
+                      <div className="relative mt-2 flex items-center justify-center gap-1.5">
+                        <span className={`truncate font-extrabold tracking-wide ${champion ? 'rs-display text-lg' : 'text-sm sm:text-base'}`}>
                           {displayName(e.name, e.address)}
-                          {e.verified && <span className="ml-1 text-cyan-300">✓</span>}
-                          {isMe && <span className="ml-1 text-amber-300">· YOU</span>}
+                          {e.verified && <span className="ml-1 text-[color:var(--rs-cyan)]">✓</span>}
+                          {isMe && <span className="ml-1 text-[color:var(--rs-gold)]">· YOU</span>}
                         </span>
                       </div>
-                      <div className="font-mono text-xl font-black tabular-nums" style={{ color: m.ring }}>{e.score.toLocaleString()}</div>
-                      <div className="mt-1 flex items-center justify-center gap-2 text-[10px] text-white/40">
+                      <div
+                        className={`rs-num relative ${champion ? 'text-3xl' : 'text-base sm:text-xl'}`}
+                        style={{ color: m.ring, textShadow: champion ? `0 0 24px ${m.ring}66` : undefined }}
+                      >
+                        {e.score.toLocaleString()}
+                      </div>
+                      <div className="relative mt-1.5 flex items-center justify-center gap-2 text-[10px] text-white/40">
                         <TierChip score={e.score} /><span>{e.kills.toLocaleString()} kills</span>
                       </div>
                     </div>
@@ -269,27 +305,50 @@ export function BoardOverlay() {
               </div>
             )}
 
-            <div className="mx-auto max-w-3xl overflow-hidden rounded-xl border border-white/10 bg-black/30">
+            {/* The pack. Three bands the eye can read without counting: the
+                TOP 10 carry a lit edge and a bright rank, everyone below is
+                plain, and the player's own row overrides both in gold so they
+                can find themselves in a thousand-row list at a glance. */}
+            <div className="rs-panel rs-cut mx-auto max-w-3xl overflow-hidden">
               {rest.map((e, i) => {
                 const rank = (podium.length === 3 ? 4 : 1) + i;
                 const isMe = me && e.address === me;
+                const topTen = rank <= 10;
                 return (
                   <div
                     key={e.address}
                     ref={isMe ? myRowRef : undefined}
-                    className={`grid grid-cols-[2.6rem_1fr_auto] items-center gap-2 border-t border-white/[0.04] px-3 py-2 text-sm first:border-t-0 sm:grid-cols-[3rem_1fr_5.5rem_6.5rem] ${isMe ? 'bg-amber-400/10' : 'hover:bg-white/[0.03]'}`}
+                    className={`relative grid grid-cols-[2.6rem_1fr_auto] items-center gap-2 border-t border-white/[0.04] px-3 py-2 text-sm first:border-t-0 sm:grid-cols-[3rem_1fr_5.5rem_6.5rem] ${
+                      isMe ? 'bg-[rgba(255,207,77,0.12)]' : 'hover:bg-white/[0.03]'
+                    }`}
                   >
-                    <span className="font-mono text-white/40 tabular-nums">{String(rank).padStart(2, '0')}</span>
+                    {/* contender edge - lit for the top ten, gold for you */}
+                    {(topTen || isMe) && (
+                      <span
+                        aria-hidden
+                        className="absolute inset-y-1 left-0 w-0.5 rounded-full"
+                        style={{
+                          background: isMe ? 'var(--rs-gold)' : 'var(--rs-cyan)',
+                          boxShadow: `0 0 8px ${isMe ? 'var(--rs-gold)' : 'var(--rs-cyan)'}`,
+                          opacity: isMe ? 1 : 0.75,
+                        }}
+                      />
+                    )}
+                    <span className={`rs-num tabular-nums ${topTen ? 'text-white/75' : 'text-white/35'}`}>
+                      {String(rank).padStart(2, '0')}
+                    </span>
                     <span className="flex min-w-0 items-center gap-1.5 truncate font-semibold tracking-wide">
                       <PilotIcon cosmetics={e.cosmetics} size={18} pilotName={e.pilot} />
                       <span className="truncate">
                         {displayName(e.name, e.address)}
-                        {e.verified && <span className="ml-1 text-cyan-300">✓</span>}
-                        {isMe && <span className="ml-1.5 text-[10px] font-black text-amber-300">YOU</span>}
+                        {e.verified && <span className="ml-1 text-[color:var(--rs-cyan)]">✓</span>}
+                        {isMe && <span className="ml-1.5 text-[10px] font-black text-[color:var(--rs-gold)]">YOU</span>}
                       </span>
                     </span>
                     <span className="hidden sm:block"><TierChip score={e.score} /></span>
-                    <span className="text-right font-mono font-bold tabular-nums" style={{ color: TIER_COLORS[tierFromScore(e.score)] }}>{e.score.toLocaleString()}</span>
+                    <span className="rs-num text-right" style={{ color: TIER_COLORS[tierFromScore(e.score)] }}>
+                      {e.score.toLocaleString()}
+                    </span>
                   </div>
                 );
               })}
@@ -300,14 +359,17 @@ export function BoardOverlay() {
       </div>
 
       {/* footer actions */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex justify-center gap-2 bg-gradient-to-t from-black/80 to-transparent px-4 pb-5 pt-8">
+      <div
+        className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex justify-center gap-2 px-4 pb-5 pt-14"
+        style={{ background: 'linear-gradient(to top, rgba(4,6,11,0.97) 34%, rgba(4,6,11,0.75) 62%, transparent)' }}
+      >
         {myIndex >= 0 && (
-          <button onClick={jumpToMe} className="pointer-events-auto rounded-lg border border-amber-300/40 bg-amber-400/15 px-5 py-2 text-[11px] font-black uppercase tracking-wider text-amber-200 hover:bg-amber-400/25">
+          <button onClick={jumpToMe} className="rs-btn rs-btn-gold pointer-events-auto">
             Jump to me · #{myIndex + 1}
           </button>
         )}
-        <button onClick={toMenu} className="pointer-events-auto rounded-lg bg-cyan-400 px-6 py-2 text-[11px] font-black uppercase tracking-wider text-black hover:bg-cyan-300">
-          Back to menu
+        <button onClick={toMenu} className="rs-btn rs-btn-solid pointer-events-auto">
+          Back to command
         </button>
       </div>
     </div>

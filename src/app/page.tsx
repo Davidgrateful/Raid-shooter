@@ -4,6 +4,7 @@ import { MarketBridge } from '@/components/MarketBridge';
 import { TurnstileGate } from '@/components/TurnstileGate';
 import { PartnersBar } from '@/components/PartnersBar';
 import { GameOverlays } from '@/components/GameOverlays';
+import { CommandCenter } from '@/components/command/CommandCenter';
 import { BoardOverlay } from '@/components/BoardOverlay';
 import { GameOverOverlay } from '@/components/GameOverOverlay';
 import { StarterBundleModal } from '@/components/StarterBundleModal';
@@ -19,6 +20,7 @@ export default function Home() {
       <MarketBridge />
       <TurnstileGate />
       <PartnersBar />
+      <CommandCenter />
       <GameOverlays />
       <BoardOverlay />
       <GameOverOverlay />
@@ -28,11 +30,10 @@ export default function Home() {
       <SettingsOverlay />
       <div id="rotate-overlay">
         <div className="phone" />
-        <p className="text-sm text-white/80">
-          ROTATE YOUR DEVICE
-          <br />
-          PLAY IN LANDSCAPE
+        <p className="rs-label" style={{ color: 'var(--rs-cyan)', fontSize: 12 }}>
+          ROTATE TO FLY
         </p>
+        <p className="text-[11px] tracking-[0.2em] text-white/35">RAIDS RUN IN LANDSCAPE</p>
       </div>
     </main>
   );

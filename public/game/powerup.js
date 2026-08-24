@@ -70,6 +70,9 @@ $.Powerup.prototype.update = function( i ) {
 		} ) );
 		$.powerups.splice( i, 1 );
 		$.powerupsCollected++;
+		if( $.pushFeed && $.definitions.powerups[ this.type ] ) {
+			$.pushFeed( $.definitions.powerups[ this.type ].title, $.definitions.powerups[ this.type ].hue );
+		}
 	}
 };
 

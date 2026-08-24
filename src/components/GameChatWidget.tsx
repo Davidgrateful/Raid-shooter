@@ -3,10 +3,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ChatMessageLine, type ChatMessageData } from '@/components/ChatMessageLine';
 
-// A persistent in-game chat icon, docked to the right edge, menu-screen only
-// (same visibility rule as GameOverlays' feedback/invite buttons - it never
-// sits on top of gameplay). Clicking it slides out the top-20 chat panel
-// without leaving the menu or navigating to the web leaderboard.
+// Top-20 squad comms, menu-screen only - it never sits on top of gameplay.
+//
+// The launcher used to be a tab welded to the middle of the right edge, which
+// landed straight on the command centre's ops column. It is now opened from a
+// chip in the command centre's top bar (`raidshooter:opencomms`), and reports
+// its unread state back out (`raidshooter:comms`) so that chip can badge it.
+// One control, in the same bar as every other piece of live status.
 
 interface TopEntry {
   address: string;
@@ -40,9 +43,19 @@ export function GameChatWidget() {
 
   useEffect(() => {
     const onState = (e: Event) => setOnMenu((e as CustomEvent).detail === 'menu');
+    const onOpen = () => setOpen((o) => !o);
     window.addEventListener('raidshooter:state', onState as EventListener);
-    return () => window.removeEventListener('raidshooter:state', onState as EventListener);
+    window.addEventListener('raidshooter:opencomms', onOpen);
+    return () => {
+      window.removeEventListener('raidshooter:state', onState as EventListener);
+      window.removeEventListener('raidshooter:opencomms', onOpen);
+    };
   }, []);
+
+  // let the top-bar chip mirror the unread state
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('raidshooter:comms', { detail: { unread: hasUnread && !open } }));
+  }, [hasUnread, open]);
 
   useEffect(() => {
     if (!onMenu) { setOpen(false); return; }
@@ -159,25 +172,6 @@ export function GameChatWidget() {
 
   return (
     <>
-      {/* docked comms tab, right edge, mid-height */}
-      <div data-game-ui="" style={{ position: 'fixed', right: 0, top: '50%', transform: 'translateY(-50%)', zIndex: 45 }}>
-        <button
-          onClick={() => setOpen((o) => !o)}
-          aria-label="Squad comms"
-          style={{ clipPath: 'polygon(10px 0, 100% 0, 100% 100%, 10px 100%, 0 calc(100% - 10px), 0 10px)' }}
-          className="relative flex items-center gap-1.5 border border-r-0 border-cyan-400/40 bg-gradient-to-l from-black/85 to-cyan-950/40 py-2.5 pl-3.5 pr-2.5 text-cyan-300 shadow-[0_0_20px_rgba(34,211,238,0.15)] backdrop-blur-sm transition-colors hover:border-cyan-300/70 hover:text-cyan-100"
-        >
-          <span className="font-mono text-sm">▚</span>
-          <span className="hidden font-mono text-[10px] font-bold uppercase tracking-[0.2em] sm:inline">Comms</span>
-          {hasUnread && !open && (
-            <span aria-hidden className="absolute -left-1 -top-1 flex h-2.5 w-2.5">
-              <span className="absolute inline-flex h-full w-full animate-ping bg-red-500 opacity-75" style={{ clipPath: 'polygon(50% 0,100% 50%,50% 100%,0 50%)' }} />
-              <span className="relative inline-flex h-2.5 w-2.5 bg-red-500" style={{ clipPath: 'polygon(50% 0,100% 50%,50% 100%,0 50%)' }} />
-            </span>
-          )}
-        </button>
-      </div>
-
       {/* slide-out tactical comms panel */}
       {open && (
         <div

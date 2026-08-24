@@ -4,14 +4,16 @@ import { useEffect, useState } from 'react';
 import { WalletButton } from './WalletButton';
 
 export function Header() {
-  // slide the header away during action so it never covers gameplay;
-  // it returns on the menu, pause, and game over screens
+  // Slides away during action so it never covers gameplay. It also stands
+  // down on the menu, where the command centre's own top bar hosts the wallet
+  // control - two Connect buttons on one screen is exactly the kind of
+  // web-page residue this redesign is removing.
   const [inAction, setInAction] = useState(false);
 
   useEffect(() => {
     const onState = (e: Event) => {
       const state = (e as CustomEvent<string>).detail;
-      setInAction(state === 'play' || state === 'upgrade');
+      setInAction(state === 'play' || state === 'upgrade' || state === 'menu');
     };
     window.addEventListener('raidshooter:state', onState);
     return () => window.removeEventListener('raidshooter:state', onState);

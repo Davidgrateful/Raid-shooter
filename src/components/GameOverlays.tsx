@@ -1,18 +1,31 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
-// Player-facing HTML overlays for operator content + feedback, shown only on
-// the menu screen so they never intrude on gameplay:
-//   - a dismissible NEWS banner showing the latest active announcement
-//   - a Feedback button + modal that posts to /api/feedback
-// Both read/write the same endpoints the admin console manages.
+/*==============================================================================
+Modal host
+
+These used to be a row of floating pills scattered around the edges of the
+menu, which is a large part of what made the game read as a web dashboard. The
+triggers now live inside the command centre where they belong (nav rail on
+desktop, the MORE sheet on mobile); this component is purely the dialog layer
+they open, listening for `raidshooter:open`.
+
+Everything here is operator-managed content or a player message, so it keeps
+the same endpoints the admin console writes to.
+==============================================================================*/
+
+type Which = 'news' | 'inbox' | 'invite' | 'feedback';
 
 interface Announcement { id: string; title: string; body: string }
-interface WeeklyGift { available: boolean; claimed?: boolean; item: { id: string; title: string } | null }
-interface StreakState { days: number; claimedAt: number; goal: number; pilotGoal?: number; pilotClaimed?: boolean }
-interface CupSeason { id: string; name: string; live: boolean; prize1Usd?: number; poolUsd?: number; endsAt: number | null; sponsorName: string | null }
-interface InboxMessage { id: string; kind: 'payout' | 'cup' | 'system'; title: string; body: string; at: number; meta?: { txHash?: string; url?: string; amountUsd?: number; rank?: number } }
+interface InboxMessage {
+  id: string;
+  kind: 'payout' | 'cup' | 'system';
+  title: string;
+  body: string;
+  at: number;
+  meta?: { txHash?: string; url?: string; amountUsd?: number; rank?: number };
+}
 
 function myGuestToken(): string | null {
   try {
@@ -25,373 +38,267 @@ function myGuestToken(): string | null {
   }
 }
 
+/*------------------------------------------------------------------------------
+Shared dialog chrome - same clipped panel, same energy edge, same dismissal
+behaviour for every modal in the game
+------------------------------------------------------------------------------*/
+function Dialog({
+  title,
+  accent = 'var(--rs-cyan)',
+  subtitle,
+  onClose,
+  children,
+}: {
+  title: string;
+  accent?: string;
+  subtitle?: string;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  return (
+    <div
+      data-game-ui=""
+      role="dialog"
+      aria-modal="true"
+      onClick={onClose}
+      className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+      style={{ background: 'rgba(2,4,8,0.72)', backdropFilter: 'blur(6px)' }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="rs-panel rs-cut rs-panel-lit rs-rise w-full max-w-md p-5"
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="rs-label" style={{ color: accent }}>{title}</div>
+            {subtitle && <p className="mt-1.5 text-[11px] leading-relaxed text-white/40">{subtitle}</p>}
+          </div>
+          <button onClick={onClose} aria-label="Close" className="shrink-0 text-white/30 transition-colors hover:text-white">✕</button>
+        </div>
+        <div className="mt-4">{children}</div>
+      </div>
+    </div>
+  );
+}
+
 export function GameOverlays() {
-  const [onMenu, setOnMenu] = useState(false);
+  const [open, setOpen] = useState<Which | null>(null);
+
   const [news, setNews] = useState<Announcement | null>(null);
-  const [dismissed, setDismissed] = useState(false);
-  const [open, setOpen] = useState(false); // news expanded
-  const [fbOpen, setFbOpen] = useState(false);
+  const [inbox, setInbox] = useState<InboxMessage[]>([]);
+  const [inv, setInv] = useState<{ code: string; invites: number; top: { code: string; invites: number }[] } | null>(null);
+  const [invCopied, setInvCopied] = useState(false);
   const [fbText, setFbText] = useState('');
   const [fbSent, setFbSent] = useState(false);
   const [fbBusy, setFbBusy] = useState(false);
-  const [gift, setGift] = useState<WeeklyGift | null>(null);
-  const [giftBusy, setGiftBusy] = useState(false);
-  const [giftMsg, setGiftMsg] = useState('');
-  const [invOpen, setInvOpen] = useState(false);
-  const [inv, setInv] = useState<{ code: string; invites: number; top: { code: string; invites: number }[] } | null>(null);
-  const [invCopied, setInvCopied] = useState(false);
-  const [streak, setStreak] = useState<StreakState | null>(null);
-  const [streakBusy, setStreakBusy] = useState(false);
-  const [streakMsg, setStreakMsg] = useState('');
-  const [cup, setCup] = useState<CupSeason | null>(null);
-  const [inbox, setInbox] = useState<InboxMessage[]>([]);
-  const [unread, setUnread] = useState(0);
-  const [inboxOpen, setInboxOpen] = useState(false);
-  const [narrow, setNarrow] = useState(false);
 
-  // track a phone-width breakpoint so docked overlays can restack instead of
-  // colliding the way they would if the desktop layout were forced onto a
-  // narrow screen (the top cup pill vs the centered news banner especially)
-  useEffect(() => {
-    const f = () => setNarrow(window.innerWidth < 640);
-    f();
-    window.addEventListener('resize', f);
-    return () => window.removeEventListener('resize', f);
+  const loadInbox = useCallback(() => {
+    const gt = myGuestToken();
+    fetch(`/api/inbox${gt ? `?guestToken=${encodeURIComponent(gt)}` : ''}`)
+      .then((r) => r.json())
+      .then((d) => setInbox(d.messages || []))
+      .catch(() => {});
+    // opening the inbox marks it read
+    fetch('/api/inbox', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ guestToken: gt || undefined }),
+    }).catch(() => {});
+  }, []);
+
+  const loadInvite = useCallback(() => {
+    setInvCopied(false);
+    fetch('/api/referral')
+      .then((r) => r.json())
+      .then((d) => setInv({ code: d.code || '', invites: d.invites || 0, top: d.top || [] }))
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
-    fetch('/api/season')
-      .then((r) => r.json())
-      .then((d) => setCup(d.season && d.season.live ? d.season : null))
-      .catch(() => {});
     fetch('/api/announcements')
       .then((r) => r.json())
       .then((d) => { if (d.announcements?.length) setNews(d.announcements[0]); })
       .catch(() => {});
-    const onState = (e: Event) => {
-      const isMenu = (e as CustomEvent).detail === 'menu';
-      setOnMenu(isMenu);
-      // re-check the weekly gift whenever the menu is entered (the player
-      // may have connected a wallet since the last look)
-      if (isMenu) {
-        // pull the player's inbox (payout confirmations, cup thank-yous)
-        const gt = myGuestToken();
-        fetch(`/api/inbox${gt ? `?guestToken=${encodeURIComponent(gt)}` : ''}`)
-          .then((r) => r.json())
-          .then((d) => { setInbox(d.messages || []); setUnread(d.unread || 0); })
-          .catch(() => {});
-        fetch('/api/claim/weekly').then((r) => r.json()).then(setGift).catch(() => {});
-        // record today's play, then read back the full streak state
-        // (claimedAt isn't in the record response) - works with no wallet,
-        // pure retention hook for guests/web2 players
-        const guestToken = myGuestToken();
-        fetch('/api/streak', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ guestToken: guestToken || undefined }),
-        })
-          .then(() => fetch(`/api/streak${guestToken ? `?guestToken=${encodeURIComponent(guestToken)}` : ''}`))
-          .then((r) => r.json())
-          .then(setStreak)
-          .catch(() => {});
-      }
+
+    const onOpen = (e: Event) => {
+      const which = (e as CustomEvent).detail as Which;
+      setOpen(which);
+      if (which === 'inbox') loadInbox();
+      if (which === 'invite') loadInvite();
     };
+    window.addEventListener('raidshooter:open', onOpen as EventListener);
+
+    // any state change closes whatever was open - a dialog must never survive
+    // into a run
+    const onState = () => setOpen(null);
     window.addEventListener('raidshooter:state', onState as EventListener);
-    return () => window.removeEventListener('raidshooter:state', onState as EventListener);
-  }, []);
 
-  async function claimStreak() {
-    setStreakBusy(true); setStreakMsg('');
-    try {
-      const res = await fetch('/api/streak/claim', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ guestToken: myGuestToken() || undefined }),
-      });
-      const d = await res.json();
-      if (res.ok && d.granted) {
-        setStreakMsg(`Claimed: ${d.granted.title} — ready to use in your next run!`);
-        setStreak((prev) => (prev ? { ...prev, claimedAt: d.days } : prev));
-        try { (window as unknown as { $: { fetchProfile?: () => void } }).$?.fetchProfile?.(); } catch { /* engine may not be ready */ }
-      } else {
-        setStreakMsg('Not ready yet — keep the streak going.');
-      }
-    } catch {
-      setStreakMsg('Claim failed — try again.');
-    } finally { setStreakBusy(false); }
-  }
+    return () => {
+      window.removeEventListener('raidshooter:open', onOpen as EventListener);
+      window.removeEventListener('raidshooter:state', onState as EventListener);
+    };
+  }, [loadInbox, loadInvite]);
 
-  async function claimGift() {
-    setGiftBusy(true); setGiftMsg('');
-    try {
-      const res = await fetch('/api/claim/weekly', { method: 'POST' });
-      const d = await res.json();
-      if (res.ok && d.granted) {
-        setGiftMsg(`Claimed: ${d.granted.title} — ready to use in your next run!`);
-        setGift({ available: false, claimed: true, item: d.granted });
-        // let the engine pick up the new item without a reload
-        try { (window as unknown as { $: { fetchProfile?: () => void } }).$?.fetchProfile?.(); } catch { /* engine may not be ready */ }
-      } else {
-        setGiftMsg(d.error === 'already_claimed' ? 'Already claimed this week.' : 'Claim failed — try again.');
-      }
-    } catch {
-      setGiftMsg('Claim failed — try again.');
-    } finally { setGiftBusy(false); }
-  }
-
-  const inviteLink = inv?.code ? `${typeof window !== 'undefined' ? window.location.origin : 'https://raidshooter.xyz'}/?ref=${inv.code}` : '';
-
-  async function openInbox() {
-    setInboxOpen(true);
-    if (unread > 0) {
-      setUnread(0); // optimistic clear
-      const gt = myGuestToken();
-      fetch('/api/inbox', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ guestToken: gt || undefined }),
-      }).catch(() => {});
-    }
-  }
-
-  async function openInvite() {
-    setInvOpen(true);
-    setInvCopied(false);
-    try {
-      const d = await fetch('/api/referral').then((r) => r.json());
-      setInv({ code: d.code || '', invites: d.invites || 0, top: d.top || [] });
-    } catch { /* keep whatever we had */ }
-  }
+  const inviteLink = inv?.code
+    ? `${typeof window !== 'undefined' ? window.location.origin : 'https://raidshooter.xyz'}/?ref=${inv.code}`
+    : '';
 
   async function copyInvite() {
     if (!inviteLink) return;
     try {
-      if (navigator.share) { await navigator.share({ title: 'Raid Shooter', text: 'Play Raid Shooter with me — we both earn a boost', url: inviteLink }); return; }
+      if (navigator.share) {
+        await navigator.share({ title: 'Raid Shooter', text: 'Fly with me — we both earn a boost', url: inviteLink });
+        return;
+      }
       await navigator.clipboard.writeText(inviteLink);
       setInvCopied(true);
       setTimeout(() => setInvCopied(false), 1600);
-    } catch { /* share/copy is best-effort */ }
+    } catch {
+      /* share/copy is best-effort */
+    }
   }
 
   async function sendFeedback() {
     if (fbText.trim().length < 2) return;
     setFbBusy(true);
     try {
-      await fetch('/api/feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: fbText }) });
+      await fetch('/api/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: fbText }),
+      });
       setFbSent(true);
       setFbText('');
-      setTimeout(() => { setFbOpen(false); setFbSent(false); }, 1400);
-    } finally { setFbBusy(false); }
+      setTimeout(() => { setOpen(null); setFbSent(false); }, 1400);
+    } finally {
+      setFbBusy(false);
+    }
   }
 
-  function openCup() {
-    try {
-      const $ = (window as unknown as { $: { boardTab?: string; setState: (s: string) => void } }).$;
-      $.boardTab = 'cup';
-      $.setState('board');
-    } catch { /* engine not ready */ }
+  const close = () => setOpen(null);
+
+  if (!open) return null;
+
+  if (open === 'news' && news) {
+    return (
+      <Dialog title="Fleet transmission" accent="var(--rs-purple)" onClose={close}>
+        <h3 className="rs-display text-lg leading-tight text-white">{news.title}</h3>
+        <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-white/70">{news.body}</p>
+        <button onClick={close} className="rs-btn mt-5 w-full">Acknowledged</button>
+      </Dialog>
+    );
   }
 
-  if (!onMenu) return null;
-
-  return (
-    <>
-      {/* live cup: free "why play today" hook, points into the board's cup
-          tab - only shown while a season is actually live */}
-      {cup && (
-        <div data-game-ui="" style={{ position: 'fixed', top: 'calc(env(safe-area-inset-top, 0px) + 8px)', left: 'calc(env(safe-area-inset-left, 0px) + 8px)', zIndex: 45, maxWidth: '55vw' }}>
-          <button
-            onClick={openCup}
-            className="flex items-center gap-2 rounded-full border border-amber-400/40 bg-black/70 px-3 py-1.5 text-xs text-amber-200 backdrop-blur-md hover:border-amber-400/70 hover:text-amber-100"
-          >
-            <span>⚡</span>
-            <span className="truncate font-bold uppercase tracking-wide">{cup.name}</span>
-            {(cup.prize1Usd || cup.poolUsd) ? (
-              <span className="font-mono text-amber-300">{(cup.prize1Usd || cup.poolUsd)} USDC</span>
-            ) : null}
-          </button>
-        </div>
-      )}
-
-      {/* news banner */}
-      {news && !dismissed && (
-        <div data-game-ui="" style={{ position: 'fixed', top: `calc(env(safe-area-inset-top, 0px) + ${cup && narrow ? 48 : 8}px)`, left: '50%', transform: 'translateX(-50%)', zIndex: 45, maxWidth: '92vw' }}>
-          <div className="flex items-center gap-3 rounded-full border border-cyan-400/30 bg-black/70 px-4 py-1.5 text-sm text-white/90 backdrop-blur-md">
-            <span className="rounded-full bg-cyan-400/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-cyan-300">News</span>
-            <button onClick={() => setOpen(true)} className="max-w-[60vw] truncate font-medium hover:text-white">{news.title}</button>
-            <button onClick={() => setDismissed(true)} className="text-white/40 hover:text-white">✕</button>
-          </div>
-        </div>
-      )}
-
-      {/* news expanded modal */}
-      {open && news && (
-        <div data-game-ui="" onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 60 }} className="flex items-center justify-center bg-black/60 p-6">
-          <div onClick={(e) => e.stopPropagation()} className="max-w-md rounded-2xl border border-white/10 bg-[#0b0e16] p-6 text-white">
-            <div className="text-lg font-bold text-cyan-300">{news.title}</div>
-            <p className="mt-2 whitespace-pre-wrap text-sm text-white/80">{news.body}</p>
-            <button onClick={() => setOpen(false)} className="mt-5 rounded-lg bg-white/10 px-4 py-2 text-sm hover:bg-white/20">Close</button>
-          </div>
-        </div>
-      )}
-
-      {/* daily streak: no wallet needed, works identically for guests -
-          re-arms every {goal} days so it's a repeat hook, not a one-off */}
-      {streak && streak.days >= streak.goal && streak.days - streak.claimedAt >= streak.goal && (
-        <div data-game-ui="" style={{ position: 'fixed', right: 'calc(env(safe-area-inset-right, 0px) + 12px)', bottom: `calc(env(safe-area-inset-bottom, 0px) + ${gift?.item && !gift.claimed ? 52 : 12}px)`, zIndex: 45, maxWidth: '80vw' }}>
-          <div className="flex items-center gap-2 rounded-full border border-orange-400/40 bg-black/60 px-3 py-1.5 text-xs text-white/85 backdrop-blur-sm">
-            <span>🔥</span>
-            <span className="hidden sm:inline">{streak.days}-day streak! Free consumable ready</span>
-            <button onClick={claimStreak} disabled={streakBusy}
-              className="rounded-full bg-orange-400/90 px-3 py-1 font-semibold text-black hover:bg-orange-300 disabled:opacity-50">
-              {streakBusy ? 'Claiming…' : 'Claim free'}
-            </button>
-          </div>
-          {streakMsg && <div className="mt-1 rounded-lg border border-emerald-500/30 bg-black/70 px-3 py-1.5 text-xs text-emerald-300">{streakMsg}</div>}
-        </div>
-      )}
-
-      {/* weekly gift: shown to wallet players until claimed; guests see the
-          hook that makes connecting a wallet worth it */}
-      {gift?.item && !gift.claimed && (
-        <div data-game-ui="" style={{ position: 'fixed', right: 'calc(env(safe-area-inset-right, 0px) + 12px)', bottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)', zIndex: 45, maxWidth: '80vw' }}>
-          <div className="flex items-center gap-2 rounded-full border border-amber-400/40 bg-black/60 px-3 py-1.5 text-xs text-white/85 backdrop-blur-sm">
-            <span>🎁</span>
-            {gift.available ? (
-              <>
-                <span className="hidden sm:inline">Weekly gift: <b className="text-amber-300">{gift.item.title}</b></span>
-                <button onClick={claimGift} disabled={giftBusy}
-                  className="rounded-full bg-amber-400/90 px-3 py-1 font-semibold text-black hover:bg-amber-300 disabled:opacity-50">
-                  {giftBusy ? 'Claiming…' : 'Claim free'}
-                </button>
-              </>
-            ) : (
-              <span>Connect wallet to claim this week&apos;s free <b className="text-amber-300">{gift.item.title}</b></span>
-            )}
-          </div>
-          {giftMsg && <div className="mt-1 rounded-lg border border-emerald-500/30 bg-black/70 px-3 py-1.5 text-xs text-emerald-300">{giftMsg}</div>}
-        </div>
-      )}
-
-      {/* inbox + feedback + invite buttons, bottom-left */}
-      <div data-game-ui="" style={{ position: 'fixed', left: 'calc(env(safe-area-inset-left, 0px) + 12px)', bottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)', zIndex: 45, maxWidth: 'calc(100vw - 24px)' }} className="flex flex-wrap items-center gap-2">
-        {inbox.length > 0 && (
-          <button onClick={openInbox}
-            className="relative rounded-full border border-white/10 bg-black/50 px-3 py-1.5 text-xs text-white/70 backdrop-blur-sm hover:border-cyan-400/40 hover:text-white">
-            ✉ Inbox
-            {unread > 0 && (
-              <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white">
-                {unread > 9 ? '9+' : unread}
-              </span>
-            )}
-          </button>
-        )}
-        <button onClick={() => setFbOpen(true)}
-          className="rounded-full border border-white/10 bg-black/50 px-3 py-1.5 text-xs text-white/70 backdrop-blur-sm hover:border-cyan-400/40 hover:text-white">
-          ✎ Feedback
-        </button>
-        <button onClick={openInvite}
-          className="rounded-full border border-amber-400/30 bg-black/50 px-3 py-1.5 text-xs text-amber-200/90 backdrop-blur-sm hover:border-amber-400/60 hover:text-amber-100">
-          ✦ Invite
-        </button>
-        {streak && streak.days > 0 && (
-          <button onClick={() => window.dispatchEvent(new CustomEvent('raidshooter:openstreak'))}
-            className="relative rounded-full border border-cyan-400/30 bg-black/50 px-3 py-1.5 text-xs text-cyan-200/90 backdrop-blur-sm hover:border-cyan-400/60 hover:text-cyan-100">
-            🔥 Streak {streak.days}
-            {typeof streak.pilotGoal === 'number' && streak.days >= streak.pilotGoal && !streak.pilotClaimed && (
-              <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(255,207,77,.8)]" />
-            )}
-          </button>
-        )}
-      </div>
-
-      {/* inbox modal: the player's targeted messages (payouts, cup thanks) */}
-      {inboxOpen && (
-        <div data-game-ui="" onClick={() => setInboxOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 60 }} className="flex items-center justify-center bg-black/60 p-6">
-          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0b0e16] p-6 text-white">
-            <div className="text-base font-semibold text-cyan-200">Your inbox</div>
-            <div className="mt-3 max-h-[60vh] space-y-2 overflow-y-auto">
-              {inbox.length === 0 ? (
-                <div className="rounded-lg border border-white/10 bg-white/[0.02] p-4 text-center text-sm text-white/40">No messages yet.</div>
-              ) : inbox.map((m) => (
-                <div key={m.id} className={`rounded-lg border p-3 ${m.kind === 'payout' ? 'border-emerald-400/30 bg-emerald-400/[0.06]' : m.kind === 'cup' ? 'border-amber-400/30 bg-amber-400/[0.06]' : 'border-white/10 bg-white/[0.03]'}`}>
+  if (open === 'inbox') {
+    return (
+      <Dialog title="Pilot inbox" onClose={close} subtitle="Payout confirmations and event results, addressed to you.">
+        <div className="rs-scroll max-h-[55vh] space-y-2 overflow-y-auto pr-1">
+          {inbox.length === 0 ? (
+            <div className="rs-panel rs-cut-sm p-5 text-center text-[11px] uppercase tracking-[0.2em] text-white/25">
+              No messages
+            </div>
+          ) : (
+            inbox.map((m) => {
+              const tone = m.kind === 'payout' ? 'var(--rs-green)' : m.kind === 'cup' ? 'var(--rs-gold)' : 'var(--rs-cyan)';
+              return (
+                <div key={m.id} className="rs-panel rs-cut-sm p-3" style={{ borderColor: `${tone}44` }}>
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-sm font-semibold">{m.kind === 'payout' ? '💸 ' : m.kind === 'cup' ? '🏁 ' : ''}{m.title}</span>
-                    <span className="shrink-0 text-[10px] text-white/30">{new Date(m.at).toLocaleDateString()}</span>
+                    <span className="rs-label" style={{ color: tone }}>{m.kind}</span>
+                    <span className="rs-num text-[10px] text-white/25">{new Date(m.at).toLocaleDateString()}</span>
                   </div>
-                  <p className="mt-1 text-xs leading-relaxed text-white/60">{m.body}</p>
+                  <div className="mt-1.5 text-[13px] font-bold text-white">{m.title}</div>
+                  <p className="mt-1 text-xs leading-relaxed text-white/55">{m.body}</p>
                   {m.meta?.txHash && (
-                    <a href={`https://basescan.org/tx/${m.meta.txHash}`} target="_blank" rel="noopener noreferrer" className="mt-1.5 inline-block text-[11px] text-cyan-300 underline">View transaction ↗</a>
+                    <a
+                      href={`https://basescan.org/tx/${m.meta.txHash}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-2 inline-block text-[11px] font-bold uppercase tracking-wider"
+                      style={{ color: tone }}
+                    >
+                      View settlement ↗
+                    </a>
                   )}
+                </div>
+              );
+            })
+          )}
+        </div>
+      </Dialog>
+    );
+  }
+
+  if (open === 'invite') {
+    return (
+      <Dialog
+        title="Recruit a wingman"
+        accent="var(--rs-gold)"
+        onClose={close}
+        subtitle="When your recruit clears 5,000, you both earn a boost — and you climb the recruiters board."
+      >
+        <div className="rs-panel rs-cut-sm flex items-center gap-2 p-2.5">
+          <span className="min-w-0 flex-1 truncate font-mono text-xs text-white/70">{inviteLink || 'Generating link…'}</span>
+          <button onClick={copyInvite} disabled={!inviteLink} className="rs-btn rs-btn-gold shrink-0 px-3 py-1.5 text-[11px]">
+            {invCopied ? 'Copied' : 'Share'}
+          </button>
+        </div>
+
+        <div className="mt-3 flex items-center justify-between text-[11px] uppercase tracking-[0.18em] text-white/35">
+          <span>Confirmed recruits</span>
+          <span className="rs-num text-sm text-[color:var(--rs-gold)]">{inv?.invites ?? 0}</span>
+        </div>
+
+        {inv?.top && inv.top.length > 0 && (
+          <div className="mt-4">
+            <div className="rs-label">Top recruiters</div>
+            <div className="mt-2 divide-y divide-white/5">
+              {inv.top.slice(0, 5).map((r, i) => (
+                <div key={r.code} className="flex items-center justify-between py-1.5 text-sm">
+                  <span className="text-white/70"><span className="rs-num mr-2 text-white/30">{String(i + 1).padStart(2, '0')}</span>{r.code}</span>
+                  <span className="rs-num text-[color:var(--rs-gold)]">{r.invites}</span>
                 </div>
               ))}
             </div>
-            <div className="mt-5 text-right">
-              <button onClick={() => setInboxOpen(false)} className="rounded-lg bg-white/10 px-4 py-2 text-sm hover:bg-white/20">Close</button>
-            </div>
           </div>
-        </div>
-      )}
+        )}
+      </Dialog>
+    );
+  }
 
-      {/* invite modal: personal link, invite count, top recruiters */}
-      {invOpen && (
-        <div data-game-ui="" onClick={() => setInvOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 60 }} className="flex items-center justify-center bg-black/60 p-6">
-          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0b0e16] p-6 text-white">
-            <div className="text-base font-semibold text-amber-200">Invite a wingman</div>
-            <p className="mt-1 text-xs text-white/40">Share your link. When they play and clear 5,000, you both earn a boost — and you climb the recruiters board.</p>
-
-            <div className="mt-4 flex items-center gap-2 rounded-lg border border-white/15 bg-white/[0.05] px-3 py-2">
-              <span className="min-w-0 flex-1 truncate text-sm text-white/80">{inviteLink || 'Loading your link…'}</span>
-              <button onClick={copyInvite} disabled={!inviteLink}
-                className="shrink-0 rounded-md bg-amber-400/90 px-3 py-1 text-xs font-semibold text-black hover:bg-amber-300 disabled:opacity-40">
-                {invCopied ? 'Copied!' : 'Copy / Share'}
+  if (open === 'feedback') {
+    return (
+      <Dialog title="Signal the team" onClose={close} subtitle="Bugs, ideas, anything. Every message is read.">
+        {fbSent ? (
+          <div className="rs-panel rs-cut-sm p-4 text-center text-sm font-bold text-[color:var(--rs-green)]" style={{ borderColor: 'rgba(62,233,164,0.4)' }}>
+            Transmission received.
+          </div>
+        ) : (
+          <>
+            <textarea
+              value={fbText}
+              onChange={(e) => setFbText(e.target.value)}
+              rows={4}
+              maxLength={500}
+              placeholder="Type your message…"
+              className="w-full rounded-md border border-white/15 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none transition-colors focus:border-[color:var(--rs-cyan)]"
+            />
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <button onClick={close} className="rs-btn rs-btn-ghost">Cancel</button>
+              <button onClick={sendFeedback} disabled={fbBusy || fbText.trim().length < 2} className="rs-btn rs-btn-solid">
+                {fbBusy ? 'Sending…' : 'Send'}
               </button>
             </div>
+          </>
+        )}
+      </Dialog>
+    );
+  }
 
-            <div className="mt-3 text-xs text-white/50">Confirmed invites: <b className="text-white/80">{inv?.invites ?? 0}</b></div>
-
-            {inv?.top && inv.top.length > 0 && (
-              <div className="mt-4">
-                <div className="text-[11px] font-bold uppercase tracking-wider text-white/40">Top recruiters</div>
-                <div className="mt-2 divide-y divide-white/5">
-                  {inv.top.slice(0, 5).map((r, i) => (
-                    <div key={r.code} className="flex items-center justify-between py-1.5 text-sm">
-                      <span className="text-white/70"><span className="text-white/40">{i + 1}.</span> {r.code}</span>
-                      <span className="tabular-nums text-amber-200/90">{r.invites}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div className="mt-5 flex justify-end">
-              <button onClick={() => setInvOpen(false)} className="rounded-lg bg-white/10 px-4 py-2 text-sm hover:bg-white/20">Close</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* feedback modal */}
-      {fbOpen && (
-        <div data-game-ui="" onClick={() => !fbBusy && setFbOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 60 }} className="flex items-center justify-center bg-black/60 p-6">
-          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0b0e16] p-6 text-white">
-            <div className="text-base font-semibold">Send feedback to the team</div>
-            <p className="mt-1 text-xs text-white/40">Bugs, ideas, anything. We read every message.</p>
-            {fbSent ? (
-              <div className="mt-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-300">Thanks — got it! 🙌</div>
-            ) : (
-              <>
-                <textarea value={fbText} onChange={(e) => setFbText(e.target.value)} rows={4} maxLength={500} placeholder="Type your message…"
-                  className="mt-3 w-full rounded-lg border border-white/15 bg-white/[0.05] px-3 py-2 text-sm outline-none focus:border-cyan-400/60" />
-                <div className="mt-3 flex justify-end gap-2">
-                  <button onClick={() => setFbOpen(false)} className="rounded-lg bg-white/10 px-4 py-2 text-sm hover:bg-white/20">Cancel</button>
-                  <button onClick={sendFeedback} disabled={fbBusy || fbText.trim().length < 2} className="rounded-lg bg-cyan-500/90 px-4 py-2 text-sm font-semibold text-black hover:bg-cyan-400 disabled:opacity-40">{fbBusy ? 'Sending…' : 'Send'}</button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
-    </>
-  );
+  return null;
 }

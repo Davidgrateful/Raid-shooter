@@ -1,7 +1,65 @@
 @import "tailwindcss";
 
+/*==============================================================================
+RAID SHOOTER — DESIGN SYSTEM
+
+Tactical arcade x futuristic space x competitive progression.
+
+Every colour in this file carries meaning. Nothing here is decorative for its
+own sake:
+
+  CHARCOAL   surfaces, panels, the ground the game sits on
+  CYAN       primary action, selection, interactivity, energy
+  GOLD       rewards, currency, achievements, premium progression
+  RED        damage, danger, enemy state, critical conditions
+  PURPLE     rare items, special abilities, high-tier rewards
+  GREEN      confirmation, ready state, earnings
+  WHITE      the information that matters most
+
+Layer discipline (this is what keeps it a game and not a dashboard):
+  BACKGROUND = atmosphere    UI = information    CTA = action    REWARD = excitement
+The starfield never competes with a panel; a panel never competes with DEPLOY.
+==============================================================================*/
+
 :root {
-  --game-bg: #080808;
+  /* --- surfaces ------------------------------------------------------- */
+  --rs-void: #04060b;
+  --rs-bg: #06080f;
+  --rs-surface: rgba(13, 18, 28, 0.66);
+  --rs-surface-solid: #0b0f18;
+  --rs-surface-raised: rgba(20, 27, 40, 0.78);
+  --rs-line: rgba(125, 165, 205, 0.14);
+  --rs-line-strong: rgba(140, 200, 235, 0.3);
+
+  /* --- functional colour ---------------------------------------------- */
+  --rs-cyan: #35e8ff;
+  --rs-cyan-deep: #0a91ad;
+  --rs-cyan-soft: rgba(53, 232, 255, 0.14);
+  --rs-gold: #ffcf4d;
+  --rs-gold-soft: rgba(255, 207, 77, 0.13);
+  --rs-red: #ff4d63;
+  --rs-red-soft: rgba(255, 77, 99, 0.13);
+  --rs-purple: #b98cff;
+  --rs-purple-soft: rgba(185, 140, 255, 0.14);
+  --rs-green: #3ee9a4;
+  --rs-green-soft: rgba(62, 233, 164, 0.13);
+
+  /* --- typography ------------------------------------------------------ */
+  --rs-text: #e9f1ff;
+  --rs-text-dim: rgba(233, 241, 255, 0.56);
+  --rs-text-faint: rgba(233, 241, 255, 0.3);
+  --rs-font-display: var(--font-rs-display), "Orbitron", ui-sans-serif, system-ui, sans-serif;
+  --rs-font-ui: var(--font-rs-ui), "Chakra Petch", ui-sans-serif, system-ui, sans-serif;
+  --rs-font-mono: var(--font-rs-mono), ui-monospace, "JetBrains Mono", Menlo, Consolas, monospace;
+
+  /* --- geometry -------------------------------------------------------- */
+  --rs-radius: 10px;
+  --rs-radius-sm: 6px;
+  --rs-rail: 84px;
+  --rs-topbar: 52px;
+
+  /* --- viewport -------------------------------------------------------- */
+  --game-bg: var(--rs-bg);
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
@@ -10,11 +68,12 @@
 
 body {
   background: var(--game-bg);
-  color: #fff;
+  color: var(--rs-text);
   margin: 0;
   padding: 0;
   overflow: hidden;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, monospace;
+  font-family: var(--rs-font-ui);
+  -webkit-font-smoothing: antialiased;
   overscroll-behavior: none;
 }
 
@@ -24,7 +83,474 @@ body {
   touch-action: none;
 }
 
-/* Landscape prompt for touch devices held in portrait */
+/*==============================================================================
+TYPOGRAPHY ROLES
+
+Futuristic type is a spice, not the meal. Orbitron is reserved for things the
+player ACTS on or BRAGS about (the CTA, screen titles, big numbers). Everything
+that is merely read - labels, body, help - uses the calmer technical face, and
+anything numeric that must be scanned or compared uses the mono.
+==============================================================================*/
+.rs-display {
+  font-family: var(--rs-font-display);
+  font-weight: 900;
+  letter-spacing: 0.02em;
+}
+.rs-label {
+  font-family: var(--rs-font-ui);
+  font-weight: 700;
+  font-size: 10px;
+  line-height: 1;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--rs-text-faint);
+}
+.rs-num {
+  font-family: var(--rs-font-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+/*==============================================================================
+PANELS - the chassis every piece of information sits in
+==============================================================================*/
+.rs-panel {
+  position: relative;
+  background: linear-gradient(180deg, rgba(24, 33, 50, 0.55), rgba(9, 13, 21, 0.72));
+  border: 1px solid var(--rs-line);
+  border-radius: var(--rs-radius);
+  backdrop-filter: blur(9px);
+  -webkit-backdrop-filter: blur(9px);
+}
+
+/* clipped top-left corner: the single geometric motif that ties the whole
+   interface together - panels, cards and the CTA all share it */
+.rs-cut {
+  clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px);
+}
+.rs-cut-sm {
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+}
+
+/* a hairline of energy along the top edge - marks a panel as "live" */
+.rs-panel-lit::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--rs-cyan), transparent);
+  opacity: 0.55;
+}
+
+/*==============================================================================
+BUTTONS
+==============================================================================*/
+.rs-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 9px 16px;
+  border: 1px solid var(--rs-line-strong);
+  border-radius: var(--rs-radius-sm);
+  background: rgba(16, 22, 34, 0.7);
+  color: var(--rs-text);
+  font-family: var(--rs-font-ui);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: transform 90ms ease, border-color 140ms ease, background 140ms ease, box-shadow 140ms ease;
+}
+.rs-btn:hover {
+  border-color: var(--rs-cyan);
+  background: rgba(24, 40, 56, 0.82);
+  box-shadow: 0 0 0 1px rgba(53, 232, 255, 0.18), 0 6px 22px -10px rgba(53, 232, 255, 0.7);
+}
+.rs-btn:active {
+  transform: translateY(1px) scale(0.985);
+}
+.rs-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.rs-btn-gold {
+  border-color: rgba(255, 207, 77, 0.45);
+  color: var(--rs-gold);
+}
+.rs-btn-gold:hover {
+  border-color: var(--rs-gold);
+  background: rgba(255, 207, 77, 0.12);
+  box-shadow: 0 0 0 1px rgba(255, 207, 77, 0.2), 0 6px 22px -10px rgba(255, 207, 77, 0.8);
+}
+.rs-btn-solid {
+  background: var(--rs-cyan);
+  border-color: var(--rs-cyan);
+  color: #04121a;
+}
+.rs-btn-solid:hover {
+  background: #6ff0ff;
+  color: #04121a;
+}
+.rs-btn-ghost {
+  background: transparent;
+  border-color: var(--rs-line);
+  color: var(--rs-text-dim);
+}
+.rs-btn-ghost:hover {
+  color: var(--rs-text);
+}
+
+/*------------------------------------------------------------------------------
+PRIMARY CTA - "DEPLOY"
+
+The single most obvious interactive element on the screen. It reads as charged
+hardware: a lit core, a slow energy sweep across the face, a ring of light on
+hover, and a real mechanical press. The motion is slow and cheap on purpose -
+it must feel alive without ever pulling focus into a distraction.
+------------------------------------------------------------------------------*/
+.rs-cta {
+  position: relative;
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  isolation: isolate;
+  transition: transform 110ms cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+.rs-cta-face {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  overflow: hidden;
+  padding: 18px 24px;
+  border: 1px solid rgba(53, 232, 255, 0.55);
+  background: linear-gradient(180deg, rgba(53, 232, 255, 0.22), rgba(8, 40, 54, 0.72) 60%, rgba(6, 26, 36, 0.85));
+  box-shadow:
+    inset 0 1px 0 rgba(180, 250, 255, 0.35),
+    inset 0 -18px 30px -22px rgba(53, 232, 255, 0.9),
+    0 12px 40px -18px rgba(53, 232, 255, 0.75);
+  transition: box-shadow 160ms ease, border-color 160ms ease;
+}
+.rs-cta-label {
+  position: relative;
+  z-index: 2;
+  font-family: var(--rs-font-display);
+  font-weight: 900;
+  font-size: clamp(20px, 3.4vw, 30px);
+  letter-spacing: 0.26em;
+  text-indent: 0.26em;
+  color: #eaffff;
+  text-shadow: 0 0 22px rgba(53, 232, 255, 0.65);
+}
+.rs-cta-sub {
+  position: relative;
+  z-index: 2;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  color: rgba(190, 245, 255, 0.65);
+}
+/* the energy sweep: one band of light crossing the face on a long cycle */
+.rs-cta-face::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(105deg, transparent 35%, rgba(190, 250, 255, 0.3) 50%, transparent 65%);
+  transform: translateX(-120%);
+  animation: rs-sweep 3.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+.rs-cta:hover .rs-cta-face {
+  border-color: var(--rs-cyan);
+  box-shadow:
+    inset 0 1px 0 rgba(200, 252, 255, 0.5),
+    inset 0 -22px 34px -22px rgba(53, 232, 255, 1),
+    0 16px 54px -16px rgba(53, 232, 255, 0.95);
+}
+.rs-cta:active {
+  transform: translateY(2px) scale(0.992);
+}
+/* corner brackets: targeting reticle framing the action */
+.rs-cta-bracket {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--rs-cyan);
+  z-index: 3;
+  opacity: 0.85;
+  transition: inset 160ms ease, opacity 160ms ease;
+}
+
+/*==============================================================================
+NAVIGATION - the ship's command terminal, not a website sidebar
+==============================================================================*/
+.rs-nav-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid transparent;
+  border-radius: var(--rs-radius-sm);
+  background: transparent;
+  color: var(--rs-text-faint);
+  font-family: var(--rs-font-ui);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color 130ms ease, background 130ms ease, border-color 130ms ease;
+}
+.rs-nav-item:hover {
+  color: var(--rs-text);
+  background: rgba(53, 232, 255, 0.06);
+  border-color: rgba(53, 232, 255, 0.22);
+}
+/* the illuminated edge that marks where you are */
+.rs-nav-item::before {
+  content: "";
+  position: absolute;
+  left: -1px;
+  top: 18%;
+  bottom: 18%;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--rs-cyan);
+  opacity: 0;
+  transition: opacity 140ms ease, top 160ms ease, bottom 160ms ease;
+}
+.rs-nav-item:hover::before {
+  opacity: 0.45;
+}
+.rs-nav-item[data-active="true"] {
+  color: #d9fbff;
+  background: linear-gradient(90deg, rgba(53, 232, 255, 0.16), rgba(53, 232, 255, 0.02));
+  border-color: rgba(53, 232, 255, 0.35);
+  box-shadow: inset 0 0 22px -14px var(--rs-cyan);
+}
+.rs-nav-item[data-active="true"]::before {
+  opacity: 1;
+  top: 6%;
+  bottom: 6%;
+  box-shadow: 0 0 12px var(--rs-cyan);
+}
+.rs-nav-icon {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  flex: none;
+  color: currentColor;
+}
+.rs-nav-item[data-active="true"] .rs-nav-icon {
+  filter: drop-shadow(0 0 6px rgba(53, 232, 255, 0.9));
+}
+
+/* mobile: same system, laid out as a thumb-reachable bottom bar */
+.rs-tab {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 2px 6px;
+  border: 0;
+  background: none;
+  color: var(--rs-text-faint);
+  font-family: var(--rs-font-ui);
+  font-weight: 700;
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color 130ms ease;
+}
+.rs-tab[data-active="true"] {
+  color: var(--rs-cyan);
+}
+.rs-tab[data-active="true"] .rs-nav-icon {
+  filter: drop-shadow(0 0 7px rgba(53, 232, 255, 0.9));
+}
+.rs-tab::after {
+  content: "";
+  width: 18px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--rs-cyan);
+  opacity: 0;
+  transition: opacity 140ms ease;
+}
+.rs-tab[data-active="true"]::after {
+  opacity: 1;
+  box-shadow: 0 0 10px var(--rs-cyan);
+}
+
+/*==============================================================================
+METERS - hull, shield, XP, mission progress
+Same anatomy everywhere: a dark channel, a filled bar, a bright leading edge.
+Colour alone tells you what kind of meter you are looking at.
+==============================================================================*/
+.rs-meter {
+  position: relative;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+.rs-meter-fill {
+  position: relative;
+  height: 100%;
+  border-radius: 3px;
+  transition: width 600ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.rs-meter-fill::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #fff;
+  opacity: 0.85;
+}
+.rs-meter-xp .rs-meter-fill {
+  background: linear-gradient(90deg, var(--rs-cyan-deep), var(--rs-cyan));
+  box-shadow: 0 0 12px -2px var(--rs-cyan);
+}
+.rs-meter-gold .rs-meter-fill {
+  background: linear-gradient(90deg, #b8860b, var(--rs-gold));
+  box-shadow: 0 0 12px -2px var(--rs-gold);
+}
+.rs-meter-green .rs-meter-fill {
+  background: linear-gradient(90deg, #159c68, var(--rs-green));
+  box-shadow: 0 0 12px -2px var(--rs-green);
+}
+
+/*==============================================================================
+BADGES + RARITY
+
+Rarity is a colour language the player learns once and reads everywhere: on a
+market card, a reward drop, a pilot tier, an inbox message.
+==============================================================================*/
+.rs-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-family: var(--rs-font-ui);
+  font-weight: 700;
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  line-height: 1.2;
+}
+.rs-rarity-common { color: #9fb3c8; background: rgba(159, 179, 200, 0.1); }
+.rs-rarity-rare { color: var(--rs-cyan); background: var(--rs-cyan-soft); }
+.rs-rarity-epic { color: var(--rs-purple); background: var(--rs-purple-soft); }
+.rs-rarity-legendary { color: var(--rs-gold); background: var(--rs-gold-soft); }
+
+/*==============================================================================
+REWARD CARDS - a claim should feel like a drop, not a notification
+==============================================================================*/
+.rs-reward {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--rs-line);
+  border-radius: var(--rs-radius);
+  background: linear-gradient(160deg, rgba(30, 40, 60, 0.62), rgba(9, 12, 20, 0.78));
+}
+/* the drop's own light, bleeding in from the corner where its icon sits */
+.rs-reward::before {
+  content: "";
+  position: absolute;
+  top: -40%;
+  right: -20%;
+  width: 70%;
+  height: 180%;
+  background: radial-gradient(closest-side, var(--rs-reward-glow, rgba(255, 207, 77, 0.22)), transparent 70%);
+  pointer-events: none;
+}
+.rs-reward-ready {
+  border-color: rgba(255, 207, 77, 0.42);
+  animation: rs-reward-breathe 3.2s ease-in-out infinite;
+}
+
+/*==============================================================================
+MOTION - fast, responsive, intentional. Nothing loops fast enough to nag.
+==============================================================================*/
+@keyframes rs-sweep {
+  0%, 62% { transform: translateX(-120%); }
+  100% { transform: translateX(120%); }
+}
+@keyframes rs-reward-breathe {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 207, 77, 0); }
+  50% { box-shadow: 0 0 26px -6px rgba(255, 207, 77, 0.45); }
+}
+@keyframes rs-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes rs-slide-in {
+  from { opacity: 0; transform: translateX(-14px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes rs-pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.8); }
+}
+@keyframes rs-scan-line {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(1200%); }
+}
+.rs-rise { animation: rs-rise 380ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.rs-slide-in { animation: rs-slide-in 320ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.rs-live-dot { animation: rs-pulse-dot 1.6s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .rs-cta-face::after,
+  .rs-reward-ready,
+  .rs-live-dot,
+  .rs-rise,
+  .rs-slide-in {
+    animation: none !important;
+  }
+}
+
+/*==============================================================================
+SCROLL - thin, tinted, part of the interface
+==============================================================================*/
+.rs-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(53, 232, 255, 0.3) transparent;
+}
+.rs-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+.rs-scroll::-webkit-scrollbar-track { background: transparent; }
+.rs-scroll::-webkit-scrollbar-thumb {
+  background: rgba(53, 232, 255, 0.25);
+  border-radius: 3px;
+}
+.rs-scroll::-webkit-scrollbar-thumb:hover { background: rgba(53, 232, 255, 0.5); }
+
+/*==============================================================================
+Landscape prompt for touch devices held in portrait.
+
+Only gameplay needs landscape. The command centre is designed for portrait, so
+the prompt appears when the player actually DEPLOYS - not the moment they open
+the game on a phone, which used to wall off the entire menu behind a rotate
+request.
+==============================================================================*/
 #rotate-overlay {
   display: none;
   position: fixed;
@@ -40,7 +566,7 @@ body {
 }
 
 @media (orientation: portrait) and (pointer: coarse) {
-  #rotate-overlay {
+  html[data-rs-portrait-ok="0"] #rotate-overlay {
     display: flex;
   }
 }
@@ -48,24 +574,23 @@ body {
 #rotate-overlay .phone {
   width: 44px;
   height: 76px;
-  border: 3px solid #fff;
+  border: 3px solid var(--rs-cyan);
   border-radius: 8px;
+  box-shadow: 0 0 30px -6px var(--rs-cyan);
   animation: rotate-hint 1.8s ease-in-out infinite;
 }
 
 @keyframes rotate-hint {
-  0%, 25% {
-    transform: rotate(0deg);
-  }
-  60%, 100% {
-    transform: rotate(90deg);
-  }
+  0%, 25% { transform: rotate(0deg); }
+  60%, 100% { transform: rotate(90deg); }
 }
 
-/* Game container styles - match the original game's styling */
+/*==============================================================================
+Game container
+==============================================================================*/
 #game-mount #wrap {
-  background: #222;
-  box-shadow: inset 0 0 0 1px #404040, 0 0 0 1px #000;
+  background: var(--rs-void);
+  box-shadow: inset 0 0 0 1px rgba(90, 130, 170, 0.12);
   left: 0;
   opacity: 0;
   position: absolute;
@@ -84,8 +609,9 @@ body {
 #boot-splash {
   align-items: center;
   background:
-    radial-gradient(800px 400px at 70% 20%, rgba(51, 230, 255, 0.05), transparent 60%),
-    #06070c;
+    radial-gradient(900px 500px at 72% 18%, rgba(53, 232, 255, 0.07), transparent 62%),
+    radial-gradient(700px 400px at 20% 100%, rgba(185, 140, 255, 0.05), transparent 60%),
+    var(--rs-void);
   display: flex;
   flex-direction: column;
   gap: 18px;
@@ -110,8 +636,9 @@ body {
 }
 #boot-splash .boot-bar span {
   animation: bootSweep 1.1s ease-in-out infinite;
-  background: #33e6ff;
+  background: var(--rs-cyan);
   border-radius: 2px;
+  box-shadow: 0 0 10px var(--rs-cyan);
   display: block;
   height: 100%;
   width: 40%;
@@ -121,8 +648,8 @@ body {
   100% { transform: translateX(450%); }
 }
 #boot-splash .boot-label {
-  color: rgba(255, 255, 255, 0.35);
-  font-family: ui-monospace, Menlo, Consolas, monospace;
+  color: var(--rs-text-faint);
+  font-family: var(--rs-font-mono);
   font-size: 11px;
   letter-spacing: 0.4em;
 }
@@ -145,4 +672,311 @@ body {
   left: 0;
   position: absolute;
   top: 0;
+}
+
+/*==============================================================================
+COMMAND CENTRE LAYOUT
+
+The layout does not scale - it transforms. Each breakpoint is a different
+arrangement of the same five regions, chosen for how the device is held:
+
+  DESKTOP / LAPTOP   nav rail | command stage | ops column      (three lanes)
+  TABLET             command stage over a two-up ops grid, tabs at the thumb
+  PHONE PORTRAIT     top HUD / brand + ship / DEPLOY / ops / bottom nav
+  PHONE LANDSCAPE    three lanes again, but icon-only rail and a tight stage,
+                     because the constraint there is HEIGHT, not width
+
+Region names are stable across all of them, so nothing is ever dropped on the
+way down - a card that answers "what can I earn" moves, it does not vanish.
+==============================================================================*/
+.rs-cc {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  color: var(--rs-text);
+  padding-bottom: calc(62px + var(--safe-bottom));
+  -webkit-overflow-scrolling: touch;
+}
+
+/* atmosphere pass: keeps the engine's starfield visible but stops it from
+   competing with type. Background is atmosphere; UI is information. */
+.rs-cc-veil {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(1200px 700px at 50% 42%, rgba(6, 12, 22, 0.5), transparent 70%),
+    radial-gradient(900px 500px at 88% 0%, rgba(53, 232, 255, 0.05), transparent 62%),
+    radial-gradient(800px 480px at 6% 100%, rgba(185, 140, 255, 0.05), transparent 60%),
+    linear-gradient(180deg, rgba(4, 6, 11, 0.82) 0%, rgba(4, 6, 11, 0.28) 26%, rgba(4, 6, 11, 0.3) 62%, rgba(4, 6, 11, 0.88) 100%);
+}
+
+/*--- top bar ----------------------------------------------------------------*/
+.rs-cc-top {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: calc(var(--safe-top) + 8px) calc(var(--safe-right) + 12px) 8px calc(var(--safe-left) + 12px);
+  background: linear-gradient(180deg, rgba(4, 6, 11, 0.86), rgba(4, 6, 11, 0));
+}
+
+.rs-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 9px;
+  border: 1px solid var(--rs-line);
+  border-radius: 999px;
+  background: rgba(10, 14, 22, 0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  font-size: 11px;
+  color: var(--rs-text-dim);
+  line-height: 1;
+  transition: border-color 140ms ease, color 140ms ease;
+}
+.rs-chip .rs-num { color: var(--rs-text); font-size: 11px; }
+
+/*--- nav rail (hidden until there is width for it) ---------------------------*/
+.rs-cc-rail {
+  display: none;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+}
+
+/*--- command stage ----------------------------------------------------------*/
+.rs-cc-main {
+  display: flex;
+  justify-content: center;
+  padding: 4px 16px 8px;
+}
+.rs-cc-stage {
+  display: flex;
+  width: 100%;
+  max-width: 560px;
+  flex-direction: column;
+  align-items: center;
+}
+.rs-cc-ship {
+  position: relative;
+  width: min(62vw, 260px);
+  aspect-ratio: 1;
+  margin-bottom: 2px;
+}
+.rs-cc-cta {
+  width: 100%;
+  max-width: 420px;
+  margin-top: 18px;
+}
+
+/*--- ops column -------------------------------------------------------------*/
+.rs-cc-ops {
+  display: grid;
+  grid-template-columns: 1fr;
+  /* max-content, not auto: these cards carry `overflow: hidden` (for the
+     rarity glow bleed), which gives them an automatic minimum size of zero in
+     grid layout. In a fixed-height lane the browser will then happily squash a
+     card to a sliver of its content rather than letting the lane scroll -
+     which is exactly what a reward card did on a phone in landscape. Pinning
+     the rows to max-content makes the lane scroll instead. */
+  grid-auto-rows: max-content;
+  gap: 10px;
+  padding: 10px calc(var(--safe-right) + 12px) 16px calc(var(--safe-left) + 12px);
+  align-content: start;
+}
+
+/*--- bottom nav -------------------------------------------------------------*/
+.rs-cc-tabs {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 4;
+  display: flex;
+  align-items: stretch;
+  padding: 0 calc(var(--safe-right) + 6px) var(--safe-bottom) calc(var(--safe-left) + 6px);
+  border-top: 1px solid var(--rs-line);
+  background: rgba(6, 9, 15, 0.9);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.rs-cc-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  background: rgba(2, 4, 8, 0.6);
+  backdrop-filter: blur(2px);
+}
+.rs-cc-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px calc(74px + var(--safe-bottom));
+  border-top: 1px solid var(--rs-line-strong);
+  border-radius: 16px 16px 0 0;
+  background: rgba(9, 13, 21, 0.97);
+}
+
+/*==============================================================================
+TABLET AND UP - the ops column goes two-up beside itself before it ever goes
+to a lane of its own, so the stage keeps the width it needs for the ship
+==============================================================================*/
+@media (min-width: 640px) {
+  .rs-cc-ops { max-width: 560px; margin: 0 auto; }
+  .rs-cc-main { padding: 8px 20px 10px; }
+  .rs-cc-ship { width: min(46vw, 300px); }
+}
+
+/* wide enough for the ops cards to sit two-up without either one cramping */
+@media (min-width: 900px) {
+  .rs-cc-ops {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    max-width: 760px;
+  }
+}
+
+/*==============================================================================
+DESKTOP - three lanes, nothing scrolls the page as a whole
+==============================================================================*/
+@media (min-width: 1100px) {
+  .rs-cc {
+    display: grid;
+    overflow: hidden;
+    padding-bottom: 0;
+    grid-template-columns: 184px minmax(0, 1fr) 330px;
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-areas:
+      "top  top  top"
+      "rail main ops";
+  }
+  .rs-cc-top { grid-area: top; position: relative; padding-inline: calc(var(--safe-left) + 20px) calc(var(--safe-right) + 20px); }
+  .rs-cc-rail {
+    grid-area: rail;
+    display: flex;
+    padding: 8px 10px 16px calc(var(--safe-left) + 12px);
+  }
+  .rs-cc-main {
+    grid-area: main;
+    align-items: center;
+    overflow-y: auto;
+    padding: 0 24px 20px;
+  }
+  .rs-cc-ops {
+    grid-area: ops;
+    grid-template-columns: 1fr;
+    max-width: none;
+    margin: 0;
+    overflow-y: auto;
+    padding: 4px calc(var(--safe-right) + 16px) 20px 4px;
+  }
+  .rs-cc-tabs { display: none; }
+  .rs-cc-ship { width: min(24vw, 280px); }
+}
+
+@media (min-width: 1500px) {
+  .rs-cc { grid-template-columns: 210px minmax(0, 1fr) 372px; }
+  .rs-cc-ship { width: 320px; }
+}
+
+/*==============================================================================
+SHORT SCREENS (phone in landscape, small laptops)
+
+Height is the scarce resource, not width. Three lanes come back early, the
+rail collapses to icons, and the hull telemetry yields so DEPLOY always sits
+on screen without a scroll.
+==============================================================================*/
+@media (max-height: 560px) and (min-width: 640px) {
+  .rs-cc {
+    display: grid;
+    overflow: hidden;
+    padding-bottom: 0;
+    grid-template-columns: 62px minmax(0, 1fr) minmax(220px, 280px);
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-areas:
+      "top  top  top"
+      "rail main ops";
+  }
+  .rs-cc-top { grid-area: top; position: relative; padding-block: calc(var(--safe-top) + 6px) 4px; }
+  .rs-cc-rail {
+    grid-area: rail;
+    display: flex;
+    padding: 4px 6px 8px calc(var(--safe-left) + 6px);
+  }
+  /* icon-only: the label would be unreadable at this height anyway */
+  .rs-cc-rail .rs-nav-item { justify-content: center; padding: 8px 4px; }
+  .rs-cc-rail .rs-nav-item > span:not(.rs-nav-icon) { display: none; }
+  .rs-cc-main { grid-area: main; align-items: center; overflow-y: auto; padding: 0 12px 8px; }
+  .rs-cc-ops {
+    grid-area: ops;
+    grid-template-columns: 1fr;
+    max-width: none;
+    margin: 0;
+    overflow-y: auto;
+    padding: 2px calc(var(--safe-right) + 10px) 12px 2px;
+  }
+  .rs-cc-tabs { display: none; }
+  .rs-cc-ship { width: min(34vh, 170px); margin-bottom: 0; }
+  .rs-cc-cta { margin-top: 10px; max-width: 360px; }
+  .rs-cc-veil { background: linear-gradient(180deg, rgba(4,6,11,0.86) 0%, rgba(4,6,11,0.32) 30%, rgba(4,6,11,0.8) 100%); }
+}
+
+/* phone in landscape is narrow AND short - drop the ops lane to a single
+   column of the most urgent cards rather than crushing three lanes */
+@media (max-height: 460px) and (max-width: 900px) {
+  .rs-cc { grid-template-columns: 56px minmax(0, 1fr) 210px; }
+  .rs-cc-ship { width: min(32vh, 130px); }
+}
+
+/*--- partner strip: quiet, bottom-edge, never in front of the CTA -----------*/
+.rs-partners {
+  position: fixed;
+  z-index: 41;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 7px calc(var(--safe-right) + 14px) calc(var(--safe-bottom) + 7px) calc(var(--safe-left) + 14px);
+  background: linear-gradient(180deg, rgba(4, 6, 11, 0), rgba(4, 6, 11, 0.85) 45%);
+  pointer-events: none;
+}
+.rs-partners > * { pointer-events: auto; }
+
+/* on phones the tab bar owns the bottom edge, so the strip rides above it */
+@media (max-width: 1099px) {
+  .rs-partners { bottom: calc(62px + var(--safe-bottom)); padding-bottom: 6px; }
+}
+@media (max-height: 560px) and (min-width: 640px) {
+  .rs-partners { bottom: 0; }
+}
+
+/*==============================================================================
+DEBRIEF ON SHORT SCREENS
+
+A phone in landscape is ~390px tall and the debrief carries five sections. The
+one thing that must never need a scroll to reach is REDEPLOY, so at this
+height the score shrinks, the padding tightens, and the panel fits.
+==============================================================================*/
+@media (max-height: 520px) {
+  .rs-debrief .rs-cta-label { font-size: 17px !important; }
+  .rs-debrief .rs-cta-face { padding: 10px 16px !important; }
+  .rs-debrief-head { padding-top: 12px !important; padding-bottom: 10px !important; }
+  .rs-debrief-score { font-size: 30px !important; }
 }
