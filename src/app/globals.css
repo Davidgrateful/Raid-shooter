@@ -331,18 +331,31 @@ NAVIGATION - the ship's command terminal, not a website sidebar
 .rs-nav-item:hover::before {
   opacity: 0.45;
 }
+/* WHERE YOU ARE. A location is not a button, so it is not styled like one:
+   no fill, no glow, no border. It is a lit edge marker against a raised
+   surface with a white label - the map-pin treatment. The contrast with
+   [data-primary] below (a filled, pressable face) is the whole point: an
+   action must never be confused with a place. */
 .rs-nav-item[data-active="true"] {
-  color: #d9fbff;
-  background: linear-gradient(90deg, rgba(53, 232, 255, 0.16), rgba(53, 232, 255, 0.02));
-  border-color: rgba(53, 232, 255, 0.35);
-  box-shadow: inset 0 0 22px -14px var(--rs-cyan);
+  color: #fff;
+  background: rgba(255, 255, 255, 0.05);
+  border-color: transparent;
+  cursor: default;
+}
+.rs-nav-item[data-active="true"]:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: transparent;
 }
 .rs-nav-item[data-active="true"]::before {
   opacity: 1;
-  top: 6%;
-  bottom: 6%;
-  box-shadow: 0 0 12px var(--rs-cyan);
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  border-radius: 0;
+  background: #fff;
+  box-shadow: none;
 }
+.rs-nav-item[data-active="true"] .rs-nav-hint { color: rgba(233, 241, 255, 0.45); }
 .rs-nav-icon {
   display: grid;
   place-items: center;
@@ -351,9 +364,7 @@ NAVIGATION - the ship's command terminal, not a website sidebar
   flex: none;
   color: currentColor;
 }
-.rs-nav-item[data-active="true"] .rs-nav-icon {
-  filter: drop-shadow(0 0 6px rgba(53, 232, 255, 0.9));
-}
+.rs-nav-item[data-active="true"] .rs-nav-icon { filter: none; }
 
 /* mobile: same system, laid out as a thumb-reachable bottom bar */
 .rs-tab {
@@ -806,7 +817,9 @@ way down - a card that answers "what can I earn" moves, it does not vanish.
   align-items: stretch;
   padding: 0 calc(var(--safe-right) + 6px) var(--safe-bottom) calc(var(--safe-left) + 6px);
   border-top: 1px solid var(--rs-line);
-  background: rgba(6, 9, 15, 0.9);
+  /* opaque, not translucent: at 0.9 the content scrolling underneath stayed
+     legible enough to read as a second row of labels behind the tabs */
+  background: #05070c;
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
 }
@@ -929,6 +942,10 @@ on screen without a scroll.
   .rs-cc-rail .rs-nav-item > span:not(.rs-nav-icon) { display: none; }
   .rs-cc-rail .rs-rail-head { justify-content: center; padding: 2px 0 6px; }
   .rs-cc-rail .rs-rail-head span:not(.rs-rail-head-tick) { display: none; }
+  /* a 62px column cannot hold the words COMMAND DECK - it sliced them to
+     "COM D" - so the return control collapses to its arrow alone */
+  .rs-cc-rail .rs-rail-home { justify-content: center; padding: 4px 0 8px; }
+  .rs-cc-rail .rs-rail-home span:not(.rs-rail-home-arrow) { display: none; }
   .rs-cc-rail .rs-rail-head-sub { margin-top: 10px; padding-top: 10px; }
   .rs-cc-main { grid-area: main; align-items: safe center; overflow-y: auto; padding: 0 12px 8px; }
   .rs-cc-ops {
@@ -1234,20 +1251,14 @@ several hundred pixels of nothing between — this reads as one instrument.
 .rs-nav-item[data-primary="true"] {
   position: relative;
   overflow: hidden;
-  color: #d9fbff;
-  background: linear-gradient(90deg, rgba(53, 232, 255, 0.15), rgba(53, 232, 255, 0.02));
-  border-color: rgba(53, 232, 255, 0.32);
-  box-shadow: inset 0 0 22px -14px var(--rs-cyan);
+  color: #04121a;
+  background: linear-gradient(120deg, var(--rs-cyan), var(--rs-cyan-deep));
+  border-color: transparent;
+  box-shadow: 0 0 26px -12px var(--rs-cyan);
 }
-.rs-nav-item[data-primary="true"]::before {
-  opacity: 1;
-  top: 6%;
-  bottom: 6%;
-  box-shadow: 0 0 12px var(--rs-cyan);
-}
-.rs-nav-item[data-primary="true"] .rs-nav-icon {
-  filter: drop-shadow(0 0 6px rgba(53, 232, 255, 0.9));
-}
+.rs-nav-item[data-primary="true"]::before { opacity: 0; }
+.rs-nav-item[data-primary="true"] .rs-nav-hint { color: rgba(4, 18, 26, 0.62); }
+.rs-nav-item[data-primary="true"] .rs-nav-icon { filter: none; }
 .rs-nav-item[data-primary="true"]::after {
   content: "";
   position: absolute;
@@ -1258,8 +1269,20 @@ several hundred pixels of nothing between — this reads as one instrument.
   pointer-events: none;
 }
 .rs-nav-item[data-primary="true"]:hover {
-  background: linear-gradient(90deg, rgba(53, 232, 255, 0.24), rgba(53, 232, 255, 0.04));
-  border-color: rgba(53, 232, 255, 0.55);
+  background: linear-gradient(120deg, #6df3ff, var(--rs-cyan-deep));
+  border-color: transparent;
+}
+/* On a screen you are standing in, DEPLOY is still the action but the room
+   already belongs to somewhere else - so it steps back to an outline and
+   stops competing with the location marker for the same glance. */
+.rs-cc-rail:has(.rs-nav-item[data-active="true"]) .rs-nav-item[data-primary="true"] {
+  color: #d9fbff;
+  background: rgba(53, 232, 255, 0.1);
+  border-color: rgba(53, 232, 255, 0.45);
+  box-shadow: none;
+}
+.rs-cc-rail:has(.rs-nav-item[data-active="true"]) .rs-nav-item[data-primary="true"] .rs-nav-hint {
+  color: rgba(233, 241, 255, 0.42);
 }
 
 /*------------------------------------------------------------------------------
@@ -1746,3 +1769,782 @@ there is no room beside it.
 
 .rs-xp-level { min-width: 54px; }
 .rs-xp-level-max { font-size: 10px; color: rgba(233, 241, 255, 0.3); }
+
+/*==============================================================================
+PILOT / HANGAR
+
+A different place, not the command deck with different cards in it.
+
+The deck is built from PANELS - each idea gets its own frame because each idea
+is a separate offer. The hangar is built from an INSTRUMENT COLUMN - one
+continuous readout, divided by hairline rules, because everything in it
+describes the same object: the hull on the cradle. That single decision is what
+keeps this from collapsing into glassmorphism, and it is why almost nothing
+below has a card border.
+
+Colour discipline is unchanged. Cyan is action and selection, gold is earned
+progression, purple is the ability layer, and each hull's own accent hue (from
+$.pilotAccentHue) lights its bay and fills its gauges - so scrolling the roster
+changes the colour of the room, not the layout of it.
+==============================================================================*/
+
+/*--- the way back. A LOCATION header, not a nav item ------------------------*/
+.rs-rail-home {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  padding: 6px 8px 6px 4px;
+  margin-bottom: 6px;
+  border: 0;
+  border-bottom: 1px solid var(--rs-line);
+  background: none;
+  color: var(--rs-text-dim);
+  font-family: var(--rs-font-ui);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color 130ms ease;
+}
+.rs-rail-home:hover { color: var(--rs-cyan); }
+.rs-rail-home-arrow {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  flex: none;
+  border: 1px solid var(--rs-line-strong);
+  border-radius: 3px;
+  font-size: 13px;
+  line-height: 1;
+  color: var(--rs-cyan);
+}
+
+/*--- shell ------------------------------------------------------------------*/
+.rs-hg-veil {
+  background:
+    radial-gradient(1100px 620px at 50% 30%, rgba(8, 16, 28, 0.42), transparent 72%),
+    linear-gradient(180deg, rgba(4, 6, 11, 0.9) 0%, rgba(4, 6, 11, 0.2) 30%, rgba(4, 6, 11, 0.35) 66%, rgba(4, 6, 11, 0.94) 100%);
+}
+
+/*--- header -----------------------------------------------------------------*/
+.rs-hg-where { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.rs-hg-back {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  border: 1px solid var(--rs-line-strong);
+  border-radius: var(--rs-radius-sm);
+  background: rgba(10, 14, 22, 0.6);
+  color: var(--rs-cyan);
+  font-size: 19px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 130ms ease, border-color 130ms ease;
+}
+.rs-hg-back:hover { background: rgba(53, 232, 255, 0.12); border-color: rgba(53, 232, 255, 0.45); }
+.rs-hg-title {
+  font-family: var(--rs-font-display);
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--rs-text);
+  white-space: nowrap;
+}
+/* the bay number is instrumentation, so it is built like the deck's readouts:
+   a tick, a caption, a tabular figure */
+.rs-hg-bay {
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  padding-left: 12px;
+}
+.rs-hg-bay::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 2px;
+  bottom: 2px;
+  width: 1px;
+  background: var(--rs-line);
+}
+.rs-hg-bay-cap {
+  font-family: var(--rs-font-ui);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--rs-text-faint);
+}
+.rs-hg-bay .rs-num { font-size: 13px; color: var(--rs-text); }
+.rs-hg-bay-of { font-family: var(--rs-font-mono); font-size: 10px; color: var(--rs-text-faint); }
+
+/*--- the bay itself ---------------------------------------------------------*/
+.rs-hg-main { padding: 0 14px 10px; }
+.rs-hg-stage {
+  display: flex;
+  width: 100%;
+  max-width: 620px;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* The hull is the hero here and it is deliberately larger than on the deck.
+   The frame is a fixed aspect box so the bay geometry (floor, gantries,
+   cradle) keeps its proportions at every width instead of squashing. */
+.rs-hg-bayframe {
+  position: relative;
+  width: min(92vw, 460px);
+  aspect-ratio: 1 / 0.82;
+  flex: none;
+}
+/* Without this the canvas's own light bank and floor haze stop at a hard
+   rectangle and the bay reads as a panel pasted onto the starfield instead
+   of as a room the starfield is outside of. */
+.rs-hg-bayframe > canvas {
+  -webkit-mask-image:
+    radial-gradient(96% 92% at 50% 46%, #000 24%, transparent 84%),
+    linear-gradient(180deg, transparent 0%, #000 13%, #000 88%, transparent 100%),
+    linear-gradient(90deg, transparent 0%, #000 11%, #000 89%, transparent 100%);
+  mask-image:
+    radial-gradient(96% 92% at 50% 46%, #000 24%, transparent 84%),
+    linear-gradient(180deg, transparent 0%, #000 13%, #000 88%, transparent 100%),
+    linear-gradient(90deg, transparent 0%, #000 11%, #000 89%, transparent 100%);
+  -webkit-mask-composite: source-in;
+  mask-composite: intersect;
+}
+
+.rs-hg-arrow {
+  position: absolute;
+  top: 44%;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--rs-line-strong);
+  border-radius: 50%;
+  background: rgba(8, 12, 20, 0.72);
+  color: var(--rs-text-dim);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  transition: color 130ms ease, border-color 130ms ease, background 130ms ease, transform 130ms ease;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.rs-hg-arrow:hover {
+  color: var(--rs-cyan);
+  border-color: rgba(53, 232, 255, 0.5);
+  background: rgba(53, 232, 255, 0.12);
+}
+.rs-hg-arrow:active { transform: scale(0.93); }
+.rs-hg-arrow-l { left: -6px; }
+.rs-hg-arrow-r { right: -6px; }
+
+/* dock plates: two small technical readouts pinned to the bay walls */
+.rs-hg-plate {
+  position: absolute;
+  bottom: 15%;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  pointer-events: none;
+}
+.rs-hg-plate-l { left: 2px; text-align: left; }
+.rs-hg-plate-r { right: 2px; text-align: right; }
+.rs-hg-plate-cap {
+  font-family: var(--rs-font-ui);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--rs-text-faint);
+}
+.rs-hg-plate-val {
+  font-family: var(--rs-font-ui);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--rs-text);
+}
+
+/*--- roster strip: the whole bay at a glance --------------------------------*/
+/* Deliberately NOT a list of names. Thirteen names is a menu; thirteen lit
+   slots is a hangar's dock board, it fits on a phone, and the colour of each
+   slot is the hull's own accent - so the strip doubles as a legend. */
+.rs-roster {
+  display: flex;
+  gap: 4px;
+  width: 100%;
+  max-width: 460px;
+  margin-top: 8px;
+  padding-bottom: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.rs-roster::-webkit-scrollbar { display: none; }
+.rs-roster-slot {
+  position: relative;
+  display: flex;
+  flex: 1 1 0;
+  min-width: 22px;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 0 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+.rs-roster-num {
+  font-family: var(--rs-font-mono);
+  font-size: 9px;
+  color: rgba(233, 241, 255, 0.22);
+  transition: color 140ms ease;
+}
+.rs-roster-bar {
+  width: 100%;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.09);
+  transition: background 140ms ease, box-shadow 140ms ease, height 140ms ease;
+}
+.rs-roster-slot[data-locked="0"] .rs-roster-bar {
+  background: hsla(var(--slot-hue), 80%, 58%, 0.4);
+}
+.rs-roster-slot[data-equipped="1"] .rs-roster-bar {
+  background: hsla(var(--slot-hue), 90%, 62%, 0.85);
+}
+.rs-roster-slot[data-on="1"] .rs-roster-num { color: var(--rs-text); }
+.rs-roster-slot[data-on="1"] .rs-roster-bar {
+  height: 5px;
+  background: hsl(var(--slot-hue), 95%, 65%);
+  box-shadow: 0 0 12px -1px hsl(var(--slot-hue), 95%, 62%);
+}
+.rs-roster-slot:hover .rs-roster-num { color: var(--rs-text-dim); }
+
+/*--- identity ---------------------------------------------------------------*/
+.rs-hg-id { width: 100%; max-width: 460px; margin-top: 12px; text-align: center; }
+.rs-hg-id-line {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 20px;
+}
+.rs-hg-tier {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border: 1px solid hsla(var(--tier-hue), 85%, 62%, 0.6);
+  border-radius: 3px;
+  background: hsla(var(--tier-hue), 80%, 50%, 0.14);
+  color: hsl(var(--tier-hue), 90%, 74%);
+  font-family: var(--rs-font-ui);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+}
+.rs-hg-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--rs-font-ui);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--rs-green);
+}
+.rs-hg-flag::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 8px currentColor;
+}
+.rs-hg-flag-locked { color: var(--rs-text-faint); }
+.rs-hg-flag-locked::before { box-shadow: none; }
+
+.rs-hg-name {
+  margin-top: 8px;
+  font-family: var(--rs-font-display);
+  font-size: clamp(24px, 6vw, 38px);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #fff;
+}
+.rs-hg-role {
+  margin-top: 6px;
+  font-family: var(--rs-font-ui);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--rs-text-dim);
+}
+
+/*--- level ladder -----------------------------------------------------------*/
+.rs-hg-level { margin-top: 14px; text-align: left; }
+.rs-hg-level-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.rs-hg-level-cap {
+  font-family: var(--rs-font-ui);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--rs-text-faint);
+}
+.rs-hg-level-val { font-family: var(--rs-font-mono); font-size: 15px; color: var(--rs-cyan); }
+.rs-hg-level-max { font-size: 11px; color: rgba(233, 241, 255, 0.3); }
+.rs-hg-level-foot {
+  margin-top: 6px;
+  font-family: var(--rs-font-mono);
+  font-size: 10px;
+  color: var(--rs-text-faint);
+}
+.rs-hg-lockline {
+  margin-top: 12px;
+  font-family: var(--rs-font-ui);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--rs-text-faint);
+}
+
+/*--- the action -------------------------------------------------------------*/
+.rs-hg-act { margin-top: 14px; }
+.rs-hg-act .rs-btn { width: 100%; }
+
+/* EQUIP is this screen's one loud control - the hangar's equivalent of
+   DEPLOY. Nothing else here glows. */
+.rs-hg-equip,
+.rs-hg-acquire {
+  display: block;
+  width: 100%;
+  border: 0;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+}
+.rs-hg-equip-face {
+  display: block;
+  padding: 13px 18px;
+  clip-path: polygon(11px 0, 100% 0, 100% calc(100% - 11px), calc(100% - 11px) 100%, 0 100%, 0 11px);
+  background: linear-gradient(135deg, var(--rs-cyan) 0%, var(--rs-cyan-deep) 100%);
+  color: #04121a;
+  font-family: var(--rs-font-display);
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  box-shadow: 0 0 30px -8px var(--rs-cyan);
+  transition: filter 130ms ease, transform 130ms ease;
+}
+.rs-hg-equip:hover .rs-hg-equip-face { filter: brightness(1.1); }
+.rs-hg-equip:active .rs-hg-equip-face { transform: translateY(1px); }
+
+/* ACQUIRE is gold because it spends money, and it is quiet because a locked
+   hull is a state, not a sales pitch */
+.rs-hg-acquire-face {
+  display: block;
+  padding: 12px 18px;
+  clip-path: polygon(11px 0, 100% 0, 100% calc(100% - 11px), calc(100% - 11px) 100%, 0 100%, 0 11px);
+  border: 1px solid rgba(255, 207, 77, 0.42);
+  background: rgba(255, 207, 77, 0.09);
+  color: var(--rs-gold);
+  font-family: var(--rs-font-display);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  transition: background 130ms ease;
+}
+.rs-hg-acquire:hover .rs-hg-acquire-face { background: rgba(255, 207, 77, 0.17); }
+
+/*==============================================================================
+SYSTEMS COLUMN
+==============================================================================*/
+.rs-hg-sys { align-content: start; gap: 0; }
+
+/* the two panes are a phone affordance; on a wide screen both are simply on */
+.rs-hg-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--rs-line);
+}
+.rs-hg-tabs button {
+  padding: 9px 4px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--rs-text-faint);
+  font-family: var(--rs-font-ui);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color 130ms ease, border-color 130ms ease;
+}
+.rs-hg-tabs button[data-on="1"] {
+  color: var(--rs-cyan);
+  border-bottom-color: var(--rs-cyan);
+}
+.rs-hg-pane[data-on="0"] { display: none; }
+
+/*--- a section of the instrument column -------------------------------------*/
+.rs-sys { padding: 14px 0; border-bottom: 1px solid var(--rs-line); }
+.rs-sys:last-child { border-bottom: 0; }
+.rs-sys-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 10px; }
+.rs-sys-tick {
+  width: 3px;
+  height: 10px;
+  flex: none;
+  align-self: center;
+  border-radius: 1px;
+  background: var(--rs-line-strong);
+}
+.rs-sys-label {
+  font-family: var(--rs-font-ui);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: var(--rs-text);
+}
+.rs-sys-note {
+  margin-left: auto;
+  font-family: var(--rs-font-ui);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--rs-text-faint);
+  text-align: right;
+}
+.rs-sys-text {
+  margin-top: 7px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--rs-text-dim);
+}
+.rs-sys-empty {
+  font-family: var(--rs-font-ui);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--rs-text-faint);
+}
+.rs-sys-foot {
+  margin-top: 9px;
+  font-size: 10px;
+  line-height: 1.5;
+  color: var(--rs-text-faint);
+}
+
+/*--- performance gauges -----------------------------------------------------*/
+/* Segmented, not smooth: a segmented bar reads as a measurement and a smooth
+   one reads as progress. These are measurements. */
+.rs-stat-bank { display: flex; flex-direction: column; gap: 7px; }
+.rs-stat {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) 24px 26px;
+  align-items: center;
+  gap: 8px;
+}
+.rs-stat-key {
+  font-family: var(--rs-font-ui);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  color: var(--rs-text-dim);
+}
+.rs-stat-gauge { display: flex; gap: 2px; height: 9px; }
+.rs-stat-gauge i {
+  flex: 1;
+  border-radius: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  transition: background 220ms ease;
+}
+.rs-stat-gauge i[data-on="1"] {
+  background: var(--rs-cyan);
+  box-shadow: 0 0 8px -3px var(--rs-cyan);
+}
+/* a hull you do not own reports its numbers in steel, not in the colour that
+   means "yours and live" */
+.rs-stat-bank[data-muted="1"] .rs-stat-gauge i[data-on="1"] {
+  background: rgba(190, 215, 240, 0.5);
+  box-shadow: none;
+}
+.rs-stat-bank[data-muted="1"] .rs-stat-num { color: var(--rs-text-dim); }
+.rs-stat-num { font-family: var(--rs-font-mono); font-size: 11px; color: var(--rs-text); text-align: right; }
+.rs-stat-delta {
+  font-family: var(--rs-font-mono);
+  font-size: 9px;
+  text-align: right;
+  color: transparent;
+}
+.rs-stat-delta[data-dir="1"] { color: var(--rs-green); }
+.rs-stat-delta[data-dir="-1"] { color: var(--rs-red); }
+
+/*--- spec rows --------------------------------------------------------------*/
+.rs-spec {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 0;
+}
+.rs-spec-key {
+  font-family: var(--rs-font-ui);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--rs-text-faint);
+}
+.rs-spec-val {
+  font-family: var(--rs-font-ui);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--rs-text);
+  text-align: right;
+}
+
+/*--- loadout racks ----------------------------------------------------------*/
+.rs-rack { display: flex; flex-direction: column; gap: 4px; }
+.rs-rack[data-kind="color"],
+.rs-rack[data-kind="trail"] {
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+.rs-slot {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 9px;
+  border: 1px solid transparent;
+  border-radius: var(--rs-radius-sm);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--rs-text-dim);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 130ms ease, background 130ms ease, color 130ms ease;
+}
+.rs-rack[data-kind="color"] .rs-slot,
+.rs-rack[data-kind="trail"] .rs-slot { flex: 1 1 auto; min-width: 0; padding: 6px 8px; }
+.rs-slot:hover { border-color: var(--rs-line-strong); background: rgba(255, 255, 255, 0.06); color: var(--rs-text); }
+.rs-slot[data-on="1"] {
+  border-color: rgba(53, 232, 255, 0.5);
+  background: rgba(53, 232, 255, 0.1);
+  color: var(--rs-text);
+}
+.rs-slot[data-locked="1"] { opacity: 0.42; }
+.rs-slot[data-locked="1"]:hover { opacity: 0.7; }
+.rs-slot-swatch {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+}
+.rs-slot-glyph { width: 26px; height: 26px; border: 0; border-radius: 0; background: none; }
+.rs-slot[data-locked="1"] .rs-slot-swatch { filter: grayscale(1); }
+.rs-slot-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.rs-slot-name {
+  font-family: var(--rs-font-ui);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rs-slot-note { font-size: 10px; line-height: 1.35; color: var(--rs-text-faint); text-transform: none; letter-spacing: 0; }
+.rs-slot-xp { font-family: var(--rs-font-mono); font-size: 9px; color: var(--rs-gold); }
+.rs-slot-tag {
+  flex: none;
+  font-family: var(--rs-font-mono);
+  font-size: 10px;
+  color: var(--rs-gold);
+}
+.rs-slot-tag-on {
+  font-family: var(--rs-font-ui);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--rs-cyan);
+}
+
+/*--- tuning -----------------------------------------------------------------*/
+.rs-tune-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 2px 10px;
+}
+.rs-tune-key {
+  font-family: var(--rs-font-ui);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--rs-text-faint);
+}
+.rs-tune-val { font-family: var(--rs-font-mono); font-size: 12px; color: var(--rs-text-faint); }
+.rs-tune-val[data-earned="1"] { color: var(--rs-gold); }
+.rs-tune-ladder { display: flex; gap: 3px; margin-top: 8px; }
+.rs-tune-ladder i {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.08);
+}
+.rs-tune-ladder i[data-on="1"] {
+  background: var(--rs-gold);
+  box-shadow: 0 0 9px -2px var(--rs-gold);
+}
+.rs-tune-note { margin-top: 8px; font-size: 10px; line-height: 1.5; color: var(--rs-text-faint); }
+
+/* The slot a real upgrade system will occupy. It is empty because the game
+   has no persistent upgrades - `upgrades.js` is in-run draft picks only - and
+   an empty, correctly-sized, honestly-labelled bay is the right answer. When
+   upgrades ship they drop in here without a relayout. */
+.rs-tune-slot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 11px 12px;
+  border: 1px dashed rgba(125, 165, 205, 0.24);
+  border-radius: var(--rs-radius-sm);
+  background: repeating-linear-gradient(
+    -45deg,
+    rgba(255, 255, 255, 0.014) 0 6px,
+    transparent 6px 12px
+  );
+}
+.rs-tune-slot-tag {
+  font-family: var(--rs-font-ui);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--rs-text-faint);
+}
+.rs-tune-slot-state {
+  font-family: var(--rs-font-mono);
+  font-size: 10px;
+  color: rgba(233, 241, 255, 0.22);
+}
+
+/*--- field stock ------------------------------------------------------------*/
+.rs-stock { display: flex; flex-direction: column; gap: 5px; }
+.rs-stock-item { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.rs-stock-name {
+  font-family: var(--rs-font-ui);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--rs-text-dim);
+}
+.rs-stock-count { font-family: var(--rs-font-mono); font-size: 11px; color: var(--rs-gold); }
+
+/*==============================================================================
+HANGAR - RESPONSIVE
+
+The desktop bay and the phone bay are different compositions, not the same one
+squeezed. On a phone the ship stays the hero and the systems column becomes two
+switchable panes below it; on desktop the column is always fully open beside
+the bay and the pane switch disappears.
+==============================================================================*/
+@media (min-width: 1100px) {
+  .rs-hg .rs-hg-tabs { display: none; }
+  .rs-hg .rs-hg-pane[data-on="0"] { display: block; }
+  .rs-hg-main { align-items: safe center; padding: 0 20px 20px; }
+  .rs-hg-sys { align-content: start; padding-top: 8px; }
+  .rs-hg-bayframe { width: min(38vw, 480px); }
+  .rs-hg-stage { max-width: 520px; }
+}
+
+@media (min-width: 1500px) {
+  .rs-hg-bayframe { width: 520px; }
+  .rs-hg-stage { max-width: 560px; }
+}
+
+/* Phone landscape: ~380px tall. Height is the scarce resource, so the bay
+   shrinks to fit beside the column rather than the column being amputated. */
+@media (max-height: 560px) and (min-width: 640px) {
+  .rs-hg-main { padding: 0 10px 8px; }
+  .rs-hg-bayframe { width: min(58vh, 320px); }
+  .rs-hg-name { font-size: 20px; }
+  .rs-hg-role { display: none; }
+  .rs-hg-plate { display: none; }
+  .rs-hg-arrow { width: 30px; height: 30px; font-size: 17px; }
+  .rs-hg-id { margin-top: 6px; }
+  .rs-hg-level { margin-top: 8px; }
+  .rs-hg-act { margin-top: 8px; }
+  .rs-hg-equip-face { padding: 9px 14px; font-size: 13px; }
+  .rs-hg-acquire-face { padding: 9px 14px; font-size: 12px; }
+  .rs-hg-sys { padding-top: 0; }
+  .rs-sys { padding: 9px 0; }
+  .rs-hg-title { font-size: 12px; }
+}
+
+@media (max-height: 460px) and (max-width: 900px) {
+  .rs-hg-bayframe { width: min(40vh, 200px); }
+}
+/* Thirteen slots at their normal width overflowed a short-screen strip and
+   sliced the last one in half, which reads as a rendering fault rather than
+   as "scroll me". They shrink to fit instead. */
+@media (max-height: 560px) {
+  .rs-roster { max-width: 340px; gap: 3px; }
+  .rs-roster-slot { min-width: 0; }
+  .rs-roster-num { font-size: 8px; }
+}
+
+/* Phone portrait: one column. The bay keeps its size — shrinking the hero to
+   fit more chrome on screen would defeat the whole point of this screen. */
+@media (max-width: 640px) {
+  .rs-hg-bayframe { width: min(86vw, 360px); }
+  .rs-hg-main { padding: 0 12px 4px; }
+  .rs-hg-sys { padding-left: 12px; padding-right: 12px; }
+  .rs-hg-title { font-size: 13px; }
+  .rs-hg-arrow { width: 34px; height: 34px; }
+}
+
+@media (max-width: 400px) {
+  .rs-hg-bayframe { width: 92vw; }
+  .rs-roster-slot { min-width: 18px; }
+  .rs-stat { grid-template-columns: 34px minmax(0, 1fr) 22px 24px; gap: 6px; }
+}

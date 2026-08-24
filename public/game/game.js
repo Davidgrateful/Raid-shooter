@@ -2100,7 +2100,7 @@ $.setState = function( state ) {
 	}
 
 	// mobile gets a thumb-reach BACK button on every sub-screen
-	if( $.isTouchDevice && ( state == 'hangar' || state == 'market' || state == 'board' || state == 'stats' || state == 'credits' || state == 'settings' ) ) {
+	if( $.isTouchDevice && ( ( state == 'hangar' && !window.__htmlHangar ) || state == 'market' || state == 'board' || state == 'stats' || state == 'credits' || state == 'settings' ) ) {
 		$.buttons.push( new $.Button( {
 			x: 54,
 			y: 70,
@@ -2296,7 +2296,10 @@ $.setState = function( state ) {
 		} ) );
 	}
 
-	if( state == 'hangar' ) {
+	// The HTML hangar overlay owns the bay when it is mounted, exactly as
+	// __htmlSettings / __htmlBoard do for their screens - the engine skips
+	// building canvas chrome and keeps painting the backdrop only.
+	if( state == 'hangar' && !window.__htmlHangar ) {
 		$.mouse.down = 0;
 		if( !$.hangarKeep ) {
 			$.hangarIndex = $.storage['character'] || 0;
@@ -3902,6 +3905,16 @@ $.setupStates = function() {
 	$.states['hangar'] = function() {
 
 		$.clearScreen();
+
+		// HTML hangar owns the bay chrome. Same contract as the command
+		// centre: the engine keeps painting the living backdrop - starfield,
+		// drifting traffic - so the overlay sits inside the game world.
+		if( window.__htmlHangar ) {
+			$.updateScreen();
+			$.renderAmbientShips();
+			$.tick += 1;
+			return;
+		}
 
 		var hangarCompact = ( $.ch < 640 ),
 			def = $.definitions.characters[ $.hangarIndex ],

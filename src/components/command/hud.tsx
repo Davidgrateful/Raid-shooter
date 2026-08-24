@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import { WalletButton } from '@/components/WalletButton';
 import type { PlayerSnapshot } from './engine';
 import type { CupSeason } from './useMenuData';
-import { IconChevron, IconComms, IconFlame, IconMail, IconSignal } from './icons';
+import { IconChevron, IconComms, IconFlame, IconMail, IconMore, IconSignal } from './icons';
 
 /*==============================================================================
 Command chrome — the top HUD and the navigation terminal
@@ -168,25 +168,39 @@ export interface NavEntry {
 
 export function NavRail({
   nav,
+  active,
   onGo,
+  onHome,
   onInvite,
   onFeedback,
 }: {
   nav: NavEntry[];
+  /** The nav id of the LOCATION the player is currently in, if any. */
+  active?: string;
   onGo: (target: string) => void;
+  onHome?: () => void;
   onInvite: () => void;
   onFeedback: () => void;
 }) {
   return (
     <nav className="rs-cc-rail" aria-label="Main">
-      {/* Where you are. DEPLOY is an ACTION that leaves this screen, so it is
-          marked as the primary route rather than as "the current page" — the
-          old build lit it as active while you were sitting on the home
-          screen, which is simply not true. */}
-      <div className="rs-rail-head">
-        <span className="rs-rail-head-tick" aria-hidden />
-        <span>Command</span>
-      </div>
+      {/* An ACTION and a LOCATION are never given the same treatment. DEPLOY
+          leaves this screen, so it carries `data-primary` — the glow that says
+          "press this". Being somewhere carries `data-active` — a lit edge and
+          a solid label. The command deck itself is home and appears in neither
+          list, so when you are standing on it nothing in the rail is lit; when
+          you are not, this header becomes the way back to it. */}
+      {active && onHome ? (
+        <button type="button" className="rs-rail-home" onClick={onHome}>
+          <span className="rs-rail-home-arrow" aria-hidden>‹</span>
+          <span>Command deck</span>
+        </button>
+      ) : (
+        <div className="rs-rail-head">
+          <span className="rs-rail-head-tick" aria-hidden />
+          <span>Command</span>
+        </div>
+      )}
 
       <div className="rs-rail-group">
         {nav.map(({ id, label, hint, Icon, state: target }) => (
@@ -194,6 +208,8 @@ export function NavRail({
             key={id}
             className="rs-nav-item"
             data-primary={id === 'deploy' ? 'true' : 'false'}
+            data-active={id === active ? 'true' : 'false'}
+            aria-current={id === active ? 'page' : undefined}
             onClick={() => onGo(target)}
           >
             <span className="rs-nav-icon"><Icon /></span>
@@ -222,6 +238,50 @@ export function NavRail({
           <span className="rs-nav-text"><span className="rs-nav-label">Feedback</span></span>
         </button>
       </div>
+    </nav>
+  );
+}
+
+/*==============================================================================
+Bottom tab bar — mobile. Thumb-reach, icon-led, five slots, no more.
+
+Shared by every screen that has one, so the active LOCATION is expressed the
+same way everywhere: `data-active` on the tab you are standing in. Deploy is a
+route out of the app's chrome, not a place, so it is never lit for being
+"where you are".
+==============================================================================*/
+export function TabBar({
+  nav,
+  active,
+  moreOpen,
+  onGo,
+  onMore,
+}: {
+  nav: NavEntry[];
+  active?: string;
+  moreOpen: boolean;
+  onGo: (target: string) => void;
+  onMore: () => void;
+}) {
+  return (
+    <nav className="rs-cc-tabs" aria-label="Main">
+      {nav.slice(0, 4).map(({ id, short: label, Icon, state: target }) => (
+        <button
+          key={id}
+          className="rs-tab"
+          data-active={id === active ? 'true' : 'false'}
+          data-primary={id === 'deploy' ? 'true' : 'false'}
+          aria-current={id === active ? 'page' : undefined}
+          onClick={() => onGo(target)}
+        >
+          <span className="rs-nav-icon"><Icon /></span>
+          <span>{label}</span>
+        </button>
+      ))}
+      <button className="rs-tab" data-active={moreOpen ? 'true' : 'false'} onClick={onMore}>
+        <span className="rs-nav-icon"><IconMore /></span>
+        <span>More</span>
+      </button>
     </nav>
   );
 }

@@ -16,18 +16,36 @@ export interface ShipDef {
   title: string;
   desc?: string;
   ability?: { title: string; text: string };
+  bulletStyle?: { kind: string; size?: number; lineWidth?: number };
   speedMult?: number;
   damageTakenMult?: number;
   dashCooldownMult?: number;
   radius?: number;
+  /** Purchase-gated pilots carry the market id that unlocks them. */
+  unlock?: { purchase?: string; stat?: string; value?: number; label?: string } | null;
+  comingSoon?: boolean;
+  /** Drones carry their own tint and pilot-XP bonus. */
+  color?: string;
+  xpBonus?: number;
   draw: (ctx: CanvasRenderingContext2D, r: number, fill: string, tick: number) => void;
 }
+
+export interface TrailDef { id: string; title: string; hue: number }
+export interface ColorDef { title: string; color: string }
+export interface MarketItem { id: string; title: string; kind: string; priceUsd?: number }
 
 export interface Engine {
   state?: string;
   storage?: Record<string, unknown>;
-  definitions?: { characters: ShipDef[]; shipColors: { title: string; color: string }[]; drones?: ShipDef[] };
+  definitions?: {
+    characters: ShipDef[];
+    shipColors: ColorDef[];
+    drones?: ShipDef[];
+    trails?: TrailDef[];
+    premiumColors?: { id: string; title: string; color: string }[];
+  };
   setState: (s: string) => void;
+  updateStorage?: () => void;
   currentCharacter: () => ShipDef;
   pilotLevel: (id: string) => number;
   pilotXp: (id: string) => number;
@@ -55,6 +73,25 @@ export interface Engine {
   boardTab?: string;
   tick?: number;
   comboMultiplier?: number;
+
+  /*--- hangar surface ------------------------------------------------------
+  Everything the bay needs to describe a hull truthfully. These are the same
+  helpers the canvas hangar has always used; the overlay reads them rather
+  than recomputing anything, so the two can never disagree. */
+  characterUnlocked?: (def: ShipDef) => boolean;
+  characterStatus?: (def: ShipDef) => { text: string; color: string };
+  pilotTier?: (def: ShipDef, index: number) => { label: string; hue: number };
+  pilotAccentHue?: (index: number) => number;
+  pilotStats?: (def: ShipDef) => { SPD: number; FIRE: number; ARM: number; DASH: number };
+  pilotLevelThresholds?: number[];
+  pilotLevelDamageMult?: (id: string) => number;
+  ownsItem?: (id: string) => boolean;
+  droneXpLabel?: (drone: ShipDef | null) => string;
+  consumableCount?: (id: string) => number;
+  profile?: { items: string[]; consumables: Record<string, number> };
+  marketState?: { fetched?: number; loading?: number; enabled?: boolean; items?: MarketItem[] };
+  fetchMarket?: () => void;
+  audio?: { play?: (name: string) => void };
 }
 
 export function engine(): Engine | null {

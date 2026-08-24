@@ -2,11 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ShipViewport } from './ShipViewport';
-import { NavRail, TopHud, type NavEntry } from './hud';
+import { NavRail, TabBar, TopHud, type NavEntry } from './hud';
 import { CupPanel, DeployCta, MissionPanel, Panel, PilotIdentity, RankPanel, RewardPanel, RewardWonPanel } from './panels';
 import { engine, readPlayer, useEngineRevision, useEngineState, withEngine, type PlayerSnapshot, type ShipDef } from './engine';
 import { guestToken, timeLeft, useMenuData } from './useMenuData';
-import { IconArmory, IconDeploy, IconMail, IconMore, IconPilot, IconRankings, IconSystem } from './icons';
+import { IconArmory, IconDeploy, IconMail, IconPilot, IconRankings, IconSystem } from './icons';
 
 /*==============================================================================
 COMMAND CENTRE
@@ -30,9 +30,9 @@ what can I earn / where do I rank". Nothing is here to fill space.
 ==============================================================================*/
 
 /** Screens where a phone in portrait is a first-class layout, not an error. */
-const PORTRAIT_OK = new Set(['menu', 'loading', 'board', '']);
+const PORTRAIT_OK = new Set(['menu', 'loading', 'board', 'hangar', '']);
 
-const NAV: NavEntry[] = [
+export const NAV: NavEntry[] = [
   { id: 'deploy', label: 'Deploy', hint: 'Launch a raid', short: 'Deploy', Icon: IconDeploy, state: 'playmode' },
   { id: 'pilot', label: 'Pilot', hint: 'Hull & loadout', short: 'Pilot', Icon: IconPilot, state: 'hangar' },
   { id: 'armory', label: 'Armory', hint: 'Market', short: 'Armory', Icon: IconArmory, state: 'market' },
@@ -384,18 +384,9 @@ export function CommandCenter() {
       {/*==================================================================
       BOTTOM NAV - mobile. Thumb-reach, icon-led, five slots, no more.
       ==================================================================*/}
-      <nav className="rs-cc-tabs" aria-label="Main">
-        {NAV.slice(0, 4).map(({ id, short: label, Icon, state: target }) => (
-          <button key={id} className="rs-tab" data-active={id === 'deploy' ? 'true' : 'false'} onClick={() => go(target)}>
-            <span className="rs-nav-icon"><Icon /></span>
-            <span>{label}</span>
-          </button>
-        ))}
-        <button className="rs-tab" data-active={moreOpen ? 'true' : 'false'} onClick={() => setMoreOpen((v) => !v)}>
-          <span className="rs-nav-icon"><IconMore /></span>
-          <span>More</span>
-        </button>
-      </nav>
+      {/* No tab is lit for LOCATION here: the command deck is home, and home
+          is not one of the five destinations. */}
+      <TabBar nav={NAV} moreOpen={moreOpen} onGo={go} onMore={() => setMoreOpen((v) => !v)} />
 
       {moreOpen && (
         <>

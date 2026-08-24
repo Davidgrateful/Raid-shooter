@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import { rgba } from './color';
 import type { ShipDef } from './engine';
 
 /*==============================================================================
@@ -304,32 +305,4 @@ export function ShipViewport({ ship, color, trailHue, drone, dim = false }: Prop
   }, []);
 
   return <canvas ref={canvasRef} className="h-full w-full" aria-hidden />;
-}
-
-/*------------------------------------------------------------------------------
-The hull colour arrives as whatever the engine stores — `#fff`, an `hsl(...)`
-string, anything CSS accepts. The pedestal needs the same colour at several
-opacities, so this re-expresses it as an rgba() the canvas can take without
-having to parse every possible notation itself.
-------------------------------------------------------------------------------*/
-let probe: CanvasRenderingContext2D | null = null;
-const rgbaCache = new Map<string, [number, number, number]>();
-
-function rgba(color: string, alpha: number): string {
-  let parts = rgbaCache.get(color);
-  if (!parts) {
-    if (!probe) {
-      const c = document.createElement('canvas');
-      c.width = c.height = 1;
-      probe = c.getContext('2d', { willReadFrequently: true });
-    }
-    if (!probe) return `rgba(120, 200, 235, ${alpha})`;
-    probe.clearRect(0, 0, 1, 1);
-    probe.fillStyle = color;
-    probe.fillRect(0, 0, 1, 1);
-    const d = probe.getImageData(0, 0, 1, 1).data;
-    parts = [d[0], d[1], d[2]];
-    rgbaCache.set(color, parts);
-  }
-  return `rgba(${parts[0]}, ${parts[1]}, ${parts[2]}, ${alpha})`;
 }

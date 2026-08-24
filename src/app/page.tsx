@@ -5,6 +5,7 @@ import { TurnstileGate } from '@/components/TurnstileGate';
 import { PartnersBar } from '@/components/PartnersBar';
 import { GameOverlays } from '@/components/GameOverlays';
 import { CommandCenter } from '@/components/command/CommandCenter';
+import { HangarScreen } from '@/components/hangar/HangarScreen';
 import { BoardOverlay } from '@/components/BoardOverlay';
 import { GameOverOverlay } from '@/components/GameOverOverlay';
 import { StarterBundleModal } from '@/components/StarterBundleModal';
@@ -21,6 +22,7 @@ export default function Home() {
       <TurnstileGate />
       <PartnersBar />
       <CommandCenter />
+      <HangarScreen />
       <GameOverlays />
       <BoardOverlay />
       <GameOverOverlay />
