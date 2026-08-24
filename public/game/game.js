@@ -4214,6 +4214,13 @@ $.setupStates = function() {
 			// ALL-TIME board, which stays a pure skill/score list.
 			var cupBoard = ( $.boardTab === 'cup' );
 
+			// Cup rows reserve a fixed slot for the pilot glyph so the name
+			// column starts at a consistent x whether or not that particular
+			// row has one - without this the glyph (a full ship silhouette,
+			// much wider than the old medal dot) crowded into the same few
+			// pixels as the rank number and visibly collided with the text.
+			var iconReserve = cupBoard ? ( boardCompact ? 16 : 20 ) : 0;
+
 			for( var ri = 0; ri < rowCount; ri++ ) {
 				var entry = $.board.entries[ ri ],
 					mine = ( ri === mineIndex ),
@@ -4225,6 +4232,7 @@ $.setupStates = function() {
 					row = ( ri < perColumn ) ? ri : ri - perColumn,
 					leftX = ( col === 0 ) ? col0Left : col1Left,
 					rightX = ( col === 0 ) ? col0Right : col1Right,
+					nameX = leftX + iconReserve,
 					rowY = rowStartY + row * rowSpacing - $.scroll.y,
 					prizeUsd = cupBoard ? $.prizeForRank( ri + 1 ) : 0,
 					goldRow = ( cupBoard && ri === 0 && prizeUsd > 0 );
@@ -4262,29 +4270,38 @@ $.setupStates = function() {
 					$.ctxmg.stroke();
 				}
 
-				// small medal dot for the podium ranks (all-time board), or on
-				// the cup board a tiny pilot glyph in the player's own colour
-				// when their run carried known cosmetics - same gutter slot,
-				// gracefully skipped when the entry has no cosmetics on file
-				var gutterX = leftX - ( boardCompact ? 8 : 12 ),
-					gutterY = rowY + rowSpacing / 2 - 4,
-					pilotDef = cupBoard && entry.cosmetics ? $.characterById( entry.cosmetics.pilotId ) : undefined;
+				// Icon slot. CUP board: centred in the reserved iconReserve
+				// gutter and HARD CLIPPED to a small circle, so a wide ship
+				// silhouette can never bleed into the rank/name text next to
+				// it, whatever that pilot's shape extends to. ALL-TIME board:
+				// untouched from before this feature - the small medal dot
+				// sits in its original margin outside the row's left edge
+				// (iconReserve is 0 there, so nameX === leftX as always).
+				var pilotDef = cupBoard && entry.cosmetics ? $.characterById( entry.cosmetics.pilotId ) : undefined;
 				if( pilotDef ) {
-					var glyphColor = entry.cosmetics.shipColor || medal || rowColor,
-						glyphR = boardCompact ? 4 : 5.5;
+					var iconCx = leftX + iconReserve / 2,
+						iconCy = rowY + rowSpacing / 2 - 4,
+						clipR = boardCompact ? 6 : 8,
+						glyphColor = entry.cosmetics.shipColor || medal || rowColor,
+						glyphR = boardCompact ? 3 : 4;
 					$.ctxmg.save();
-					$.ctxmg.translate( gutterX, gutterY );
+					$.ctxmg.beginPath();
+					$.ctxmg.arc( iconCx, iconCy, clipR, 0, $.twopi );
+					$.ctxmg.clip();
+					$.ctxmg.translate( iconCx, iconCy );
 					$.ctxmg.rotate( -$.pi / 2 );
 					pilotDef.draw( $.ctxmg, glyphR, glyphColor, $.tick );
 					$.ctxmg.restore();
+				} else if( medal && cupBoard ) {
+					$.util.fillCircle( $.ctxmg, leftX + iconReserve / 2, rowY + rowSpacing / 2 - 4, boardCompact ? 3 : 4, medal );
 				} else if( medal ) {
-					$.util.fillCircle( $.ctxmg, gutterX, gutterY, boardCompact ? 3 : 4, medal );
+					$.util.fillCircle( $.ctxmg, leftX - ( boardCompact ? 8 : 12 ), rowY + rowSpacing / 2 - 4, boardCompact ? 3 : 4, medal );
 				}
 
 				$.ctxmg.beginPath();
 				$.text( {
 					ctx: $.ctxmg,
-					x: leftX,
+					x: nameX,
 					y: rowY,
 					text: $.util.pad( ri + 1, 2 ) + ' ' + $.boardDisplayName( entry ) + verifiedBadge,
 					hspacing: 1,
