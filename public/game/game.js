@@ -1950,15 +1950,15 @@ $.setState = function( state ) {
 		$.celebration = $.rewardCelebration ? $.rewardCelebration() : null;
 		$.celebrationStart = $.tick;
 
-		// Trimmed top level: PLAY and SETTINGS are full-width bookends, with
-		// the four core destinations in a 2x2 grid between them. Secondary
-		// items (call sign, stats, credits) live inside SETTINGS now, so the
-		// menu is 4 rows on every device instead of an overflowing 5.
-		var menuDefs = [
-			// PLAY opens a two-option chooser (ENDLESS / DAILY RUN) instead of a
-			// separate DAILY menu row - one less button, and the daily mode sits
-			// right on the play path where every player sees it
-			{ title: 'PLAY', full: 1, scale: menuCompact ? 2 : 3, action: function() {
+		// PLAY stays exactly where it always has - centered, first, full width,
+		// unchanged in every way. It's the single most-used button in the
+		// game; the hub layout below only touches the four SECONDARY
+		// destinations, so PLAY carries zero risk from this change.
+		var fullW = Math.min( $.cw - 40, menuCompact ? 420 : 620 );
+		$.buttons.push( new $.Button( {
+			x: $.cw / 2, y: menuStartY, lockedWidth: fullW, lockedHeight: menuButtonHeight,
+			scale: menuCompact ? 2 : 3, title: 'PLAY',
+			action: function() {
 				$.mouse.down = 0;
 				// first-time players choose a call sign before their first
 				// run, so their very first score lands on the board under a
@@ -1968,16 +1968,26 @@ $.setState = function( state ) {
 					$.ensurePilotName();
 				}
 				$.setState( 'playmode' );
-			} },
-			{ title: 'PILOT: ' + $.currentCharacter().title, scale: menuCompact ? 1 : 2, action: function() {
+			}
+		} ) );
+
+		// Hub nav rail: the four secondary destinations, left-anchored in a
+		// vertical list instead of the old centered 2x2 grid - a persistent,
+		// predictable place to reach them from, same idea as the top HTML
+		// currency bar (GameOverlays.tsx) consolidating the scattered status
+		// chips. Same $.Button component and the same "compress if it would
+		// run off-screen" safeguard the old grid used, just laid out as a
+		// single left column instead of centered full/half rows.
+		var navDefs = [
+			{ title: 'PILOT: ' + $.currentCharacter().title, action: function() {
 				$.mouse.down = 0;
 				$.setState( 'hangar' );
 			} },
-			{ title: 'MARKET', scale: menuCompact ? 1 : 2, action: function() {
+			{ title: 'MARKET', action: function() {
 				$.mouse.down = 0;
 				$.setState( 'market' );
 			} },
-			{ title: 'SHOOTERBOARD', full: 1, scale: menuCompact ? 2 : 3, action: function() {
+			{ title: 'SHOOTERBOARD', action: function() {
 				$.mouse.down = 0;
 				// a name is required before the board is shown the first time,
 				// so every row on screen — including the player's own — has a
@@ -1988,64 +1998,33 @@ $.setState = function( state ) {
 				$.ensurePilotName();
 				$.setState( 'board' );
 			} },
-			{ title: 'SETTINGS', full: 1, scale: menuCompact ? 2 : 3, action: function() {
+			{ title: 'SETTINGS', action: function() {
 				$.mouse.down = 0;
 				$.setState( 'settings' );
 			} }
 		];
 
-		// responsive row-based layout: full-width rows for PLAY/SETTINGS,
-		// paired half-width rows for everything else; vertical metrics scale
-		// with the viewport so it never overlaps the logo or runs off-screen
-		var rowPitch = menuButtonHeight + menuSpacing,
-			halfX = menuCompact ? 106 : 156,
-			halfW = menuCompact ? 199 : 299,
-			fullW = Math.min( $.cw - 40, menuCompact ? 420 : 620 ),
-			my = menuStartY,
-			mcol = 0;
+		var navW = menuCompact ? 168 : 216,
+			navH = menuCompact ? 38 : 44,
+			navGap = menuCompact ? 7 : 10,
+			navPitch = navH + navGap,
+			// clears the HTML top currency bar (GameOverlays.tsx) and the
+			// safe-area inset on notched phones
+			navStartY = $.safeAreaTop + ( menuCompact ? 60 : 74 ) + navH / 2,
+			navX = $.safeAreaLeft + 18 + navW / 2,
+			// don't run into the HTML Feedback/Invite row pinned bottom-left
+			navMaxY = $.ch - $.safeAreaBottom - ( menuCompact ? 66 : 56 ) - navH / 2;
 
-		// Guarantee the whole stack fits: count the rows the defs will take,
-		// and if the last row would land below the viewport (players reported
-		// SETTINGS missing on short screens), compress the pitch - and the
-		// button height if needed - so every row is always on screen.
-		var rowsNeeded = 0, colCount = 0;
-		for( var rc = 0; rc < menuDefs.length; rc++ ) {
-			if( menuDefs[ rc ].full ) {
-				if( colCount === 1 ) { rowsNeeded++; colCount = 0; }
-				rowsNeeded++;
-			} else {
-				if( colCount === 1 ) { rowsNeeded++; colCount = 0; } else { colCount = 1; }
-			}
+		if( navStartY + ( navDefs.length - 1 ) * navPitch > navMaxY && navDefs.length > 1 ) {
+			navPitch = Math.max( 26, Math.floor( ( navMaxY - navStartY ) / ( navDefs.length - 1 ) ) );
+			if( navPitch < navH + 2 ) { navH = Math.max( 24, navPitch - 3 ); }
 		}
-		if( colCount === 1 ) { rowsNeeded++; }
-		// clearance also accounts for the HTML pill row (Feedback / Invite /
-		// weekly gift) pinned to the bottom of the page - on short screens it
-		// was covering SETTINGS, which is what players reported as "missing"
-		var lastRowY = menuStartY + ( rowsNeeded - 1 ) * rowPitch,
-			maxRowY = $.ch - ( menuCompact ? 56 : 16 ) - menuButtonHeight / 2;
-		if( lastRowY > maxRowY && rowsNeeded > 1 ) {
-			rowPitch = Math.max( 30, Math.floor( ( maxRowY - menuStartY ) / ( rowsNeeded - 1 ) ) );
-			if( rowPitch < menuButtonHeight + 2 ) {
-				menuButtonHeight = Math.max( 26, rowPitch - 3 );
-			}
-		}
-		for( var mi = 0; mi < menuDefs.length; mi++ ) {
-			var d = menuDefs[ mi ];
-			if( d.full ) {
-				if( mcol === 1 ) { my += rowPitch; mcol = 0; }
-				$.buttons.push( new $.Button( {
-					x: $.cw / 2, y: my, lockedWidth: fullW, lockedHeight: menuButtonHeight,
-					scale: d.scale, title: d.title, action: d.action
-				} ) );
-				my += rowPitch;
-			} else {
-				$.buttons.push( new $.Button( {
-					x: $.cw / 2 + ( mcol ? halfX : -halfX ), y: my,
-					lockedWidth: halfW, lockedHeight: menuButtonHeight,
-					scale: d.scale, title: d.title, action: d.action
-				} ) );
-				if( mcol === 1 ) { my += rowPitch; mcol = 0; } else { mcol = 1; }
-			}
+
+		for( var ni = 0; ni < navDefs.length; ni++ ) {
+			$.buttons.push( new $.Button( {
+				x: navX, y: navStartY + ni * navPitch, lockedWidth: navW, lockedHeight: navH,
+				scale: 1, title: navDefs[ ni ].title, action: navDefs[ ni ].action
+			} ) );
 		}
 	}
 
@@ -3455,7 +3434,10 @@ $.setupStates = function() {
 				dailyText = dailyDone
 					? 'DAILY CHALLENGE COMPLETE  +' + $.dailyNextXp() + ' XP EARNED' + streakTag
 					: 'DAILY: ' + daily.text + '  +' + $.dailyNextXp() + ' XP' + streakTag,
-				dailyY = menuCompact ? 4 : menuBottomY + 16;
+				// compact mode used to park this at a bare y=4 since nothing
+				// else rendered up there; the new HTML top status bar
+				// (GameOverlays.tsx) now claims that strip, so clear it
+				dailyY = menuCompact ? ( $.safeAreaTop + 40 ) : menuBottomY + 16;
 			$.ctxmg.beginPath();
 			$.text( {
 				ctx: $.ctxmg, x: $.cw / 2, y: dailyY,
@@ -3470,7 +3452,8 @@ $.setupStates = function() {
 		// one-time "you won a tournament reward" congratulation strip
 		if( $.celebration ) {
 			var celTick = $.tick - $.celebrationStart,
-				celY = menuCompact ? 16 : 30;
+				// same top-bar clearance as the daily-challenge line above
+				celY = menuCompact ? ( $.safeAreaTop + 40 ) : 30;
 			$.ctxmg.beginPath();
 			$.text( {
 				ctx: $.ctxmg, x: $.cw / 2, y: celY,

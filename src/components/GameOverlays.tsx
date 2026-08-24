@@ -194,28 +194,73 @@ export function GameOverlays() {
 
   if (!onMenu) return null;
 
+  // Hub top bar: the player-status indicators that used to be scattered
+  // corner chips (cup, streak, inbox) now live in one consistent strip -
+  // same idea as the canvas menu's left nav rail replacing its old grid.
+  // Nothing here is new data, just one home for it instead of three.
+  const hasTopBar = !!cup || (!!streak && streak.days > 0) || inbox.length > 0;
+
   return (
     <>
-      {/* live cup: free "why play today" hook, points into the board's cup
-          tab - only shown while a season is actually live */}
-      {cup && (
-        <div data-game-ui="" style={{ position: 'fixed', top: 'calc(env(safe-area-inset-top, 0px) + 8px)', left: 'calc(env(safe-area-inset-left, 0px) + 8px)', zIndex: 45, maxWidth: '55vw' }}>
-          <button
-            onClick={openCup}
-            className="flex items-center gap-2 rounded-full border border-amber-400/40 bg-black/70 px-3 py-1.5 text-xs text-amber-200 backdrop-blur-md hover:border-amber-400/70 hover:text-amber-100"
-          >
-            <span>⚡</span>
-            <span className="truncate font-bold uppercase tracking-wide">{cup.name}</span>
-            {(cup.prize1Usd || cup.poolUsd) ? (
-              <span className="font-mono text-amber-300">{(cup.prize1Usd || cup.poolUsd)} USDC</span>
-            ) : null}
-          </button>
+      {hasTopBar && (
+        <div
+          data-game-ui=""
+          style={{
+            position: 'fixed',
+            top: 'calc(env(safe-area-inset-top, 0px) + 8px)',
+            left: 'calc(env(safe-area-inset-left, 0px) + 8px)',
+            right: 'calc(env(safe-area-inset-right, 0px) + 8px)',
+            zIndex: 45,
+            clipPath: 'polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px)',
+          }}
+          className="flex items-center gap-1.5 overflow-x-auto border border-cyan-400/20 bg-black/70 px-2.5 py-1.5 font-mono text-xs backdrop-blur-md sm:gap-2"
+        >
+          {cup && (
+            <button
+              onClick={openCup}
+              className="flex shrink-0 items-center gap-1.5 rounded-full border border-amber-400/40 bg-amber-400/[0.06] px-2.5 py-1 text-amber-200 hover:border-amber-400/70 hover:text-amber-100"
+            >
+              <span>⚡</span>
+              <span className="max-w-[28vw] truncate font-bold uppercase tracking-wide sm:max-w-[220px]">{cup.name}</span>
+              {(cup.prize1Usd || cup.poolUsd) ? (
+                <span className="text-amber-300">{cup.prize1Usd || cup.poolUsd} USDC</span>
+              ) : null}
+            </button>
+          )}
+          {streak && streak.days > 0 && (
+            <button
+              onClick={() => window.dispatchEvent(new CustomEvent('raidshooter:openstreak'))}
+              className="relative flex shrink-0 items-center gap-1 rounded-full border border-cyan-400/30 bg-cyan-400/[0.05] px-2.5 py-1 text-cyan-200 hover:border-cyan-400/60 hover:text-cyan-100"
+            >
+              <span>🔥</span>
+              <span className="font-bold tabular-nums">{streak.days}</span>
+              {typeof streak.pilotGoal === 'number' && streak.days >= streak.pilotGoal && !streak.pilotClaimed && (
+                <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(255,207,77,.8)]" />
+              )}
+            </button>
+          )}
+          <div className="flex-1" />
+          {inbox.length > 0 && (
+            <button
+              onClick={openInbox}
+              className="relative flex shrink-0 items-center gap-1 rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 text-white/70 hover:border-cyan-400/40 hover:text-white"
+            >
+              ✉ Inbox
+              {unread > 0 && (
+                <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white">
+                  {unread > 9 ? '9+' : unread}
+                </span>
+              )}
+            </button>
+          )}
         </div>
       )}
 
-      {/* news banner */}
+      {/* news banner: sits below the status bar when one is showing, so it
+          never collides with it - the old cup-vs-news offset hack is gone
+          now that there's one predictable top region instead of two */}
       {news && !dismissed && (
-        <div data-game-ui="" style={{ position: 'fixed', top: `calc(env(safe-area-inset-top, 0px) + ${cup && narrow ? 48 : 8}px)`, left: '50%', transform: 'translateX(-50%)', zIndex: 45, maxWidth: '92vw' }}>
+        <div data-game-ui="" style={{ position: 'fixed', top: `calc(env(safe-area-inset-top, 0px) + ${hasTopBar ? (narrow ? 88 : 48) : 8}px)`, left: '50%', transform: 'translateX(-50%)', zIndex: 45, maxWidth: '92vw' }}>
           <div className="flex items-center gap-3 rounded-full border border-cyan-400/30 bg-black/70 px-4 py-1.5 text-sm text-white/90 backdrop-blur-md">
             <span className="rounded-full bg-cyan-400/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-cyan-300">News</span>
             <button onClick={() => setOpen(true)} className="max-w-[60vw] truncate font-medium hover:text-white">{news.title}</button>
@@ -273,19 +318,9 @@ export function GameOverlays() {
         </div>
       )}
 
-      {/* inbox + feedback + invite buttons, bottom-left */}
+      {/* feedback + invite buttons, bottom-left. Streak and Inbox moved to
+          the top status bar above - this row is secondary actions only now */}
       <div data-game-ui="" style={{ position: 'fixed', left: 'calc(env(safe-area-inset-left, 0px) + 12px)', bottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)', zIndex: 45, maxWidth: 'calc(100vw - 24px)' }} className="flex flex-wrap items-center gap-2">
-        {inbox.length > 0 && (
-          <button onClick={openInbox}
-            className="relative rounded-full border border-white/10 bg-black/50 px-3 py-1.5 text-xs text-white/70 backdrop-blur-sm hover:border-cyan-400/40 hover:text-white">
-            ✉ Inbox
-            {unread > 0 && (
-              <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white">
-                {unread > 9 ? '9+' : unread}
-              </span>
-            )}
-          </button>
-        )}
         <button onClick={() => setFbOpen(true)}
           className="rounded-full border border-white/10 bg-black/50 px-3 py-1.5 text-xs text-white/70 backdrop-blur-sm hover:border-cyan-400/40 hover:text-white">
           ✎ Feedback
@@ -294,15 +329,6 @@ export function GameOverlays() {
           className="rounded-full border border-amber-400/30 bg-black/50 px-3 py-1.5 text-xs text-amber-200/90 backdrop-blur-sm hover:border-amber-400/60 hover:text-amber-100">
           ✦ Invite
         </button>
-        {streak && streak.days > 0 && (
-          <button onClick={() => window.dispatchEvent(new CustomEvent('raidshooter:openstreak'))}
-            className="relative rounded-full border border-cyan-400/30 bg-black/50 px-3 py-1.5 text-xs text-cyan-200/90 backdrop-blur-sm hover:border-cyan-400/60 hover:text-cyan-100">
-            🔥 Streak {streak.days}
-            {typeof streak.pilotGoal === 'number' && streak.days >= streak.pilotGoal && !streak.pilotClaimed && (
-              <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(255,207,77,.8)]" />
-            )}
-          </button>
-        )}
       </div>
 
       {/* inbox modal: the player's targeted messages (payouts, cup thanks) */}
