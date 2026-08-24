@@ -52,10 +52,16 @@ export function GameChatWidget() {
     };
   }, []);
 
-  // let the top-bar chip mirror the unread state
+  // Mirror comms state up to the top HUD: whether anything is unread, and
+  // whether this player can actually transmit (comms are open to the current
+  // top 20). The HUD shows ONLINE vs TOP 20 from this - real state, not a
+  // decorative "system online" label.
   useEffect(() => {
-    window.dispatchEvent(new CustomEvent('raidshooter:comms', { detail: { unread: hasUnread && !open } }));
-  }, [hasUnread, open]);
+    const eligible = !!me && topEntries.some((e) => e.address === me);
+    window.dispatchEvent(new CustomEvent('raidshooter:comms', {
+      detail: { unread: hasUnread && !open, eligible },
+    }));
+  }, [hasUnread, open, me, topEntries]);
 
   useEffect(() => {
     if (!onMenu) { setOpen(false); return; }

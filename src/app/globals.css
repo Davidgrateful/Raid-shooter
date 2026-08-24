@@ -873,7 +873,10 @@ DESKTOP - three lanes, nothing scrolls the page as a whole
   }
   .rs-cc-main {
     grid-area: main;
-    align-items: center;
+    /* `safe`: centre while it fits, fall back to the top the moment the stage
+       is taller than the lane. Plain `center` clips the top of an overflowing
+       flex container, which put the hangar bay out of reach. */
+    align-items: safe center;
     overflow-y: auto;
     padding: 0 24px 20px;
   }
@@ -884,6 +887,7 @@ DESKTOP - three lanes, nothing scrolls the page as a whole
     margin: 0;
     overflow-y: auto;
     padding: 4px calc(var(--safe-right) + 16px) 20px 4px;
+    align-content: safe center;
   }
   .rs-cc-tabs { display: none; }
   .rs-cc-ship { width: min(24vw, 280px); }
@@ -918,10 +922,15 @@ on screen without a scroll.
     display: flex;
     padding: 4px 6px 8px calc(var(--safe-left) + 6px);
   }
-  /* icon-only: the label would be unreadable at this height anyway */
+  /* Icon-only: at this height a label is unreadable anyway. The group
+     captions go with them - a 62px column cannot hold the word COMMAND, and
+     leaving them in simply sliced the text. */
   .rs-cc-rail .rs-nav-item { justify-content: center; padding: 8px 4px; }
   .rs-cc-rail .rs-nav-item > span:not(.rs-nav-icon) { display: none; }
-  .rs-cc-main { grid-area: main; align-items: center; overflow-y: auto; padding: 0 12px 8px; }
+  .rs-cc-rail .rs-rail-head { justify-content: center; padding: 2px 0 6px; }
+  .rs-cc-rail .rs-rail-head span:not(.rs-rail-head-tick) { display: none; }
+  .rs-cc-rail .rs-rail-head-sub { margin-top: 10px; padding-top: 10px; }
+  .rs-cc-main { grid-area: main; align-items: safe center; overflow-y: auto; padding: 0 12px 8px; }
   .rs-cc-ops {
     grid-area: ops;
     grid-template-columns: 1fr;
@@ -932,6 +941,8 @@ on screen without a scroll.
   }
   .rs-cc-tabs { display: none; }
   .rs-cc-ship { width: min(34vh, 170px); margin-bottom: 0; }
+  /* a 170px bay cannot hold a readout without truncating it to "ON…" */
+  .rs-bay-tag { display: none; }
   .rs-cc-cta { margin-top: 10px; max-width: 360px; }
   .rs-cc-veil { background: linear-gradient(180deg, rgba(4,6,11,0.86) 0%, rgba(4,6,11,0.32) 30%, rgba(4,6,11,0.8) 100%); }
 }
@@ -980,3 +991,758 @@ height the score shrinks, the padding tightens, and the panel fits.
   .rs-debrief-head { padding-top: 12px !important; padding-bottom: 10px !important; }
   .rs-debrief-score { font-size: 30px !important; }
 }
+
+/*==============================================================================
+COMMAND CENTRE V2
+
+Everything below upgrades the presentation of the home screen. No new
+structure, no new data — the same values, read as instruments instead of as
+text in boxes.
+
+The three rules the whole screen follows:
+  1. Anything numeric is tabular and gets a technical caption above it.
+  2. Anything interactive lights CYAN; anything earned lights GOLD.
+  3. DEPLOY is the only element allowed to glow at rest.
+==============================================================================*/
+
+/*------------------------------------------------------------------------------
+TOP HUD — a segmented instrument strip, not a navigation bar
+
+Segments are separated by hairline ticks and each carries a caption + figure.
+The strip has a real surface (translucent charcoal, hairline base) so it reads
+as a fixed part of the cockpit rather than as floating page furniture.
+------------------------------------------------------------------------------*/
+.rs-cc-top {
+  gap: 14px;
+  background:
+    linear-gradient(180deg, rgba(8, 12, 20, 0.92), rgba(8, 12, 20, 0.55) 70%, rgba(8, 12, 20, 0));
+  border-bottom: 1px solid var(--rs-line);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.rs-hud-brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.rs-hud-brand img { height: 22px; width: auto; flex: none; }
+
+.rs-hud-screen {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding-left: 12px;
+  border-left: 1px solid var(--rs-line);
+  font-family: var(--rs-font-ui);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--rs-text-dim);
+  white-space: nowrap;
+}
+.rs-hud-screen-tick {
+  width: 2px;
+  height: 10px;
+  border-radius: 2px;
+  background: var(--rs-cyan);
+  box-shadow: 0 0 8px var(--rs-cyan);
+}
+@media (max-width: 640px) { .rs-hud-screen { display: none; } }
+
+/*--- live event pill ---------------------------------------------------------*/
+.rs-hud-cup {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 5px 10px;
+  border: 1px solid rgba(255, 207, 77, 0.3);
+  border-radius: var(--rs-radius-sm);
+  background: rgba(255, 207, 77, 0.07);
+  color: var(--rs-gold);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: border-color 140ms ease, background 140ms ease;
+}
+.rs-hud-cup:hover { border-color: var(--rs-gold); background: rgba(255, 207, 77, 0.13); }
+.rs-hud-cup .rs-live-dot { width: 6px; height: 6px; border-radius: 999px; background: var(--rs-red); flex: none; }
+.rs-hud-cup-name { max-width: 18ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rs-hud-cup-time { color: var(--rs-text-faint); font-size: 10px; }
+.rs-hud-cup-go { width: 11px; height: 11px; opacity: 0.5; flex: none; }
+@media (min-width: 900px) { .rs-hud-cup { display: inline-flex; } }
+
+/*--- readouts ----------------------------------------------------------------*/
+.rs-hud-readouts {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  margin-left: auto;
+}
+
+.rs-readout {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 3px;
+  padding: 3px 13px;
+  border: 0;
+  background: none;
+  color: var(--rs-text);
+  cursor: default;
+  white-space: nowrap;
+}
+button.rs-readout { cursor: pointer; }
+/* hairline tick between segments — the divider IS the border */
+.rs-readout + .rs-readout::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 20%;
+  bottom: 20%;
+  width: 1px;
+  background: var(--rs-line);
+}
+button.rs-readout:hover .rs-readout-value { color: #fff; }
+button.rs-readout:hover .rs-readout-label { color: var(--rs-text-dim); }
+
+.rs-readout-label {
+  font-family: var(--rs-font-ui);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--rs-text-faint);
+  line-height: 1;
+  transition: color 140ms ease;
+}
+.rs-readout-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--rs-text);
+  transition: color 140ms ease;
+}
+.rs-readout-value .rs-num { font-size: 13px; }
+.rs-readout-icon { display: block; width: 13px; height: 13px; }
+.rs-readout-word {
+  font-family: var(--rs-font-ui);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.rs-readout-dot {
+  position: absolute;
+  top: 4px;
+  right: 7px;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+}
+.rs-readout-count {
+  position: absolute;
+  top: 1px;
+  right: 3px;
+  display: grid;
+  place-items: center;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--rs-red);
+  color: #fff;
+  font-family: var(--rs-font-mono);
+  font-size: 9px;
+  font-weight: 700;
+}
+.rs-hud-wallet {
+  margin-left: 12px;
+  padding-left: 12px;
+  border-left: 1px solid var(--rs-line);
+  display: flex;
+  align-items: center;
+}
+/* A two-line Connect Wallet doubled the height of the HUD strip on a phone.
+   The control keeps its behaviour; it just stops being allowed to wrap. */
+.rs-hud-wallet button { white-space: nowrap; }
+@media (max-width: 560px) {
+  .rs-hud-wallet button { font-size: 12px; padding-inline: 12px; }
+}
+
+@media (max-width: 640px) {
+  .rs-readout { padding: 3px 9px; }
+  .rs-readout-label { display: none; }
+  .rs-hud-wallet { margin-left: 6px; padding-left: 8px; }
+}
+
+/*------------------------------------------------------------------------------
+NAVIGATION TERMINAL
+
+Grouped: a caption, its destinations, then a second caption and the utilities.
+The old rail pushed Invite and Feedback to the bottom of the viewport with
+several hundred pixels of nothing between — this reads as one instrument.
+------------------------------------------------------------------------------*/
+.rs-cc-rail { gap: 0; }
+
+.rs-rail-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 4px 12px 9px;
+  font-family: var(--rs-font-ui);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: var(--rs-text-faint);
+}
+.rs-rail-head-sub { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--rs-line); }
+.rs-rail-head-tick {
+  width: 2px;
+  height: 9px;
+  border-radius: 2px;
+  background: var(--rs-cyan);
+  box-shadow: 0 0 8px var(--rs-cyan);
+  flex: none;
+}
+.rs-rail-head-sub .rs-rail-head-tick { background: var(--rs-text-faint); box-shadow: none; }
+
+.rs-rail-group { display: flex; flex-direction: column; gap: 2px; }
+
+.rs-nav-text { display: flex; min-width: 0; flex-direction: column; align-items: flex-start; gap: 2px; }
+.rs-nav-label { line-height: 1; }
+.rs-nav-hint {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  color: rgba(233, 241, 255, 0.22);
+  line-height: 1;
+}
+.rs-nav-item-sm { padding: 8px 12px; }
+.rs-nav-item-sm .rs-nav-icon { width: 18px; height: 18px; font-size: 13px; }
+
+/* DEPLOY is the primary ROUTE, not "the page you are on" — the old build lit
+   it as active while you were sitting on the home screen, which was a lie. It
+   gets a charged treatment and a slow edge sweep; everything else stays quiet
+   until hovered. */
+.rs-nav-item[data-primary="true"] {
+  position: relative;
+  overflow: hidden;
+  color: #d9fbff;
+  background: linear-gradient(90deg, rgba(53, 232, 255, 0.15), rgba(53, 232, 255, 0.02));
+  border-color: rgba(53, 232, 255, 0.32);
+  box-shadow: inset 0 0 22px -14px var(--rs-cyan);
+}
+.rs-nav-item[data-primary="true"]::before {
+  opacity: 1;
+  top: 6%;
+  bottom: 6%;
+  box-shadow: 0 0 12px var(--rs-cyan);
+}
+.rs-nav-item[data-primary="true"] .rs-nav-icon {
+  filter: drop-shadow(0 0 6px rgba(53, 232, 255, 0.9));
+}
+.rs-nav-item[data-primary="true"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 40%, rgba(190, 250, 255, 0.16) 50%, transparent 60%);
+  transform: translateX(-110%);
+  animation: rs-sweep 4.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  pointer-events: none;
+}
+.rs-nav-item[data-primary="true"]:hover {
+  background: linear-gradient(90deg, rgba(53, 232, 255, 0.24), rgba(53, 232, 255, 0.04));
+  border-color: rgba(53, 232, 255, 0.55);
+}
+
+/*------------------------------------------------------------------------------
+PILOT IDENTITY PLATE
+------------------------------------------------------------------------------*/
+.rs-ident { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 7px; }
+
+.rs-ident-name { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; gap: 6px 12px; }
+.rs-ident-callsign {
+  margin: 0;
+  font-family: var(--rs-font-display);
+  font-weight: 900;
+  font-size: clamp(19px, 3.5vw, 32px);
+  line-height: 1;
+  color: #fff;
+  text-shadow: 0 0 30px rgba(53, 232, 255, 0.32);
+}
+.rs-ident-editable { cursor: pointer; transition: color 140ms ease; }
+.rs-ident-editable:hover { color: var(--rs-cyan); }
+.rs-ident-pen {
+  margin-left: 9px;
+  font-size: 11px;
+  font-weight: 600;
+  vertical-align: middle;
+  color: rgba(233, 241, 255, 0.18);
+  transition: color 140ms ease;
+}
+.rs-ident-editable:hover .rs-ident-pen { color: var(--rs-cyan); }
+
+.rs-ident-hull {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--rs-font-ui);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+.rs-ident-swatch { width: 6px; height: 6px; transform: rotate(45deg); flex: none; }
+.rs-ident-sep { color: rgba(233, 241, 255, 0.18); }
+
+/*--- XP track: level in its own chip, bar and figures beside it -------------*/
+.rs-xp {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  max-width: 400px;
+  margin-top: 6px;
+}
+.rs-xp-level {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 5px 10px 6px;
+  border: 1px solid rgba(53, 232, 255, 0.28);
+  background: rgba(53, 232, 255, 0.07);
+  clip-path: polygon(7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 7px);
+  flex: none;
+}
+.rs-xp-level-cap {
+  font-family: var(--rs-font-ui);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  color: rgba(53, 232, 255, 0.7);
+  line-height: 1;
+}
+.rs-xp-level-num { font-size: 19px; line-height: 1; color: #fff; }
+.rs-xp-track { flex: 1; min-width: 0; }
+.rs-xp-figures {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 5px;
+  font-family: var(--rs-font-ui);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--rs-text-faint);
+}
+.rs-xp-figures .rs-num { font-size: 9px; }
+
+/*--- hull telemetry ---------------------------------------------------------*/
+.rs-telemetry {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  width: 100%;
+  max-width: 400px;
+  margin-top: 4px;
+}
+.rs-telemetry-cell { display: flex; align-items: center; gap: 7px; }
+.rs-telemetry-label {
+  font-family: var(--rs-font-ui);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--rs-text-faint);
+  flex: none;
+}
+.rs-telemetry-value { font-size: 10px; flex: none; }
+.rs-meter-thin { height: 4px; flex: 1; min-width: 0; }
+
+/*------------------------------------------------------------------------------
+PRIMARY CTA — sharper press, brackets that close in on hover
+------------------------------------------------------------------------------*/
+.rs-cta-sub {
+  display: block;
+  margin-top: 9px;
+  text-align: center;
+  font-family: var(--rs-font-ui);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--rs-text-faint);
+}
+.rs-cta:hover .rs-cta-bracket { opacity: 1; }
+.rs-cta:active .rs-cta-face {
+  box-shadow:
+    inset 0 1px 0 rgba(200, 252, 255, 0.5),
+    inset 0 0 40px -10px rgba(53, 232, 255, 1),
+    0 4px 16px -10px rgba(53, 232, 255, 0.9);
+}
+
+/*------------------------------------------------------------------------------
+DAILY MISSION
+------------------------------------------------------------------------------*/
+.rs-mission {
+  position: relative;
+  padding: 12px;
+  border: 1px solid var(--rs-line);
+  background: linear-gradient(180deg, rgba(24, 33, 50, 0.55), rgba(9, 13, 21, 0.72));
+  backdrop-filter: blur(9px);
+  -webkit-backdrop-filter: blur(9px);
+}
+.rs-mission-head { display: flex; align-items: center; gap: 9px; }
+.rs-mission-tick {
+  width: 2px;
+  height: 10px;
+  border-radius: 2px;
+  background: var(--rs-cyan);
+  box-shadow: 0 0 8px var(--rs-cyan);
+  flex: none;
+}
+.rs-mission.is-done .rs-mission-tick { background: var(--rs-green); box-shadow: 0 0 8px var(--rs-green); }
+.rs-mission-streak {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: auto;
+  font-family: var(--rs-font-ui);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--rs-gold);
+}
+.rs-mission-streak-icon { display: block; width: 12px; height: 12px; }
+
+.rs-mission-body {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  margin-top: 11px;
+  text-align: left;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+.rs-mission-icon { display: block; width: 17px; height: 17px; margin-top: 1px; flex: none; color: var(--rs-cyan); }
+.rs-mission-icon.is-done { color: var(--rs-green); }
+.rs-mission-text {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: rgba(233, 241, 255, 0.92);
+}
+.rs-mission.is-done .rs-mission-text {
+  color: var(--rs-text-faint);
+  text-decoration: line-through;
+  text-decoration-color: rgba(233, 241, 255, 0.25);
+}
+
+/*--- the reward ladder ------------------------------------------------------
+   NOT a completion bar. The challenge is scored in one run and no partial
+   count is stored, so a "12 / 30" bar would be invented. The ladder is real:
+   dailyXpFor() pays 250 / 300 / 400 as the streak walks days one to three.
+---------------------------------------------------------------------------*/
+.rs-ladder { display: flex; gap: 5px; margin-top: 12px; }
+.rs-ladder-rung { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+.rs-ladder-bar { height: 3px; border-radius: 2px; background: rgba(255, 255, 255, 0.08); }
+.rs-ladder-amount {
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  color: var(--rs-text-faint);
+  transition: color 200ms ease;
+}
+.rs-ladder-rung[data-state="passed"] .rs-ladder-bar { background: rgba(255, 207, 77, 0.4); }
+.rs-ladder-rung[data-state="passed"] .rs-ladder-amount { color: rgba(255, 207, 77, 0.55); }
+.rs-ladder-rung[data-state="current"] .rs-ladder-bar {
+  background: var(--rs-gold);
+  box-shadow: 0 0 10px -1px var(--rs-gold);
+}
+.rs-ladder-rung[data-state="current"] .rs-ladder-amount { color: var(--rs-gold); }
+
+.rs-mission-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; }
+.rs-mission-pay { font-size: 11px; color: var(--rs-gold); }
+.rs-mission.is-done .rs-mission-pay { color: var(--rs-green); }
+
+/*------------------------------------------------------------------------------
+REWARD DROP
+------------------------------------------------------------------------------*/
+.rs-drop {
+  position: relative;
+  overflow: hidden;
+  padding: 12px;
+  border: 1px solid var(--rs-line);
+  background: linear-gradient(160deg, rgba(30, 40, 60, 0.6), rgba(9, 12, 20, 0.78));
+}
+.rs-drop::before {
+  content: "";
+  position: absolute;
+  top: -55%;
+  right: -18%;
+  width: 62%;
+  height: 190%;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--drop) 22%, transparent), transparent 70%);
+  pointer-events: none;
+}
+.rs-drop.is-ready {
+  border-color: color-mix(in srgb, var(--drop) 45%, transparent);
+  animation: rs-reward-breathe 3.2s ease-in-out infinite;
+}
+.rs-drop-head { position: relative; display: flex; align-items: center; gap: 9px; }
+.rs-drop-tick {
+  width: 2px;
+  height: 10px;
+  border-radius: 2px;
+  background: var(--drop);
+  box-shadow: 0 0 8px var(--drop);
+  flex: none;
+}
+.rs-drop-live { width: 6px; height: 6px; border-radius: 999px; background: var(--rs-gold); flex: none; }
+
+.rs-drop-body { position: relative; display: flex; align-items: center; gap: 12px; margin-top: 11px; }
+.rs-drop-slot {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  flex: none;
+  border: 1px solid color-mix(in srgb, var(--drop) 45%, transparent);
+  background: color-mix(in srgb, var(--drop) 9%, transparent);
+  clip-path: polygon(9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%, 0 9px);
+  color: var(--drop);
+}
+.rs-drop-icon { display: block; width: 22px; height: 22px; }
+.rs-drop-qty {
+  position: absolute;
+  right: 2px;
+  bottom: 1px;
+  font-size: 9px;
+  color: var(--drop);
+}
+.rs-drop-info { display: flex; min-width: 0; flex-direction: column; gap: 6px; }
+.rs-drop-item {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #fff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rs-drop-claim { position: relative; width: 100%; margin-top: 12px; }
+.rs-drop-note { position: relative; margin-top: 11px; font-size: 11px; line-height: 1.5; color: var(--rs-text-faint); }
+.rs-drop-msg { position: relative; margin-top: 8px; font-size: 11px; font-weight: 600; color: var(--rs-green); }
+.rs-drop-won-title {
+  position: relative;
+  margin-top: 10px;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.35;
+  text-transform: uppercase;
+  color: #fff;
+}
+
+/*------------------------------------------------------------------------------
+STANDING + CUP
+------------------------------------------------------------------------------*/
+.rs-panel-go {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  font-family: var(--rs-font-ui);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--rs-text-faint);
+  transition: color 140ms ease;
+}
+.rs-panel-go:hover { color: #fff; }
+.rs-panel-go-icon { display: block; width: 11px; height: 11px; }
+
+.rs-stand { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+.rs-stand-rank { font-size: 25px; line-height: 1; color: #fff; }
+.rs-stand-of { margin-top: 4px; font-size: 10px; letter-spacing: 0.1em; color: var(--rs-text-faint); }
+.rs-stand-best { text-align: right; }
+.rs-stand-score { font-size: 19px; line-height: 1; }
+.rs-stand-next {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 5px;
+  font-family: var(--rs-font-ui);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--rs-text-faint);
+}
+
+.rs-cup {
+  position: relative;
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  padding: 12px;
+  text-align: left;
+  border: 1px solid rgba(255, 207, 77, 0.3);
+  background: linear-gradient(180deg, rgba(24, 33, 50, 0.55), rgba(9, 13, 21, 0.72));
+  cursor: pointer;
+  transition: border-color 140ms ease;
+}
+.rs-cup:hover { border-color: var(--rs-gold); }
+.rs-cup-glow {
+  position: absolute;
+  top: -42px;
+  right: -24px;
+  width: 130px;
+  height: 130px;
+  border-radius: 999px;
+  background: radial-gradient(closest-side, rgba(255, 207, 77, 0.2), transparent 70%);
+  pointer-events: none;
+}
+.rs-cup-head { position: relative; display: flex; align-items: center; gap: 9px; }
+.rs-cup-live { width: 6px; height: 6px; border-radius: 999px; background: var(--rs-red); flex: none; }
+.rs-cup-row { position: relative; display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-top: 9px; }
+.rs-cup-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #fff;
+}
+.rs-cup-prize { flex: none; font-size: 14px; color: var(--rs-gold); }
+.rs-cup-meta {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 8px;
+  font-family: var(--rs-font-ui);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--rs-text-faint);
+}
+.rs-cup-bolt { display: block; width: 12px; height: 12px; color: var(--rs-gold); flex: none; }
+.rs-cup-sponsor { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/*------------------------------------------------------------------------------
+MOBILE — bigger tap targets, and the identity plate stays readable
+------------------------------------------------------------------------------*/
+@media (max-width: 1099px) {
+  .rs-cc-tabs { min-height: 58px; }
+  .rs-tab { padding: 9px 2px 8px; min-height: 52px; }
+  .rs-tab .rs-nav-icon { width: 23px; height: 23px; }
+}
+@media (max-width: 420px) {
+  .rs-telemetry { gap: 9px; }
+  .rs-telemetry-label { font-size: 7px; letter-spacing: 0.12em; }
+  .rs-xp { gap: 9px; }
+}
+
+/*------------------------------------------------------------------------------
+HANGAR BAY READOUTS
+
+Holographic tags pinned to the sides of the bay, reporting what is loaded.
+They are HTML rather than canvas so they use the real webfaces and stay
+selectable; they sit outside the ring on wide screens and tuck under it when
+there is no room beside it.
+------------------------------------------------------------------------------*/
+.rs-bay-tag {
+  position: absolute;
+  /* the corners: the ring is at its narrowest here, so a tag can sit outside
+     the arc instead of on top of it */
+  top: 1%;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 6px 10px;
+  max-width: 42%;
+  border: 1px solid rgba(53, 232, 255, 0.2);
+  background: rgba(6, 12, 20, 0.55);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  pointer-events: none;
+}
+.rs-bay-tag-l { left: 0; clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 0 0); border-left-width: 2px; border-left-color: rgba(53, 232, 255, 0.5); }
+.rs-bay-tag-r { right: 0; text-align: right; align-items: flex-end; border-right-width: 2px; border-right-color: rgba(185, 140, 255, 0.5); }
+.rs-bay-cap {
+  font-family: var(--rs-font-ui);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--rs-text-faint);
+  line-height: 1;
+}
+.rs-bay-val {
+  font-family: var(--rs-font-ui);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  line-height: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.rs-bay-loadout {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  pointer-events: none;
+}
+
+/* the bay is too narrow beside the ring on a phone - the tags would sit on
+   top of the hull, so they stand down and the loadout badges carry it */
+@media (max-width: 560px) {
+  .rs-bay-tag { display: none; }
+}
+
+.rs-ladder-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 13px;
+  font-family: var(--rs-font-ui);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--rs-text-faint);
+}
+.rs-ladder-head .rs-num { font-size: 9px; color: var(--rs-gold); }
+.rs-ladder { margin-top: 6px; }
+
+.rs-xp-level { min-width: 54px; }
+.rs-xp-level-max { font-size: 10px; color: rgba(233, 241, 255, 0.3); }

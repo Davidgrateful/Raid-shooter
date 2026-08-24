@@ -1,23 +1,12 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { WalletButton } from '@/components/WalletButton';
 import { ShipViewport } from './ShipViewport';
+import { NavRail, TopHud, type NavEntry } from './hud';
 import { CupPanel, DeployCta, MissionPanel, Panel, PilotIdentity, RankPanel, RewardPanel, RewardWonPanel } from './panels';
 import { engine, readPlayer, useEngineRevision, useEngineState, withEngine, type PlayerSnapshot, type ShipDef } from './engine';
 import { guestToken, timeLeft, useMenuData } from './useMenuData';
-import {
-  IconArmory,
-  IconComms,
-  IconDeploy,
-  IconFlame,
-  IconMail,
-  IconMore,
-  IconPilot,
-  IconRankings,
-  IconSignal,
-  IconSystem,
-} from './icons';
+import { IconArmory, IconDeploy, IconMail, IconMore, IconPilot, IconRankings, IconSystem } from './icons';
 
 /*==============================================================================
 COMMAND CENTRE
@@ -43,9 +32,7 @@ what can I earn / where do I rank". Nothing is here to fill space.
 /** Screens where a phone in portrait is a first-class layout, not an error. */
 const PORTRAIT_OK = new Set(['menu', 'loading', 'board', '']);
 
-type NavId = 'deploy' | 'pilot' | 'armory' | 'rankings' | 'system';
-
-const NAV: { id: NavId; label: string; hint: string; short: string; Icon: (p: { className?: string }) => React.ReactElement; state: string }[] = [
+const NAV: NavEntry[] = [
   { id: 'deploy', label: 'Deploy', hint: 'Launch a raid', short: 'Deploy', Icon: IconDeploy, state: 'playmode' },
   { id: 'pilot', label: 'Pilot', hint: 'Hull & loadout', short: 'Pilot', Icon: IconPilot, state: 'hangar' },
   { id: 'armory', label: 'Armory', hint: 'Market', short: 'Armory', Icon: IconArmory, state: 'market' },
@@ -73,6 +60,7 @@ export function CommandCenter() {
   const [moreOpen, setMoreOpen] = useState(false);
   const [short, setShort] = useState(false);
   const [commsUnread, setCommsUnread] = useState(false);
+  const [commsLive, setCommsLive] = useState(false);
   const [won, setWon] = useState<{ id: string; title: string } | null>(null);
 
   /* --- gate the canvas menu off, once ---------------------------------- */
@@ -82,7 +70,11 @@ export function CommandCenter() {
 
   /* --- squad comms reports its unread state up to the top bar ----------- */
   useEffect(() => {
-    const onComms = (e: Event) => setCommsUnread(!!(e as CustomEvent).detail?.unread);
+    const onComms = (e: Event) => {
+      const d = (e as CustomEvent).detail || {};
+      setCommsUnread(!!d.unread);
+      setCommsLive(!!d.eligible);
+    };
     window.addEventListener('raidshooter:comms', onComms as EventListener);
     return () => window.removeEventListener('raidshooter:comms', onComms as EventListener);
   }, []);
@@ -299,100 +291,31 @@ export function CommandCenter() {
           while keeping the panels legible over it */}
       <div aria-hidden className="rs-cc-veil" />
 
-      {/*==================================================================
-      TOP BAR - identity and live state, compact and game-like
-      ==================================================================*/}
-      <header className="rs-cc-top">
-        <div className="flex min-w-0 items-center gap-2.5">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png" alt="Raid Shooter" className="h-6 w-auto max-sm:h-5" />
-          <span className="hidden h-4 w-px bg-white/10 sm:block" />
-          {data.cup && (
-            <button onClick={openCup} className="hidden items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-[color:var(--rs-gold)] hover:text-white sm:flex">
-              <span className="rs-live-dot h-1.5 w-1.5 rounded-full bg-[color:var(--rs-red)]" />
-              <span className="max-w-[16ch] truncate">{data.cup.name}</span>
-              {cupEnds && <span className="rs-num text-white/35">{cupEnds}</span>}
-            </button>
-          )}
-        </div>
+      <TopHud
+        player={player}
+        daily={daily}
+        streakMilestone={
+          !!(data.streak && typeof data.streak.pilotGoal === 'number'
+            && data.streak.days >= data.streak.pilotGoal && !data.streak.pilotClaimed)
+        }
+        cup={data.cup}
+        cupEnds={cupEnds}
+        commsUnread={commsUnread}
+        commsLive={commsLive}
+        hasInbox={data.hasInbox}
+        unread={data.unread}
+        onOpenStreak={() => window.dispatchEvent(new CustomEvent('raidshooter:openstreak'))}
+        onOpenComms={() => window.dispatchEvent(new CustomEvent('raidshooter:opencomms'))}
+        onOpenInbox={() => openModal('inbox')}
+        onOpenCup={openCup}
+      />
 
-        <div className="flex items-center gap-1.5">
-          {daily && daily.streak > 0 && (
-            <button
-              onClick={() => window.dispatchEvent(new CustomEvent('raidshooter:openstreak'))}
-              className="rs-chip relative hover:border-[color:var(--rs-gold)]"
-              title={`${daily.streak} day streak`}
-            >
-              <span className="h-3.5 w-3.5 text-[color:var(--rs-gold)]"><IconFlame /></span>
-              <span className="rs-num">{daily.streak}</span>
-              {/* a milestone reward is sitting unclaimed on the streak board */}
-              {data.streak && typeof data.streak.pilotGoal === 'number'
-                && data.streak.days >= data.streak.pilotGoal && !data.streak.pilotClaimed && (
-                <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-[color:var(--rs-gold)] shadow-[0_0_8px_var(--rs-gold)]" />
-              )}
-            </button>
-          )}
-          {player && (
-            <span className="rs-chip max-sm:hidden" title="Best score">
-              <span className="h-3.5 w-3.5 text-[color:var(--rs-cyan)]"><IconSignal /></span>
-              <span className="rs-num">{player.best.toLocaleString()}</span>
-            </span>
-          )}
-          <button
-            onClick={() => window.dispatchEvent(new CustomEvent('raidshooter:opencomms'))}
-            className="rs-chip relative hover:border-[color:var(--rs-cyan)]"
-            aria-label="Squad comms"
-            title="Squad comms"
-          >
-            <span className="h-3.5 w-3.5"><IconComms /></span>
-            {commsUnread && (
-              <span className="rs-live-dot absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-[color:var(--rs-red)]" />
-            )}
-          </button>
-          {data.hasInbox && (
-            <button onClick={() => openModal('inbox')} className="rs-chip relative hover:border-[color:var(--rs-cyan)]" aria-label="Inbox">
-              <span className="h-3.5 w-3.5"><IconMail /></span>
-              {data.unread > 0 && (
-                <span className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-[color:var(--rs-red)] px-1 text-[9px] font-bold text-white">
-                  {data.unread > 9 ? '9+' : data.unread}
-                </span>
-              )}
-            </button>
-          )}
-          <WalletButton />
-        </div>
-      </header>
-
-      {/*==================================================================
-      NAV RAIL - the ship's command terminal (desktop / tablet)
-      ==================================================================*/}
-      <nav className="rs-cc-rail rs-scroll" aria-label="Main">
-        {NAV.map(({ id, label, hint, Icon, state: target }) => (
-          <button
-            key={id}
-            className="rs-nav-item"
-            data-active={id === 'deploy' ? 'true' : 'false'}
-            onClick={() => go(target)}
-          >
-            <span className="rs-nav-icon"><Icon /></span>
-            <span className="flex min-w-0 flex-col items-start gap-0.5">
-              <span>{label}</span>
-              <span className="text-[9px] font-semibold normal-case tracking-normal text-white/20">{hint}</span>
-            </span>
-          </button>
-        ))}
-
-        <div className="mt-auto flex flex-col gap-1 border-t border-white/5 pt-2">
-          <button className="rs-nav-item" onClick={() => openModal('invite')}>
-            <span className="rs-nav-icon text-[color:var(--rs-gold)]">✦</span>
-            <span>Invite</span>
-          </button>
-          <button className="rs-nav-item" onClick={() => openModal('feedback')}>
-            <span className="rs-nav-icon">✎</span>
-            <span>Feedback</span>
-          </button>
-        </div>
-      </nav>
+      <NavRail
+        nav={NAV}
+        onGo={go}
+        onInvite={() => openModal('invite')}
+        onFeedback={() => openModal('feedback')}
+      />
 
       {/*==================================================================
       COMMAND AREA - ship, identity, the one action that matters
@@ -406,16 +329,34 @@ export function CommandCenter() {
               trailHue={player?.trailHue ?? null}
               drone={drone}
             />
-            {/* the loadout the hull is actually carrying, read off the frame */}
+            {/* Holographic readouts pinned to the bay. Rendered as HTML, not
+                canvas, so they use the real webfaces and stay selectable and
+                translatable. Every value is read from the engine — the bay
+                reports what is loaded, it does not invent instrumentation. */}
             {player && (
-              <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center gap-2">
-                {player.droneTitle && (
-                  <span className="rs-badge rs-rarity-rare">Drone · {player.droneTitle}</span>
-                )}
-                {player.trailHue !== null && (
-                  <span className="rs-badge rs-rarity-epic">Trail equipped</span>
-                )}
-              </div>
+              <>
+                <div className="rs-bay-tag rs-bay-tag-l" aria-hidden={false}>
+                  <span className="rs-bay-cap">Hull</span>
+                  <span className="rs-bay-val" style={{ color: player.shipColor }}>
+                    {player.ship?.title || '—'}
+                  </span>
+                </div>
+                <div className="rs-bay-tag rs-bay-tag-r">
+                  <span className="rs-bay-cap">Class</span>
+                  <span className="rs-bay-val" style={{ color: 'var(--rs-purple)' }}>
+                    {player.ship?.ability?.title || 'STANDARD'}
+                  </span>
+                </div>
+                {/* what the hull is actually carrying, on the bay floor */}
+                <div className="rs-bay-loadout">
+                  {player.droneTitle && (
+                    <span className="rs-badge rs-rarity-rare">Drone · {player.droneTitle}</span>
+                  )}
+                  {player.trailHue !== null && (
+                    <span className="rs-badge rs-rarity-epic">Trail equipped</span>
+                  )}
+                </div>
+              </>
             )}
           </div>
 
