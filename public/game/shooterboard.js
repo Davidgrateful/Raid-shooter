@@ -369,15 +369,26 @@ $.submitScore = function() {
 				// now that they've posted a real run (server gates on score)
 				if( $.claimReferral ) { $.claimReferral( runScore ); }
 
-				// near-miss hook: how far is this run from the next rank up?
+				// NEAR-MISS HOOK: how far am I from the rank above?
+				//
+				// This compared the rival's score against runScore - THIS
+				// run's points - but the board ranks on a CUMULATIVE total
+				// (submitEntry does ZINCRBY, so every run adds to a running
+				// sum). The two are not the same quantity, and the mismatch
+				// overstated the gap by the player's entire history: someone
+				// sitting on 500k who scored 20k this run and trails the rank
+				// above by 20k was told they needed 500k. The number to
+				// compare is data.total - the cumulative total the server
+				// just returned for this player.
 				// (top 50 only - deeper ranks aren't in the public feed)
 				if( data.rank > 1 && data.rank <= 50 ) {
 					fetch( '/api/leaderboard' )
 						.then( function( r ) { return r.json(); } )
 						.then( function( board ) {
-							var above = board.entries && board.entries[ data.rank - 2 ];
-							if( above && above.score > runScore ) {
-								$.boardSubmit.gap = ( above.score - runScore ) + 1;
+							var above = board.entries && board.entries[ data.rank - 2 ],
+								myTotal = data.total || 0;
+							if( above && myTotal > 0 && above.score > myTotal ) {
+								$.boardSubmit.gap = ( above.score - myTotal ) + 1;
 								$.boardSubmit.nextRank = data.rank - 1;
 							}
 						} )

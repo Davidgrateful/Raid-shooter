@@ -3836,3 +3836,128 @@ each animate in, which would be the SaaS-dashboard version of this.
   animation-duration: var(--rs-t-scene);
   animation-timing-function: var(--rs-e-in);
 }
+
+/*==============================================================================
+SHOOTERBOARD — YOUR STANDING
+
+The board opened onto a list of strangers. This block answers "where am I"
+before the list starts, and it is built from the same instrument language as
+the rest of the facility: hairline rules, technical captions over tabular
+figures, no cards.
+
+One wording decision is load-bearing. The board ranks on a CUMULATIVE total
+(submitEntry does a ZINCRBY, so every raid adds to a running sum) - a player's
+best single run has no direct bearing on their position. BANKED and BEST RUN
+are therefore labelled for what they each are, with a one-line note under each,
+because putting two big numbers side by side without saying which one ranks you
+would imply a relationship the data does not have.
+
+Colour follows the established meanings: cyan is you and your position, gold is
+the target you are chasing, and the tier chip keeps its own scale.
+==============================================================================*/
+.rs-sb-standing { padding-top: 10px; padding-bottom: 4px; }
+
+.rs-sb-stand {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 26px;
+  padding: 12px 14px;
+  border: 1px solid rgba(53, 232, 255, 0.22);
+  border-left-width: 2px;
+  border-left-color: var(--rs-cyan);
+  background: linear-gradient(90deg, rgba(53, 232, 255, 0.07), rgba(53, 232, 255, 0.01));
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%);
+}
+
+/* nothing to state yet: loading, no identity, or genuinely unranked. Quiet,
+   and never a fabricated position. */
+.rs-sb-stand-quiet {
+  border-color: var(--rs-line);
+  border-left-color: var(--rs-line-strong);
+  background: rgba(255, 255, 255, 0.02);
+}
+.rs-sb-stand-msg {
+  font-family: var(--rs-font-ui);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--rs-text-faint);
+}
+
+/* the board being down is a different fact from being unranked */
+.rs-sb-stand-err { color: rgba(255, 77, 99, 0.7); }
+
+.rs-sb-cap {
+  display: block;
+  font-family: var(--rs-font-ui);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: var(--rs-text-faint);
+}
+
+.rs-sb-stand-rank { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0 8px; }
+.rs-sb-stand-rank .rs-sb-cap { width: 100%; margin-bottom: 2px; }
+.rs-sb-rank {
+  font-family: var(--rs-font-mono);
+  font-size: 30px;
+  line-height: 1;
+  color: var(--rs-cyan);
+  text-shadow: 0 0 22px rgba(53, 232, 255, 0.4);
+}
+.rs-sb-of { font-family: var(--rs-font-mono); font-size: 11px; color: var(--rs-text-faint); }
+
+.rs-sb-stand-figs { display: flex; align-items: flex-start; flex-wrap: wrap; gap: 10px 22px; }
+.rs-sb-fig { display: flex; flex-direction: column; gap: 2px; }
+.rs-sb-val { font-family: var(--rs-font-mono); font-size: 15px; color: var(--rs-text); line-height: 1.1; }
+.rs-sb-tier { display: block; }
+/* the line that stops BANKED and BEST RUN reading as the same kind of number */
+.rs-sb-note {
+  font-family: var(--rs-font-ui);
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(233, 241, 255, 0.24);
+}
+
+/* what you are chasing - gold, because it is the thing being pursued */
+.rs-sb-target {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-left: auto;
+  padding-left: 18px;
+  border-left: 1px solid var(--rs-line);
+}
+.rs-sb-target-name {
+  font-family: var(--rs-font-ui);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--rs-text);
+}
+.rs-sb-target-gap { font-family: var(--rs-font-mono); font-size: 12px; color: var(--rs-gold); }
+.rs-sb-target-top .rs-sb-target-name { color: var(--rs-gold); }
+
+/* MOBILE: rank, banked and tier must all be readable before any scrolling,
+   so the block wraps rather than shrinking, and the target moves under the
+   figures instead of being pushed off the right edge. */
+@media (max-width: 720px) {
+  .rs-sb-standing { padding-left: 12px; padding-right: 12px; }
+  .rs-sb-stand { gap: 10px 18px; padding: 10px 12px; }
+  .rs-sb-rank { font-size: 24px; }
+  .rs-sb-val { font-size: 13px; }
+  .rs-sb-target {
+    margin-left: 0;
+    width: 100%;
+    padding-left: 0;
+    padding-top: 8px;
+    border-left: 0;
+    border-top: 1px solid var(--rs-line);
+  }
+}

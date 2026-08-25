@@ -58,6 +58,10 @@ export function BoardOverlay() {
   const [season, setSeason] = useState<CupSeason | null>(null);
   const [loading, setLoading] = useState(false);
   const [updatedAt, setUpdatedAt] = useState(0);
+  // A failed fetch and an empty board are different facts. Without this the
+  // standing block said "not ranked yet" when the board was simply down -
+  // asserting a competitive position we had no way to know.
+  const [boardError, setBoardError] = useState(false);
   const [weekResets, setWeekResets] = useState<number | null>(null);
   const myRowRef = useRef<HTMLDivElement | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
@@ -98,7 +102,10 @@ export function BoardOverlay() {
       : which === 'weekly' ? '/api/weekly'
       : '/api/leaderboard?limit=1000';
     fetch(url)
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error('board_unavailable');
+        return r.json();
+      })
       .then((d) => {
         // daily entries are keyed `identity` (wallet or guest id); normalize
         // to the Entry shape the renderer uses
@@ -116,8 +123,9 @@ export function BoardOverlay() {
         if (which === 'cup' && d.season) setSeason(d.season);
         if (which === 'weekly' && d.resetsAt) setWeekResets(d.resetsAt);
         setUpdatedAt(Date.now());
+        setBoardError(false);
       })
-      .catch(() => {})
+      .catch(() => setBoardError(true))
       .finally(() => setLoading(false));
   }, []);
 
@@ -151,6 +159,39 @@ export function BoardOverlay() {
     try { (window as unknown as { $: { setState: (s: string) => void } }).$.setState('menu'); } catch { /* engine not ready */ }
   };
 
+  /*==========================================================================
+  YOUR STANDING
+
+  The board opened straight onto a list of strangers. The first question a
+  competitive screen has to answer is "where am I", so that is now the first
+  thing on it.
+
+  A CRITICAL DISTINCTION, and the reason this block is worded carefully:
+  the Shooterboard does NOT rank by best run. submitEntry() does a ZINCRBY, so
+  every run ADDS to a cumulative total, and it is that total which sets your
+  rank. Your best single raid ($.storage.score) is a different number that has
+  no direct bearing on your position. Showing them side by side without saying
+  so would imply a relationship that does not exist, so they are labelled for
+  what they each actually are: BANKED (what ranks you) and BEST RUN (your
+  record). Everything here is derived from the same `entries` array the list
+  below renders - no second source, nothing computed server-side that the
+  client then re-guesses.
+  ==========================================================================*/
+  const myEntry = myIndex >= 0 ? entries[myIndex] : null;
+  const myRank = myIndex >= 0 ? myIndex + 1 : 0;
+  const rival = myIndex > 0 ? entries[myIndex - 1] : null;
+  // only a real gap, against the same cumulative quantity the board ranks on
+  const gapToRival = rival && myEntry && rival.score > myEntry.score
+    ? rival.score - myEntry.score + 1
+    : 0;
+  // the local best-run record, read from the engine's own storage
+  const bestRun = (() => {
+    try {
+      const st = (window as unknown as { $?: { storage?: Record<string, number> } }).$?.storage;
+      return Number(st?.['score'] || 0);
+    } catch { return 0; }
+  })();
+
   // The champion is not "one of three". Their card is taller, wider, lit, and
   // carries a bigger number - a player scanning this board should be able to
   // tell who is winning from across the room, without reading a rank.
@@ -172,6 +213,7 @@ export function BoardOverlay() {
     >
       {/* ambient blurred combat behind the rows: ships firing at enemies */}
       <BoardBackdrop />
+      {/* standing block is rendered below the header - see rs-sb-standing */}
 
       {/* a whisper of scanline texture - a third of what was here, so rows
           and scores read as clean type rather than through a screen door */}
@@ -200,6 +242,80 @@ export function BoardOverlay() {
           <button onClick={() => setTab('weekly')} className={`px-3 py-1.5 ${tab === 'weekly' ? 'bg-emerald-400 text-black' : 'bg-white/[0.04] text-white/60 hover:text-white'}`}>Weekly</button>
           <button onClick={() => setTab('daily')} className={`px-3 py-1.5 ${tab === 'daily' ? 'bg-sky-400 text-black' : 'bg-white/[0.04] text-white/60 hover:text-white'}`}>Daily</button>
         </div>
+      </div>
+
+      {/*====================================================================
+      YOUR STANDING — the first thing on a competitive screen
+      ====================================================================*/}
+      <div className="rs-sb-standing relative z-10 px-4 sm:px-8">
+        {loading && !entries.length ? (
+          <div className="rs-sb-stand rs-sb-stand-quiet">
+            <span className="rs-am-wait-bar" aria-hidden />
+            <span className="rs-sb-stand-msg">Reading the board…</span>
+          </div>
+        ) : boardError ? (
+          <div className="rs-sb-stand rs-sb-stand-quiet">
+            <span className="rs-sb-stand-msg rs-sb-stand-err">
+              Board unavailable — your standing cannot be read right now.
+            </span>
+          </div>
+        ) : !me ? (
+          /* no identity yet - never guess at a position */
+          <div className="rs-sb-stand rs-sb-stand-quiet">
+            <span className="rs-sb-stand-msg">Post a run to take a place on the board.</span>
+          </div>
+        ) : myRank === 0 ? (
+          <div className="rs-sb-stand rs-sb-stand-quiet">
+            <span className="rs-sb-stand-msg">
+              Not ranked yet{bestRun > 0 ? ` — your best run is ${bestRun.toLocaleString()}` : ''}. Finish a raid to enter the board.
+            </span>
+          </div>
+        ) : (
+          <div className="rs-sb-stand">
+            <div className="rs-sb-stand-rank">
+              <span className="rs-sb-cap">Your rank</span>
+              <span className="rs-sb-rank rs-num">#{myRank}</span>
+              <span className="rs-sb-of rs-num">of {total.toLocaleString()}</span>
+            </div>
+
+            <div className="rs-sb-stand-figs">
+              {/* BANKED is what ranks you: the board is a cumulative ladder
+                  (ZINCRBY), not a best-run ladder. */}
+              <span className="rs-sb-fig">
+                <span className="rs-sb-cap">Banked</span>
+                <span className="rs-sb-val rs-num">{(myEntry?.score ?? 0).toLocaleString()}</span>
+                <span className="rs-sb-note">every raid adds to this</span>
+              </span>
+              {bestRun > 0 && (
+                <span className="rs-sb-fig">
+                  <span className="rs-sb-cap">Best run</span>
+                  <span className="rs-sb-val rs-num">{bestRun.toLocaleString()}</span>
+                  <span className="rs-sb-note">your record raid</span>
+                </span>
+              )}
+              <span className="rs-sb-fig">
+                <span className="rs-sb-cap">Tier</span>
+                <span className="rs-sb-val rs-sb-tier">
+                  <TierChip score={myEntry?.score ?? 0} />
+                </span>
+              </span>
+            </div>
+
+            {/* WHAT AM I CHASING - only when a real rival is really above */}
+            {rival && gapToRival > 0 ? (
+              <div className="rs-sb-target">
+                <span className="rs-sb-cap">Next up · #{myRank - 1}</span>
+                <span className="rs-sb-target-name">{displayName(rival.name, rival.address)}</span>
+                <span className="rs-sb-target-gap rs-num">+{gapToRival.toLocaleString()} to pass</span>
+              </div>
+            ) : myRank === 1 ? (
+              <div className="rs-sb-target rs-sb-target-top">
+                <span className="rs-sb-cap">Standing</span>
+                <span className="rs-sb-target-name">Top of the board — defend it</span>
+              </div>
+            ) : null}
+          </div>
+        )}
       </div>
 
       {/* cup meta strip */}
