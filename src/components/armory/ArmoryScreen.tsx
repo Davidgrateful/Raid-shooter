@@ -63,6 +63,10 @@ export function ArmoryScreen() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [swap, setSwap] = useState({ key: 0, dir: 1 });
   const [status, setStatus] = useState<{ status: string; itemId: string | null } | null>(null);
+  // A brief "the system took it" beat after an equip. Equipping used to be
+  // silent apart from the CTA flipping to EQUIPPED, which is a state change
+  // the player has to notice rather than one the interface hands them.
+  const [equipped, setEquipped] = useState<string | null>(null);
   const [moreOpen, setMoreOpen] = useState(false);
   const [short, setShort] = useState(false);
   const [pane, setPane] = useState<'stock' | 'manifest'>('stock');
@@ -156,9 +160,17 @@ export function ArmoryScreen() {
         return item.id;
       });
       setStatus(null);
+      setEquipped(null);
     },
     [rackItems],
   );
+
+  // the confirmation is a beat, not a banner - it clears itself
+  useEffect(() => {
+    if (!equipped) return;
+    const t = setTimeout(() => setEquipped(null), 1400);
+    return () => clearTimeout(t);
+  }, [equipped]);
 
   const pickRack = useCallback((id: RackId) => {
     setRack(id);
@@ -193,6 +205,7 @@ export function ArmoryScreen() {
         else if (selected.rack === 'finish' && selected.colorIndex !== null) equipColor(selected.colorIndex);
         withEngine((e) => e.audio?.play?.('powerup'));
         refresh();
+        setEquipped(selected.id);
         break;
       case 'authorize':
         // WalletButton owns wallet auth; ask it to run rather than keeping a
@@ -375,12 +388,13 @@ export function ArmoryScreen() {
               <div className="rs-am-act">
                 <button
                   className="rs-am-cta"
-                  data-kind={action.kind}
+                  data-kind={equipped === selected?.id ? 'equipped' : action.kind}
+                  data-just={equipped === selected?.id ? '1' : '0'}
                   disabled={action.kind === 'equipped' || action.kind === 'pending' || action.kind === 'soon' || busy}
                   onClick={runAction}
                 >
                   <span className="rs-am-cta-face">
-                    {busy ? 'Working…' : action.label}
+                    {equipped === selected?.id ? 'Equipped' : busy ? 'Working…' : action.label}
                     {action.priceUsd !== null && (action.kind === 'acquire' || action.kind === 'authorize' || action.kind === 'offline') && (
                       <span className="rs-am-cta-price rs-num">${action.priceUsd.toFixed(2)}</span>
                     )}
@@ -435,7 +449,7 @@ export function ArmoryScreen() {
           </button>
         </div>
 
-        <div className="rs-hg-pane" data-on={pane === 'manifest' ? '1' : '0'}>
+        <div className="rs-hg-pane" data-on={pane === 'manifest' ? '1' : '0'} data-just={equipped ? '1' : '0'}>
           {view && (
             <Manifest equipped={view.equipped} profileLoaded={view.profileLoaded} onHangar={() => go('hangar')} />
           )}

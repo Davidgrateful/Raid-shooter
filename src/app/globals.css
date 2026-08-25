@@ -58,6 +58,29 @@ The starfield never competes with a panel; a panel never competes with DEPLOY.
   --rs-rail: 84px;
   --rs-topbar: 52px;
 
+  /* --- motion ----------------------------------------------------------
+  These are not new values: they are the durations and curves this interface
+  already used, named so every screen reaches for the same four. The scale is
+  the point - what a piece of motion is FOR should be readable from which
+  token it uses.
+
+    nav      navigation, hover, selection - fast enough to feel like a switch
+    confirm  "the system took your input" - a beat, then done
+    enter    an element arriving on screen
+    scene    a major state change: launching, a run ending
+
+  Two curves, and they mean opposite things. `out` decelerates, for anything
+  arriving and settling. `in` accelerates, for anything leaving. `snap` is the
+  mechanical one - a short overshoot that reads as a part seating into place,
+  used only where something latches. */
+  --rs-t-nav: 140ms;
+  --rs-t-confirm: 260ms;
+  --rs-t-enter: 380ms;
+  --rs-t-scene: 460ms;
+  --rs-e-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --rs-e-in: cubic-bezier(0.6, 0, 0.9, 0.4);
+  --rs-e-snap: cubic-bezier(0.2, 0.9, 0.3, 1);
+
   /* --- viewport -------------------------------------------------------- */
   --game-bg: var(--rs-bg);
   --safe-top: env(safe-area-inset-top, 0px);
@@ -529,13 +552,21 @@ MOTION - fast, responsive, intentional. Nothing loops fast enough to nag.
 .rs-slide-in { animation: rs-slide-in 320ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
 .rs-live-dot { animation: rs-pulse-dot 1.6s ease-in-out infinite; }
 
+/* Reduced motion was three separate opt-in lists naming individual classes, so
+   every animation added since had to remember to enrol - and several never
+   did (the armory's working-dot, the catalogue scan bar, the rail sweep, the
+   rotate hint). It is a blanket rule now: everything collapses to a single
+   frame, so a new animation is safe by default rather than safe if remembered.
+   Transitions are cut too, not just keyframes - a 460ms scene change is as
+   much motion as a loop. */
 @media (prefers-reduced-motion: reduce) {
-  .rs-cta-face::after,
-  .rs-reward-ready,
-  .rs-live-dot,
-  .rs-rise,
-  .rs-slide-in {
-    animation: none !important;
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
   }
 }
 
@@ -3359,11 +3390,7 @@ PRE-FLIGHT
   100% { transform: translateY(-26px) scale(0.97); opacity: 0; }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .rs-lx-launch-scan { animation: none; }
-  .rs-lx[data-committing="1"] .rs-lx-wipe,
-  .rs-lx[data-committing="1"] .rs-lx-stage { animation-duration: 1ms; }
-}
+/* (reduced motion is handled by the blanket rule near the top of this file) */
 
 /*--- pre-flight responsive --------------------------------------------------*/
 @media (min-width: 1100px) {
@@ -3598,10 +3625,7 @@ THE DRAFT
   45% { transform: scale(1.04); box-shadow: 0 0 40px -6px var(--lane); }
   100% { transform: scale(1); box-shadow: 0 0 0 0 var(--lane); }
 }
-@media (prefers-reduced-motion: reduce) {
-  .rs-draft-card { animation-duration: 1ms; }
-  .rs-draft-card[data-taken="1"] { animation-duration: 1ms; }
-}
+/* (reduced motion is handled by the blanket rule near the top of this file) */
 
 /*--- draft responsive -------------------------------------------------------*/
 /* A phone in portrait cannot hold three readable cards side by side, and a
@@ -3705,3 +3729,110 @@ DEBRIEF — the run/keep split
   color: var(--rs-text-dim);
 }
 .rs-ao-daily-streak { font-family: var(--rs-font-mono); font-size: 10px; color: var(--rs-gold); }
+
+/*==============================================================================
+MOTION — the four jobs
+
+Everything below uses the tokens declared at the top of this file, and each
+piece of motion is doing one of exactly four jobs: NAV (a switch), CONFIRM (the
+system took your input), ENTER (something arriving), SCENE (a major change).
+Nothing here animates for its own sake, and nothing loops that is not reporting
+a live state.
+
+Reduced motion is handled once, by the blanket rule near the top — no rule in
+this section needs its own opt-out.
+==============================================================================*/
+
+/*--- ARMORY: the equip confirmation -----------------------------------------
+The action used to be silent: storage changed, the CTA relabelled, and the
+player had to notice. Equipping is a commitment, so it gets a beat — the face
+latches to the equipped treatment with a short mechanical settle, and the
+loadout readout (the thing that actually changed) lights its edge for the same
+moment so the eye is pulled to the consequence rather than the button.
+
+No new colour: this is the green that already means "possession" everywhere
+else, and gold is deliberately absent because nothing was spent.
+----------------------------------------------------------------------------*/
+.rs-am-cta[data-just="1"] .rs-am-cta-face {
+  animation: rs-latch var(--rs-t-confirm) var(--rs-e-snap);
+}
+@keyframes rs-latch {
+  0% { transform: scale(1); }
+  40% { transform: scale(0.975); }
+  100% { transform: scale(1); }
+}
+
+/* the manifest is the consequence - it flashes because it changed */
+.rs-hg-pane[data-just="1"] .rs-sys {
+  animation: rs-changed 900ms var(--rs-e-out);
+}
+@keyframes rs-changed {
+  0% { box-shadow: inset 2px 0 0 0 var(--rs-green); }
+  70% { box-shadow: inset 2px 0 0 0 var(--rs-green); }
+  100% { box-shadow: inset 2px 0 0 0 transparent; }
+}
+
+/*--- ARMORY: selection is a switch, not a fade ------------------------------
+A rack slot answers immediately - the cyan edge is already instant, so what is
+added is only the sense of the cradle taking the item: a hairline that runs
+across the slot once, at nav speed. Deliberately not a glow.
+----------------------------------------------------------------------------*/
+.rs-am-slot[data-on="1"]::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 1px;
+  width: 100%;
+  background: var(--rs-cyan);
+  transform-origin: left;
+  animation: rs-sweep-in var(--rs-t-confirm) var(--rs-e-out);
+}
+@keyframes rs-sweep-in {
+  from { transform: scaleX(0); opacity: 1; }
+  to { transform: scaleX(1); opacity: 0.55; }
+}
+
+/*--- DEBRIEF: read in order -------------------------------------------------
+The panel arrived as one block, which left the eye to find its own way through
+result / kept / lost / next. The sections now arrive in that order, one beat
+apart. The stagger is short on purpose: the last section has settled long
+before a player could reach REDEPLOY, so this never delays input.
+----------------------------------------------------------------------------*/
+.rs-ao-seq > [data-s] {
+  animation: rs-ao-step var(--rs-t-enter) var(--rs-e-out) backwards;
+}
+.rs-ao-seq > [data-s="0"] { animation-delay: 0ms; }
+.rs-ao-seq > [data-s="1"] { animation-delay: 90ms; }
+.rs-ao-seq > [data-s="2"] { animation-delay: 180ms; }
+.rs-ao-seq > [data-s="3"] { animation-delay: 270ms; }
+@keyframes rs-ao-step {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+/*--- NAVIGATION: no hard cuts between rooms ---------------------------------
+Moving between the deck, the hangar, the armory and pre-flight was a hard swap:
+one screen vanished, the next appeared. They now arrive on the same short
+`enter` curve, which is enough to read as walking into the next room rather
+than a page replacing a page. Applied to the shell only - the contents do not
+each animate in, which would be the SaaS-dashboard version of this.
+----------------------------------------------------------------------------*/
+.rs-cc-main,
+.rs-cc-ops {
+  animation: rs-room-in var(--rs-t-enter) var(--rs-e-out) backwards;
+}
+.rs-cc-ops { animation-delay: 60ms; }
+@keyframes rs-room-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* The launch commit is the one SCENE-length move in the interface, and it
+   already exists (rs-launch-wipe / rs-launch-fall). Pin it to the token so it
+   cannot drift away from the rest of the system. */
+.rs-lx[data-committing="1"] .rs-lx-wipe,
+.rs-lx[data-committing="1"] .rs-lx-stage {
+  animation-duration: var(--rs-t-scene);
+  animation-timing-function: var(--rs-e-in);
+}

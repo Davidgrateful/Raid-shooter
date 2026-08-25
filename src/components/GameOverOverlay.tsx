@@ -238,9 +238,15 @@ export function GameOverOverlay() {
       className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-2 sm:items-center sm:p-4"
       style={{ background: 'rgba(3,5,9,0.6)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)' }}
     >
-      <div className="rs-panel rs-cut rs-rise rs-debrief relative my-auto w-full max-w-md overflow-hidden text-white">
+      {/* The sections carry --s, a sequence index. Each one arrives a beat after
+          the last, so the debrief reads in the order it is meant to be read:
+          the result, then what was banked, then what evaporated, then the way
+          back in. It is one short stagger, not a celebration sequence - the
+          whole thing has settled well before a player could reach REDEPLOY. */}
+      <div className="rs-panel rs-cut rs-rise rs-debrief rs-ao-seq relative my-auto w-full max-w-md overflow-hidden text-white">
         {/* the run's outcome, stated in one colour before a single number */}
         <div
+          data-s="0"
           className="rs-debrief-head relative border-b border-white/10 px-6 pb-4 pt-5 text-center"
           style={{
             background: snap.best
@@ -285,13 +291,13 @@ export function GameOverOverlay() {
         raid, and a debrief that mixes them into one wall of statistics
         leaves the player unable to tell which is which.
         ==================================================================*/}
-        <div className="rs-ao-band rs-ao-band-keep">
+        <div data-s="1" className="rs-ao-band rs-ao-band-keep">
           <span className="rs-ao-band-label">You keep</span>
           <span className="rs-ao-band-note">Banked permanently</span>
         </div>
 
         {snap.pilotTitle && (
-          <div className="border-b border-white/10 px-6 py-3.5">
+          <div data-s="1" className="border-b border-white/10 px-6 py-3.5">
             <div className="flex items-baseline justify-between">
               <span className="rs-label">
                 {snap.pilotTitle || 'Pilot'} · LVL <span className="rs-num text-[color:var(--rs-cyan)]">{snap.pilotLevel}</span>
@@ -353,12 +359,12 @@ export function GameOverOverlay() {
         refit does not carry, and it is what stops the debrief from reading
         as if the build were an acquisition.
         ==================================================================*/}
-        <div className="rs-ao-band">
+        <div data-s="2" className="rs-ao-band">
           <span className="rs-ao-band-label">This run</span>
           <span className="rs-ao-band-note">Not carried forward</span>
         </div>
 
-        <div className="grid grid-cols-5 gap-px bg-white/5 px-px">
+        <div data-s="2" className="grid grid-cols-5 gap-px bg-white/5 px-px">
           {stats.map(([k, v]) => (
             <div key={k} className="bg-[#0a0d15] px-1 py-2.5 text-center">
               <div className="rs-num text-sm sm:text-base">{v}</div>
@@ -381,7 +387,7 @@ export function GameOverOverlay() {
         )}
 
         {/* one obvious way back in */}
-        <div className="flex flex-col gap-2 p-4">
+        <div data-s="3" className="flex flex-col gap-2 p-4">
           <button className="rs-cta" onClick={playAgain}>
             <span className="rs-cta-face rs-cut" style={{ padding: '14px 20px' }}>
               <span className="rs-cta-bracket" style={{ top: 7, left: 7, borderRight: 0, borderBottom: 0 }} />
