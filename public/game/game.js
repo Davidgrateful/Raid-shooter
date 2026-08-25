@@ -864,7 +864,11 @@ $.renderInterface = function() {
 		// touch builds run a PAUSE/MUTE bar across the top centre (kept there
 		// deliberately, clear of the thumb joysticks), so the score starts
 		// below it rather than underneath it
-		centreTop = $.isTouchDevice ? ( $.safeAreaTop + 64 ) : hudTop;
+		// clear of whatever the touch build actually put up there (PAUSE/MUTE,
+		// plus a consumable row when the player owns one)
+		centreTop = $.isTouchDevice
+			? Math.max( $.safeAreaTop + 64, ( $.touchHudBottom || 0 ) + 8 )
+			: hudTop;
 
 	// the number needs no label on a phone - it is the only big figure on
 	// screen, and the row above it is already spoken for
@@ -885,13 +889,17 @@ $.renderInterface = function() {
 	// personal best sits under the live score - the target, quietly stated
 	var best = Math.max( $.storage['score'] || 0, $.score ),
 		beatenBest = ( $.score > ( $.storage['score'] || 0 ) && ( $.storage['score'] || 0 ) > 0 );
-	hudLabel(
+	var bestLine = hudLabel(
 		beatenBest ? 'NEW BEST' : ( 'BEST ' + $.util.commas( best ) ),
 		centreX, scoreText.ey + 4, 'center', 1,
 		beatenBest
 			? 'hsla(45, 100%, 65%, ' + ( 0.7 + Math.sin( $.tick / 10 ) * 0.3 ) + ')'
 			: 'hsla(0, 0%, 100%, 0.3)'
 	);
+	// Where the centre column actually ends this frame. Anything that wants to
+	// draw over the play area without covering the score - the daily banner -
+	// measures against this instead of guessing a percentage of screen height.
+	$.hudCentreBottom = bestLine.ey;
 
 	/*--- combo chain: the loudest thing in the HUD, and only while it is
 	  actually running. Climbing the chain visibly heats the colour up. ----*/
@@ -2263,7 +2271,9 @@ $.setState = function( state ) {
 	// PLAY mode chooser: ENDLESS (the ranked run) or DAILY RUN (one seeded
 	// attempt on its own board). Lives on the play path so daily hooks every
 	// player without costing the menu a row.
-	if( state == 'playmode' ) {
+	// The HTML pre-flight overlay owns this screen when it is mounted, exactly
+	// as __htmlHangar / __htmlMarket do for theirs.
+	if( state == 'playmode' && !window.__htmlLaunch ) {
 		$.mouse.down = 0;
 		var pmCompact = ( $.ch < 640 ),
 			pmY = pmCompact ? $.ch / 2 - 24 : $.ch / 2 - 40,
@@ -3176,6 +3186,10 @@ $.setState = function( state ) {
 		$.buttons.push( menuButton );
 	}
 
+	// cleared on every entry to play so a stale value from a previous layout
+	// (a resize across the touch threshold) can never push the HUD down
+	if( state == 'play' ) { $.touchHudBottom = 0; }
+
 	if( state == 'play' && $.isTouchDevice ) {
 		// touch players have no P or M keys, give them on-screen buttons.
 		// Placed top-center in the dead zone between the move (left) and aim
@@ -3185,6 +3199,12 @@ $.setState = function( state ) {
 			touchBarY = $.safeAreaTop + 20 + touchBarHeight / 2,
 			touchBarGap = 12,
 			touchBarWidth = 89;
+		// The HUD centres the score under this stack. It used to assume a
+		// fixed 64px, which was correct for the PAUSE/MUTE row alone - but a
+		// player who owns a consumable gets a SECOND row, and the score was
+		// then drawn underneath the HEALTH/SHIELD buttons. Publish the real
+		// bottom edge instead of hard-coding one.
+		$.touchHudBottom = touchBarY + touchBarHeight / 2;
 		$.buttons.push( new $.Button( {
 			x: $.cw / 2 - touchBarGap / 2 - touchBarWidth / 2,
 			y: touchBarY,
@@ -3220,6 +3240,7 @@ $.setState = function( state ) {
 		if( hasHealthPack || hasShieldPack ) {
 			var consumableBarY = touchBarY + touchBarHeight + 10,
 				consumableBarWidth = 110;
+			$.touchHudBottom = consumableBarY + touchBarHeight / 2;
 			if( hasHealthPack ) {
 				$.buttons.push( new $.Button( {
 					x: $.cw / 2 - ( hasShieldPack ? touchBarGap / 2 + consumableBarWidth / 2 : 0 ),
@@ -3261,7 +3282,11 @@ $.setState = function( state ) {
 		$.mouse.down = 0;
 		$.vjoyLeft.active = 0;
 		$.vjoyRight.active = 0;
+		// the frozen frame is the draft's backdrop on both paths - the HTML
+		// overlay dims it rather than replacing it, so the raid stays visible
 		$.screenshot = $.ctxmg.getImageData( 0, 0, $.cmg.width, $.cmg.height );
+
+		if( !window.__htmlUpgrade ) {
 
 		var cardCount = $.upgradeChoices.length,
 			cardGap = 20,
@@ -3284,6 +3309,8 @@ $.setState = function( state ) {
 				} ) );
 			} )( $.upgradeChoices[ ci ], startX + cardWidth / 2 + ci * ( cardWidth + cardGap ) );
 		}
+
+		} // end !__htmlUpgrade card block
 	}
 
 	if( state == 'continueoffer' ) {
@@ -4639,6 +4666,16 @@ $.setupStates = function() {
 
 	$.states['playmode'] = function() {
 		$.clearScreen();
+
+		// HTML pre-flight owns the chrome; the engine keeps painting the
+		// living backdrop underneath, same contract as the menu and hangar.
+		if( window.__htmlLaunch ) {
+			$.updateScreen();
+			$.renderAmbientShips();
+			$.tick += 1;
+			return;
+		}
+
 		var pmC = ( $.ch < 640 );
 		// title
 		$.ctxmg.beginPath();
@@ -5267,6 +5304,9 @@ $.setupStates = function() {
 
 		$.clearScreen();
 		$.ctxmg.putImageData( $.screenshot, 0, 0 );
+
+		// the HTML draft draws its own dim + cards over the frozen frame
+		if( window.__htmlUpgrade ) { return; }
 
 		$.ctxmg.fillStyle = 'hsla(0, 0%, 0%, 0.65)';
 		$.ctxmg.fillRect( 0, 0, $.cw, $.ch );

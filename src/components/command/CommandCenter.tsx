@@ -30,7 +30,7 @@ what can I earn / where do I rank". Nothing is here to fill space.
 ==============================================================================*/
 
 /** Screens where a phone in portrait is a first-class layout, not an error. */
-const PORTRAIT_OK = new Set(['menu', 'loading', 'board', 'hangar', 'market', '']);
+const PORTRAIT_OK = new Set(['menu', 'loading', 'board', 'hangar', 'market', 'playmode', '']);
 
 export const NAV: NavEntry[] = [
   { id: 'deploy', label: 'Deploy', hint: 'Launch a raid', short: 'Deploy', Icon: IconDeploy, state: 'playmode' },

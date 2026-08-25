@@ -14,7 +14,7 @@ export function Header() {
   useEffect(() => {
     const onState = (e: Event) => {
       const state = (e as CustomEvent<string>).detail;
-      setInAction(state === 'play' || state === 'upgrade' || state === 'menu' || state === 'hangar' || state === 'market');
+      setInAction(state === 'play' || state === 'upgrade' || state === 'menu' || state === 'hangar' || state === 'market' || state === 'playmode');
     };
     window.addEventListener('raidshooter:state', onState);
     return () => window.removeEventListener('raidshooter:state', onState);

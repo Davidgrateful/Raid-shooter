@@ -112,14 +112,18 @@ $.dailyRenderPop = function() {
 	if( $.hero && $.hero.life <= 0 ) { $.dailyPopTick = -1; return; }
 	var max = 260,
 		t = $.dailyPopTick,
-		alpha = t < 30 ? t / 30 : ( t > max - 60 ? ( max - t ) / 60 : 1 );
+		alpha = t < 30 ? t / 30 : ( t > max - 60 ? ( max - t ) / 60 : 1 ),
+		// 22% of a 390px landscape phone is 86px - inside the HUD band, right
+		// on top of the score, the BEST line and the touch controls. The HUD
+		// publishes where its centre column really ends each frame; clear that.
+		popY = Math.max( $.ch * 0.22, ( $.hudCentreBottom || 0 ) + 26 );
 	if( t >= max ) { $.dailyPopTick = -1; return; } // -1 = shown, stop
 	$.dailyPopTick += $.dt;
 	$.ctxmg.save();
 	$.ctxmg.globalAlpha = Math.max( 0, Math.min( 1, alpha ) );
 	$.ctxmg.beginPath();
 	$.text( {
-		ctx: $.ctxmg, x: $.cw / 2, y: $.ch * 0.22,
+		ctx: $.ctxmg, x: $.cw / 2, y: popY,
 		text: 'DAILY CHALLENGE COMPLETE',
 		hspacing: 2, vspacing: 1, halign: 'center', valign: 'top',
 		scale: 3, snap: 1, render: 1
@@ -128,7 +132,7 @@ $.dailyRenderPop = function() {
 	$.ctxmg.fill();
 	$.ctxmg.beginPath();
 	$.text( {
-		ctx: $.ctxmg, x: $.cw / 2, y: $.ch * 0.22 + 26,
+		ctx: $.ctxmg, x: $.cw / 2, y: popY + 26,
 		text: '+' + $.dailyNextXp() + ' XP AT RUN END',
 		hspacing: 1, vspacing: 1, halign: 'center', valign: 'top',
 		scale: 1, snap: 1, render: 1

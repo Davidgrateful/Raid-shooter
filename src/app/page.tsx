@@ -7,6 +7,8 @@ import { GameOverlays } from '@/components/GameOverlays';
 import { CommandCenter } from '@/components/command/CommandCenter';
 import { HangarScreen } from '@/components/hangar/HangarScreen';
 import { ArmoryScreen } from '@/components/armory/ArmoryScreen';
+import { LaunchScreen } from '@/components/raid/LaunchScreen';
+import { UpgradeDraft } from '@/components/raid/UpgradeDraft';
 import { BoardOverlay } from '@/components/BoardOverlay';
 import { GameOverOverlay } from '@/components/GameOverOverlay';
 import { StarterBundleModal } from '@/components/StarterBundleModal';
@@ -25,6 +27,8 @@ export default function Home() {
       <CommandCenter />
       <HangarScreen />
       <ArmoryScreen />
+      <LaunchScreen />
+      <UpgradeDraft />
       <GameOverlays />
       <BoardOverlay />
       <GameOverOverlay />

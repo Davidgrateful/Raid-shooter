@@ -34,6 +34,8 @@ interface Engine {
   upgrades: Record<string, number>;
   definitions: { upgrades: { id: string; title: string }[] };
   hero?: { character?: { id: string; title: string } };
+  dailyChallenge?: () => { text: string; stat: string; n: number };
+  dailyStreak?: () => number;
   pilotLevel?: (id: string) => number;
   pilotXp?: (id: string) => number;
   pilotMaxLevel?: number;
@@ -66,6 +68,8 @@ interface Snap {
   dailyResult: { xp: number; streak: number } | null;
   board: string; rank: number; improved: boolean; verified: boolean; gap: number; nextRank: number;
   build: string[];
+  dailyText: string;
+  streak: number;
   xp: number;
   pilotTitle: string;
   pilotLevel: number;
@@ -106,6 +110,14 @@ function snapshot(): Snap | null {
     gap: bs.gap || 0,
     nextRank: bs.nextRank || 0,
     build,
+    dailyText: (() => {
+      try {
+        return $.dailyChallenge ? $.dailyChallenge().text : '';
+      } catch { return ''; }
+    })(),
+    streak: (() => {
+      try { return $.dailyStreak ? $.dailyStreak() : 0; } catch { return 0; }
+    })(),
     ...pilotProgress($),
     ...tierOf($, $.score || 0),
   };
@@ -251,15 +263,31 @@ export function GameOverOverlay() {
           )}
         </div>
 
-        {/* WHAT THIS RUN CHANGED - the payoff, before the raw numbers */}
-        {snap.xp > 0 && (
+        {/*==================================================================
+        WHAT YOU KEEP. Deliberately first, and deliberately separated from
+        the run's own numbers below: pilot XP, the personal best, the daily
+        streak and the board standing are the only things that outlive the
+        raid, and a debrief that mixes them into one wall of statistics
+        leaves the player unable to tell which is which.
+        ==================================================================*/}
+        <div className="rs-ao-band rs-ao-band-keep">
+          <span className="rs-ao-band-label">You keep</span>
+          <span className="rs-ao-band-note">Banked permanently</span>
+        </div>
+
+        {snap.pilotTitle && (
           <div className="border-b border-white/10 px-6 py-3.5">
             <div className="flex items-baseline justify-between">
               <span className="rs-label">
                 {snap.pilotTitle || 'Pilot'} · LVL <span className="rs-num text-[color:var(--rs-cyan)]">{snap.pilotLevel}</span>
                 <span className="text-white/20">/{snap.pilotMaxLevel}</span>
               </span>
-              <span className="rs-num text-sm text-[color:var(--rs-gold)]">+{fmt(snap.xp)} XP</span>
+              <span
+                className="rs-num text-sm"
+                style={{ color: snap.xp > 0 ? 'var(--rs-gold)' : 'rgba(233,241,255,0.3)' }}
+              >
+                +{fmt(snap.xp)} XP
+              </span>
             </div>
             <div className={`rs-meter mt-2 ${maxed ? 'rs-meter-gold' : 'rs-meter-xp'}`}>
               <div className="rs-meter-fill" style={{ width: `${xpRatio * 100}%` }} />
@@ -273,7 +301,8 @@ export function GameOverOverlay() {
         )}
 
         {/* where it landed you, and how close the next place is */}
-        {(boardMsg || (snap.gap > 0 && snap.nextRank > 0) || snap.dailyResult) && (
+        {(boardMsg || (snap.gap > 0 && snap.nextRank > 0) || snap.dailyResult
+          || (snap.dailyText && !snap.daily)) && (
           <div className="space-y-1.5 border-b border-white/10 px-6 py-3 text-center text-[12px]">
             {boardMsg && <div className={`font-bold ${boardMsg.c}`}>{boardMsg.t}</div>}
             {snap.gap > 0 && snap.nextRank > 0 && (
@@ -287,10 +316,33 @@ export function GameOverOverlay() {
                 {snap.dailyResult.streak >= 2 ? ` · ${snap.dailyResult.streak} DAY STREAK` : ''}
               </div>
             )}
+            {/* Not cleared: say what it was, so the near-miss is actionable
+                rather than silent. The challenge is deterministic per day, so
+                this is the same goal that will still be there next run. */}
+            {!snap.dailyResult && snap.dailyText && !snap.daily && (
+              <div className="rs-ao-daily">
+                <span className="rs-label rs-ao-daily-cap">Daily still open</span>
+                <span className="rs-ao-daily-text">{snap.dailyText}</span>
+                {snap.streak > 0 && (
+                  <span className="rs-num rs-ao-daily-streak">{snap.streak} day streak</span>
+                )}
+              </div>
+            )}
           </div>
         )}
 
-        {/* the numbers */}
+        {/*==================================================================
+        THIS RUN — everything in this block is gone. The engine wipes all of
+        it in $.reset(): the score, the ladder, and the draft build most of
+        all. Saying so here is the only place the player is ever told that a
+        refit does not carry, and it is what stops the debrief from reading
+        as if the build were an acquisition.
+        ==================================================================*/}
+        <div className="rs-ao-band">
+          <span className="rs-ao-band-label">This run</span>
+          <span className="rs-ao-band-note">Not carried forward</span>
+        </div>
+
         <div className="grid grid-cols-5 gap-px bg-white/5 px-px">
           {stats.map(([k, v]) => (
             <div key={k} className="bg-[#0a0d15] px-1 py-2.5 text-center">
@@ -301,10 +353,16 @@ export function GameOverOverlay() {
         </div>
 
         {snap.build.length > 0 && (
-          <div className="border-t border-white/10 px-6 py-2.5 text-center text-[11px] text-white/45">
-            <span className="rs-label mr-1.5">Build</span>
-            {snap.build.join(' · ')}
+          <div className="rs-ao-build">
+            <span className="rs-label rs-ao-build-cap">Field refit</span>
+            <span className="rs-ao-build-list">{snap.build.join(' · ')}</span>
           </div>
+        )}
+
+        {snap.assisted && (
+          <p className="rs-ao-assist">
+            Field kit spent — this run is logged as assisted.
+          </p>
         )}
 
         {/* one obvious way back in */}

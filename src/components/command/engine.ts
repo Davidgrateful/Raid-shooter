@@ -15,7 +15,7 @@ export interface ShipDef {
   id: string;
   title: string;
   desc?: string;
-  ability?: { title: string; text: string };
+  ability?: { title: string; text: string; startUpgrade?: number };
   bulletStyle?: { kind: string; size?: number; lineWidth?: number };
   speedMult?: number;
   damageTakenMult?: number;
@@ -116,6 +116,29 @@ export interface Engine {
   usd?: (n: number) => string;
   applyOwnedItems?: () => void;
   guestToken?: () => string;
+
+  /*--- raid surface --------------------------------------------------------
+  The run itself. Everything in this block except pilot XP is RUN-ONLY: the
+  engine wipes it in $.reset(), and $.upgrades in particular is a draft that
+  exists for one raid and is discarded at game over. The interface must never
+  present a draft pick as something the player keeps. */
+  upgradeChoices?: UpgradeDef[];
+  upgrades?: Record<string, number>;
+  chooseUpgrade?: (id: string) => void;
+  bossDraftQueued?: number;
+  level?: { current: number; kills: number; killsToLevel: number };
+  isTouchDevice?: boolean;
+  reset?: () => void;
+  trackRun?: (event: string, value?: number) => void;
+  music?: { start?: () => void };
+}
+
+export interface UpgradeDef {
+  id: string;
+  title: string;
+  desc: string;
+  /** Hard stack cap. Every upgrade in this game is bounded. */
+  max: number;
 }
 
 export function engine(): Engine | null {

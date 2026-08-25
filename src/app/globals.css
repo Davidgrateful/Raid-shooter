@@ -1272,6 +1272,29 @@ several hundred pixels of nothing between — this reads as one instrument.
   background: linear-gradient(120deg, #6df3ff, var(--rs-cyan-deep));
   border-color: transparent;
 }
+/* Being somewhere outranks being invited to go there. On pre-flight the deploy
+   route IS the current location, and [data-primary] is declared later in this
+   file, so without this the action styling would win and the rail would invite
+   the player to a screen they are already standing on. */
+.rs-nav-item[data-active="true"][data-primary="true"] {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.05);
+  border-color: transparent;
+  box-shadow: none;
+  cursor: default;
+}
+.rs-nav-item[data-active="true"][data-primary="true"]::before {
+  opacity: 1;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  border-radius: 0;
+  background: #fff;
+  box-shadow: none;
+}
+.rs-nav-item[data-active="true"][data-primary="true"]::after { display: none; }
+.rs-nav-item[data-active="true"][data-primary="true"] .rs-nav-hint { color: rgba(233, 241, 255, 0.45); }
+
 /* On a screen you are standing in, DEPLOY is still the action but the room
    already belongs to somewhere else - so it steps back to an outline and
    stops competing with the location marker for the same glance. */
@@ -3028,3 +3051,641 @@ ARMORY — RESPONSIVE
   .rs-am-slots { grid-template-columns: 1fr; }
   .rs-am-rack { min-width: 74px; }
 }
+
+/*==============================================================================
+THE RAID — pre-flight, the draft, the debrief
+
+Three screens with a different job from the management layer, and the visual
+priority changes to match. The deck, hangar and armory are for reading: wide
+lanes, instrument columns, time to think. These three are for ACTING.
+
+  PRE-FLIGHT   one column, top to bottom, ending in one control
+  THE DRAFT    three cards over a frozen frame, decided in two seconds
+  DEBRIEF      what you lost, what you kept, one way back in
+
+So: fewer lanes, larger targets, shorter reading distance, and motion that
+carries the player through rather than decorating a static page. The tokens,
+the colour semantics and the instrument surfaces are unchanged — this is the
+same facility at a different tempo, not a second design language.
+==============================================================================*/
+
+/*==============================================================================
+PRE-FLIGHT
+==============================================================================*/
+.rs-lx-veil {
+  background:
+    radial-gradient(900px 520px at 50% 26%, rgba(8, 18, 30, 0.44), transparent 74%),
+    linear-gradient(180deg, rgba(4, 6, 11, 0.92) 0%, rgba(4, 6, 11, 0.3) 26%, rgba(4, 6, 11, 0.5) 62%, rgba(4, 6, 11, 0.96) 100%);
+}
+
+.rs-lx-best { display: flex; align-items: baseline; gap: 6px; }
+.rs-lx-best .rs-num { font-size: 13px; color: var(--rs-gold); }
+
+.rs-lx-main { padding: 0 14px 12px; }
+.rs-lx-stage {
+  display: flex;
+  width: 100%;
+  max-width: 420px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 14px;
+}
+
+/*--- the hull: confirmation, not subject ------------------------------------*/
+/* Deliberately smaller than the hangar's. You already chose this ship; here it
+   is a pre-flight check, and making it the hero again would slow down a screen
+   whose whole job is to be left quickly. */
+.rs-lx-craft { display: flex; flex-direction: column; align-items: center; }
+.rs-lx-bayframe { width: min(72vw, 260px); }
+
+.rs-lx-idline { display: flex; align-items: center; gap: 9px; margin-top: -4px; }
+.rs-lx-tier {
+  font-family: var(--rs-font-ui);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--rs-text-faint);
+}
+.rs-lx-hull {
+  font-family: var(--rs-font-display);
+  font-size: clamp(20px, 5vw, 26px);
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #fff;
+}
+.rs-lx-ability {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 5px;
+  font-family: var(--rs-font-ui);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+.rs-lx-ability-name { color: var(--rs-purple); }
+.rs-lx-ability-text { color: var(--rs-text-faint); }
+
+.rs-lx-level { width: 100%; max-width: 320px; margin-top: 12px; }
+.rs-lx-level-top { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 5px; }
+.rs-lx-level-val { font-family: var(--rs-font-mono); font-size: 13px; color: var(--rs-cyan); }
+.rs-lx-level-max { font-size: 10px; color: rgba(233, 241, 255, 0.3); }
+.rs-lx-level-foot { margin-top: 5px; font-family: var(--rs-font-mono); font-size: 10px; color: var(--rs-gold); text-align: right; }
+
+/*--- CARRYING IN: the reason this screen exists -----------------------------*/
+.rs-lx-manifest {
+  padding: 12px 14px;
+  border: 1px solid var(--rs-line);
+  border-radius: var(--rs-radius-sm);
+  background: rgba(255, 255, 255, 0.022);
+}
+.rs-lx-rows { display: flex; flex-direction: column; gap: 5px; }
+.rs-lx-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.rs-lx-row-key {
+  font-family: var(--rs-font-ui);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--rs-text-faint);
+}
+.rs-lx-row-val {
+  font-family: var(--rs-font-ui);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--rs-text);
+  text-align: right;
+}
+.rs-lx-row-bonus { font-family: var(--rs-font-mono); font-size: 10px; color: var(--rs-gold); letter-spacing: 0; }
+
+/* Field kits carry the KEY that spends them. This is the last moment the
+   player can read that without being shot at, so it is the loudest thing in
+   the block after the launch control itself. */
+.rs-lx-kits { display: flex; flex-direction: column; gap: 5px; margin-top: 11px; padding-top: 11px; border-top: 1px solid var(--rs-line); }
+.rs-lx-kit { display: flex; align-items: center; gap: 10px; }
+.rs-lx-key {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  flex: none;
+  border: 1px solid rgba(53, 232, 255, 0.4);
+  border-radius: 4px;
+  background: rgba(53, 232, 255, 0.1);
+  font-family: var(--rs-font-mono);
+  font-size: 11px;
+  color: var(--rs-cyan);
+}
+.rs-lx-key-auto {
+  width: auto;
+  padding: 0 6px;
+  font-size: 8px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  border-color: var(--rs-line);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--rs-text-faint);
+}
+.rs-lx-kit-body { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
+.rs-lx-kit-name {
+  font-family: var(--rs-font-ui);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--rs-text);
+}
+.rs-lx-kit-note { font-size: 10px; color: var(--rs-text-faint); }
+.rs-lx-kit-count { font-family: var(--rs-font-mono); font-size: 12px; color: var(--rs-gold); }
+
+/*--- today's challenge: the one real run objective --------------------------*/
+.rs-lx-freebie {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 11px;
+  padding-top: 11px;
+  border-top: 1px solid var(--rs-line);
+}
+
+.rs-lx-objective {
+  margin-top: 11px;
+  padding-top: 11px;
+  border-top: 1px solid var(--rs-line);
+}
+.rs-lx-obj-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.rs-lx-obj-state { font-family: var(--rs-font-mono); font-size: 11px; color: var(--rs-gold); }
+.rs-lx-obj-done {
+  font-family: var(--rs-font-ui);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--rs-green);
+}
+.rs-lx-obj-text {
+  margin-top: 5px;
+  font-family: var(--rs-font-ui);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--rs-text);
+}
+.rs-lx-objective[data-done="1"] .rs-lx-obj-text { color: var(--rs-text-faint); text-decoration: line-through; }
+.rs-lx-obj-streak { margin-top: 4px; font-family: var(--rs-font-mono); font-size: 10px; color: var(--rs-text-faint); }
+
+/*--- the commit -------------------------------------------------------------*/
+.rs-lx-act { display: flex; flex-direction: column; gap: 8px; }
+
+/* The single loudest control in the whole application. Everything else on this
+   screen is a readout; this is the only thing that does anything. */
+.rs-lx-launch {
+  position: relative;
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  border: 0;
+  padding: 0;
+  background: none;
+  cursor: pointer;
+}
+.rs-lx-launch-face {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 15px 20px;
+  clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px);
+  background: linear-gradient(135deg, var(--rs-cyan) 0%, var(--rs-cyan-deep) 100%);
+  box-shadow: 0 0 44px -12px var(--rs-cyan);
+  transition: filter 130ms ease, transform 130ms ease;
+}
+.rs-lx-launch-label {
+  font-family: var(--rs-font-display);
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #04121a;
+}
+.rs-lx-launch-sub {
+  font-family: var(--rs-font-ui);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(4, 18, 26, 0.6);
+}
+.rs-lx-launch:hover:not(:disabled) .rs-lx-launch-face { filter: brightness(1.1); }
+.rs-lx-launch:active:not(:disabled) .rs-lx-launch-face { transform: translateY(1px); }
+.rs-lx-launch:disabled { cursor: default; }
+
+/* a slow sweep across the launch control - the only idle motion on the screen,
+   and it reads as a system armed rather than as decoration */
+.rs-lx-launch-scan {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(100deg, transparent 42%, rgba(255, 255, 255, 0.3) 50%, transparent 58%);
+  transform: translateX(-110%);
+  animation: rs-sweep 3.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.rs-lx-daily { width: 100%; }
+
+.rs-lx-controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 14px;
+  margin-top: 2px;
+  font-family: var(--rs-font-ui);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--rs-text-faint);
+}
+.rs-lx-controls b { color: var(--rs-text-dim); font-weight: 800; }
+
+/*--- the launch wipe --------------------------------------------------------*/
+/* Committing drops the deck away rather than cutting to a new page: the raid
+   is already running underneath by the time this finishes, so DEPLOY reads as
+   one continuous motion. */
+.rs-lx-wipe {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(180deg, rgba(53, 232, 255, 0.12), rgba(4, 6, 11, 0.96) 40%);
+}
+.rs-lx[data-committing="1"] .rs-lx-wipe {
+  animation: rs-launch-wipe 460ms cubic-bezier(0.6, 0, 0.9, 0.4) forwards;
+}
+.rs-lx[data-committing="1"] .rs-lx-stage {
+  animation: rs-launch-fall 460ms cubic-bezier(0.6, 0, 0.9, 0.4) forwards;
+}
+.rs-lx[data-committing="1"] .rs-lx-launch-scan { animation: none; }
+
+@keyframes rs-launch-wipe {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+@keyframes rs-launch-fall {
+  0% { transform: translateY(0) scale(1); opacity: 1; }
+  100% { transform: translateY(-26px) scale(0.97); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rs-lx-launch-scan { animation: none; }
+  .rs-lx[data-committing="1"] .rs-lx-wipe,
+  .rs-lx[data-committing="1"] .rs-lx-stage { animation-duration: 1ms; }
+}
+
+/*--- pre-flight responsive --------------------------------------------------*/
+@media (min-width: 1100px) {
+  .rs-lx-main { align-items: safe center; padding: 8px 20px 20px; }
+  .rs-lx-stage { max-width: 440px; }
+  .rs-lx-bayframe { width: 300px; }
+}
+
+/* Phone landscape: the manifest sits beside the hull instead of below it, so
+   the launch control stays on screen without a scroll. */
+@media (max-height: 560px) and (min-width: 640px) {
+  .rs-lx-main { padding: 0 10px 8px; }
+  .rs-lx-stage {
+    max-width: none;
+    display: grid;
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+    grid-template-areas: "craft manifest" "act act";
+    gap: 10px 16px;
+    align-items: start;
+  }
+  .rs-lx-craft { grid-area: craft; }
+  .rs-lx-manifest { grid-area: manifest; }
+  .rs-lx-act { grid-area: act; max-width: 460px; margin: 0 auto; width: 100%; }
+  .rs-lx-bayframe { width: min(34vh, 170px); }
+  .rs-lx-hull { font-size: 17px; }
+  .rs-lx-ability { display: none; }
+  .rs-lx-level { margin-top: 7px; }
+  .rs-lx-launch-face { padding: 10px 16px; }
+  .rs-lx-launch-label { font-size: 15px; }
+  .rs-lx-controls { display: none; }
+}
+
+@media (max-width: 640px) {
+  .rs-lx-main { padding: 0 12px 6px; }
+  .rs-lx-bayframe { width: min(64vw, 230px); }
+}
+
+/*==============================================================================
+THE DRAFT
+==============================================================================*/
+/* Sits over the frozen last frame of the raid, which the engine keeps painting
+   underneath. The dim is strong enough to read against and light enough that
+   the player can still see the fight they are about to go back into. */
+.rs-draft {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  overflow-y: auto;
+}
+.rs-draft-veil {
+  position: absolute;
+  inset: 0;
+  /* dark enough to read against, light enough that the raid you are about to
+     go back into stays visible behind the choice */
+  background:
+    radial-gradient(120% 90% at 50% 40%, rgba(4, 8, 16, 0.6), rgba(3, 5, 9, 0.88) 72%);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
+.rs-draft-inner { position: relative; width: 100%; max-width: 880px; }
+
+.rs-draft-head { text-align: center; margin-bottom: 16px; }
+.rs-draft-level { display: inline-flex; align-items: baseline; gap: 7px; }
+.rs-draft-level-cap {
+  font-family: var(--rs-font-ui);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--rs-text-faint);
+}
+.rs-draft-level-num { font-family: var(--rs-font-mono); font-size: 20px; color: var(--rs-cyan); }
+.rs-draft-title {
+  margin-top: 2px;
+  font-family: var(--rs-font-display);
+  font-size: clamp(24px, 6vw, 34px);
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #fff;
+  text-shadow: 0 0 34px rgba(53, 232, 255, 0.35);
+}
+/* The sentence the old cards never said. Quiet on purpose - it is a fact the
+   player needs once, not a warning. */
+.rs-draft-note {
+  margin-top: 5px;
+  font-family: var(--rs-font-ui);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--rs-text-faint);
+}
+.rs-draft-bonus {
+  margin-top: 6px;
+  font-family: var(--rs-font-ui);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--rs-gold);
+}
+
+.rs-draft-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.rs-draft-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  min-height: 190px;
+  padding: 18px 17px 15px;
+  overflow: hidden;
+  border: 1px solid var(--rs-line);
+  background: linear-gradient(165deg, rgba(22, 30, 44, 0.9), rgba(8, 11, 18, 0.95));
+  clip-path: polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 130ms ease, transform 130ms ease, background 130ms ease;
+  animation: rs-draft-in 260ms cubic-bezier(0.2, 0.9, 0.3, 1) backwards;
+  animation-delay: calc(var(--i) * 60ms);
+}
+.rs-draft-card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--lane);
+  opacity: 0.75;
+}
+.rs-draft-card:hover:not(:disabled) {
+  border-color: var(--lane);
+  transform: translateY(-3px);
+  background: linear-gradient(165deg, rgba(30, 40, 58, 0.94), rgba(10, 14, 22, 0.96));
+}
+.rs-draft-card[data-dimmed="1"] { opacity: 0.28; transform: none; }
+.rs-draft-card[data-taken="1"] {
+  border-color: var(--lane);
+  animation: rs-draft-take 260ms ease forwards;
+}
+.rs-draft-card:disabled { cursor: default; }
+
+.rs-draft-card-top { display: flex; align-items: baseline; justify-content: space-between; width: 100%; gap: 8px; }
+.rs-draft-lane {
+  font-family: var(--rs-font-ui);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--lane);
+}
+.rs-draft-new {
+  font-family: var(--rs-font-ui);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--rs-cyan);
+}
+.rs-draft-stack { font-family: var(--rs-font-mono); font-size: 10px; color: var(--rs-text-faint); }
+
+.rs-draft-name {
+  font-family: var(--rs-font-display);
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: #fff;
+  line-height: 1.15;
+}
+/* The real arithmetic from recomputeUpgrades(). This is the line the decision
+   is actually made on, so it outranks the engine's own description. */
+.rs-draft-step {
+  font-family: var(--rs-font-mono);
+  font-size: 13px;
+  color: var(--lane);
+  line-height: 1.35;
+}
+.rs-draft-desc {
+  font-family: var(--rs-font-ui);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--rs-text-faint);
+  line-height: 1.4;
+}
+
+/* how much room this pick still has to grow - a card at 5/6 is a different
+   proposition from a card at 0/6, and that has to be visible at a glance */
+.rs-draft-pips { display: flex; gap: 3px; width: 100%; margin-top: auto; padding-top: 4px; }
+.rs-draft-pips i {
+  flex: 1;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.09);
+}
+.rs-draft-pips i[data-on="1"] { background: var(--lane); }
+.rs-draft-pips i[data-on="next"] { background: color-mix(in srgb, var(--lane) 45%, transparent); }
+
+.rs-draft-key {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  display: none;
+  font-family: var(--rs-font-mono);
+  font-size: 10px;
+  color: rgba(233, 241, 255, 0.22);
+}
+/* the number key is only useful where there is a keyboard to press it on */
+@media (hover: hover) and (pointer: fine) {
+  .rs-draft-card-top { padding-right: 16px; }
+  .rs-draft-key { display: block; }
+}
+
+@keyframes rs-draft-in {
+  0% { opacity: 0; transform: translateY(14px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+@keyframes rs-draft-take {
+  0% { transform: scale(1); box-shadow: 0 0 0 0 var(--lane); }
+  45% { transform: scale(1.04); box-shadow: 0 0 40px -6px var(--lane); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 var(--lane); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rs-draft-card { animation-duration: 1ms; }
+  .rs-draft-card[data-taken="1"] { animation-duration: 1ms; }
+}
+
+/*--- draft responsive -------------------------------------------------------*/
+/* A phone in portrait cannot hold three readable cards side by side, and a
+   draft is decided in about two seconds - so they stack, full width, with the
+   text scaled for a thumb rather than a cursor. */
+@media (max-width: 640px) {
+  .rs-draft { padding: 12px; align-items: safe center; }
+  .rs-draft-cards { grid-template-columns: 1fr; gap: 8px; }
+  .rs-draft-card { min-height: 0; flex-direction: row; flex-wrap: wrap; align-items: center; padding: 12px; gap: 4px 10px; }
+  .rs-draft-card-top { width: auto; flex-direction: column; align-items: flex-start; gap: 2px; }
+  .rs-draft-name { flex: 1; font-size: 14px; }
+  .rs-draft-step { width: 100%; font-size: 11px; }
+  .rs-draft-desc { display: none; }
+  .rs-draft-title { font-size: 22px; }
+}
+
+/* Phone landscape is ~390px tall and the raid is paused behind this: the head
+   shrinks to a single line so three cards still fit without a scroll. */
+@media (max-height: 480px) {
+  .rs-draft { padding: 8px 12px; }
+  .rs-draft-head { margin-bottom: 8px; }
+  .rs-draft-title { font-size: 18px; }
+  .rs-draft-level-num { font-size: 15px; }
+  .rs-draft-bonus { display: none; }
+  .rs-draft-card { min-height: 0; padding: 9px 11px; gap: 4px; }
+  .rs-draft-name { font-size: 13px; }
+  .rs-draft-step { font-size: 11px; }
+  .rs-draft-desc { display: none; }
+}
+
+/*==============================================================================
+DEBRIEF — the run/keep split
+==============================================================================*/
+/* A debrief that mixes what you lost with what you kept leaves the player
+   unable to tell which is which. These two bands are the divider, and they are
+   colour-coded to the same rule as everywhere else: gold is what you bank,
+   neutral is what evaporated. */
+.rs-ao-band {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 24px;
+  border-top: 1px solid var(--rs-line);
+  border-bottom: 1px solid var(--rs-line);
+  background: rgba(255, 255, 255, 0.022);
+}
+.rs-ao-band-label {
+  font-family: var(--rs-font-ui);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: var(--rs-text-dim);
+}
+.rs-ao-band-note {
+  font-family: var(--rs-font-ui);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--rs-text-faint);
+}
+.rs-ao-band-keep {
+  background: linear-gradient(90deg, rgba(255, 207, 77, 0.09), rgba(255, 207, 77, 0.01));
+}
+.rs-ao-band-keep .rs-ao-band-label { color: var(--rs-gold); }
+.rs-ao-band-keep .rs-ao-band-note { color: rgba(255, 207, 77, 0.5); }
+
+.rs-ao-build {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 9px 24px;
+  border-top: 1px solid var(--rs-line);
+}
+.rs-ao-build-cap { flex: none; }
+.rs-ao-build-list {
+  font-family: var(--rs-font-ui);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--rs-text-faint);
+  line-height: 1.45;
+}
+.rs-ao-assist {
+  padding: 0 24px 9px;
+  font-size: 10px;
+  color: rgba(255, 207, 77, 0.55);
+}
+
+.rs-ao-daily { display: flex; flex-direction: column; gap: 2px; }
+.rs-ao-daily-cap { color: var(--rs-text-faint); }
+.rs-ao-daily-text {
+  font-family: var(--rs-font-ui);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--rs-text-dim);
+}
+.rs-ao-daily-streak { font-family: var(--rs-font-mono); font-size: 10px; color: var(--rs-gold); }
