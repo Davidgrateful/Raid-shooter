@@ -203,7 +203,7 @@ export function GameChatWidget() {
           {/* message feed - kill-feed styling */}
           <div ref={listRef} className="max-h-60 space-y-1 overflow-y-auto px-2.5 py-2.5" style={{ backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 22px, rgba(34,211,238,0.02) 22px, rgba(34,211,238,0.02) 23px)' }}>
             {messages.length === 0 ? (
-              <p className="py-3 text-center font-mono text-[11px] uppercase tracking-wider text-white/25">— NO TRANSMISSIONS —</p>
+              <p className="py-3 text-center font-mono text-[11px] uppercase tracking-wider text-white/45">— NO TRANSMISSIONS —</p>
             ) : (
               messages.map((m) => (
                 <div key={m.id} className="border-l-2 border-cyan-400/20 bg-white/[0.015] px-2 py-1 transition-colors hover:border-cyan-400/50 hover:bg-cyan-400/[0.04]">

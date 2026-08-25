@@ -160,7 +160,7 @@ export function SettingsOverlay() {
           )}
         </div>
 
-        <p className="mt-4 text-center text-[10px] leading-relaxed text-white/30">
+        <p className="mt-4 text-center text-[10px] leading-relaxed text-white/55">
           HYBRID: keys move, mouse aims and fires · KEYBOARD: keys move and aim, hold F to fire · MOUSE: ship follows cursor, hold LMB to fire
         </p>
 

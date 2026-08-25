@@ -1965,10 +1965,23 @@ changes the colour of the room, not the layout of it.
   aspect-ratio: 1 / 0.82;
   flex: none;
 }
-/* Without this the canvas's own light bank and floor haze stop at a hard
-   rectangle and the bay reads as a panel pasted onto the starfield instead
-   of as a room the starfield is outside of. */
+/* The canvas is pinned to the frame and taken OUT of flow, because it must
+   never contribute to layout: `height: 100%` on an IN-FLOW child of an
+   aspect-ratio box resolves to `auto` on some mobile engines, at which point
+   the canvas falls back to sizing itself from its own width/height
+   ATTRIBUTES - which the resize observer sets from the layout size. That
+   loop grew the hangar past 10,000px tall on a phone and never settled.
+   Absolute positioning breaks the cycle at the source.
+
+   The mask is what stops the canvas's own light bank and floor haze ending
+   at a hard rectangle: without it the bay reads as a panel pasted onto the
+   starfield instead of as a room the starfield is outside of. */
 .rs-hg-bayframe > canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
   -webkit-mask-image:
     radial-gradient(96% 92% at 50% 46%, #000 24%, transparent 84%),
     linear-gradient(180deg, transparent 0%, #000 22%, #000 88%, transparent 100%),
@@ -3960,4 +3973,60 @@ the target you are chasing, and the tier chip keeps its own scale.
     border-left: 0;
     border-top: 1px solid var(--rs-line);
   }
+}
+
+/*==============================================================================
+TOUCH TARGETS
+
+Measured on a real phone viewport, several controls render below a comfortable
+tap size: the back chevrons at 30x30, the hull prev/next arrows at 30-34,
+roster slots at ~24x27, and the board/pane tabs at 29-35 high.
+
+They are NOT made visually bigger. The design depends on those controls being
+small and instrument-like, and inflating them would trade the identity for the
+guideline. Instead each grows an invisible hit area around itself, which is the
+standard fix and changes nothing on screen - the pixels stay identical, the
+finger just gets a larger place to land.
+
+Applied only where the measurement showed a shortfall, and only on touch
+devices, so a mouse pointer never gets an oversized invisible target that could
+swallow a click meant for a neighbour.
+==============================================================================*/
+@media (hover: none) and (pointer: coarse) {
+  /* The pad is positioned against the control, so the control has to be a
+     containing block - but ONLY where it is currently static. `.rs-hg-arrow`
+     is already `position: absolute` (it hangs off the bay frame's edges) and
+     forcing `relative` here dropped both arrows back into flow, stacking
+     them down the left side on every touch device. */
+  .rs-hg-back,
+  .rs-hg-tabs button,
+  .rs-am-rack {
+    position: relative;
+  }
+
+  /* the expanded region: centred on the control, never smaller than it */
+  .rs-hg-back::after,
+  .rs-hg-arrow::after,
+  .rs-roster-slot::after,
+  .rs-hg-tabs button::after,
+  .rs-am-rack::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: max(100%, 44px);
+    height: max(100%, 44px);
+    transform: translate(-50%, -50%);
+  }
+
+  /* Roster slots sit shoulder to shoulder, so a 44px-wide pad would overlap
+     its neighbours and steal their taps. They get the full height and only
+     their own width. */
+  .rs-roster-slot::after { width: 100%; }
+
+  /* ...and the row has to make room for that height. `overflow-x: auto` on
+     the roster forces `overflow-y` to `auto` as well, so the scroll box was
+     clipping the taller pad back to the slot's own 25px. Padding the row
+     gives the pad somewhere to go; the slots themselves do not move. */
+  .rs-roster { padding-top: 10px; padding-bottom: 12px; margin-top: 2px; }
 }

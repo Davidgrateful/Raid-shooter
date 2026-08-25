@@ -100,11 +100,19 @@ export function BayViewport({
 
     const resize = () => {
       const rect = canvas.getBoundingClientRect();
-      dpr = Math.min(2, window.devicePixelRatio || 1);
+      const nextDpr = Math.min(2, window.devicePixelRatio || 1);
+      const bw = Math.max(1, Math.round(rect.width * nextDpr));
+      const bh = Math.max(1, Math.round(rect.height * nextDpr));
+      // Nothing actually changed - bail before touching the backing store.
+      // Writing canvas.width/height clears the bitmap and, on a resize
+      // observer, re-entering here on every callback both restarts the mote
+      // field mid-flight and invites a layout feedback loop.
+      if (bw === canvas.width && bh === canvas.height && motes.length) return;
+      dpr = nextDpr;
       width = rect.width;
       height = rect.height;
-      canvas.width = Math.max(1, Math.round(width * dpr));
-      canvas.height = Math.max(1, Math.round(height * dpr));
+      canvas.width = bw;
+      canvas.height = bh;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       motes.length = 0;
       const count = Math.round((width * height) / 5200);

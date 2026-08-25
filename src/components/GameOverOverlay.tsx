@@ -314,7 +314,7 @@ export function GameOverOverlay() {
               <div className="rs-meter-fill" style={{ width: `${xpRatio * 100}%` }} />
             </div>
             {!maxed && (
-              <div className="rs-num mt-1.5 text-right text-[10px] text-white/30">
+              <div className="rs-num mt-1.5 text-right text-[10px] text-white/45">
                 {fmt(snap.xpSpan - snap.xpInto)} XP to level {snap.pilotLevel + 1}
               </div>
             )}

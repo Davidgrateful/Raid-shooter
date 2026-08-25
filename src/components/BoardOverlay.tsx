@@ -207,8 +207,8 @@ export function BoardOverlay() {
       className="fixed inset-0 z-40 flex flex-col text-white"
       style={{
         background:
-          'radial-gradient(900px 450px at 80% -10%, rgba(51,230,255,0.07), transparent 60%),' +
-          'radial-gradient(700px 350px at 10% 110%, rgba(255,215,94,0.05), transparent 55%), #06070c',
+          'radial-gradient(900px 450px at 80% -10%, rgba(53,232,255,0.07), transparent 60%),' +
+          'radial-gradient(700px 350px at 10% 110%, rgba(255,207,77,0.05), transparent 55%), #06070c',
       }}
     >
       {/* ambient blurred combat behind the rows: ships firing at enemies */}
@@ -222,25 +222,25 @@ export function BoardOverlay() {
       {/* header: title on its own line, controls beneath it - keeps the
           top-right corner clear of the site's Connect Wallet button */}
       <div className="relative z-10 px-4 pb-2 pt-4 sm:px-8">
-        <div className="text-[9px] font-black uppercase tracking-[0.4em] text-cyan-300">Live rankings</div>
-        <h1 className="text-2xl font-black tracking-tight sm:text-3xl" style={{ textShadow: '0 0 24px rgba(51,230,255,0.25)' }}>
+        <div className="text-[9px] font-black uppercase tracking-[0.4em] text-[color:var(--rs-cyan)]">Live rankings</div>
+        <h1 className="text-2xl font-black tracking-tight sm:text-3xl" style={{ textShadow: '0 0 24px rgba(53,232,255,0.25)' }}>
           {tab === 'cup' ? (
-            <span className="text-amber-300">{cupLabel.toUpperCase()}</span>
+            <span className="text-[color:var(--rs-gold)]">{cupLabel.toUpperCase()}</span>
           ) : tab === 'daily' ? (
-            <span className="text-sky-300">DAILY RUN</span>
+            <span className="text-[color:var(--rs-cyan)]">DAILY RUN</span>
           ) : tab === 'weekly' ? (
-            <span className="text-emerald-300">WEEKLY LADDER</span>
+            <span className="text-[color:var(--rs-cyan)]">WEEKLY LADDER</span>
           ) : (
-            <>SHOOTER<span className="text-cyan-300">BOARD</span></>
+            <>SHOOTER<span className="text-[color:var(--rs-cyan)]">BOARD</span></>
           )}
         </h1>
         <div className="rs-cut-sm mt-2 inline-flex overflow-hidden border border-white/15 text-[11px] font-black uppercase tracking-wider">
-          <button onClick={() => setTab('all')} className={`px-3 py-1.5 ${tab === 'all' ? 'bg-cyan-400 text-black' : 'bg-white/[0.04] text-white/60 hover:text-white'}`}>All-time</button>
+          <button onClick={() => setTab('all')} className={`px-3 py-1.5 uppercase ${tab === 'all' ? 'bg-[color:var(--rs-cyan)] text-black' : 'bg-white/[0.04] text-white/60 hover:text-white'}`}>All-time</button>
           {season && (
-            <button onClick={() => setTab('cup')} className={`px-3 py-1.5 ${tab === 'cup' ? 'bg-amber-400 text-black' : 'bg-white/[0.04] text-white/60 hover:text-white'}`}>{cupLabel.length > 12 ? 'Cup' : cupLabel}</button>
+            <button onClick={() => setTab('cup')} className={`px-3 py-1.5 uppercase ${tab === 'cup' ? 'bg-[color:var(--rs-gold)] text-black' : 'bg-white/[0.04] text-white/60 hover:text-white'}`}>{cupLabel.length > 12 ? 'Cup' : cupLabel}</button>
           )}
-          <button onClick={() => setTab('weekly')} className={`px-3 py-1.5 ${tab === 'weekly' ? 'bg-emerald-400 text-black' : 'bg-white/[0.04] text-white/60 hover:text-white'}`}>Weekly</button>
-          <button onClick={() => setTab('daily')} className={`px-3 py-1.5 ${tab === 'daily' ? 'bg-sky-400 text-black' : 'bg-white/[0.04] text-white/60 hover:text-white'}`}>Daily</button>
+          <button onClick={() => setTab('weekly')} className={`px-3 py-1.5 uppercase ${tab === 'weekly' ? 'bg-[color:var(--rs-cyan)] text-black' : 'bg-white/[0.04] text-white/60 hover:text-white'}`}>Weekly</button>
+          <button onClick={() => setTab('daily')} className={`px-3 py-1.5 uppercase ${tab === 'daily' ? 'bg-[color:var(--rs-cyan)] text-black' : 'bg-white/[0.04] text-white/60 hover:text-white'}`}>Daily</button>
         </div>
       </div>
 
@@ -320,7 +320,7 @@ export function BoardOverlay() {
 
       {/* cup meta strip */}
       {tab === 'cup' && season && (
-        <div className="relative z-10 px-4 pb-1 text-[11px] font-mono text-amber-200/80 sm:px-8">
+        <div className="relative z-10 px-4 pb-1 text-[11px] font-mono text-[color:var(--rs-gold)]/80 sm:px-8">
           {season.sponsorName ? `WITH ${season.sponsorName.toUpperCase()} · ` : ''}
           {season.endsAt ? `ENDS IN ${timeLeft(season.endsAt)} · ` : ''}ONLY RUNS DURING THE CUP COUNT
         </div>
@@ -328,7 +328,7 @@ export function BoardOverlay() {
 
       {/* weekly meta strip */}
       {tab === 'weekly' && weekResets && (
-        <div className="relative z-10 px-4 pb-1 font-mono text-[11px] text-emerald-200/80 sm:px-8">
+        <div className="relative z-10 px-4 pb-1 font-mono text-[11px] text-[color:var(--rs-cyan)]/80 sm:px-8">
           FRESH BOARD EVERY MONDAY · RESETS IN {timeLeft(weekResets)}
         </div>
       )}
@@ -469,7 +469,7 @@ export function BoardOverlay() {
                 );
               })}
             </div>
-            <p className="mx-auto mt-2 max-w-3xl text-center text-[11px] text-white/30">{total.toLocaleString()} pilot{total === 1 ? '' : 's'} ranked — every score earned, never bought.</p>
+            <p className="mx-auto mt-2 max-w-3xl text-center text-[11px] text-white/45">{total.toLocaleString()} pilot{total === 1 ? '' : 's'} ranked — every score earned, never bought.</p>
           </>
         )}
       </div>

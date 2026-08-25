@@ -200,7 +200,7 @@ export function GameOverlays() {
       <Dialog title="Pilot inbox" onClose={close} subtitle="Payout confirmations and event results, addressed to you.">
         <div className="rs-scroll max-h-[55vh] space-y-2 overflow-y-auto pr-1">
           {inbox.length === 0 ? (
-            <div className="rs-panel rs-cut-sm p-5 text-center text-[11px] uppercase tracking-[0.2em] text-white/25">
+            <div className="rs-panel rs-cut-sm p-5 text-center text-[11px] uppercase tracking-[0.2em] text-white/45">
               No messages
             </div>
           ) : (
