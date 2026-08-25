@@ -268,6 +268,17 @@ $.reset = function() {
 		decay: 0.4
 	};
 
+	// Screen shake is motion, so it honours the OS preference the rest of the
+	// interface honours. Read once and kept live, so a player who changes the
+	// setting mid-session does not have to reload.
+	if( $.reduceMotion === undefined && typeof window.matchMedia === 'function' ) {
+		var rmq = window.matchMedia( '(prefers-reduced-motion: reduce)' );
+		$.reduceMotion = rmq.matches;
+		if( rmq.addEventListener ) {
+			rmq.addEventListener( 'change', function( e ) { $.reduceMotion = e.matches; } );
+		}
+	}
+
 	$.mouse.down = 0;
 
 	$.level = {
@@ -307,6 +318,9 @@ $.reset = function() {
 	$.comboMultiplier = 1;
 	$.feed = [];
 	$.runXp = 0;
+	// score emphasis tracking - run-only, like the score it follows
+	$.hudLastScore = undefined;
+	$.scorePop = 0;
 	$.bestCombo = 0;
 	$.spawnLullTick = 0;
 
@@ -881,15 +895,38 @@ $.renderInterface = function() {
 		hudLabel( 'SCORE', centreX, centreTop - 10, 'center', 1, 'hsla(0, 0%, 100%, 0.35)' );
 	}
 
+	/*--- the score reacts to being scored ---------------------------------
+	A number that changes without moving reads as a counter; a number that
+	takes a beat when it climbs reads as a reward. The pop is tiny (a few
+	percent) and decays in about a fifth of a second, so a dense chain
+	shimmers rather than throbbing. It is drawn about the number's own centre
+	so nothing around it shifts - no layout moves, the HUD stays where the
+	player last looked for it. */
+	if( $.score !== $.hudLastScore ) {
+		if( $.hudLastScore !== undefined && $.score > $.hudLastScore ) { $.scorePop = 1; }
+		$.hudLastScore = $.score;
+	}
+	if( $.scorePop > 0 ) { $.scorePop = Math.max( 0, $.scorePop - 0.08 * $.dt ); }
+
+	var scoreCx = centreX,
+		scoreCy = centreTop + ( hudCompact ? 2 : 3 );
+	$.ctxmg.save();
+	if( $.scorePop > 0 ) {
+		var sp = 1 + $.scorePop * 0.06;
+		$.ctxmg.translate( scoreCx, scoreCy );
+		$.ctxmg.scale( sp, sp );
+		$.ctxmg.translate( -scoreCx, -scoreCy );
+	}
 	$.ctxmg.beginPath();
 	var scoreText = $.text( {
-		ctx: $.ctxmg, x: centreX, y: centreTop + ( hudCompact ? 2 : 3 ),
+		ctx: $.ctxmg, x: scoreCx, y: scoreCy,
 		text: $.util.commas( $.score ),
 		hspacing: 1, vspacing: 1, halign: 'center', valign: 'top',
 		scale: scoreScale, snap: 1, render: 1
 	} );
 	$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 1)';
 	$.ctxmg.fill();
+	$.ctxmg.restore();
 
 	// personal best sits under the live score - the target, quietly stated
 	var best = Math.max( $.storage['score'] || 0, $.score ),
@@ -1805,16 +1842,44 @@ $.updateScreen = function() {
 	$.screen.x += xSnap * $.dt;
 	$.screen.y += ySnap * $.dt;
 
-	// screen shake disabled: drain rumble level without offsetting the view
+	/*--------------------------------------------------------------------------
+	SCREEN SHAKE
+
+	The rumble system was fully plumbed and then stubbed to zero: levels are
+	already set at six real events, the world transform already subtracts
+	$.rumble, and the parallax backgrounds already offset by it. Only the
+	amplitude was missing. Turning it back on costs nothing and is the single
+	biggest thing separating "I took damage" from "a number changed".
+
+	The levels the engine already sets are event-appropriate, so they are used
+	as-is - no balance, spawn or damage value is touched:
+
+	    3   contact damage            barely there, a nudge
+	    6   a meaningful kill         a tap
+	   10   a bomber blast on you     a real hit
+	   12   nuke                      the room moves
+	   25   your ship dies            the biggest thing that happens
+
+	AMPLITUDE IS DELIBERATELY SMALL. Capped, and scaled so even death stays
+	around 5px - enough to feel, never enough to make a bullet hard to track.
+	The HUD does not move with it: renderInterface() draws after the world
+	transform is restored, so instruments stay rock-steady while the world
+	shakes, which is what keeps hull and score readable during the exact
+	moments they matter most.
+	--------------------------------------------------------------------------*/
 	if( $.rumble.level > 0 ) {
-		$.rumble.level -= $.rumble.decay;
+		$.rumble.level -= $.rumble.decay * $.dt;
 		$.rumble.level = ( $.rumble.level < 0 ) ? 0 : $.rumble.level;
 	}
-	$.rumble.x = 0;
-	$.rumble.y = 0;
 
-	//$.screen.x -= $.rumble.x;
-	//$.screen.y -= $.rumble.y;
+	if( $.rumble.level > 0 && !$.reduceMotion ) {
+		var amp = Math.min( $.rumble.level, 18 ) * 0.3;
+		$.rumble.x = $.util.rand( -amp, amp );
+		$.rumble.y = $.util.rand( -amp, amp );
+	} else {
+		$.rumble.x = 0;
+		$.rumble.y = 0;
+	}
 
 	// animate background canvases (parallax). Uses transform: translate3d,
 	// which stays on the compositor thread - the old marginLeft/marginTop

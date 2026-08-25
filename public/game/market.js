@@ -213,6 +213,17 @@ $.usd = function( n ) {
 // wallet required), so this only checks stock, not wallet auth - a hard
 // authenticated-only gate here used to let a guest earn a consumable but
 // never spend it.
+// Titles for the in-run confirmation. Spending a kit used to be silent apart
+// from the effect itself - the hull bar moved, or a shield appeared, and the
+// player had to infer that a charge had been consumed. The feed already exists
+// for exactly this kind of run commentary, so the confirmation goes there
+// rather than into a new overlay.
+$.consumableTitles = {
+	consumable_health: 'HULL REPAIR',
+	consumable_shield: 'SHIELD RAISED',
+	consumable_revive: 'SYSTEMS RESTORED'
+};
+
 $.useConsumable = function( id, effect ) {
 	if( $.consumableCount( id ) <= 0 ) {
 		return false;
@@ -220,6 +231,12 @@ $.useConsumable = function( id, effect ) {
 	$.profile.consumables[ id ]--;
 	$.runAssisted = true;
 	effect();
+	// one line, in the colour of the thing that happened: green for hull,
+	// cyan for a shield - the same meanings these colours carry everywhere
+	if( $.pushFeed && $.consumableTitles[ id ] ) {
+		$.pushFeed( $.consumableTitles[ id ] + '  ' + $.consumableCount( id ) + ' LEFT',
+			id === 'consumable_shield' ? 190 : 140 );
+	}
 	fetch( '/api/consumable/use', {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
