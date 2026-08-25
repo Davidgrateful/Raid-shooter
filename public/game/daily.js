@@ -104,45 +104,99 @@ $.dailyLiveCheck = function() {
 	}
 };
 
-// transient in-run banner: fades in, holds, fades out over ~4s
+// The in-run completion. This is the one moment the daily challenge pays off,
+// and it used to be two lines of floating text that read like a toast: the
+// same weight as a powerup pickup, for the thing the player has been chasing
+// all session. It now lands on a struck plate - cut corners and a rule, the
+// same plate language the HUD chips use - and settles rather than just fading
+// in, so it reads as something awarded rather than something announced.
+//
+// The plate is measured from the text, never a fixed width, so it fits the
+// bitmap font at any scale. All copy stays inside the font's glyph set
+// ( $+,./0-9:@A-Z ) - no lowercase, no percent sign, no parentheses.
 $.dailyRenderPop = function() {
 	if( $.dailyPopTick <= 0 ) { return; }
 	// the death sequence freezes the last frame as the game-over backdrop -
 	// clear the banner so it can't ghost over the game-over screen
 	if( $.hero && $.hero.life <= 0 ) { $.dailyPopTick = -1; return; }
-	var max = 260,
+
+	var max = 300,
 		t = $.dailyPopTick,
-		alpha = t < 30 ? t / 30 : ( t > max - 60 ? ( max - t ) / 60 : 1 ),
+		alpha = t < 20 ? t / 20 : ( t > max - 60 ? ( max - t ) / 60 : 1 ),
+		// the settle: overshoots very slightly, then holds. Motion here says
+		// "this landed", which is the whole point of the moment.
+		grow = t < 26 ? 1 + 0.10 * ( 1 - t / 26 ) * ( 1 - t / 26 ) : 1,
 		// Never a fraction of screen height: 22% of a 390px landscape phone is
 		// 86px, which is inside the HUD band and lands on the score, the BEST
 		// line and the touch controls. renderInterface() publishes where its
 		// centre column really ends and runs immediately before this each
 		// frame, so measure against that. The safe-area term is only a floor
 		// for a frame where the HUD has not drawn yet.
-		popY = ( $.hudCentreBottom > 0 ? $.hudCentreBottom : $.safeAreaTop + 60 ) + 26;
+		popY = ( $.hudCentreBottom > 0 ? $.hudCentreBottom : $.safeAreaTop + 60 ) + 26,
+		compact = ( $.isTouchDevice || $.cw < 900 ),
+		titleScale = compact ? 2 : 3,
+		ctx = $.ctxmg;
+
 	if( t >= max ) { $.dailyPopTick = -1; return; } // -1 = shown, stop
 	$.dailyPopTick += $.dt;
-	$.ctxmg.save();
-	$.ctxmg.globalAlpha = Math.max( 0, Math.min( 1, alpha ) );
-	$.ctxmg.beginPath();
+
+	var title = 'DAILY CHALLENGE COMPLETE',
+		payoff = '+' + $.dailyNextXp() + ' XP AT RUN END',
+		tm = $.text( { ctx: ctx, x: 0, y: 0, text: title, hspacing: 2, vspacing: 1,
+			halign: 'left', valign: 'top', scale: titleScale, snap: 1, render: 0 } ),
+		pm = $.text( { ctx: ctx, x: 0, y: 0, text: payoff, hspacing: 1, vspacing: 1,
+			halign: 'left', valign: 'top', scale: 1, snap: 1, render: 0 } ),
+		padX = compact ? 16 : 24,
+		padY = compact ? 10 : 14,
+		gap = compact ? 7 : 9,
+		boxW = Math.max( tm.width, pm.width ) + padX * 2,
+		boxH = tm.height + gap + pm.height + padY * 2;
+
+	ctx.save();
+	ctx.globalAlpha = Math.max( 0, Math.min( 1, alpha ) );
+	// settle about the plate's own centre so it grows in place
+	ctx.translate( $.cw / 2, popY + boxH / 2 );
+	ctx.scale( grow, grow );
+	ctx.translate( -$.cw / 2, -( popY + boxH / 2 ) );
+
+	var boxX = Math.floor( $.cw / 2 - boxW / 2 ),
+		cut = compact ? 8 : 11;
+
+	// the plate: dark enough to hold the type over a busy arena
+	ctx.beginPath();
+	$.cutRect( ctx, boxX, popY, boxW, boxH, cut );
+	ctx.fillStyle = 'hsla(38, 60%, 8%, 0.82)';
+	ctx.fill();
+	ctx.beginPath();
+	$.cutRect( ctx, boxX + 0.5, popY + 0.5, boxW - 1, boxH - 1, cut );
+	ctx.strokeStyle = 'hsla(45, 100%, 62%, 0.55)';
+	ctx.lineWidth = 1;
+	ctx.stroke();
+
+	// a lit top edge - the plate reads as struck rather than drawn
+	ctx.fillStyle = 'hsla(45, 100%, 68%, 0.9)';
+	ctx.fillRect( boxX + cut, popY, boxW - cut * 2, 2 );
+
+	ctx.beginPath();
 	$.text( {
-		ctx: $.ctxmg, x: $.cw / 2, y: popY,
-		text: 'DAILY CHALLENGE COMPLETE',
+		ctx: ctx, x: $.cw / 2, y: popY + padY,
+		text: title,
 		hspacing: 2, vspacing: 1, halign: 'center', valign: 'top',
-		scale: 3, snap: 1, render: 1
+		scale: titleScale, snap: 1, render: 1
 	} );
-	$.ctxmg.fillStyle = 'hsla(45, 100%, 60%, 1)';
-	$.ctxmg.fill();
-	$.ctxmg.beginPath();
+	ctx.fillStyle = 'hsla(45, 100%, 66%, 1)';
+	ctx.fill();
+
+	ctx.beginPath();
 	$.text( {
-		ctx: $.ctxmg, x: $.cw / 2, y: popY + 26,
-		text: '+' + $.dailyNextXp() + ' XP AT RUN END',
+		ctx: ctx, x: $.cw / 2, y: popY + padY + tm.height + gap,
+		text: payoff,
 		hspacing: 1, vspacing: 1, halign: 'center', valign: 'top',
 		scale: 1, snap: 1, render: 1
 	} );
-	$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 0.7)';
-	$.ctxmg.fill();
-	$.ctxmg.restore();
+	ctx.fillStyle = 'hsla(0, 0%, 100%, 0.72)';
+	ctx.fill();
+	ctx.restore();
 };
 
 // Settle the challenge at the end of a run: awards the XP once per day and

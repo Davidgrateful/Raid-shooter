@@ -33,18 +33,18 @@ staggered, fast. Choosing runs a single confirm flash on the taken card and
 hands straight back to the engine - the run never visibly "returns to a menu".
 ==============================================================================*/
 
+/* No lane may borrow a reserved colour: cyan is equip/active/navigation/system
+   and is never a category here. See UPGRADE_EFFECT for why there are three. */
 const LANE_TONE: Record<string, string> = {
   offence: 'var(--rs-red)',
-  mobility: 'var(--rs-cyan)',
   survival: 'var(--rs-green)',
-  economy: 'var(--rs-gold)',
+  salvage: 'var(--rs-gold)',
 };
 
 const LANE_LABEL: Record<string, string> = {
   offence: 'Offence',
-  mobility: 'Mobility',
   survival: 'Survival',
-  economy: 'Salvage',
+  salvage: 'Salvage',
 };
 
 export function UpgradeDraft() {
@@ -140,7 +140,7 @@ function Card({
   taken: string | null;
   onPick: () => void;
 }) {
-  const tone = LANE_TONE[card.lane] || 'var(--rs-cyan)';
+  const tone = LANE_TONE[card.lane] || 'var(--rs-text-dim)';
   const isTaken = taken === card.id;
   const dimmed = !!taken && !isTaken;
   return (

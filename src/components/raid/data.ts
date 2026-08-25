@@ -51,9 +51,21 @@ duration". Printing both is noise on a card read in two seconds. Everywhere
 else the plain-language line earns its place (PIERCING ROUNDS explains what
 piercing actually does), so it stays.
 */
+/*
+THREE lanes, not four. An earlier pass had a MOBILITY lane coloured cyan, which
+broke the colour contract: cyan means equip / active / navigation / system
+state everywhere else in this game, so spending it on a refit category made a
+card look like a system control. THRUSTERS moves to SURVIVAL, which is also the
+truer reading - recomputeUpgrades() spends it on $.hero.vmax and $.hero.accel,
+and in a bullet-hell the thing top speed buys you is dodging.
+
+That leaves each lane on a colour that already means what the lane means:
+OFFENCE red (damage), SURVIVAL green (ready/holding), SALVAGE gold (what you
+pick up). No lane borrows a reserved colour.
+*/
 export const UPGRADE_EFFECT: Record<string, {
   step: string;
-  lane: 'offence' | 'mobility' | 'survival' | 'economy';
+  lane: 'offence' | 'survival' | 'salvage';
   gloss?: false;
 }> = {
   rapid: { step: '−15% time between shots', lane: 'offence' },
@@ -61,10 +73,10 @@ export const UPGRADE_EFFECT: Record<string, {
   heavy: { step: '+40% bullet damage', lane: 'offence' },
   pierce: { step: '+2 enemies pierced per shot', lane: 'offence' },
   velocity: { step: '+20% bullet speed, +50 range', lane: 'offence' },
-  thrusters: { step: '+12% top speed', lane: 'mobility' },
+  thrusters: { step: '+12% top speed', lane: 'survival' },
   hull: { step: '−15% damage taken', lane: 'survival' },
-  lucky: { step: '+60% powerup drop chance', lane: 'economy' },
-  overcharge: { step: '+50% powerup duration', lane: 'economy', gloss: false },
+  lucky: { step: '+60% powerup drop chance', lane: 'salvage' },
+  overcharge: { step: '+50% powerup duration', lane: 'salvage', gloss: false },
 };
 
 export interface DraftCard {
