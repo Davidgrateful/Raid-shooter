@@ -99,6 +99,8 @@ export interface ArmoryView {
   paymentsLive: boolean;
   network: string;
   walletLinked: boolean;
+  /** Has /api/profile answered? Ownership is unknown until it has. */
+  profileLoaded: boolean;
   ownedCount: number;
   sellableCount: number;
 }
@@ -295,6 +297,7 @@ export function readArmory(): ArmoryView | null {
       paymentsLive: !!market.enabled,
       network: market.network || '',
       walletLinked: !!e.session?.authenticated,
+      profileLoaded: !!e.profile?.fetched,
       ownedCount: items.filter((i) => i.owned).length,
       sellableCount: items.filter((i) => !i.comingSoon).length,
     };

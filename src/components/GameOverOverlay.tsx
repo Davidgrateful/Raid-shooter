@@ -185,9 +185,24 @@ export function GameOverOverlay() {
     };
   }, []);
 
+  // REDEPLOY returns to PRE-FLIGHT rather than dropping straight into a new
+  // raid. The run just spent things - a health pack, a shield, a revive - and
+  // going directly back to play meant the player never saw their kit count
+  // change. Pre-flight is the screen that states what carries in, so it is the
+  // honest landing point, and it is an existing state ('playmode'), not a new
+  // route. The reset and the run_start tracking stay where they belong: on the
+  // actual launch, in launchEndless(), so a redeploy cannot double-count a run.
   const playAgain = useCallback(() => {
     const $ = eng(); if (!$) return;
-    $.reset(); $.trackRun('run_start'); $.audio.play('levelup'); $.setState('play');
+    // Clear the finished run's state before pre-flight is shown, so nothing
+    // on that screen can read a dead run's refit. $.reset() is the engine's
+    // own teardown (it already runs on the menu path too) and is what wipes
+    // $.upgrades; launchEndless() calls it again at the real launch, which is
+    // harmless. run_start tracking deliberately stays on the launch itself so
+    // a redeploy cannot double-count a run.
+    $.reset();
+    $.audio.play('levelup');
+    $.setState('playmode');
   }, []);
   const toMenu = useCallback(() => { eng()?.setState('menu'); }, []);
   const share = useCallback(() => { eng()?.shareRunCard(); }, []);

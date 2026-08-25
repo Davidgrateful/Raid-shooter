@@ -414,6 +414,9 @@ export function HangarScreen() {
                       </span>
                     ))}
                   </div>
+                ) : !view.profileLoaded ? (
+                  /* not "you have none" until the profile has actually said so */
+                  <p className="rs-sys-empty">Reading your hold…</p>
                 ) : (
                   <p className="rs-sys-empty">
                     {view.walletLinked ? 'No consumables in stock.' : 'Link a wallet to carry consumables into a raid.'}

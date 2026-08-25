@@ -113,10 +113,13 @@ $.dailyRenderPop = function() {
 	var max = 260,
 		t = $.dailyPopTick,
 		alpha = t < 30 ? t / 30 : ( t > max - 60 ? ( max - t ) / 60 : 1 ),
-		// 22% of a 390px landscape phone is 86px - inside the HUD band, right
-		// on top of the score, the BEST line and the touch controls. The HUD
-		// publishes where its centre column really ends each frame; clear that.
-		popY = Math.max( $.ch * 0.22, ( $.hudCentreBottom || 0 ) + 26 );
+		// Never a fraction of screen height: 22% of a 390px landscape phone is
+		// 86px, which is inside the HUD band and lands on the score, the BEST
+		// line and the touch controls. renderInterface() publishes where its
+		// centre column really ends and runs immediately before this each
+		// frame, so measure against that. The safe-area term is only a floor
+		// for a frame where the HUD has not drawn yet.
+		popY = ( $.hudCentreBottom > 0 ? $.hudCentreBottom : $.safeAreaTop + 60 ) + 26;
 	if( t >= max ) { $.dailyPopTick = -1; return; } // -1 = shown, stop
 	$.dailyPopTick += $.dt;
 	$.ctxmg.save();

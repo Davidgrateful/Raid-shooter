@@ -3204,6 +3204,22 @@ PRE-FLIGHT
 .rs-lx-kit-count { font-family: var(--rs-font-mono); font-size: 12px; color: var(--rs-gold); }
 
 /*--- today's challenge: the one real run objective --------------------------*/
+/* same loading treatment the armory uses while the catalogue is in flight */
+.rs-lx-wait {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 11px;
+  padding-top: 11px;
+  border-top: 1px solid var(--rs-line);
+  font-family: var(--rs-font-ui);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--rs-text-faint);
+}
+
 .rs-lx-freebie {
   display: flex;
   align-items: center;

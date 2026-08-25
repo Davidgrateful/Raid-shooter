@@ -127,6 +127,11 @@ $.fetchMarket = function() {
 		} );
 };
 
+// `fetched` mirrors $.marketState.fetched: without it the UI cannot tell "this
+// player owns nothing" from "the profile has not answered yet", and would state
+// the first while the second is true. Read-only signal - no behaviour changes.
+$.profile.fetched = 0;
+
 $.fetchProfile = function() {
 	var qs = !$.session.authenticated ? '?guestToken=' + encodeURIComponent( $.guestToken() ) : '';
 	fetch( '/api/profile' + qs )
@@ -134,6 +139,7 @@ $.fetchProfile = function() {
 		.then( function( data ) {
 			$.profile.items = data.items || [];
 			$.profile.consumables = data.consumables || {};
+			$.profile.fetched = 1;
 			$.applyOwnedItems();
 		} )
 		.catch( function() {} );

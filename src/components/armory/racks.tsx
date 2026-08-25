@@ -153,7 +153,16 @@ This is the first thing the armory says, because "what am I using" has to be
 answerable before "what could I buy" means anything. It is a readout of the
 same storage the hangar writes, so the two can never disagree.
 ------------------------------------------------------------------------------*/
-export function Manifest({ equipped, onHangar }: { equipped: EquippedView; onHangar: () => void }) {
+export function Manifest({
+  equipped,
+  profileLoaded,
+  onHangar,
+}: {
+  equipped: EquippedView;
+  /** Until the profile answers, an empty kit list is unknown, not empty. */
+  profileLoaded: boolean;
+  onHangar: () => void;
+}) {
   return (
     <SystemSection
       label="Current loadout"
@@ -185,6 +194,8 @@ export function Manifest({ equipped, onHangar }: { equipped: EquippedView; onHan
             </span>
           ))}
         </div>
+      ) : !profileLoaded ? (
+        <p className="rs-sys-foot">Reading your hold…</p>
       ) : (
         <p className="rs-sys-foot">No field kit carried. Kits are spent when used in a raid.</p>
       )}

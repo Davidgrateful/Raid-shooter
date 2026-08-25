@@ -436,7 +436,9 @@ export function ArmoryScreen() {
         </div>
 
         <div className="rs-hg-pane" data-on={pane === 'manifest' ? '1' : '0'}>
-          {view && <Manifest equipped={view.equipped} onHangar={() => go('hangar')} />}
+          {view && (
+            <Manifest equipped={view.equipped} profileLoaded={view.profileLoaded} onHangar={() => go('hangar')} />
+          )}
         </div>
 
         <div className="rs-hg-pane" data-on={pane === 'stock' ? '1' : '0'}>

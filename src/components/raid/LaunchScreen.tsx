@@ -238,6 +238,15 @@ export function LaunchScreen() {
                   </div>
                 ))}
               </div>
+            ) : view && !view.profileLoaded ? (
+              /* The profile has not answered yet, so "no kits" is unknown
+                 rather than false - say that instead of asserting an empty
+                 hold the player may not have. Same treatment the armory uses
+                 while the catalogue is still loading. */
+              <p className="rs-lx-wait">
+                <span className="rs-am-wait-bar" aria-hidden />
+                Reading your hold…
+              </p>
             ) : (
               <p className="rs-sys-foot">
                 No field kits stocked. Kits are optional — they are spent when used and mark the run assisted.

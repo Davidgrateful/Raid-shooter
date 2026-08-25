@@ -174,6 +174,8 @@ export interface LaunchView {
   carry: CarryItem[];
   /** ONYIX-style abilities roll a free refit at launch (ability.startUpgrade). */
   freeRefit: boolean;
+  /** Has /api/profile answered? Until it has, "no kits" is unknown, not false. */
+  profileLoaded: boolean;
   best: number;
   /** Today's challenge, and whether it is already banked. */
   daily: { text: string; done: boolean; xp: number; streak: number } | null;
@@ -232,6 +234,7 @@ export function readLaunch(): LaunchView | null {
       // $.reset() rolls one random upgrade for a hull whose ability sets
       // startUpgrade (game.js) - a real thing that carries into every run
       freeRefit: !!hull.ability?.startUpgrade,
+      profileLoaded: !!e.profile?.fetched,
       best: Number(store['score'] || 0),
       daily: e.dailyChallenge
         ? {

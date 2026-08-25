@@ -866,8 +866,13 @@ $.renderInterface = function() {
 		// below it rather than underneath it
 		// clear of whatever the touch build actually put up there (PAUSE/MUTE,
 		// plus a consumable row when the player owns one)
+		// Sits under whatever the touch build actually put up there - the
+		// PAUSE/MUTE row, plus a consumable row when the player owns a kit.
+		// $.touchHudBottom is published when those buttons are built, so this
+		// never has to assume a height; the safe-area term is only the floor
+		// for the impossible case of a touch build with no buttons at all.
 		centreTop = $.isTouchDevice
-			? Math.max( $.safeAreaTop + 64, ( $.touchHudBottom || 0 ) + 8 )
+			? ( $.touchHudBottom > 0 ? $.touchHudBottom + 8 : $.safeAreaTop + 28 )
 			: hudTop;
 
 	// the number needs no label on a phone - it is the only big figure on

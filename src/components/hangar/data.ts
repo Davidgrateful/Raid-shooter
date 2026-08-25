@@ -101,6 +101,8 @@ export interface HangarView {
   droneXpBonus: number | null;
   catalogueLoaded: boolean;
   walletLinked: boolean;
+  /** Has /api/profile answered? Until it has, "you own none" is unknown. */
+  profileLoaded: boolean;
 }
 
 /*------------------------------------------------------------------------------
@@ -267,6 +269,7 @@ export function readHangar(): HangarView | null {
       droneXpBonus: equippedDrone && typeof equippedDrone.xpBonus === 'number' ? equippedDrone.xpBonus : null,
       catalogueLoaded,
       walletLinked: !!e.session?.authenticated,
+      profileLoaded: !!e.profile?.fetched,
     };
   } catch {
     return null;
