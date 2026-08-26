@@ -237,7 +237,12 @@ $.reset = function() {
 	$.tick = 0;
 
 	$.gameoverTick = 0;
-	$.gameoverTickMax = 200;
+	// ~1.7s, not ~3.4s. The destruction itself (death sound, rumble 25, 45
+	// particles) reads inside the first half-second; the rest was dead time
+	// between the player dying and the debrief telling them what happened.
+	// Measured at 3.42s before this, which is long enough that redeploying
+	// stops feeling immediate - the one thing an arcade death must not do.
+	$.gameoverTickMax = 100;
 	$.gameoverExplosion = 0;
 	// one continue (resurrect) per run; reset on every fresh start
 	$.continueUsedThisRun = 0;
@@ -1019,6 +1024,12 @@ $.renderInterface = function() {
 		if( $.powerupTimers[ pi ] <= 0 ) { continue; }
 		var pu = $.definitions.powerups[ pi ],
 			left = $.powerupTimers[ pi ] / $.powerupDuration,
+			// The chip used to simply vanish. In its last moments it now
+			// blinks, so an effect running out is something the player sees
+			// coming rather than something they notice afterwards.
+			lapsing = ( left < 0.2 && !$.reduceMotion )
+				? 0.45 + Math.abs( Math.cos( $.tick / 3 ) ) * 0.55
+				: 1,
 			pm = $.text( { ctx: $.ctxmg, x: 0, y: 0, text: pu.title, hspacing: 1, vspacing: 0,
 				halign: 'left', valign: 'top', scale: 1, snap: 1, render: 0 } ),
 			chipW = Math.max( 74, pm.width + 16 ),
@@ -1026,16 +1037,16 @@ $.renderInterface = function() {
 
 		$.ctxmg.beginPath();
 		$.cutRect( $.ctxmg, chipX, chipY, chipW, 17, 5 );
-		$.ctxmg.fillStyle = 'hsla(' + pu.hue + ', ' + pu.saturation + '%, ' + pu.lightness + '%, 0.14)';
+		$.ctxmg.fillStyle = 'hsla(' + pu.hue + ', ' + pu.saturation + '%, ' + pu.lightness + '%, ' + ( 0.14 * lapsing ).toFixed( 3 ) + ')';
 		$.ctxmg.fill();
 		$.ctxmg.beginPath();
 		$.cutRect( $.ctxmg, chipX + 0.5, chipY + 0.5, chipW - 1, 16, 5 );
-		$.ctxmg.strokeStyle = 'hsla(' + pu.hue + ', ' + pu.saturation + '%, ' + pu.lightness + '%, 0.5)';
+		$.ctxmg.strokeStyle = 'hsla(' + pu.hue + ', ' + pu.saturation + '%, ' + pu.lightness + '%, ' + ( 0.5 * lapsing ).toFixed( 3 ) + ')';
 		$.ctxmg.lineWidth = 1;
 		$.ctxmg.stroke();
 
 		hudLabel( pu.title, chipX + 8, chipY + 4, 'left', 1,
-			'hsla(' + pu.hue + ', ' + pu.saturation + '%, ' + Math.min( 88, pu.lightness + 25 ) + '%, 1)' );
+			'hsla(' + pu.hue + ', ' + pu.saturation + '%, ' + Math.min( 88, pu.lightness + 25 ) + '%, ' + lapsing.toFixed( 3 ) + ')' );
 		// the chip drains along its own bottom edge - the timer is the chip
 		$.ctxmg.fillStyle = 'hsla(' + pu.hue + ', ' + pu.saturation + '%, ' + pu.lightness + '%, 0.95)';
 		$.ctxmg.fillRect( chipX + 1, chipY + 15, ( chipW - 2 ) * left, 1.5 );
@@ -2003,6 +2014,13 @@ $.registerKill = function( value, radius ) {
 };
 
 $.breakCombo = function() {
+	// A chain worth building is worth noticing when it goes. Only chains that
+	// actually earned a multiplier are called out - announcing every lapsed
+	// single kill would be wallpaper, and the feed dedupes repeats anyway.
+	// Red, because this is a loss, and it is the same red damage already uses.
+	if( $.comboMultiplier > 1 && $.pushFeed ) {
+		$.pushFeed( 'CHAIN LOST X' + $.comboMultiplier, 0 );
+	}
 	$.combo = 0;
 	$.comboTimer = 0;
 	$.comboMultiplier = 1;

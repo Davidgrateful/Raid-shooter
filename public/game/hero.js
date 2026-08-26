@@ -256,6 +256,10 @@ $.Hero.prototype.update = function() {
 				var gunX = this.x + Math.cos( this.direction ) * ( this.radius + this.weapon.bullet.size );
 				var gunY = this.y + Math.sin( this.direction ) * ( this.radius + this.weapon.bullet.size );
 
+				// where the shot left the ship, for the muzzle flash to sit on
+				this.weapon.flashX = gunX;
+				this.weapon.flashY = gunY;
+
 				for( var i = 0; i < this.weapon.count; i++ ) {
 					$.bulletsFired++;
 					var color = this.weapon.bullet.strokeStyle;
@@ -266,6 +270,7 @@ $.Hero.prototype.update = function() {
 						if( $.powerupTimers[ 4 ] > 0 ) { colors.push( 'hsl(' + $.definitions.powerups[ 4 ].hue + ', ' + $.definitions.powerups[ 4 ].saturation + '%, ' + $.definitions.powerups[ 4 ].lightness + '%)' ); }
 						color = colors[ Math.floor( $.util.rand( 0, colors.length ) ) ];
 					}
+					if( i === 0 ) { this.weapon.flashColor = color; }
 					$.bullets.push( new $.Bullet( {					
 						x: gunX,
 						y: gunY,
@@ -333,14 +338,32 @@ Render
 ==============================================================================*/
 $.Hero.prototype.render = function() {
 	if( this.life > 0 ) {
+		/*======================================================================
+		THE HULL KEEPS ITS OWN COLOUR.
+
+		Both of these branches used to replace the ship's fill with a RANDOM
+		hue every single frame. Measured while firing: 77 distinct hues across
+		87 rendered frames - the ship was a rainbow strobe. The player spends
+		essentially the whole run firing, so the hull colour they chose (and
+		that the armory sells) was never actually on screen, and a silhouette
+		that changes colour every frame is harder to track in a dense wave.
+
+		Firing now reads as a muzzle flash at the gun, below. Damage reads as
+		the hull going white-hot, which says YOU were hit rather than merely
+		that something happened.
+		======================================================================*/
 		if( this.takingDamage ) {
-			var fillStyle = 'hsla(0, 0%, ' + $.util.rand( 0, 100 ) + '%, 1)';
-			$.ctxmg.fillStyle = 'hsla(0, 0%, ' + $.util.rand( 0, 100 ) + '%, ' + $.util.rand( 0.01, 0.15 ) + ')';
-			$.ctxmg.fillRect( -$.screen.x, -$.screen.y, $.cw, $.ch );
-		} else if( this.weapon.fireFlag > 0 ) {
-			this.weapon.fireFlag -= $.dt;
-			var fillStyle = 'hsla(' + $.util.rand( 0, 359 ) + ', 100%, ' + $.util.rand( 20, 80 ) + '%, 1)';
+			var hurtPulse = 0.55 + Math.abs( Math.cos( $.tick / 2.5 ) ) * 0.45,
+				fillStyle = 'hsla(0, 0%, ' + Math.round( 58 + hurtPulse * 42 ) + '%, 1)';
+			// One wash, in the game's damage colour, scaled by how bad it is -
+			// not a random-alpha white strobe. Reduced motion opts out.
+			if( !$.reduceMotion ) {
+				var wash = 0.05 + ( 1 - Math.max( 0, Math.min( 1, this.life ) ) ) * 0.07;
+				$.ctxmg.fillStyle = 'hsla(0, 85%, 45%, ' + wash.toFixed( 3 ) + ')';
+				$.ctxmg.fillRect( -$.screen.x, -$.screen.y, $.cw, $.ch );
+			}
 		} else {
+			if( this.weapon.fireFlag > 0 ) { this.weapon.fireFlag -= $.dt; }
 			var fillStyle = this.fillStyle;
 		}
 
@@ -349,6 +372,17 @@ $.Hero.prototype.render = function() {
 		$.ctxmg.rotate( this.direction );
 		this.character.draw( $.ctxmg, this.radius, fillStyle, $.tick );
 		$.ctxmg.restore();
+
+		// MUZZLE FLASH - short, small, and in the projectile's own colour, so
+		// "I fired" is legible without the hull having to shout it.
+		if( this.weapon.fireFlag > 0 && this.weapon.flashColor && !$.reduceMotion ) {
+			var mf = Math.max( 0, Math.min( 1, this.weapon.fireFlag / 6 ) );
+			$.ctxmg.save();
+			$.ctxmg.globalAlpha = mf * 0.7;
+			$.util.fillCircle( $.ctxmg, this.weapon.flashX, this.weapon.flashY,
+				2 + mf * 4, this.weapon.flashColor );
+			$.ctxmg.restore();
+		}
 
 		if( $.powerupTimers[ 5 ] > 0 ) {
 			$.util.strokeCircle( $.ctxmg, this.x, this.y, this.radius + 8 + Math.cos( $.tick / 5 ) * 2, 'hsla(190, 100%, 65%, 0.8)', 2 );

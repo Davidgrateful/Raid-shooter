@@ -165,7 +165,14 @@ export function GameOverOverlay() {
       const s = (e as CustomEvent).detail;
       if (s === 'gameover') {
         setOpen(true);
-        setSnap(snapshot());
+        const first = snapshot();
+        setSnap(first);
+        // A record run is the biggest thing that can happen on this screen and
+        // it was the only major moment with no sound of its own. The engine
+        // already decided this ($.runWasBest) - nothing new is claimed here.
+        if (first?.best) {
+          try { eng()?.audio?.play?.('levelup'); } catch { /* audio may be muted or absent */ }
+        }
         // the board rank arrives async after submit; re-read for a few seconds
         if (pollRef.current) clearInterval(pollRef.current);
         let n = 0;
