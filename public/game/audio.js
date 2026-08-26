@@ -12,6 +12,14 @@ $.setSoundLevel = function( level ) {
 	}
 	// Web Audio path volume
 	if( $.audio.gain ) { $.audio.gain.gain.value = level; }
+	// Music rides the same control. It used to sit at a fixed 0.16 while the
+	// effects bus scaled, so LOW halved the effects and left the music where
+	// it was - measured, the effects:music ratio fell from 6.25 to 3.13, i.e.
+	// picking LOW made the music RELATIVELY twice as loud. Scaling both keeps
+	// the intended mix (gameplay feedback over music) at every level.
+	if( $.music && $.music.master ) {
+		$.music.master.gain.value = $.music.baseGain * level;
+	}
 	$.storage['soundLevel'] = level;
 	$.updateStorage();
 };

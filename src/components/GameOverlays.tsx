@@ -97,6 +97,7 @@ export function GameOverlays() {
   const [fbText, setFbText] = useState('');
   const [fbSent, setFbSent] = useState(false);
   const [fbBusy, setFbBusy] = useState(false);
+  const [fbErr, setFbErr] = useState('');
 
   const loadInbox = useCallback(() => {
     const gt = myGuestToken();
@@ -167,15 +168,32 @@ export function GameOverlays() {
   async function sendFeedback() {
     if (fbText.trim().length < 2) return;
     setFbBusy(true);
+    setFbErr('');
     try {
-      await fetch('/api/feedback', {
+      /* The route answers { ok } and rate-limits with a 429. This used to
+         await the fetch and then claim "Transmission received" no matter what
+         came back - fetch only rejects on a network error, so a refused
+         submission still told the player it had been read. Only say what the
+         server actually confirmed. */
+      const res = await fetch('/api/feedback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: fbText }),
       });
-      setFbSent(true);
-      setFbText('');
-      setTimeout(() => { setOpen(null); setFbSent(false); }, 1400);
+      const body = await res.json().catch(() => null);
+      if (res.ok && body?.ok) {
+        setFbSent(true);
+        setFbText('');
+        setTimeout(() => { setOpen(null); setFbSent(false); }, 1400);
+      } else if (res.status === 429) {
+        setFbErr('Too many messages just now — try again in a minute.');
+      } else {
+        setFbErr('Could not send that. Try again.');
+      }
+    } catch {
+      // a genuine network failure - the message was never sent, and the text
+      // stays in the box so it is not lost
+      setFbErr('No connection to the team. Try again.');
     } finally {
       setFbBusy(false);
     }
@@ -288,10 +306,13 @@ export function GameOverlays() {
               placeholder="Type your message…"
               className="w-full rounded-md border border-white/15 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none transition-colors focus:border-[color:var(--rs-cyan)]"
             />
+            {fbErr && (
+              <p className="rs-fb-err" role="status">{fbErr}</p>
+            )}
             <div className="mt-3 grid grid-cols-2 gap-2">
               <button onClick={close} className="rs-btn rs-btn-ghost">Cancel</button>
               <button onClick={sendFeedback} disabled={fbBusy || fbText.trim().length < 2} className="rs-btn rs-btn-solid">
-                {fbBusy ? 'Sending…' : 'Send'}
+                {fbBusy ? 'Sending…' : fbErr ? 'Retry' : 'Send'}
               </button>
             </div>
           </>

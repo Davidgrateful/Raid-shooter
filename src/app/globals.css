@@ -4130,3 +4130,13 @@ failure is temporary and recoverable, not damage.
   letter-spacing: 0.06em;
   color: var(--rs-text-faint);
 }
+
+/* A refused feedback submission says so. Red, because the message did not
+   get through - not the quiet grey of an idle hint. */
+.rs-fb-err {
+  margin-top: 8px;
+  font-family: var(--rs-font-ui);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--rs-red);
+}

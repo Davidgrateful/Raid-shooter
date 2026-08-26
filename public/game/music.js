@@ -9,6 +9,9 @@ and respects the M mute toggle.
 $.music = {
 	ctx: null,
 	started: 0,
+	// the music bed's own level, before the player's FULL/LOW/MUTE control is
+	// applied on top of it (see $.setSoundLevel)
+	baseGain: 0.16,
 	step: 0,
 	nextTime: 0,
 	stepLength: 60 / 112 / 4, // 112 bpm, 16th notes
@@ -29,7 +32,7 @@ $.music = {
 				}
 				this.ctx = new AudioContextClass();
 				this.master = this.ctx.createGain();
-				this.master.gain.value = 0.16;
+				this.master.gain.value = this.baseGain * ( $.soundLevel !== undefined ? $.soundLevel : 1 );
 				this.master.connect( this.ctx.destination );
 			}
 			if( this.ctx.state === 'suspended' ) {
