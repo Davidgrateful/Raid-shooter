@@ -969,8 +969,29 @@ on screen without a scroll.
   /* Icon-only: at this height a label is unreadable anyway. The group
      captions go with them - a 62px column cannot hold the word COMMAND, and
      leaving them in simply sliced the text. */
-  .rs-cc-rail .rs-nav-item { justify-content: center; padding: 8px 4px; }
-  .rs-cc-rail .rs-nav-item > span:not(.rs-nav-icon) { display: none; }
+  .rs-cc-rail .rs-nav-item {
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+    padding: 6px 2px;
+  }
+  .rs-cc-rail .rs-nav-item > span:not(.rs-nav-icon):not(.rs-nav-mini) { display: none; }
+  /* ...but the destination still says its name. Icon-only left a new player
+     guessing at six glyphs, which is the one question good hierarchy should
+     never leave open. */
+  .rs-cc-rail .rs-nav-mini {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    font-family: var(--rs-font-ui);
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    line-height: 1;
+    text-transform: uppercase;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
   .rs-cc-rail .rs-rail-head { justify-content: center; padding: 2px 0 6px; }
   .rs-cc-rail .rs-rail-head span:not(.rs-rail-head-tick) { display: none; }
   /* a 62px column cannot hold the words COMMAND DECK - it sliced them to
@@ -4031,6 +4052,9 @@ swallow a click meant for a neighbour.
   .rs-roster { padding-top: 10px; padding-bottom: 12px; margin-top: 2px; }
 }
 
+/* The rail's short label exists only for the collapsed rail. */
+.rs-nav-mini { display: none; }
+
 /*==============================================================================
 RECOVERY
 
@@ -4090,4 +4114,16 @@ failure is temporary and recoverable, not damage.
 /* The retry is one of the small controls a finger has to find. */
 @media (hover: none) and (pointer: coarse) {
   .rs-recover-btn { position: relative; padding: 10px 16px; }
+}
+
+/* What a guest CAN do, said once beside the one thing they cannot. Quiet: it
+   is reassurance, not a second call to action. */
+.rs-am-guest-note {
+  max-width: 34ch;
+  margin-top: 8px;
+  font-family: var(--rs-font-ui);
+  font-size: 10px;
+  line-height: 1.5;
+  letter-spacing: 0.06em;
+  color: var(--rs-text-faint);
 }

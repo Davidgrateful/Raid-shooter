@@ -203,7 +203,7 @@ export function NavRail({
       )}
 
       <div className="rs-rail-group">
-        {nav.map(({ id, label, hint, Icon, state: target }) => (
+        {nav.map(({ id, label, hint, short, Icon, state: target }) => (
           <button
             key={id}
             className="rs-nav-item"
@@ -217,6 +217,11 @@ export function NavRail({
               <span className="rs-nav-label">{label}</span>
               <span className="rs-nav-hint">{hint}</span>
             </span>
+            {/* The short form, shown only where the rail collapses to icons.
+                A first-time player should never have to guess what a glyph
+                means; `short` is already <=6 characters, which is what the
+                narrow column can actually hold. */}
+            <span className="rs-nav-mini" aria-hidden>{short}</span>
           </button>
         ))}
       </div>

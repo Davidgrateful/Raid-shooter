@@ -438,6 +438,16 @@ export function ArmoryScreen() {
                 {!copy && action.kind === 'equipped' && (
                   <button className="rs-btn rs-btn-ghost rs-am-deploy" onClick={() => go('playmode')}>Deploy</button>
                 )}
+                {/* A guest standing here is told what they CANNOT do - buy -
+                    and nothing about what they can. Nothing in this game is
+                    gated behind a wallet except owning cosmetics, so say that
+                    once, plainly, rather than letting AUTHORIZE WALLET read as
+                    a paywall on the game itself. */}
+                {view && !view.walletLinked && action.kind === 'authorize' && (
+                  <p className="rs-am-guest-note">
+                    Raiding, ranking and pilot levels need no wallet. Only owning does.
+                  </p>
+                )}
               </div>
             )}
           </div>

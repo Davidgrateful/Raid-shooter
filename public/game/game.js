@@ -647,13 +647,22 @@ $.renderInterface = function() {
 			$.ctxmg.fillStyle = 'hsla(45, 100%, 70%, ' + ( tutAlpha * 0.9 ) + ')';
 			$.ctxmg.fill();
 
-			// a concrete first goal converts better than a cold drop-in
+			// A concrete first goal converts better than a cold drop-in - but it
+			// has to be TRUE. This used to promise "SCORE 10,000 TO RANK ON THE
+			// SHOOTERBOARD"; submitScore() gates on nothing but `score > 0`, so
+			// the threshold was invented, and it was the very first thing the
+			// game ever told a new player. The real ladder is the tier table,
+			// so the goal is read from it rather than made up.
+			var firstTier = $.definitions && $.definitions.tiers && $.definitions.tiers[ 1 ],
+				goalText = firstTier
+					? ( 'ANY SCORE RANKS YOU. ' + $.util.commas( firstTier.min ) + ' FOR ' + firstTier.name )
+					: 'ANY SCORE RANKS YOU ON THE SHOOTERBOARD';
 			$.ctxmg.beginPath();
 			$.text( {
 				ctx: $.ctxmg,
 				x: $.cw / 2,
 				y: $.ch * 0.3 + 64,
-				text: 'GOAL: SCORE 10,000 TO RANK ON THE SHOOTERBOARD',
+				text: goalText,
 				hspacing: 1, vspacing: 1, halign: 'center', valign: 'center',
 				scale: 1, snap: 1, render: 1
 			} );
@@ -2196,6 +2205,7 @@ $.setState = function( state ) {
 	if( state == 'loading' ) {
 		$.mouse.down = 0;
 		$.loadingStart = $.tick;
+		$.loadingStartMs = 0;
 		$.reset();
 	}
 
@@ -3588,10 +3598,22 @@ $.setupStates = function() {
 		$.clearScreen();
 		$.ctxmg.globalAlpha = 1;
 
+		// Measured in TIME, not frames. This used to count ticks, so the splash
+		// ran for as long as it took to render 360 frames - measured at 18.9
+		// SECONDS on a desktop canvas against 8.1s on a phone. The first thing
+		// a new player did was wait, and the wait got LONGER the bigger their
+		// screen was, because a heavier canvas renders fewer frames per second.
+		//
+		// Wall clock rather than $.dt: updateDelta() only runs inside the play
+		// state, so $.dt is still its initial 1 here and accumulating it would
+		// just count frames again. Kept in 60fps units so `dur` and the skip
+		// threshold below keep their meaning.
+		if( !$.loadingStartMs ) { $.loadingStartMs = Date.now(); }
+
 		var loadCompact = ( $.ch < 640 ),
-			// ~6s at 60fps so players actually take in the splash; tap skips
+			// 360 sixtieths of a second - 6s, on every device
 			dur = 360,
-			elapsed = $.tick - ( $.loadingStart || 0 ),
+			elapsed = ( Date.now() - $.loadingStartMs ) / ( 1000 / 60 ),
 			p = Math.max( 0, Math.min( 1, elapsed / dur ) ),
 			cx = $.cw / 2,
 			cy = $.ch / 2;
