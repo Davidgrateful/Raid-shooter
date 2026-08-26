@@ -5,11 +5,18 @@ import { getActiveSeason } from '@/lib/rewards';
 import { submitCupEntry } from '@/lib/cup';
 import { submitWeekly } from '@/lib/weekly';
 import { verifyTurnstile } from '@/lib/turnstile';
-import { clientIp } from '@/lib/ratelimit';
+import { clientIp, rateLimit } from '@/lib/ratelimit';
 import { postMessage as postChatMessage } from '@/lib/chat';
 
 export async function GET(req: NextRequest) {
   try {
+    // Reads are public, but a 1000-row board is the most expensive response
+    // this app serves and nothing stopped one client asking for it in a loop.
+    // Generous enough that the board's own refresh interval and a page full of
+    // spectators never notice; tight enough that a script does.
+    if (!(await rateLimit('board_read', clientIp(req), 60, 60_000))) {
+      return NextResponse.json({ error: 'rate_limited' }, { status: 429 });
+    }
     // The board is no longer hard-capped at 50: it shows however many people
     // actually ranked. `limit` pages the rows for lighter clients (the canvas
     // game asks for fewer; the web page asks for all), while `total` always

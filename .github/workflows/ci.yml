@@ -1,0 +1,77 @@
+name: CI
+
+# The point of this workflow is that a regression is caught here rather than by
+# someone noticing it several phases later. It runs the same checks the project
+# has been verified with by hand: a real production build, TypeScript, lint, a
+# syntax check across the vanilla-JS engine, and the Playwright suite driving
+# the built app on desktop and phone-landscape viewports.
+
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  static:
+    name: types, lint, engine syntax
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: TypeScript
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      # The engine is plain JS with no build step, so nothing else would catch
+      # a syntax error in it before it reached a player's browser.
+      - name: Engine syntax
+        run: |
+          for f in public/game/*.js; do
+            node --check "$f" || exit 1
+          done
+          echo "all $(ls public/game/*.js | wc -l) engine files parse"
+
+  e2e:
+    name: playwright (${{ matrix.project }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [desktop, phone-landscape]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      # The config builds and starts the app itself (webServer), so this is the
+      # same production bundle a player would load.
+      - name: Run suite
+        run: npx playwright test --project=${{ matrix.project }}
+        env:
+          CI: 'true'
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report-${{ matrix.project }}
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7

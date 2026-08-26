@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 /*==============================================================================
 Modal host
@@ -55,22 +55,57 @@ function Dialog({
   onClose: () => void;
   children: React.ReactNode;
 }) {
+  const panelRef = useRef<HTMLDivElement | null>(null);
+
+  /* Focus management. A dialog that opens without moving focus leaves keyboard
+     and screen-reader users still standing outside it, tabbing through the
+     page behind. So: remember what opened it, move focus in, keep Tab inside
+     while it is open, and hand focus back on close. */
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    const opener = document.activeElement as HTMLElement | null;
+    const focusables = (): HTMLElement[] => {
+      const nodes = panelRef.current?.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      );
+      return nodes ? Array.from(nodes).filter((el) => el.offsetParent !== null) : [];
+    };
+
+    const first = setTimeout(() => (focusables()[0] ?? panelRef.current)?.focus(), 0);
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { onClose(); return; }
+      if (e.key !== 'Tab') return;
+      const items = focusables();
+      if (items.length === 0) return;
+      const edge = e.shiftKey ? items[0] : items[items.length - 1];
+      if (document.activeElement === edge) {
+        e.preventDefault();
+        (e.shiftKey ? items[items.length - 1] : items[0]).focus();
+      }
+    };
+
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    return () => {
+      clearTimeout(first);
+      window.removeEventListener('keydown', onKey);
+      // hand focus back to whatever opened the dialog
+      if (opener && document.contains(opener)) { try { opener.focus(); } catch { /* gone */ } }
+    };
   }, [onClose]);
 
   return (
     <div
       data-game-ui=""
-      role="dialog"
-      aria-modal="true"
       onClick={onClose}
       className="fixed inset-0 z-[60] flex items-center justify-center p-4"
       style={{ background: 'rgba(2,4,8,0.72)', backdropFilter: 'blur(6px)' }}
     >
       <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
         className="rs-panel rs-cut rs-panel-lit rs-rise w-full max-w-md p-5"
       >

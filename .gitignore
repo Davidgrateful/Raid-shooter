@@ -118,3 +118,8 @@ out/
 # Custom project specific
 run.sh
 auto-commit.sh
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
