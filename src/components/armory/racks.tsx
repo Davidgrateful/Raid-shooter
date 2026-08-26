@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import { Recover } from '@/components/command/Recover';
 import { SpecRow, SystemSection } from '@/components/hangar/systems';
 import type { ArmoryItem, EquippedView, RackId } from './data';
 
@@ -156,11 +157,20 @@ same storage the hangar writes, so the two can never disagree.
 export function Manifest({
   equipped,
   profileLoaded,
+  profileLoading,
+  profileFailed,
+  onRetryProfile,
+  suppressRetry = false,
   onHangar,
 }: {
   equipped: EquippedView;
   /** Until the profile answers, an empty kit list is unknown, not empty. */
   profileLoaded: boolean;
+  profileLoading: boolean;
+  profileFailed: boolean;
+  onRetryProfile: () => void;
+  /** The screen is already showing one retry that covers this failure too. */
+  suppressRetry?: boolean;
   onHangar: () => void;
 }) {
   return (
@@ -194,6 +204,19 @@ export function Manifest({
             </span>
           ))}
         </div>
+      ) : profileFailed && suppressRetry ? (
+        /* Named, but not given a second button - see `suppressRetry`. */
+        <p className="rs-sys-foot">Hold unavailable.</p>
+      ) : profileFailed ? (
+        /* This used to say "reading your hold" forever, because the profile
+           request swallowed its own failure. It now says what happened and
+           offers the way out. */
+        <Recover
+          message="Hold unavailable."
+          busy={profileLoading}
+          onRetry={onRetryProfile}
+          tone="line"
+        />
       ) : !profileLoaded ? (
         <p className="rs-sys-foot">Reading your hold…</p>
       ) : (

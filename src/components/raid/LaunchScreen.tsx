@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { Recover } from '@/components/command/Recover';
 import { NAV } from '@/components/command/CommandCenter';
 import { NavRail, TabBar } from '@/components/command/hud';
 import { IconSystem } from '@/components/command/icons';
@@ -60,10 +61,20 @@ export function LaunchScreen() {
       const off = setTimeout(() => setCommitting(false), 0);
       return () => clearTimeout(off);
     }
-    withEngine((e) => e.fetchProfile?.());
+    // Same rule as the armory: this runs on every revision tick, so a failed
+    // profile must not be re-requested automatically. RETRY is the way back.
+    withEngine((e) => {
+      if (!e.profile?.failed && !e.profile?.loading) { e.fetchProfile?.(); }
+    });
     const t = setTimeout(() => setView(readLaunch()), 0);
     return () => clearTimeout(t);
   }, [onLaunch, rev]);
+
+  /* The engine's own profile fetcher, which refuses to stack requests. */
+  const retryProfile = useCallback(() => {
+    withEngine((e) => e.fetchProfile?.());
+    setView(readLaunch());
+  }, []);
 
   const go = useCallback((target: string) => {
     setMoreOpen(false);
@@ -238,6 +249,15 @@ export function LaunchScreen() {
                   </div>
                 ))}
               </div>
+            ) : view && view.profileFailed ? (
+              /* Same failure, same recovery, same words as the armory - the
+                 hold is one thing, so it fails one way. */
+              <Recover
+                message="Hold unavailable."
+                busy={view.profileLoading}
+                onRetry={retryProfile}
+                tone="line"
+              />
             ) : view && !view.profileLoaded ? (
               /* The profile has not answered yet, so "no kits" is unknown
                  rather than false - say that instead of asserting an empty

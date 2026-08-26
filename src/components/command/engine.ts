@@ -99,8 +99,8 @@ export interface Engine {
   ownsItem?: (id: string) => boolean;
   droneXpLabel?: (drone: ShipDef | null) => string;
   consumableCount?: (id: string) => number;
-  profile?: { items: string[]; consumables: Record<string, number>; fetched?: number };
-  marketState?: { fetched?: number; loading?: number; enabled?: boolean; network?: string; treasury?: string | null; items?: MarketItem[] };
+  profile?: { items: string[]; consumables: Record<string, number>; fetched?: number; loading?: number; failed?: number };
+  marketState?: { fetched?: number; loading?: number; failed?: number; enabled?: boolean; network?: string; treasury?: string | null; items?: MarketItem[] };
   fetchMarket?: () => void;
   audio?: { play?: (name: string) => void };
 

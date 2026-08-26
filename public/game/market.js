@@ -105,10 +105,27 @@ $.applyOwnedItems = function() {
 	}
 };
 
+// `failed` stays set from a failure until a SUCCESS, not until the next
+// attempt starts. Clearing it on attempt would make the error flicker on any
+// screen that re-fetches on a timer, and it would also be a lie: the last
+// answer really did fail while the new request is still in the air. `loading`
+// is what says a retry is happening.
+//
+// `failed` is the third state the UI needs. Without it "the catalogue has not
+// answered" and "the catalogue could not be reached" are the same flag
+// combination (loaded 0 / loading 0), so the screen cannot tell the player
+// which one is true - and cannot offer a retry for only the second.
+$.marketState.failed = 0;
+
 $.fetchMarket = function() {
+	// A retry while one is already in flight would race the first response.
+	if( $.marketState.loading ) { return; }
 	$.marketState.loading = 1;
 	fetch( '/api/market' )
-		.then( function( res ) { return res.json(); } )
+		.then( function( res ) {
+			if( !res.ok ) { throw new Error( 'market ' + res.status ); }
+			return res.json();
+		} )
 		.then( function( data ) {
 			$.marketState.enabled = !!data.enabled;
 			$.marketState.network = data.network || '';
@@ -116,6 +133,7 @@ $.fetchMarket = function() {
 			$.marketState.items = data.items || [];
 			$.buildRarityScale( $.marketState.items );
 			$.marketState.loading = 0;
+			$.marketState.failed = 0;
 			$.marketState.fetched = 1;
 			// the screen may have been built before the catalog arrived
 			if( $.state === 'market' ) {
@@ -124,6 +142,13 @@ $.fetchMarket = function() {
 		} )
 		.catch( function() {
 			$.marketState.loading = 0;
+			$.marketState.failed = 1;
+			// Deliberately NOT re-entering setState('market') here. That branch
+			// re-fetches whenever the catalogue is neither loaded nor loading,
+			// which is exactly the state a failure leaves behind - so nudging
+			// the screen from the catch spins an unbounded retry loop. The
+			// overlay re-reads engine state on its own revision tick and will
+			// see `failed` without being told.
 		} );
 };
 
@@ -131,18 +156,34 @@ $.fetchMarket = function() {
 // player owns nothing" from "the profile has not answered yet", and would state
 // the first while the second is true. Read-only signal - no behaviour changes.
 $.profile.fetched = 0;
+// ...and the same two states the catalogue needed. This request used to
+// swallow its failure entirely, which left every screen reading the hold
+// stuck on "reading" forever - a permanent claim that the request was still
+// in flight when it had already failed.
+$.profile.loading = 0;
+$.profile.failed = 0;
 
 $.fetchProfile = function() {
+	if( $.profile.loading ) { return; }
+	$.profile.loading = 1;
 	var qs = !$.session.authenticated ? '?guestToken=' + encodeURIComponent( $.guestToken() ) : '';
 	fetch( '/api/profile' + qs )
-		.then( function( res ) { return res.json(); } )
+		.then( function( res ) {
+			if( !res.ok ) { throw new Error( 'profile ' + res.status ); }
+			return res.json();
+		} )
 		.then( function( data ) {
 			$.profile.items = data.items || [];
 			$.profile.consumables = data.consumables || {};
+			$.profile.loading = 0;
+			$.profile.failed = 0;
 			$.profile.fetched = 1;
 			$.applyOwnedItems();
 		} )
-		.catch( function() {} );
+		.catch( function() {
+			$.profile.loading = 0;
+			$.profile.failed = 1;
+		} );
 };
 
 $.consumableCount = function( id ) {

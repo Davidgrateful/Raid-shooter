@@ -4030,3 +4030,64 @@ swallow a click meant for a neighbour.
      gives the pad somewhere to go; the slots themselves do not move. */
   .rs-roster { padding-top: 10px; padding-bottom: 12px; margin-top: 2px; }
 }
+
+/*==============================================================================
+RECOVERY
+
+A recoverable data failure keeps the wait state's own shape - same type scale,
+same letter-spacing, same faint colour - so it reads as one line changing
+rather than the screen breaking. The only addition is the action.
+
+RETRY is cyan because cyan is interaction here. Gold is not used: gold means
+money, acquisition and reward, and a retry earns nothing. Nor is red - the
+failure is temporary and recoverable, not damage.
+==============================================================================*/
+.rs-recover {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  font-family: var(--rs-font-ui);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--rs-text-faint);
+}
+.rs-recover[data-tone="wall"] { padding: 20px 2px; }
+.rs-recover[data-tone="line"] { padding: 6px 0 2px; gap: 10px; }
+
+.rs-recover-msg { display: flex; align-items: center; gap: 10px; }
+
+.rs-recover-btn {
+  flex: none;
+  padding: 6px 14px;
+  border: 1px solid rgba(53, 232, 255, 0.45);
+  background: rgba(53, 232, 255, 0.08);
+  color: var(--rs-cyan);
+  font: inherit;
+  letter-spacing: 0.2em;
+  cursor: pointer;
+  transition: background var(--rs-t-nav) var(--rs-e-out),
+              border-color var(--rs-t-nav) var(--rs-e-out),
+              color var(--rs-t-nav) var(--rs-e-out);
+}
+.rs-recover-btn:hover:not(:disabled) {
+  border-color: var(--rs-cyan);
+  background: rgba(53, 232, 255, 0.16);
+  color: #ffffff;
+}
+.rs-recover-btn:active:not(:disabled) { transform: translateY(1px); }
+/* While a retry is in flight the button stops reading as an action, so a
+   second tap has nothing to aim at. */
+.rs-recover-btn:disabled {
+  border-color: var(--rs-line);
+  background: transparent;
+  color: var(--rs-text-faint);
+  cursor: default;
+}
+
+/* The retry is one of the small controls a finger has to find. */
+@media (hover: none) and (pointer: coarse) {
+  .rs-recover-btn { position: relative; padding: 10px 16px; }
+}

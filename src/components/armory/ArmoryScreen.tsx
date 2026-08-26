@@ -9,6 +9,7 @@ import { engine, useEngineRevision, useEngineState, withEngine } from '@/compone
 import { BayViewport } from '@/components/hangar/BayViewport';
 import { StatBank, SpecRow, SystemSection } from '@/components/hangar/systems';
 import { equipColor, equipDrone, equipHull, equipTrail } from '@/components/hangar/data';
+import { Recover } from '@/components/command/Recover';
 import { Manifest, RackTabs, Slot } from './racks';
 import {
   acquire,
@@ -106,8 +107,14 @@ export function ArmoryScreen() {
       return;
     }
     withEngine((e) => {
-      if (!e.marketState?.fetched && !e.marketState?.loading) {
+      // This effect runs on every revision tick, so it must not re-fire once a
+      // request has FAILED - that would hammer a down endpoint every 1.5s and
+      // reduce the RETRY button to decoration. A failure is now recovered
+      // deliberately, by the player, or by re-entering the screen.
+      if (!e.marketState?.fetched && !e.marketState?.loading && !e.marketState?.failed) {
         e.fetchMarket?.();
+      }
+      if (!e.profile?.fetched && !e.profile?.loading && !e.profile?.failed) {
         e.fetchProfile?.();
       }
     });
@@ -191,6 +198,26 @@ export function ArmoryScreen() {
   }, []);
 
   const refresh = useCallback(() => setView(readArmory()), []);
+
+  /* Recovery calls the engine's OWN fetchers - no second data path. Each one
+     already refuses to start while a request of its kind is in flight, so a
+     repeated tap cannot stack requests. The view is re-read immediately so
+     the button flips to its busy state without waiting for the poll. */
+  const retryCatalogue = useCallback(() => {
+    withEngine((e) => {
+      e.fetchMarket?.();
+      // When the network drops, both requests fail together. The player
+      // experienced ONE event, so one RETRY puts the whole screen back rather
+      // than making them hunt for a second button.
+      if (e.profile?.failed) { e.fetchProfile?.(); }
+    });
+    setView(readArmory());
+  }, []);
+
+  const retryProfile = useCallback(() => {
+    withEngine((e) => e.fetchProfile?.());
+    setView(readArmory());
+  }, []);
 
   /* --- the one action, resolved from real state ------------------------- */
   const action = selected && view ? actionFor(selected, view) : null;
@@ -419,10 +446,19 @@ export function ArmoryScreen() {
           <div className="rs-am-wall">
             <RackTabs racks={RACKS} active={rack} counts={counts} onPick={pickRack} />
 
-            {view && !view.catalogueLoaded ? (
+            {view && !view.catalogueLoaded && view.catalogueFailed ? (
+              /* Recoverable, and recoverable HERE. The wall keeps its place;
+                 only this line changes, and the same $.fetchMarket() the app
+                 called on boot is what the button calls again. */
+              <Recover
+                message={view.profileFailed ? 'Armory data unavailable.' : 'Manifest unavailable.'}
+                busy={view.catalogueLoading || view.profileLoading}
+                onRetry={retryCatalogue}
+              />
+            ) : view && !view.catalogueLoaded ? (
               <p className="rs-am-wait">
                 <span className="rs-am-wait-bar" aria-hidden />
-                {view.catalogueLoading ? 'Reading the manifest…' : 'Manifest unavailable — retry from the command deck.'}
+                Reading the manifest…
               </p>
             ) : (
               <div className="rs-am-slots">
@@ -451,7 +487,16 @@ export function ArmoryScreen() {
 
         <div className="rs-hg-pane" data-on={pane === 'manifest' ? '1' : '0'} data-just={equipped ? '1' : '0'}>
           {view && (
-            <Manifest equipped={view.equipped} profileLoaded={view.profileLoaded} onHangar={() => go('hangar')} />
+            <Manifest
+              equipped={view.equipped}
+              profileLoaded={view.profileLoaded}
+              profileLoading={view.profileLoading}
+              profileFailed={view.profileFailed}
+              /* The wall is already offering the retry that fixes both. */
+              suppressRetry={!view.catalogueLoaded && view.catalogueFailed}
+              onRetryProfile={retryProfile}
+              onHangar={() => go('hangar')}
+            />
           )}
         </div>
 

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Recover } from '@/components/command/Recover';
 import { TIER_COLORS, tierFromScore, displayName } from '@/lib/tiers';
 import { BoardBackdrop } from '@/components/BoardBackdrop';
 import { PilotIcon, type Cosmetics } from '@/components/PilotIcon';
@@ -94,7 +95,14 @@ export function BoardOverlay() {
     };
   }, []);
 
+  // A tapped RETRY and the refresh interval can land together, and React
+  // batches `setLoading` so `disabled` alone cannot stop a double tap in the
+  // same tick. A ref settles it synchronously.
+  const inFlight = useRef(false);
+
   const fetchBoard = useCallback((which: 'all' | 'cup' | 'daily' | 'weekly') => {
+    if (inFlight.current) return;
+    inFlight.current = true;
     setLoading(true);
     const url =
       which === 'cup' ? '/api/cup'
@@ -126,7 +134,10 @@ export function BoardOverlay() {
         setBoardError(false);
       })
       .catch(() => setBoardError(true))
-      .finally(() => setLoading(false));
+      .finally(() => {
+        inFlight.current = false;
+        setLoading(false);
+      });
   }, []);
 
   // on open: session identity (own-row highlight), season (cup tab), board
@@ -254,10 +265,16 @@ export function BoardOverlay() {
             <span className="rs-sb-stand-msg">Reading the board…</span>
           </div>
         ) : boardError ? (
+          /* Recoverable in place: the same fetchBoard() the refresh interval
+             calls, aimed at the tab the player is already looking at, so
+             retrying never changes what they were reading. */
           <div className="rs-sb-stand rs-sb-stand-quiet">
-            <span className="rs-sb-stand-msg rs-sb-stand-err">
-              Board unavailable — your standing cannot be read right now.
-            </span>
+            <Recover
+              message="Board unavailable — your standing cannot be read right now."
+              busy={loading}
+              onRetry={() => fetchBoard(tab)}
+              tone="line"
+            />
           </div>
         ) : !me ? (
           /* no identity yet - never guess at a position */

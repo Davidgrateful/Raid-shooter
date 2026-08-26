@@ -188,6 +188,8 @@ export interface LaunchView {
   freeRefit: boolean;
   /** Has /api/profile answered? Until it has, "no kits" is unknown, not false. */
   profileLoaded: boolean;
+  profileLoading: boolean;
+  profileFailed: boolean;
   best: number;
   /** Today's challenge, and whether it is already banked. */
   daily: { text: string; done: boolean; xp: number; streak: number } | null;
@@ -247,6 +249,8 @@ export function readLaunch(): LaunchView | null {
       // startUpgrade (game.js) - a real thing that carries into every run
       freeRefit: !!hull.ability?.startUpgrade,
       profileLoaded: !!e.profile?.fetched,
+      profileLoading: !!e.profile?.loading,
+      profileFailed: !!e.profile?.failed,
       best: Number(store['score'] || 0),
       daily: e.dailyChallenge
         ? {

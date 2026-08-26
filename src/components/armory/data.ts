@@ -95,12 +95,16 @@ export interface ArmoryView {
   /** Has /api/market answered yet? Prices are meaningless before this. */
   catalogueLoaded: boolean;
   catalogueLoading: boolean;
+  /** The catalogue request came back failed - distinct from "not answered yet". */
+  catalogueFailed: boolean;
   /** Is a treasury configured? If not, nothing can be settled. */
   paymentsLive: boolean;
   network: string;
   walletLinked: boolean;
   /** Has /api/profile answered? Ownership is unknown until it has. */
   profileLoaded: boolean;
+  profileLoading: boolean;
+  profileFailed: boolean;
   ownedCount: number;
   sellableCount: number;
 }
@@ -294,10 +298,13 @@ export function readArmory(): ArmoryView | null {
       equipped: equippedView,
       catalogueLoaded,
       catalogueLoading: !!market.loading,
+      catalogueFailed: !!market.failed,
       paymentsLive: !!market.enabled,
       network: market.network || '',
       walletLinked: !!e.session?.authenticated,
       profileLoaded: !!e.profile?.fetched,
+      profileLoading: !!e.profile?.loading,
+      profileFailed: !!e.profile?.failed,
       ownedCount: items.filter((i) => i.owned).length,
       sellableCount: items.filter((i) => !i.comingSoon).length,
     };
