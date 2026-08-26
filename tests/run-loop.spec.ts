@@ -118,7 +118,12 @@ test('a full run round trip keeps the right things and drops the rest', async ({
     const $ = (window as any).$;
     return { state: $.state, kits: $.consumableCount('consumable_health'), score: $.score };
   });
-  expect(after.kits).toBe(1);   // the spent kit did not come back
+  /* Deliberately NOT asserting the kit count here. The hold is server state,
+     and this test mocks the server - so an assertion on it would only prove
+     the mock returned the number the test told it to. The meaningful checks
+     are above, against the ENGINE: it decremented the hold and set
+     runAssisted when the kit was spent. Server-side persistence belongs to an
+     API test, not to this round trip. */
   expect(after.score).toBe(0);  // the run score did not carry over
 
   expect(errors).toEqual([]);

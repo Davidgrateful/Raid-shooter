@@ -38,6 +38,11 @@ export function GameChatWidget() {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasUnread, setHasUnread] = useState(false);
+  // The channel has its own health, separate from a failed SEND. Without these
+  // an unreachable channel rendered as "no transmissions yet" - an empty room
+  // rather than a broken radio.
+  const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -83,9 +88,14 @@ export function GameChatWidget() {
 
   const refresh = useCallback(() => {
     fetch('/api/chat')
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error('channel_unreachable');
+        return r.json();
+      })
       .then((d) => {
-        if (!Array.isArray(d.messages)) return;
+        if (!Array.isArray(d.messages)) throw new Error('bad_payload');
+        setFailed(false);
+        setLoading(false);
         setMessages(d.messages);
         const latest = d.messages[d.messages.length - 1];
         if (!latest) return;
@@ -99,7 +109,21 @@ export function GameChatWidget() {
           setHasUnread(latest.id !== lastSeen);
         }
       })
-      .catch(() => {});
+      .catch(() => { setFailed(true); setLoading(false); });
+  }, []);
+
+  /** Explicit retry for the channel itself, offered in place on failure. */
+  const loadMessages = useCallback(() => {
+    setFailed(false);
+    setLoading(true);
+    refresh();
+  }, [refresh]);
+
+  /** Jump to the newest traffic and clear the unread marker. */
+  const scrollToLatest = useCallback(() => {
+    const el = listRef.current;
+    if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+    setHasUnread(false);
   }, []);
 
   // Poll continuously while on the menu (not just while the panel is open)
@@ -173,77 +197,110 @@ export function GameChatWidget() {
   const eligible = !!me && topKeys.includes(me);
 
   // tactical HUD corner cuts (FPS-panel look)
-  const panelClip = { clipPath: 'polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px)' } as const;
-  const btnClip = { clipPath: 'polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px)' } as const;
-
+  /* The panel is deliberately capped and anchored to the right rail rather than
+     filling the screen: comms is secondary to the raid happening behind it, and
+     on a landscape phone a full-height panel would be an opaque wall over the
+     game. `--rs-safe-*` keeps it clear of notches and home indicators. */
   return (
     <>
-      {/* slide-out tactical comms panel */}
       {open && (
         <div
           data-game-ui=""
-          style={{ position: 'fixed', right: 12, top: '50%', transform: 'translateY(-50%)', zIndex: 55, width: 320, maxWidth: '90vw', ...panelClip }}
-          className="border border-cyan-400/30 bg-[#070b12]/95 shadow-[0_0_50px_rgba(0,0,0,0.65),inset_0_0_60px_rgba(34,211,238,0.03)] backdrop-blur-md"
+          role="region"
+          aria-label="Squad comms"
+          style={{
+            position: 'fixed',
+            right: 'max(12px, env(safe-area-inset-right))',
+            top: '50%',
+            transform: 'translateY(-50%)',
+            zIndex: 55,
+            width: 330,
+            maxWidth: 'min(92vw, 330px)',
+            maxHeight: 'min(72vh, 520px)',
+          }}
+          className="rs-cm"
         >
-          {/* top accent rail */}
-          <div className="h-0.5 w-full bg-gradient-to-r from-cyan-400/0 via-cyan-400/80 to-cyan-400/0" />
+          <span className="rs-cm-edge" aria-hidden />
 
-          {/* header */}
-          <div className="flex items-center justify-between border-b border-cyan-400/15 bg-cyan-500/[0.04] px-3 py-2">
-            <div className="flex items-center gap-2">
-              <span className="relative flex h-1.5 w-1.5">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
-              </span>
-              <span className="font-mono text-[10px] font-bold uppercase tracking-[0.25em] text-cyan-300/90">Top-20 Comms</span>
-            </div>
-            <button onClick={() => setOpen(false)} aria-label="Close" className="font-mono text-xs text-white/40 hover:text-cyan-300">✕</button>
-          </div>
+          {/*--- header: who is here, and the way out ---------------------*/}
+          <header className="rs-cm-head">
+            <span className="rs-cm-live" aria-hidden />
+            <span className="rs-cm-title">Comms</span>
+            {/* a real number: the current top 20 is exactly who may transmit */}
+            <span className="rs-cm-count">{topEntries.length} ON CHANNEL</span>
+            <button className="rs-cm-x" onClick={() => setOpen(false)} aria-label="Close comms">✕</button>
+          </header>
 
-          {/* message feed - kill-feed styling */}
-          <div ref={listRef} className="max-h-60 space-y-1 overflow-y-auto px-2.5 py-2.5" style={{ backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 22px, rgba(34,211,238,0.02) 22px, rgba(34,211,238,0.02) 23px)' }}>
-            {messages.length === 0 ? (
-              <p className="py-3 text-center font-mono text-[11px] uppercase tracking-wider text-white/45">— NO TRANSMISSIONS —</p>
+          {/*--- the log ---------------------------------------------------*/}
+          <div ref={listRef} className="rs-cm-log">
+            {loading && messages.length === 0 ? (
+              <p className="rs-cm-quiet"><span className="rs-am-wait-bar" aria-hidden />Opening channel</p>
+            ) : failed && messages.length === 0 ? (
+              <div className="rs-cm-quiet" style={{ flexDirection: 'column', gap: 10 }}>
+                <span>Channel unreachable</span>
+                <button className="rs-cm-retry" style={{ margin: 0 }} onClick={loadMessages}>Retry</button>
+              </div>
+            ) : messages.length === 0 ? (
+              <p className="rs-cm-quiet">No transmissions yet</p>
             ) : (
               messages.map((m) => (
-                <div key={m.id} className="border-l-2 border-cyan-400/20 bg-white/[0.015] px-2 py-1 transition-colors hover:border-cyan-400/50 hover:bg-cyan-400/[0.04]">
-                  <ChatMessageLine
-                    message={m}
-                    knownNames={knownNames}
-                    iconSize={15}
-                    onNameClick={eligible ? tagPlayer : undefined}
-                  />
-                </div>
+                <ChatMessageLine
+                  key={m.id}
+                  message={m}
+                  knownNames={knownNames}
+                  iconSize={16}
+                  self={!!me && m.key === me}
+                  onNameClick={eligible ? tagPlayer : undefined}
+                />
               ))
             )}
           </div>
 
-          {/* composer */}
-          <div className="border-t border-cyan-400/15 bg-black/40 px-2.5 py-2.5">
+          {/* Pulses once on arrival, then holds. A badge that animates forever
+              is the kind of noise this redesign is removing. */}
+          {hasUnread && (
+            <button className="rs-cm-jump" onClick={scrollToLatest}>▼ New transmissions</button>
+          )}
+
+          {/*--- composer --------------------------------------------------*/}
+          <div className="rs-cm-foot">
             {eligible ? (
-              <div className="flex gap-1.5">
+              <div className="rs-cm-compose">
                 <input
                   ref={inputRef}
                   value={text}
                   onChange={(e) => setText(e.target.value.slice(0, 240))}
                   onKeyDown={(e) => { if (e.key === 'Enter') send(); }}
-                  placeholder="> transmit to squad..."
-                  style={btnClip}
-                  className="flex-1 border border-cyan-400/20 bg-black/60 px-2.5 py-1.5 font-mono text-xs text-cyan-100 placeholder-cyan-300/25 outline-none focus:border-cyan-400/60 focus:bg-black/80"
+                  placeholder="Transmit message…"
+                  aria-label="Transmit message"
+                  maxLength={240}
+                  className="rs-cm-input"
                 />
                 <button
+                  className="rs-cm-send"
                   onClick={send}
                   disabled={sending || !text.trim()}
-                  style={btnClip}
-                  className="bg-cyan-400 px-3 py-1.5 font-mono text-[10px] font-black uppercase tracking-wider text-black shadow-[0_0_12px_rgba(34,211,238,0.4)] transition-colors hover:bg-cyan-300 disabled:opacity-40 disabled:shadow-none"
                 >
-                  ▶ Send
+                  {sending ? 'Sending' : 'Send'}
                 </button>
               </div>
             ) : (
-              <p className="font-mono text-[10px] uppercase tracking-wide text-white/30">// Access restricted — reach the top 20 to open comms.</p>
+              /* Not a dead end: it names the rule and the way in. Posting is
+                 gated on holding a live top-20 place, so this is the honest
+                 state for most players rather than an error. */
+              <p className="rs-cm-locked">
+                <span className="rs-cm-locked-mark" aria-hidden>//</span>
+                Reach the top 20 to transmit. Anyone can read the channel.
+              </p>
             )}
-            {error && <p className="mt-1.5 font-mono text-[10px] uppercase tracking-wide text-amber-400">! {error}</p>}
+
+            {error && (
+              <p className="rs-cm-err" role="status">
+                <span aria-hidden>!</span>
+                {error}
+                <button className="rs-cm-retry" onClick={send} disabled={sending || !text.trim()}>Retry</button>
+              </p>
+            )}
           </div>
         </div>
       )}

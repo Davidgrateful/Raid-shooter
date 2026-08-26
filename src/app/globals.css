@@ -4140,3 +4140,346 @@ failure is temporary and recoverable, not damage.
   line-height: 1.5;
   color: var(--rs-red);
 }
+
+/*==============================================================================
+COMMS
+
+The chat used to read as a website notification drawer bolted to the HUD: one
+run-on line per message ("Icon NAME✓: text"), everything the same cyan, and a
+timestamp that the data carried but nobody ever showed.
+
+This is the same channel with a real hierarchy. A message is now a ROW - who,
+when, and what they said each occupying their own rank in the type scale - and
+the panel borrows the plate language the rest of the HUD already uses: cut
+corners, a hairline rule, a lit top edge.
+
+Colour does one job each. CYAN is the channel and its interactions. GOLD is
+reserved for what gold means everywhere else in this game - a record, a rank, a
+reward - so a personal-best event reads as an achievement rather than as more
+chat. The message TEXT is plain --rs-text, because the thing a player actually
+reads should not be competing with its own label.
+
+Two things this deliberately does NOT have: a channel selector, because the
+backend has exactly one channel and inventing GLOBAL/SQUAD tabs would be three
+fake buttons; and report/block controls, because no player-facing endpoint
+exists for either and a button that quietly does nothing is worse than no
+button.
+==============================================================================*/
+.rs-cm {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid rgba(53, 232, 255, 0.22);
+  /* Opaque, deliberately. At 0.95 the ops column behind this panel ghosted
+     straight through the message log - "WEEKLY RAID REWARD" and a LEGENDARY
+     chip legible underneath live chat text. Glass is worth having right up
+     until it puts two layers of type in the same place; readability wins. The
+     blur still softens the edge where the panel meets the starfield. */
+  background: linear-gradient(180deg, #0c111b, #080c14);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
+  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+}
+/* the lit top edge every panel in this game carries */
+.rs-cm-edge {
+  height: 1px;
+  flex: none;
+  background: linear-gradient(90deg, transparent, var(--rs-cyan), transparent);
+  opacity: 0.7;
+}
+
+/*--- header ---------------------------------------------------------------*/
+.rs-cm-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--rs-line);
+  background: rgba(53, 232, 255, 0.04);
+}
+.rs-cm-title {
+  font-family: var(--rs-font-ui);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--rs-cyan);
+}
+.rs-cm-live { position: relative; display: flex; width: 6px; height: 6px; flex: none; }
+.rs-cm-live::before,
+.rs-cm-live::after {
+  content: ""; position: absolute; inset: 0; border-radius: 50%; background: var(--rs-green);
+}
+.rs-cm-live::before { animation: rs-cm-ping 2.4s cubic-bezier(0, 0, 0.2, 1) infinite; }
+@keyframes rs-cm-ping { 0% { transform: scale(1); opacity: 0.7; } 70%, 100% { transform: scale(2.6); opacity: 0; } }
+
+.rs-cm-count {
+  margin-left: auto;
+  font-family: var(--rs-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--rs-text-faint);
+}
+.rs-cm-x {
+  flex: none;
+  padding: 2px 4px;
+  border: 0;
+  background: none;
+  color: var(--rs-text-faint);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  transition: color var(--rs-t-nav) var(--rs-e-out);
+}
+.rs-cm-x:hover { color: var(--rs-cyan); }
+
+/*--- the log --------------------------------------------------------------*/
+.rs-cm-log {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;      /* scrolling chat must not scroll the page */
+  -webkit-overflow-scrolling: touch;
+  padding: 6px 0;
+  scrollbar-width: thin;
+}
+.rs-cm-log::-webkit-scrollbar { width: 6px; }
+.rs-cm-log::-webkit-scrollbar-thumb { background: rgba(53, 232, 255, 0.18); }
+
+/*--- one message ----------------------------------------------------------*/
+.rs-cm-msg {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 8px;
+  padding: 5px 10px 6px;
+  border-left: 2px solid transparent;
+  animation: rs-cm-arrive var(--rs-t-enter) var(--rs-e-out) both;
+}
+@keyframes rs-cm-arrive {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: none; }
+}
+.rs-cm-msg:hover { background: rgba(53, 232, 255, 0.04); border-left-color: rgba(53, 232, 255, 0.35); }
+/* your own transmissions, so you can find yourself in a busy channel */
+.rs-cm-msg[data-self="true"] { border-left-color: var(--rs-cyan-deep); background: rgba(53, 232, 255, 0.03); }
+
+.rs-cm-avatar { grid-row: span 2; align-self: start; padding-top: 1px; }
+
+.rs-cm-meta { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+.rs-cm-name {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: var(--rs-font-ui);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--rs-cyan);
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rs-cm-name:disabled { cursor: default; }
+.rs-cm-name:not(:disabled):hover { text-decoration: underline; }
+.rs-cm-msg[data-self="true"] .rs-cm-name { color: var(--rs-text); }
+.rs-cm-verified { flex: none; font-size: 9px; color: var(--rs-cyan); }
+/* The timestamp the old line never rendered. Mono so columns of times align,
+   faint so it never competes with what was actually said. */
+.rs-cm-time {
+  margin-left: auto;
+  flex: none;
+  font-family: var(--rs-font-mono);
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  color: var(--rs-text-faint);
+}
+.rs-cm-text {
+  grid-column: 2;
+  font-family: var(--rs-font-ui);
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--rs-text);
+  overflow-wrap: anywhere;      /* a 240-char unbroken string cannot burst the panel */
+}
+.rs-cm-mention { font-weight: 700; color: var(--rs-gold); }
+
+/*--- system + event rows --------------------------------------------------*/
+.rs-cm-sys {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 4px 8px;
+  padding: 6px 9px;
+  border: 1px solid var(--rs-line);
+  border-left-width: 2px;
+  background: rgba(255, 255, 255, 0.02);
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+  animation: rs-cm-arrive var(--rs-t-enter) var(--rs-e-out) both;
+}
+.rs-cm-sys[data-kind="system"] { border-left-color: var(--rs-cyan-deep); }
+/* an achievement is gold because gold is what a record is worth here */
+.rs-cm-sys[data-kind="record"] { border-left-color: var(--rs-gold); background: var(--rs-gold-soft); }
+.rs-cm-sys-mark { flex: none; font-size: 10px; line-height: 1.5; color: var(--rs-text-faint); }
+.rs-cm-sys[data-kind="record"] .rs-cm-sys-mark { color: var(--rs-gold); }
+.rs-cm-sys-body { min-width: 0; }
+.rs-cm-sys-who {
+  font-family: var(--rs-font-ui);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--rs-text-dim);
+}
+.rs-cm-sys[data-kind="record"] .rs-cm-sys-who { color: var(--rs-gold); }
+.rs-cm-sys-text {
+  font-family: var(--rs-font-ui);
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--rs-text);
+  overflow-wrap: anywhere;
+}
+
+/*--- quiet states ---------------------------------------------------------*/
+.rs-cm-quiet {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 20px 12px;
+  font-family: var(--rs-font-ui);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--rs-text-faint);
+}
+
+/*--- new-message indicator ------------------------------------------------*/
+.rs-cm-jump {
+  position: absolute;
+  left: 50%;
+  bottom: 62px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  transform: translateX(-50%);
+  border: 1px solid rgba(53, 232, 255, 0.5);
+  background: rgba(8, 14, 22, 0.95);
+  color: var(--rs-cyan);
+  font-family: var(--rs-font-ui);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  cursor: pointer;
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+  animation: rs-cm-once 620ms var(--rs-e-out) 1;
+}
+/* pulses ONCE on arrival - a permanently animating badge is noise */
+@keyframes rs-cm-once {
+  0% { transform: translateX(-50%) translateY(6px); opacity: 0; }
+  60% { transform: translateX(-50%) translateY(-1px); opacity: 1; }
+  100% { transform: translateX(-50%); opacity: 1; }
+}
+
+/*--- composer -------------------------------------------------------------*/
+.rs-cm-foot {
+  flex: none;
+  padding: 8px;
+  border-top: 1px solid var(--rs-line);
+  background: rgba(0, 0, 0, 0.35);
+}
+.rs-cm-compose { display: flex; gap: 6px; }
+.rs-cm-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 7px 9px;
+  border: 1px solid rgba(53, 232, 255, 0.2);
+  background: rgba(0, 0, 0, 0.55);
+  color: var(--rs-text);
+  font-family: var(--rs-font-ui);
+  /* 16px on touch: anything smaller makes iOS Safari zoom the whole viewport
+     the moment the field takes focus, which throws the player out of the HUD. */
+  font-size: 12px;
+  outline: none;
+  transition: border-color var(--rs-t-nav) var(--rs-e-out), background var(--rs-t-nav) var(--rs-e-out);
+}
+.rs-cm-input::placeholder { color: rgba(53, 232, 255, 0.3); }
+.rs-cm-input:focus { border-color: rgba(53, 232, 255, 0.65); background: rgba(0, 0, 0, 0.75); }
+.rs-cm-send {
+  flex: none;
+  padding: 7px 14px;
+  border: 1px solid var(--rs-cyan);
+  background: var(--rs-cyan-soft);
+  color: var(--rs-cyan);
+  font-family: var(--rs-font-ui);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background var(--rs-t-nav) var(--rs-e-out), color var(--rs-t-nav) var(--rs-e-out);
+}
+.rs-cm-send:hover:not(:disabled) { background: var(--rs-cyan); color: #04121a; }
+.rs-cm-send:disabled { border-color: var(--rs-line); background: transparent; color: var(--rs-text-faint); cursor: default; }
+
+/* Restricted: says what the rule is and what to do about it, not just "no". */
+.rs-cm-locked {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--rs-font-ui);
+  font-size: 10px;
+  line-height: 1.5;
+  letter-spacing: 0.04em;
+  color: var(--rs-text-faint);
+}
+.rs-cm-locked-mark { flex: none; color: var(--rs-cyan-deep); }
+.rs-cm-err {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 7px;
+  font-family: var(--rs-font-ui);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--rs-red);
+}
+.rs-cm-retry {
+  margin-left: auto;
+  flex: none;
+  padding: 3px 9px;
+  border: 1px solid rgba(53, 232, 255, 0.45);
+  background: transparent;
+  color: var(--rs-cyan);
+  font-family: var(--rs-font-ui);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.rs-cm-retry:hover { background: var(--rs-cyan-soft); }
+
+/*--- touch ----------------------------------------------------------------*/
+@media (hover: none) and (pointer: coarse) {
+  /* iOS zooms the viewport on focus for any input under 16px. */
+  .rs-cm-input { font-size: 16px; padding: 9px 10px; }
+  .rs-cm-send { padding: 9px 14px; }
+  .rs-cm-x { padding: 8px 10px; margin: -8px -6px -8px 0; }
+  .rs-cm-msg { padding-top: 7px; padding-bottom: 8px; }
+}
+
+/* Landscape phones have almost no vertical room, and the game is behind this
+   panel. Cap the log so comms can never become a full-height opaque wall over
+   the raid. */
+@media (max-height: 460px) {
+  .rs-cm-log { max-height: 34vh; }
+  .rs-cm-head { padding: 6px 9px; }
+  .rs-cm-foot { padding: 6px; }
+}
