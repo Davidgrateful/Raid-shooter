@@ -282,6 +282,16 @@ $.submitScore = function() {
 	// multiplier. We still tell the server the run was assisted so the operator
 	// can audit top runs before paying out a tournament - it just no longer
 	// blocks the score from ranking.
+	//
+	// CAVEAT, measured: `assisted` below is set ONLY by $.useConsumable, so it
+	// covers combat consumables and nothing else. An XP BOOST deliberately does
+	// not flag (it pays pilot XP, never run score - see drones.js). But an
+	// equipped DRONE can raise a run's score - needlefinch grants piercing,
+	// aegis cuts collision damage, medicwisp regenerates hull - and does not
+	// flag either. A drone-assisted top run is therefore invisible to the
+	// audit. Widening the flag would change what every drone run reports to the
+	// leaderboard, so it is a product call, not a cleanup: left as-is and
+	// documented rather than changed unilaterally.
 	$.boardSubmit = { state: 'sending', rank: 0, improved: false, verified: false };
 
 	// re-check the session right before submitting: the player may have

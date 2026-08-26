@@ -3763,6 +3763,9 @@ DEBRIEF — the run/keep split
   color: var(--rs-text-dim);
 }
 .rs-ao-daily-streak { font-family: var(--rs-font-mono); font-size: 10px; color: var(--rs-gold); }
+/* The near miss. Cyan, not gold: nothing was earned here - this is a distance
+   to close, and gold is reserved for what the player actually banked. */
+.rs-ao-daily-near { font-family: var(--rs-font-mono); font-size: 10px; color: var(--rs-cyan); }
 
 /*==============================================================================
 MOTION — the four jobs

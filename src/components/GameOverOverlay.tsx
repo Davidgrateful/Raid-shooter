@@ -36,6 +36,7 @@ interface Engine {
   hero?: { character?: { id: string; title: string } };
   dailyChallenge?: () => { text: string; stat: string; n: number };
   dailyStreak?: () => number;
+  dailyRunStats?: () => Record<string, number>;
   pilotLevel?: (id: string) => number;
   pilotXp?: (id: string) => number;
   pilotMaxLevel?: number;
@@ -69,6 +70,7 @@ interface Snap {
   board: string; rank: number; improved: boolean; verified: boolean; gap: number; nextRank: number;
   build: string[];
   dailyText: string;
+  dailyNear: { have: number; need: number } | null;
   streak: number;
   xp: number;
   pilotTitle: string;
@@ -117,6 +119,18 @@ function snapshot(): Snap | null {
     })(),
     streak: (() => {
       try { return $.dailyStreak ? $.dailyStreak() : 0; } catch { return 0; }
+    })(),
+    /* How close this run actually got. The engine already compares these two
+       numbers to decide completion ($.dailyCheckRun), so showing them invents
+       nothing - it just stops a near miss from reading as a flat failure. */
+    dailyNear: (() => {
+      try {
+        if (!$.dailyChallenge || !$.dailyRunStats) return null;
+        const c = $.dailyChallenge();
+        const have = $.dailyRunStats()[c.stat];
+        if (typeof have !== 'number' || !c.n) return null;
+        return { have: Math.floor(have), need: c.n };
+      } catch { return null; }
     })(),
     ...pilotProgress($),
     ...tierOf($, $.score || 0),
@@ -351,6 +365,11 @@ export function GameOverOverlay() {
               <div className="rs-ao-daily">
                 <span className="rs-label rs-ao-daily-cap">Daily still open</span>
                 <span className="rs-ao-daily-text">{snap.dailyText}</span>
+                {snap.dailyNear && snap.dailyNear.have > 0 && (
+                  <span className="rs-num rs-ao-daily-near">
+                    {fmt(snap.dailyNear.have)} / {fmt(snap.dailyNear.need)} this run
+                  </span>
+                )}
                 {snap.streak > 0 && (
                   <span className="rs-num rs-ao-daily-streak">{snap.streak} day streak</span>
                 )}

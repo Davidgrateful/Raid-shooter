@@ -45,7 +45,16 @@ spend) with derank/ban moderation, plus player lookup and item grant tools.
 
 ## Conventions
 
-- The marketplace must NEVER affect a live run or score (cosmetics only).
+- Trails and finishes are cosmetic and never affect a run. HULLS, DRONES and
+  FIELD KITS are not: hulls fly differently, drones grant a modest passive
+  combat effect plus 10-25% pilot XP, and field kits are spent mid-run. The
+  old note here said "the marketplace must NEVER affect a live run or score
+  (cosmetics only)" - that has not been true since drones shipped, and a stale
+  invariant is worse than none. Keep drone effects modest (see drones.js) and
+  keep the cosmetic/gameplay split legible in the Armory's rack blurbs.
+- Combat consumables set `$.runAssisted`, which is submitted with the score so
+  the operator can audit paid help before a payout. Drones do NOT set it even
+  though they can raise a run's score - see the note in `shooterboard.js`.
 - Diag endpoints return booleans/previews only — never full secrets or the
   treasury address.
 - The bitmap font (`text.js`) supports only ` $+,.\/0-9:@A-Z` — no lowercase or
