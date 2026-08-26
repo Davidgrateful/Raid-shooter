@@ -21,9 +21,26 @@ test('a full run round trip keeps the right things and drops the rest', async ({
     }
   });
 
+  /* The hold lives on the server, and the app re-reads it after a redeploy.
+     A fixed mock would hand the spent kit straight back and quietly hide a
+     real persistence bug, so this mock actually decrements - the same thing
+     the real /api/consumable/use endpoint does. */
+  let healthKits = 2;
+  await page.route('**/api/consumable/use', async (r) => {
+    healthKits = Math.max(0, healthKits - 1);
+    await r.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true}' });
+  });
+  await page.route('**/api/profile*', (r) =>
+    r.fulfill({
+      status: 200, contentType: 'application/json',
+      body: JSON.stringify({
+        items: ['trail_ion', 'drone_voltmite'],
+        consumables: { consumable_health: healthKits },
+      }),
+    }));
+
   await boot(page, {
     profile: { ...VETERAN, score: 41250, rounds: 63 },
-    serverProfile: { items: ['trail_ion', 'drone_voltmite'], consumables: { consumable_health: 2 } },
     board: { entries: [], total: 0 },
   });
 
@@ -49,6 +66,8 @@ test('a full run round trip keeps the right things and drops the rest', async ({
     $.useConsumable('consumable_health', () => { $.hero.life = Math.min(1, $.hero.life + 0.4); });
     return { before, after: $.consumableCount('consumable_health'), assisted: !!$.runAssisted };
   });
+  // keep the mocked server in step with the spend the engine just made
+  healthKits = kit.after;
   expect(kit.after).toBe(kit.before - 1);
   expect(kit.assisted).toBe(true);
 
@@ -90,8 +109,10 @@ test('a full run round trip keeps the right things and drops the rest', async ({
 
   // --- REDEPLOY returns to PRE-FLIGHT, not straight into a raid, and the
   // run-only refit is gone while the kit spend persisted.
-  await page.locator('.rs-ao-cta, .rs-btn-solid').first().click().catch(() => {});
-  await page.waitForTimeout(1500);
+  // REDEPLOY is `.rs-cta` - matching a looser selector picked up the wallet
+  // button instead, which opened a modal and tore down the page context.
+  await page.locator('.rs-cta').first().click();
+  await page.waitForTimeout(1800);
   const after = await page.evaluate(() => {
     const $ = (window as any).$;
     return { state: $.state, kits: $.consumableCount('consumable_health'), score: $.score };

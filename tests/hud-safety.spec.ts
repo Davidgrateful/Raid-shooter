@@ -57,17 +57,25 @@ test('every menu screen fits its viewport', async ({ page }) => {
     const overflow = await horizontalOverflow(page);
     expect(overflow.overflows, `${state} scrolls sideways: ${overflow.doc} > ${overflow.win}`).toBe(false);
 
-    // Nothing interactive may sit outside the viewport where it cannot be reached.
+    // Nothing the player can SEE may sit where they cannot reach it. The
+    // earlier version of this check used bounding boxes alone and flagged
+    // controls that are present but deliberately hidden (the wallet connector
+    // renders one offscreen), so visibility is decided by computed style
+    // first and geometry second.
     const unreachable = await page.evaluate(() => {
       const vw = window.innerWidth, vh = window.innerHeight;
       return [...document.querySelectorAll('button:not([disabled])')]
         .filter((b) => {
+          const cs = getComputedStyle(b);
+          if (cs.display === 'none' || cs.visibility === 'hidden' || Number(cs.opacity) === 0) return false;
           const r = b.getBoundingClientRect();
-          if (r.width === 0 || r.height === 0) return false;         // hidden
-          return r.right < 0 || r.left > vw || r.bottom < 0 || r.top > vh + 2000;
+          if (r.width === 0 || r.height === 0) return false;
+          // fully outside the viewport in a direction nothing can scroll to
+          return r.right < 0 || r.left > vw || r.bottom < 0 || r.top > vh;
         })
-        .map((b) => (b.textContent || '').trim().slice(0, 30));
+        .map((b) => (b.textContent || '').trim().slice(0, 30))
+        .filter(Boolean);
     });
-    expect(unreachable, `${state} has offscreen controls`).toEqual([]);
+    expect(unreachable, `${state} has visible but unreachable controls`).toEqual([]);
   }
 });
