@@ -63,7 +63,7 @@ test('every menu screen fits its viewport', async ({ page }) => {
     // renders one offscreen), so visibility is decided by computed style
     // first and geometry second.
     const unreachable = await page.evaluate(() => {
-      const vw = window.innerWidth, vh = window.innerHeight;
+      const vw = window.innerWidth;
       return [...document.querySelectorAll('button:not([disabled])')]
         .filter((b) => {
           // `inert` means nobody can reach this - not by pointer, not by Tab,
@@ -74,8 +74,14 @@ test('every menu screen fits its viewport', async ({ page }) => {
           if (cs.display === 'none' || cs.visibility === 'hidden' || Number(cs.opacity) === 0) return false;
           const r = b.getBoundingClientRect();
           if (r.width === 0 || r.height === 0) return false;
-          // fully outside the viewport in a direction nothing can scroll to
-          return r.right < 0 || r.left > vw || r.bottom < 0 || r.top > vh;
+          /* Only flag directions nothing can scroll to. Content BELOW the fold
+             is normal - the hangar's drone rack and the armory's walls are
+             scrollable lists, and treating "below the viewport" as unreachable
+             flagged every one of them. Above the top and off to either side
+             are the genuinely stranded cases; that is precisely where the
+             stood-down wallet button was found, at y=-42. Sideways page
+             overflow has its own assertion above. */
+          return r.right < 0 || r.left > vw || r.bottom < 0;
         })
         .map((b) => (b.textContent || '').trim().slice(0, 30))
         .filter(Boolean);
