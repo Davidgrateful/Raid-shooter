@@ -41,6 +41,7 @@ test('a full run round trip keeps the right things and drops the rest', async ({
 
   await boot(page, {
     profile: { ...VETERAN, score: 41250, rounds: 63 },
+    serverProfile: null,   // this test owns the /api/profile route, above
     board: { entries: [], total: 0 },
   });
 

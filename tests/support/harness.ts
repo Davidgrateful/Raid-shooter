@@ -30,7 +30,12 @@ export const NEWCOMER = {
 
 export interface BootOptions {
   profile?: Record<string, unknown>;
-  /** Server ownership payload. Defaults to owning nothing. */
+  /**
+   * Server ownership payload. Defaults to owning nothing. Pass `null` when the
+   * test registers its own /api/profile route - Playwright matches the most
+   * recently registered handler first, so a route added here would silently
+   * win over the test's and hand back the wrong state.
+   */
   serverProfile?: unknown;
   /** Leaderboard payload, or 'down' to make it fail. */
   board?: unknown | 'down';
@@ -60,7 +65,9 @@ export async function boot(page: Page, opts: BootOptions = {}) {
   });
   await page.addInitScript((p) => localStorage.setItem('radiusraid', JSON.stringify(p)), profile);
 
-  await page.route('**/api/profile*', json(opts.serverProfile ?? { items: [], consumables: {} }));
+  if (opts.serverProfile !== null) {
+    await page.route('**/api/profile*', json(opts.serverProfile ?? { items: [], consumables: {} }));
+  }
   if (opts.board !== undefined) {
     await page.route('**/api/leaderboard*', opts.board === 'down' ? down : json(opts.board));
   }

@@ -66,6 +66,10 @@ test('every menu screen fits its viewport', async ({ page }) => {
       const vw = window.innerWidth, vh = window.innerHeight;
       return [...document.querySelectorAll('button:not([disabled])')]
         .filter((b) => {
+          // `inert` means nobody can reach this - not by pointer, not by Tab,
+          // not by screen reader. A control the platform has taken out of play
+          // cannot be an unreachable-control problem.
+          if (b.closest('[inert]')) return false;
           const cs = getComputedStyle(b);
           if (cs.display === 'none' || cs.visibility === 'hidden' || Number(cs.opacity) === 0) return false;
           const r = b.getBoundingClientRect();
