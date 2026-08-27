@@ -87,3 +87,35 @@ export async function getDailyCount(day: string): Promise<number> {
   }
   return memBoard(day).size;
 }
+
+/*
+ * The day key is the CLIENT's local date, and that is deliberate: it has to
+ * match the seed the player was actually given ($.dailyKey in daily.js).
+ *
+ * But format-checking it was the ONLY check on the write path, which made the
+ * one-attempt-per-day rule meaningless. Every distinct well-formed string is a
+ * different board with its own hasPlayedDaily() check, so posting day=2030-1-1,
+ * 2030-1-2, ... bought unlimited attempts and let one player pre-occupy rank 1
+ * on every future daily board before anyone else arrived.
+ *
+ * Local dates span UTC-12..UTC+14, so an honest client is at most one calendar
+ * day either side of the server's UTC date. That is the whole legitimate range.
+ * This also rejects strings that pass a format check but are not real dates
+ * (2026-2-31), which Date.UTC would otherwise roll forward into March.
+ *
+ * `now` is injectable so the boundary can be tested without waiting for
+ * midnight.
+ */
+export function dayWithinWindow(day: string, now = Date.now()): boolean {
+  const m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(day);
+  if (!m) return false;
+  const y = Number(m[1]), mo = Number(m[2]), d = Number(m[3]);
+  const asUtc = Date.UTC(y, mo - 1, d);
+  const back = new Date(asUtc);
+  if (back.getUTCFullYear() !== y || back.getUTCMonth() !== mo - 1 || back.getUTCDate() !== d) {
+    return false;
+  }
+  const n = new Date(now);
+  const serverMidnight = Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate());
+  return Math.abs(asUtc - serverMidnight) <= 86_400_000;
+}

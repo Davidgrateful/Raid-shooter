@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getOrCreateGuestId, getSession } from '@/lib/session';
-import { submitDaily, getDailyTop, getDailyCount, hasPlayedDaily, type DailyEntry } from '@/lib/dailyrun';
+import { submitDaily, getDailyTop, getDailyCount, hasPlayedDaily, dayWithinWindow, type DailyEntry } from '@/lib/dailyrun';
 import { verifyTurnstile } from '@/lib/turnstile';
 import { clientIp, rateLimit } from '@/lib/ratelimit';
 
@@ -38,6 +38,13 @@ export async function POST(req: NextRequest) {
   if (!body) return NextResponse.json({ error: 'invalid_body' }, { status: 400 });
   const day = safeDay(body.day);
   if (!day) return NextResponse.json({ error: 'bad_day' }, { status: 400 });
+  // A write may only land on the day the player is actually living in. Reads
+  // (GET) stay unbounded on purpose: once writes are fenced, a future day's
+  // board is always empty, so reading one tells you nothing and refusing it
+  // would only add a way for a skewed clock to break the board screen.
+  if (!dayWithinWindow(day)) {
+    return NextResponse.json({ error: 'day_out_of_range' }, { status: 400 });
+  }
 
   const { score, pilot, name } = body as Record<string, unknown>;
   if (!isInt(score, 1, 100_000_000) || typeof pilot !== 'string' || !/^[A-Z0-9 ]{1,16}$/.test(pilot)) {
