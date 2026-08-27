@@ -6,10 +6,15 @@ name: CI
 # syntax check across the vanilla-JS engine, and the Playwright suite driving
 # the built app on desktop and phone-landscape viewports.
 
+# Development happens on claude/** feature branches, often with no PR open for
+# days. Triggering only on main/master + pull_request meant this workflow had
+# never run once - the checks were real but nothing was ever running them.
+# workflow_dispatch is here so it can also be kicked by hand.
 on:
   pull_request:
   push:
-    branches: [main, master]
+    branches: [main, master, 'claude/**']
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}
