@@ -5685,9 +5685,12 @@ $.setupStates = function() {
 			boardColor = 'hsla(45, 100%, 65%, 1)';
 		} else if( $.boardSubmit.state === 'error' ) {
 			boardText = 'SHOOTERBOARD UNAVAILABLE';
-		} else if( $.boardSubmit.state === 'assisted' ) {
-			boardText = 'RUN NOT RANKED  /  CONSUMABLE USED';
 		}
+		// NOTE: an 'assisted' state used to live here reading RUN NOT RANKED /
+		// CONSUMABLE USED. Nothing has assigned that state since assists stopped
+		// blocking a score, so it was unreachable - and it contradicted both the
+		// Armory ("your score still ranks") and the server, which ranks assisted
+		// runs normally. Removed rather than left as a lie waiting to be revived.
 		// the board is cumulative now (every run adds to a lifetime total,
 		// not just your best one) - show that running total on the game
 		// over screen so it's visible after every single play, not just

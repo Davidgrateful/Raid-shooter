@@ -65,6 +65,72 @@ function memoryRank(address: string): number {
 const SUBMIT_COOLDOWN_MS = 20_000;
 const memoryCooldowns = new Map<string, number>();
 
+/*==============================================================================
+RUN IDEMPOTENCY
+
+The board is CUMULATIVE (submitEntry ZINCRBYs), and a submission carried no
+identity of any kind - no run id, no nonce, nothing the server issued. The only
+guard was the 20s cooldown, which paces replays rather than preventing them.
+
+Measured before this existed: capturing one valid POST and re-sending it
+unchanged three times took an identity from 50,000 to 100,000 to 150,000, with
+kills going 420 -> 1260. Nothing caught it. The structural bounds are wide by
+design, the plausibility ratios are satisfied because the payload IS a real
+run's shape, and suspicionReason only ever inspects the single entry - whose
+numbers stay modest - never the accumulated total. At one submit per 20s that
+is 180 replays an hour, and because computeWinners ranks off the (also
+cumulative) cup board, it converts directly into cosmetic grants and USDC.
+
+The fix is idempotency rather than rejection, because the client has a
+LEGITIMATE retry that resends the exact same payload: shooterboard.js captures
+the payload once so a cooldown 429 can be waited out and re-sent, which is what
+stopped scores being silently lost to pacing. So a repeat must not error - it
+must return the same answer as the first time and count once.
+
+Ordering matters. This is claimed only AFTER the cooldown check passes, so a
+run that was 429'd never claimed its signature and its retry is still the first
+real submission. And a client that never sees the response (dropped connection
+after the server applied it) retries into `duplicate`, gets its true standing
+back, and is not double-counted.
+
+This kills replay of a captured request. It does NOT stop a forger who varies
+the numbers to mint a fresh signature - the score is client-authoritative, and
+closing that needs server-issued run tokens, which is a different and much
+larger design than this audit's remit.
+==============================================================================*/
+const RUN_SIG_TTL_MS = 24 * 3600 * 1000;
+const memoryRuns = new Map<string, number>();
+
+/** The immutable shape of one run. Two genuine runs matching on every one of
+ *  these is not something a human produces. */
+export function runSignature(e: {
+  score: number; level: number; kills: number; combo: number; time: number; pilot: string;
+}): string {
+  return `${e.score}:${e.level}:${e.kills}:${e.combo}:${e.time}:${e.pilot}`;
+}
+
+/**
+ * Claim this exact run for this identity. True the first time, false if the
+ * same run has already been counted inside the TTL.
+ */
+export async function claimRunOnce(address: string, signature: string): Promise<boolean> {
+  const k = `shooterboard:run:${address}:${signature}`;
+  if (kvUrl && kvToken) {
+    const r = (await redis(['SET', k, '1', 'PX', RUN_SIG_TTL_MS, 'NX'])) as string | null;
+    return r === 'OK';
+  }
+  const now = Date.now();
+  // the dev fallback is per-instance and unbounded otherwise; sweep expired
+  // keys whenever the map gets big rather than on every call
+  if (memoryRuns.size > 5000) {
+    for (const [mk, at] of memoryRuns) { if (now - at >= RUN_SIG_TTL_MS) memoryRuns.delete(mk); }
+  }
+  const prev = memoryRuns.get(k);
+  if (prev !== undefined && now - prev < RUN_SIG_TTL_MS) return false;
+  memoryRuns.set(k, now);
+  return true;
+}
+
 export async function checkSubmitAllowed(address: string): Promise<boolean> {
   if (kvUrl && kvToken) {
     const result = (await redis([
@@ -132,6 +198,23 @@ export async function submitEntry(
   const newRankMem = memoryRank(entry.address);
   const improved = !existing || newRankMem < prevRankMem;
   return { rank: newRankMem, improved, total };
+}
+
+/**
+ * An identity's current standing without changing it. Used to answer a
+ * duplicate submission with the player's real position rather than an error,
+ * so a retry that arrives after the run already counted still gets the truth.
+ */
+export async function getStanding(address: string): Promise<{ rank: number; total: number }> {
+  if (kvUrl && kvToken) {
+    const [rank, score] = (await Promise.all([
+      redis(['ZREVRANK', BOARD_KEY, address]),
+      redis(['ZSCORE', BOARD_KEY, address]),
+    ])) as [number | null, string | null];
+    return { rank: rank === null ? 0 : rank + 1, total: score === null ? 0 : Number(score) };
+  }
+  const existing = memoryBoard.get(address);
+  return { rank: existing ? memoryRank(address) : 0, total: existing?.score || 0 };
 }
 
 // Admin-only: set an identity's score to an EXACT value, overwriting
@@ -402,6 +485,16 @@ export interface FlaggedRun {
   at: number;
   verified: boolean;
   reason: string;
+  /*
+   * The review queue is described as the anti-cheat gate for payouts, but it
+   * used to drop the only two fields that say what the run was FLYING - so an
+   * operator judging a flagged run had to go cross-reference the board by hand
+   * to learn whether it spent a combat consumable or carried a drone. The
+   * `assisted` flag exists specifically "for operator audit before tournament
+   * payouts"; it was not reaching the audit.
+   */
+  assisted?: boolean;
+  droneId?: string;
 }
 
 const memFlagged = new Map<string, FlaggedRun>();
@@ -433,6 +526,8 @@ export async function flagRun(entry: BoardEntry, reason: string): Promise<void> 
     at: entry.at,
     verified: !!entry.verified,
     reason,
+    assisted: !!entry.assisted,
+    droneId: entry.cosmetics?.droneId,
   };
   if (kvUrl && kvToken) {
     await redis(['HSET', FLAGGED_KEY, flagged.id, JSON.stringify(flagged)]);

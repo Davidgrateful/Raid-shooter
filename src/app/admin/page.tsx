@@ -731,7 +731,7 @@ function ConfigPill({ ok, label, warn }: { ok: boolean; label: string; warn?: bo
 // ---- live leaderboard (top ranked players) ----
 
 // ---- suspicious-run review queue (anti-cheat gate before payouts) ----
-interface FlaggedRun { id: string; address: string; name?: string; score: number; kills: number; combo: number; time: number; pilot: string; at: number; verified: boolean; reason: string }
+interface FlaggedRun { id: string; address: string; name?: string; score: number; kills: number; combo: number; time: number; pilot: string; at: number; verified: boolean; reason: string; assisted?: boolean; droneId?: string }
 
 function FlaggedRuns({ token }: { token: string }) {
   const [rows, setRows] = useState<FlaggedRun[] | null>(null);
@@ -773,7 +773,7 @@ function FlaggedRuns({ token }: { token: string }) {
       ) : (
         <div className="overflow-x-auto rounded-md border border-white/10">
           <table className="w-full text-left text-xs">
-            <thead className="bg-white/[0.04] text-white/40"><tr><th className="px-2 py-1.5">Player</th><th className="px-2 py-1.5">Score</th><th className="px-2 py-1.5">Kills</th><th className="px-2 py-1.5">Time</th><th className="px-2 py-1.5">Reason</th><th className="px-2 py-1.5 text-right">Actions</th></tr></thead>
+            <thead className="bg-white/[0.04] text-white/40"><tr><th className="px-2 py-1.5">Player</th><th className="px-2 py-1.5">Score</th><th className="px-2 py-1.5">Kills</th><th className="px-2 py-1.5">Time</th><th className="px-2 py-1.5">Loadout</th><th className="px-2 py-1.5">Reason</th><th className="px-2 py-1.5 text-right">Actions</th></tr></thead>
             <tbody>
               {rows.map((r) => (
                 <tr key={r.id} className="border-t border-white/5">
@@ -781,6 +781,14 @@ function FlaggedRuns({ token }: { token: string }) {
                   <td className="px-2 py-1.5 font-semibold">{r.score.toLocaleString()}</td>
                   <td className="px-2 py-1.5">{r.kills}</td>
                   <td className="px-2 py-1.5">{r.time}s</td>
+                  {/* What the run was flying. The assisted flag exists for this
+                      review and used not to reach it, so an operator had to go
+                      cross-reference the board by hand before paying a prize. */}
+                  <td className="px-2 py-1.5">
+                    {r.assisted && <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-amber-300">KIT</span>}
+                    {r.droneId && <span className="ml-1 rounded bg-violet-500/15 px-1.5 py-0.5 text-violet-300">{r.droneId.replace(/^drone_/, '').toUpperCase()}</span>}
+                    {!r.assisted && !r.droneId && <span className="text-white/30">clean</span>}
+                  </td>
                   <td className="px-2 py-1.5 text-amber-300/80">{r.reason}</td>
                   <td className="px-2 py-1.5 text-right">
                     <button onClick={() => act(r, 'approve')} className="rounded bg-emerald-500/15 px-2 py-1 text-emerald-300 hover:bg-emerald-500/25">Approve</button>

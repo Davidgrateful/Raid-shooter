@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getOrCreateGuestId, getSession } from '@/lib/session';
-import { checkSubmitAllowed, getTop, getBoardCount, getEntry, isPersistent, submitEntry, suspicionReason, flagRun, type BoardEntry } from '@/lib/leaderboard';
+import { checkSubmitAllowed, getTop, getBoardCount, getEntry, isPersistent, submitEntry, suspicionReason, flagRun, runSignature, claimRunOnce, getStanding, type BoardEntry } from '@/lib/leaderboard';
 import { getActiveSeason } from '@/lib/rewards';
 import { submitCupEntry } from '@/lib/cup';
 import { submitWeekly } from '@/lib/weekly';
@@ -161,6 +161,32 @@ export async function POST(req: NextRequest) {
     if (!allowed) {
       return NextResponse.json({ error: 'rate_limited' }, { status: 429 });
     }
+
+    /*
+     * The board is cumulative, so re-sending one captured payload used to add
+     * its score again every 20 seconds. Claim this exact run once per identity
+     * (see runSignature/claimRunOnce). Claimed AFTER the cooldown so a run that
+     * was 429'd has not spent its signature and its legitimate retry - which
+     * resends the identical payload by design - is still the first real
+     * submission.
+     *
+     * A repeat answers with the player's true standing rather than an error:
+     * the honest case for one is a client that never saw the first response,
+     * and telling it "failed" for a run that counted is its own kind of lie.
+     */
+    const fresh = await claimRunOnce(key, runSignature({ score, level, kills, combo, time, pilot }));
+    if (!fresh) {
+      const standing = await getStanding(key);
+      return NextResponse.json({
+        ok: true,
+        duplicate: true,
+        verified,
+        rank: standing.rank,
+        improved: false,
+        total: standing.total,
+      });
+    }
+
     const entry = {
       address: key,
       name: displayName,

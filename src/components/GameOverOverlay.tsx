@@ -236,7 +236,6 @@ export function GameOverOverlay() {
       case 'dailypending': return { t: 'SUBMITTING DAILY RUN…', c: 'text-white/50' };
       case 'daily': return { t: snap.rank ? `DAILY RUN · RANK #${snap.rank}` : 'DAILY RUN SUBMITTED', c: 'text-[color:var(--rs-cyan)]' };
       case 'done': return { t: snap.rank ? `SHOOTERBOARD · RANK #${snap.rank}${snap.improved ? '' : ' · BEST STANDS'}` : 'SCORE SAVED', c: 'text-[color:var(--rs-gold)]' };
-      case 'assisted': return { t: 'NOT RANKED · CONSUMABLE USED', c: 'text-white/50' };
       case 'error': return { t: 'SHOOTERBOARD UNAVAILABLE', c: 'text-[color:var(--rs-red)]' };
       default: return null;
     }

@@ -9,8 +9,18 @@ import { rateLimit, clientIp } from '@/lib/ratelimit';
 // week and is claimable once per wallet per week. Purpose: convert guests
 // into wallet players (who can then receive tournament rewards/payouts) and
 // give a recurring reason to come back. These are consumable boosts (health,
-// shield, revive) - a run that spends one is excluded from the ranked board,
-// so free boosts stay a convenience, never a competitive edge.
+// shield, revive).
+//
+// CORRECTION: this comment used to claim "a run that spends one is excluded
+// from the ranked board, so free boosts stay a convenience, never a
+// competitive edge." That exclusion does not exist and never did. `assisted`
+// is recorded onto the entry (leaderboard route) and read by nobody -
+// submitEntry does not filter on it, and computeWinners assigns prizes purely
+// by rank. A run that spends one of these ranks exactly like any other and is
+// fully eligible for cosmetic grants and USDC payouts. That is the intended
+// policy (assists are a bounded part of the loadout), but the safeguard named
+// here was never implemented, so the sentence is removed rather than left
+// standing as a false assurance.
 
 const ROTATION = ['consumable_shield', 'consumable_health', 'consumable_revive'];
 
