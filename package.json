@@ -10,7 +10,9 @@
     "test": "playwright test",
     "test:desktop": "playwright test --project=desktop",
     "test:mobile": "playwright test --project=phone-landscape",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint:ci": "node scripts/lint-ci.mjs",
+    "lint:baseline": "node scripts/lint-ci.mjs --update"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.112.4",

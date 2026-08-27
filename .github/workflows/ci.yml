@@ -30,8 +30,12 @@ jobs:
       - name: TypeScript
         run: npm run typecheck
 
-      - name: Lint
-        run: npm run lint
+      # A ratchet, not a gate: the tree carries 21 pre-existing errors (mostly
+      # react-compiler rules from eslint-config-next). Failing on those would
+      # make CI red on day one and teach everyone to ignore it. This fails when
+      # the count goes UP, which is the regression we actually care about.
+      - name: Lint (no new errors)
+        run: npm run lint:ci
 
       # The engine is plain JS with no build step, so nothing else would catch
       # a syntax error in it before it reached a player's browser.
@@ -48,7 +52,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        project: [desktop, phone-landscape]
+        # hud-matrix sweeps its own five viewport/loadout combinations, so it
+        # is a project in its own right rather than a third viewport.
+        project: [desktop, phone-landscape, hud-matrix]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

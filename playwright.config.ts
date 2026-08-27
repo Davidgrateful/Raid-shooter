@@ -43,9 +43,20 @@ export default defineConfig({
     video: 'off',
   },
   projects: [
-    { name: 'desktop', use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 }, launchOptions } },
+    /*
+     * hud-matrix.spec.ts sweeps its own five viewport/loadout combinations by
+     * opening contexts directly, so running it under a viewport project would
+     * just run the same five twice. It gets a project of its own, and the two
+     * viewport projects ignore it.
+     */
+    {
+      name: 'desktop',
+      testIgnore: /hud-matrix\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 }, launchOptions },
+    },
     {
       name: 'phone-landscape',
+      testIgnore: /hud-matrix\.spec\.ts/,
       use: {
         ...devices['Desktop Chrome'],
         viewport: { width: 844, height: 390 },
@@ -54,6 +65,11 @@ export default defineConfig({
         deviceScaleFactor: 2,
         launchOptions,
       },
+    },
+    {
+      name: 'hud-matrix',
+      testMatch: /hud-matrix\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], launchOptions },
     },
   ],
   webServer: {

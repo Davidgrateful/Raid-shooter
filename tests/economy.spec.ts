@@ -119,31 +119,81 @@ test.describe('economy', () => {
     expect(result.after).toBe(result.before);  // stayed in play, no empty draft
   });
 
+  /*
+   * NOTE ON PILOT CHOICE. This test deliberately does NOT fly ONYIX.
+   *
+   * ONYIX's FOUNDER ability is "START WITH A FREE UPGRADE", and $.reset()
+   * implements it by granting a RANDOM upgrade (game.js:343). Asserting that
+   * a specific upgrade is empty after a reset therefore fails roughly one run
+   * in nine, whenever the random pick happens to be the one being asserted -
+   * which is exactly how this test failed on phone-landscape and passed on
+   * desktop in the same run. The game was right; the test was rolling dice.
+   *
+   * NOVA has no startUpgrade, so the reset invariant can be stated exactly.
+   * The founder grant keeps its own deterministic assertion below.
+   */
   test('a run resets but a career does not', async ({ page }) => {
-    await boot(page, { profile: VETERAN });
+    // Every pilot but ONYIX is purchase-gated (characters.js unlock.purchase),
+    // so selecting one the profile does not own silently falls back to ONYIX -
+    // and straight back into the random founder grant. Own the pilot.
+    await boot(page, {
+      profile: { ...VETERAN, character: 1 },
+      serverProfile: { items: ['pilot_nova'], consumables: {} },
+    });
     await startRun(page, 800);
     const state = await page.evaluate(() => {
       const $ = (window as any).$;
+      const pilotId = $.hero.character.id;
       $.score = 12345; $.kills = 40; $.comboMultiplier = 5; $.upgrades = { heavy: 3 };
-      const carriedXp = $.pilotXp('onyix');
+      const carriedXp = $.pilotXp(pilotId);
       const carriedBest = $.storage.score;
       $.reset();
       return {
+        pilotId,
+        startUpgrade: !!($.hero.character.ability && $.hero.character.ability.startUpgrade),
         runScore: $.score,
         runCombo: $.comboMultiplier,
-        heavyStacks: $.upgrades.heavy || 0,
-        pilotXp: $.pilotXp('onyix'),
+        stacks: Object.values($.upgrades as Record<string, number>).reduce((a, b) => a + b, 0),
+        pilotXp: $.pilotXp(pilotId),
         best: $.storage.score,
         carriedXp, carriedBest,
       };
     });
+    // Guard the premise: if the roster is reordered so this pilot DOES have a
+    // starting upgrade, fail loudly here rather than silently going flaky.
+    expect(state.startUpgrade, `${state.pilotId} grants a starting upgrade; pick a pilot that does not`).toBe(false);
     // run-only: gone
     expect(state.runScore).toBe(0);
     expect(state.runCombo).toBe(1);
-    expect(state.heavyStacks).toBe(0);
+    expect(state.stacks, 'refits carried across a reset').toBe(0);
     // permanent: untouched
     expect(state.pilotXp).toBe(state.carriedXp);
     expect(state.best).toBe(state.carriedBest);
+  });
+
+  /*
+   * The founder grant itself, asserted without depending on WHICH upgrade the
+   * roll produces: exactly one stack, drawn from the real upgrade pool.
+   */
+  test('a founder pilot starts a run with exactly one free refit', async ({ page }) => {
+    await boot(page, { profile: { ...VETERAN, character: 0 } });
+    await startRun(page, 800);
+    const state = await page.evaluate(() => {
+      const $ = (window as any).$;
+      $.reset();
+      const ids = Object.keys($.upgrades);
+      return {
+        pilotId: $.hero.character.id,
+        startUpgrade: !!($.hero.character.ability && $.hero.character.ability.startUpgrade),
+        ids,
+        stacks: Object.values($.upgrades as Record<string, number>).reduce((a, b) => a + b, 0),
+        pool: ($.definitions.upgrades as Array<{ id: string }>).map((u) => u.id),
+      };
+    });
+    expect(state.startUpgrade, `${state.pilotId} is expected to be a founder pilot`).toBe(true);
+    expect(state.stacks, 'founder grant should be exactly one stack').toBe(1);
+    expect(state.ids).toHaveLength(1);
+    expect(state.pool, 'the granted refit must come from the real pool').toContain(state.ids[0]);
   });
 
   test("today's daily challenge is real and pays the real streak reward", async ({ page }) => {
