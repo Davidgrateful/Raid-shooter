@@ -284,7 +284,11 @@ export function BoardOverlay() {
         ) : myRank === 0 ? (
           <div className="rs-sb-stand rs-sb-stand-quiet">
             <span className="rs-sb-stand-msg">
-              Not ranked yet{bestRun > 0 ? ` — your best run is ${bestRun.toLocaleString()}` : ''}. Finish a raid to enter the board.
+              {/* "raid" is the flavour noun for a run throughout the deck, which
+                  is fine - but this one sentence used BOTH for the same thing
+                  ("your best run ... finish a raid"), which reads like two
+                  different activities. One word per sentence. */}
+              Not ranked yet{bestRun > 0 ? ` — your best is ${bestRun.toLocaleString()}` : ''}. Finish a raid to enter the board.
             </span>
           </div>
         ) : (
@@ -353,9 +357,16 @@ export function BoardOverlay() {
       {/* board body */}
       <div ref={listRef} className="relative z-10 flex-1 overflow-y-auto px-4 pb-24 pt-3 sm:px-8">
         {entries.length === 0 ? (
-          <div className="mt-16 text-center text-sm text-white/50">
-            {loading ? 'LOADING…' : tab === 'cup' ? 'NO CUP RUNS YET — PLAY TO ENTER' : tab === 'daily' ? 'NO DAILY RUNS YET — ONE SEEDED ATTEMPT PER DAY' : tab === 'weekly' ? 'NO RUNS THIS WEEK YET — FRESH BOARD, CLAIM IT' : 'NO PILOTS RANKED YET'}
-          </div>
+          /* An empty list and a FAILED list are not the same claim. When the
+             fetch failed we do not know whether anyone is ranked, so asserting
+             "NO PILOTS RANKED YET" underneath a "BOARD UNAVAILABLE" banner told
+             the player two contradictory things at once. The Recover bar above
+             owns the message and the retry; say nothing more here. */
+          boardError ? null : (
+            <div className="mt-16 text-center text-sm text-white/50">
+              {loading ? 'LOADING…' : tab === 'cup' ? 'NO CUP RUNS YET — PLAY TO ENTER' : tab === 'daily' ? 'NO DAILY RUNS YET — ONE SEEDED ATTEMPT PER DAY' : tab === 'weekly' ? 'NO RUNS THIS WEEK YET — FRESH BOARD, CLAIM IT' : 'NO PILOTS RANKED YET'}
+            </div>
+          )
         ) : (
           <>
             {podium.length === 3 && (

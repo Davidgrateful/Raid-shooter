@@ -5041,7 +5041,7 @@ $.setupStates = function() {
 			},
 			{
 				title: 'CLIMB THE RANKS',
-				lines: 'TOP THE SHOOTERBOARD\nEARN TIERS BRONZE TO MASTER\nARMORY ITEMS ARE COSMETIC\nAND NEVER AFFECT YOUR SCORE',
+				lines: 'TOP THE SHOOTERBOARD\nEARN TIERS BRONZE TO MASTER\nTRAILS AND FINISHES ARE SKINS\nDRONES AND KITS ARE NOT',
 				draw: function( cx, cy, r ) {
 					var tiers = $.definitions.tiers, n = tiers.length,
 						gap = r * 0.62, x0 = cx - ( ( n - 1 ) * gap ) / 2;
