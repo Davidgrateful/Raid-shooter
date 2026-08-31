@@ -190,11 +190,7 @@ $.setupCanvasSizes = function() {
 	$.ctxmg.setTransform( $.dpr, 0, 0, $.dpr, 0, 0 );
 	// safe-area insets (notch / Dynamic Island / home indicator), read from
 	// the CSS env() values so HUD and on-screen buttons stay clear of them
-	var safeStyle = getComputedStyle( document.documentElement );
-	$.safeAreaTop = parseFloat( safeStyle.getPropertyValue( '--safe-top' ) ) || 0;
-	$.safeAreaBottom = parseFloat( safeStyle.getPropertyValue( '--safe-bottom' ) ) || 0;
-	$.safeAreaLeft = parseFloat( safeStyle.getPropertyValue( '--safe-left' ) ) || 0;
-	$.safeAreaRight = parseFloat( safeStyle.getPropertyValue( '--safe-right' ) ) || 0;
+	$.refreshSafeAreas();
 	$.wrap.style.width = $.wrapInner.style.width = $.cw + 'px';
 	$.wrap.style.height = $.wrapInner.style.height = $.ch + 'px';
 	$.wrap.style.marginLeft = '0px';
@@ -1694,8 +1690,36 @@ $.updateCanvasOffset = function() {
 	}
 }
 
+// Read the CSS env() safe-area values into the engine. Split out of
+// setupCanvasSizes so a mid-run resize can refresh the insets without
+// re-fitting the canvas (see resizecb).
+$.refreshSafeAreas = function() {
+	var safeStyle = getComputedStyle( document.documentElement );
+	$.safeAreaTop = parseFloat( safeStyle.getPropertyValue( '--safe-top' ) ) || 0;
+	$.safeAreaBottom = parseFloat( safeStyle.getPropertyValue( '--safe-bottom' ) ) || 0;
+	$.safeAreaLeft = parseFloat( safeStyle.getPropertyValue( '--safe-left' ) ) || 0;
+	$.safeAreaRight = parseFloat( safeStyle.getPropertyValue( '--safe-right' ) ) || 0;
+};
+
 $.resizecb = function( e ) {
 	$.updateCanvasOffset();
+
+	/* Safe-area insets are refreshed on EVERY resize, including mid-run.
+	 *
+	 * Re-fitting the whole canvas during play is deliberately skipped below so
+	 * a resize cannot disrupt gameplay - but that also meant the notch / home
+	 * indicator measurements went stale for the rest of the run. On iOS Safari
+	 * the address bar collapses DURING play, which is a resize with no
+	 * orientation change, so a raid started with the bar open kept placing the
+	 * HUD against insets that no longer described the screen.
+	 *
+	 * These four numbers only feed HUD placement - no physics, no canvas
+	 * geometry - so refreshing them is safe where a full re-fit is not.
+	 *
+	 * NOTE: this is reasoned from the code and verified only under emulation.
+	 * The iOS behaviour it targets is UNVERIFIED - it needs a physical device.
+	 */
+	$.refreshSafeAreas();
 
 	// re-fit the game to the new screen while idle in a menu (covers phones
 	// rotating to landscape and entering/leaving fullscreen); a mid-run
@@ -1721,6 +1745,22 @@ $.blurcb = function() {
 	}
 }
 
+/* The engine paused on `blur` only. On iOS, app-switching and screen-lock fire
+ * `visibilitychange` reliably and `blur` less so, which left a raid nominally
+ * live while the player was elsewhere. requestAnimationFrame halts when hidden
+ * and $.dt is clamped to 10 (updateDelta), so the worst case was never a
+ * physics blow-up - but "come back to a paused run" is the honest behaviour and
+ * it should not depend on which of two events the browser chose to send.
+ *
+ * Same handler, so double-firing is harmless: the second call sees 'pause'.
+ *
+ * NOTE: the iOS event behaviour this targets is UNVERIFIED - emulation cannot
+ * confirm it. The handler itself is exercised by the test suite.
+ */
+$.visibilitycb = function() {
+	if( document.hidden ) { $.blurcb(); }
+}
+
 $.bindEvents = function() {
 	window.addEventListener( 'mousemove', $.mousemovecb, { passive: false } );
 	window.addEventListener( 'mousedown', $.mousedowncb, { passive: false } );
@@ -1733,6 +1773,7 @@ $.bindEvents = function() {
 	window.addEventListener( 'keyup', $.keyupcb );
 	window.addEventListener( 'resize', $.resizecb );
 	window.addEventListener( 'blur', $.blurcb );
+	document.addEventListener( 'visibilitychange', $.visibilitycb );
 
 	// Browsers block audio until the user interacts with the page, so the
 	// background music can't autoplay on the very first loading intro. Unlock

@@ -4483,3 +4483,35 @@ button.
   .rs-cm-head { padding: 6px 9px; }
   .rs-cm-foot { padding: 6px; }
 }
+
+/*==============================================================================
+KEYBOARD FOCUS
+
+The app never suppressed focus rings - the browser default was there all along.
+Measured on the command deck, though, that default computes to
+`outline: auto 1px rgb(16,16,16)` on almost every control: a near-black ring on
+a near-black UI, which is present in the DOM and invisible to a human. Only the
+wallet button happened to resolve white.
+
+So this is not "add focus styles", it is "make the ring the one thing it has to
+be" - visible. Cyan, because the palette already means CYAN = active / system /
+navigation, and a focus ring is exactly that.
+
+:focus-visible rather than :focus, so a mouse or touch player never sees a ring
+they did not ask for - which matters here because the upgrade draft now moves
+focus programmatically mid-run.
+==============================================================================*/
+:where(button, a, input, textarea, select, [tabindex]):focus-visible {
+  outline: 2px solid var(--rs-cyan, #35e8ff);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* On a cyan-filled control the cyan ring would vanish into its own background,
+   so those invert to a dark ring plus a light halo to stay legible either way. */
+.rs-nav-item[data-active="1"]:focus-visible,
+.rs-cta:focus-visible,
+.rs-deploy:focus-visible {
+  outline-color: #04121a;
+  box-shadow: 0 0 0 4px rgba(53, 232, 255, 0.55);
+}

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { engine, useEngineState, withEngine } from '@/components/command/engine';
 import { chooseUpgrade, readDraft, type DraftCard, type DraftView } from './data';
 
@@ -77,6 +77,49 @@ export function UpgradeDraft() {
     setTimeout(() => chooseUpgrade(id), 260);
   }, [taken]);
 
+  /* --- focus: this is a BLOCKING modal, so it has to behave like one -----
+   *
+   * Measured before this existed, with the draft open: aria-modal was absent,
+   * document.activeElement was <body> (focus never entered), and Tab from the
+   * last card escaped straight to the "Connect Wallet" button BEHIND the veil.
+   * A keyboard player tabbing through a run-halting dialog landed on the page
+   * underneath it, and a screen reader was never told a dialog had opened.
+   *
+   * The 1/2/3 shortcut below already made this playable without a mouse, but
+   * only for someone who knew the shortcut existed. Moving focus in makes the
+   * cards reachable and announces the dialog; trapping Tab keeps them there
+   * until a pick is made, which is the same contract the run itself has.
+   */
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!onDraft || !view) return;
+    const cards = (): HTMLElement[] => {
+      const nodes = panelRef.current?.querySelectorAll<HTMLElement>('button:not([disabled])');
+      return nodes ? Array.from(nodes) : [];
+    };
+    // a tick, so the cards exist and the entry animation has them laid out
+    const enter = setTimeout(() => cards()[0]?.focus(), 0);
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab') return;
+      const items = cards();
+      if (items.length === 0) return;
+      const edge = e.shiftKey ? items[0] : items[items.length - 1];
+      // also catches focus that is somehow already outside the panel
+      const outside = !panelRef.current?.contains(document.activeElement);
+      if (outside || document.activeElement === edge) {
+        e.preventDefault();
+        (e.shiftKey ? items[items.length - 1] : items[0]).focus();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      clearTimeout(enter);
+      window.removeEventListener('keydown', onKey);
+    };
+    // `view` is in the deps so a bonus second pick re-arms the trap
+  }, [onDraft, view]);
+
   /* --- 1/2/3 pick the cards; the draft is playable without a mouse ------ */
   useEffect(() => {
     if (!onDraft || !view) return;
@@ -94,7 +137,14 @@ export function UpgradeDraft() {
   if (!onDraft || !view) return null;
 
   return (
-    <div data-game-ui="" className="rs-draft" role="dialog" aria-label="Choose an upgrade">
+    <div
+      data-game-ui=""
+      ref={panelRef}
+      className="rs-draft"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Choose an upgrade"
+    >
       <div className="rs-draft-veil" aria-hidden />
 
       <div className="rs-draft-inner">
