@@ -4487,15 +4487,27 @@ button.
 /*==============================================================================
 KEYBOARD FOCUS
 
-The app never suppressed focus rings - the browser default was there all along.
-Measured on the command deck, though, that default computes to
-`outline: auto 1px rgb(16,16,16)` on almost every control: a near-black ring on
-a near-black UI, which is present in the DOM and invisible to a human. Only the
-wallet button happened to resolve white.
+The app never suppressed focus rings, and - correcting an earlier claim in this
+file - the browser default was NOT invisible. Its computed value reads
+`outline: auto 1px rgb(16,16,16)`, which looks like a near-black ring on a
+near-black UI, but Chromium paints `outline: auto` as a white two-tone ring
+whatever that colour says. Screenshotting it settled the matter: the default
+was clearly visible. Reading the computed value and inferring the pixels was
+the mistake.
 
-So this is not "add focus styles", it is "make the ring the one thing it has to
-be" - visible. Cyan, because the palette already means CYAN = active / system /
-navigation, and a focus ring is exactly that.
+So this rule is NOT an accessibility fix - keyboard focus was already visible.
+It is a consistency one, and worth having for two honest reasons:
+
+  - `outline: auto` is engine-specific. Chromium's white double ring, Firefox's
+    and Safari's rings all differ, so focus looked like a different feature per
+    browser. An explicit 2px ring looks the same everywhere.
+  - Cyan is what the palette already means by "active / system / navigation",
+    which is exactly what a focus ring is. The default white belonged to no
+    part of the design language.
+
+:focus-visible rather than :focus, so a mouse or touch player never sees a ring
+they did not ask for - which matters here because the upgrade draft now moves
+focus programmatically mid-run.
 
 :focus-visible rather than :focus, so a mouse or touch player never sees a ring
 they did not ask for - which matters here because the upgrade draft now moves
@@ -4508,10 +4520,13 @@ focus programmatically mid-run.
 }
 
 /* On a cyan-filled control the cyan ring would vanish into its own background,
-   so those invert to a dark ring plus a light halo to stay legible either way. */
-.rs-nav-item[data-active="1"]:focus-visible,
-.rs-cta:focus-visible,
-.rs-deploy:focus-visible {
+   so those invert to a dark ring plus a light halo to stay legible either way.
+   The active nav tab is keyed on data-active="true" - the value the component
+   actually writes (hud.tsx:211). An earlier version of this rule guessed "1"
+   and matched nothing, and named a .rs-deploy class that does not exist: the
+   deploy control is .rs-cta (panels.tsx:181). Both were dead CSS. */
+.rs-nav-item[data-active="true"]:focus-visible,
+.rs-cta:focus-visible {
   outline-color: #04121a;
   box-shadow: 0 0 0 4px rgba(53, 232, 255, 0.55);
 }
