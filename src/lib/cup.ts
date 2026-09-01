@@ -24,19 +24,33 @@ function memBoard(seasonId: string): Map<string, BoardEntry> {
   return b;
 }
 
-// Post a run to a cup board. CUMULATIVE like the all-time board: every run
-// played during the cup window adds to that identity's cup-scoped running
-// total, rather than only keeping their single best run within the window.
+// Post a run to a cup board. BEST RUN, not cumulative - and deliberately
+// different from the all-time board on this point.
+//
+// The cup was cumulative like everything else, which meant a sponsored cup with
+// a USDC prize was won by whoever played the most inside the window, never by
+// whoever played best. There was no way to take a cup by being good, only by
+// grinding it, on the one board where real money is attached. That is the wrong
+// incentive to put a prize behind.
+//
+// The all-time board stays cumulative on purpose: it is honestly a CAREER
+// board, and rewriting years of player history to "fix" it would destroy real
+// data. The weekly ladder stays cumulative too - it is the consistency ladder.
+// The cup is the skill board, and now says so.
+//
+// Kills follow the same rule: they describe the run that set the standing, not
+// a lifetime tally, so a replaced best replaces its kill count too.
 export async function submitCupEntry(seasonId: string, entry: BoardEntry): Promise<void> {
   if (kvUrl && kvToken) {
-    const raw = (await redis(['HGET', entriesKey(seasonId), entry.address])) as string | null;
-    let prevKills = 0;
-    if (raw) {
-      try { prevKills = (JSON.parse(raw) as BoardEntry).kills || 0; } catch { /* corrupt row, treat as fresh */ }
+    // GT keeps the existing score when it is already higher, so a worse run
+    // never demotes a standing and the write stays a single atomic command.
+    await redis(['ZADD', boardKey(seasonId), 'GT', entry.score, entry.address]);
+    const best = (await redis(['ZSCORE', boardKey(seasonId), entry.address])) as string | null;
+    // Only refresh the stored row when THIS run is the one now standing -
+    // otherwise a weaker later run would overwrite the details of the best one.
+    if (best !== null && Number(best) === entry.score) {
+      await redis(['HSET', entriesKey(seasonId), entry.address, JSON.stringify({ ...entry, score: entry.score })]);
     }
-    const newTotal = (await redis(['ZINCRBY', boardKey(seasonId), entry.score, entry.address])) as string | number;
-    const stored: BoardEntry = { ...entry, score: Number(newTotal), kills: prevKills + entry.kills };
-    await redis(['HSET', entriesKey(seasonId), entry.address, JSON.stringify(stored)]);
     // cups are time-boxed; let the raw board self-clean a week after the run
     await redis(['EXPIRE', boardKey(seasonId), 14 * 86400]);
     await redis(['EXPIRE', entriesKey(seasonId), 14 * 86400]);
@@ -44,11 +58,9 @@ export async function submitCupEntry(seasonId: string, entry: BoardEntry): Promi
   }
   const b = memBoard(seasonId);
   const existing = b.get(entry.address);
-  b.set(entry.address, {
-    ...entry,
-    score: (existing?.score || 0) + entry.score,
-    kills: (existing?.kills || 0) + entry.kills,
-  });
+  if (!existing || entry.score > existing.score) {
+    b.set(entry.address, { ...entry });
+  }
 }
 
 // Patch a player's display name on a cup board without touching their

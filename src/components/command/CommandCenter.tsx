@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ShipViewport } from './ShipViewport';
 import { NavRail, TabBar, TopHud, type NavEntry } from './hud';
 import { CupPanel, DeployCta, MissionPanel, Panel, PilotIdentity, RankPanel, RewardPanel, RewardWonPanel } from './panels';
+import { Recover } from './Recover';
 import { engine, readPlayer, useEngineRevision, useEngineState, withEngine, type PlayerSnapshot, type ShipDef } from './engine';
 import { guestToken, timeLeft, useMenuData } from './useMenuData';
 import { IconArmory, IconDeploy, IconMail, IconPilot, IconRankings, IconSystem } from './icons';
@@ -243,6 +244,29 @@ export function CommandCenter() {
           streak={daily.streak}
           onOpen={() => go('playmode')}
         />
+      )}
+
+      {/* A reward request that failed is NOT "nothing to claim". Both used to
+          fail silently, so a dropped call and an empty inbox looked identical -
+          the player simply never learned a gift was waiting. One quiet line
+          with a retry, in the same place the reward would have been. */}
+      {(data.streakFailed || data.giftFailed) && (
+        <Panel title="Rewards">
+          <Recover
+            message={
+              data.streakFailed && data.giftFailed
+                ? 'Rewards unavailable — streak and weekly drop could not be read.'
+                : data.streakFailed
+                  ? 'Streak unavailable — your run history could not be read.'
+                  : 'Weekly drop unavailable — it could not be read right now.'
+            }
+            onRetry={() => {
+              if (data.streakFailed) data.refreshStreak();
+              if (data.giftFailed) data.refreshGift();
+            }}
+            tone="line"
+          />
+        </Panel>
       )}
 
       {streakClaimable && data.streak && (

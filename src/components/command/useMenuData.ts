@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { withEngine } from './engine';
 
 /*==============================================================================
 Menu data
@@ -81,6 +82,10 @@ interface MenuData {
   unread: number;
   hasInbox: boolean;
   rank: RankState | null;
+  /** A reward fetch failed. Distinct from "nothing to claim", which is what
+   *  a swallowed error used to look like on the deck. */
+  streakFailed: boolean;
+  giftFailed: boolean;
   refreshStreak: () => void;
   refreshGift: () => void;
 }
@@ -93,24 +98,88 @@ export function useMenuData(active: boolean): MenuData {
   const [unread, setUnread] = useState(0);
   const [hasInbox, setHasInbox] = useState(false);
   const [rank, setRank] = useState<RankState | null>(null);
+  // A reward the player cannot see is a reward they do not have. These used to
+  // fail into `.catch(() => {})`, so a dropped request looked exactly like
+  // "nothing to claim" - silent on the one thing we most want noticed.
+  const [streakFailed, setStreakFailed] = useState(false);
+  const [giftFailed, setGiftFailed] = useState(false);
 
+  /*
+   * READ the streak. No side effect.
+   *
+   * This used to POST first, recording a "play" on every menu visit - which
+   * meant the DAILY PLAY STREAK counted opening the app, not playing it.
+   * Three days of launching the game and going straight back out earned a free
+   * shield charge; thirty earned a pilot. The read and the record are now
+   * separate, and only a finished run records (see recordPlayIfRaided).
+   */
   const refreshStreak = useCallback(() => {
     const gt = guestToken();
-    // record today's visit first, then read the full state back - the record
-    // response omits claimedAt, which the claim card needs
+    fetch(`/api/streak${gt ? `?guestToken=${encodeURIComponent(gt)}` : ''}`)
+      .then((r) => { if (!r.ok) throw new Error(String(r.status)); return r.json(); })
+      .then((d) => { setStreak(d); setStreakFailed(false); })
+      .catch(() => setStreakFailed(true));
+  }, []);
+
+  /*
+   * RECORD a play, but only once a run has actually been completed.
+   *
+   * $.storage.rounds increments exactly once per finished run (game.js:3570),
+   * so comparing it against the last value we recorded tells us whether the
+   * player has raided since. recordPlay is idempotent within a calendar day
+   * server-side, so an extra call is harmless - what matters is that ZERO
+   * calls happen for someone who only opened the deck.
+   */
+  const recordPlayIfRaided = useCallback(() => {
+    const rounds = withEngine((e) => Number(e.storage?.rounds) || 0) ?? 0;
+    if (rounds <= 0) return;
+    let seen = 0;
+    try { seen = Number(localStorage.getItem('rs-streak-rounds')) || 0; } catch { /* private mode */ }
+    if (rounds <= seen) return;
+
+    const gt = guestToken();
     fetch('/api/streak', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ guestToken: gt || undefined }),
     })
-      .then(() => fetch(`/api/streak${gt ? `?guestToken=${encodeURIComponent(gt)}` : ''}`))
-      .then((r) => r.json())
-      .then(setStreak)
-      .catch(() => {});
+      .then(() => { try { localStorage.setItem('rs-streak-rounds', String(rounds)); } catch { /* private mode */ } })
+      .then(refreshStreak)
+      .catch(() => setStreakFailed(true));
+  }, [refreshStreak]);
+
+  /*
+   * Sync pilot XP up and take the merged answer back. The server max-merges,
+   * so this cannot lose progress in either direction - see mergePilotXp.
+   */
+  const syncPilotXp = useCallback(() => {
+    const local = withEngine((e) => e.storage?.pilotxp as Record<string, number> | undefined);
+    if (!local || Object.keys(local).length === 0) return;
+    const gt = guestToken();
+    fetch('/api/profile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pilotxp: local, guestToken: gt || undefined }),
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!d?.pilotxp) return;
+        // write the merged truth back into the engine, so a device that was
+        // behind catches up without the player replaying anything
+        withEngine((e) => {
+          const store = e.storage as Record<string, unknown>;
+          store.pilotxp = { ...(store.pilotxp as object), ...d.pilotxp };
+          (e as unknown as { updateStorage?: () => void }).updateStorage?.();
+        });
+      })
+      .catch(() => { /* a failed XP sync is not worth interrupting the deck */ });
   }, []);
 
   const refreshGift = useCallback(() => {
-    fetch('/api/claim/weekly').then((r) => r.json()).then(setGift).catch(() => {});
+    fetch('/api/claim/weekly')
+      .then((r) => { if (!r.ok) throw new Error(String(r.status)); return r.json(); })
+      .then((d) => { setGift(d); setGiftFailed(false); })
+      .catch(() => setGiftFailed(true));
   }, []);
 
   // one-time content that doesn't change while the tab is open
@@ -129,8 +198,10 @@ export function useMenuData(active: boolean): MenuData {
   // because a finished run can have moved all of it
   useEffect(() => {
     if (!active) return;
+    recordPlayIfRaided();   // no-op unless a run finished since last time
     refreshStreak();
     refreshGift();
+    syncPilotXp();
 
     const gt = guestToken();
     fetch(`/api/inbox${gt ? `?guestToken=${encodeURIComponent(gt)}` : ''}`)
@@ -162,5 +233,5 @@ export function useMenuData(active: boolean): MenuData {
     return () => { cancelled = true; };
   }, [active, refreshStreak, refreshGift]);
 
-  return { cup, streak, gift, news, unread, hasInbox, rank, refreshStreak, refreshGift };
+  return { cup, streak, gift, news, unread, hasInbox, rank, streakFailed, giftFailed, refreshStreak, refreshGift };
 }

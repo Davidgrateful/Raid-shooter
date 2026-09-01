@@ -59,16 +59,19 @@ export function StreakBoard() {
     };
   }, []);
 
-  // On menu entry, record + read the streak, then auto-open once per day.
+  /*
+   * On menu entry, READ the streak. This used to POST first - recording a
+   * "play" for merely arriving at the menu - which is half of why the daily
+   * PLAY streak paid out for not playing. useMenuData was the other half.
+   *
+   * Recording now happens in exactly one place, gated on a finished run
+   * (recordPlayIfRaided in useMenuData). A read must never have a side effect,
+   * or the streak measures app-opens again the moment someone adds a screen.
+   */
   useEffect(() => {
     if (!onMenu) return;
     const gt = myGuestToken();
-    fetch('/api/streak', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ guestToken: gt || undefined }),
-    })
-      .then(() => fetch(`/api/streak${gt ? `?guestToken=${encodeURIComponent(gt)}` : ''}`))
+    fetch(`/api/streak${gt ? `?guestToken=${encodeURIComponent(gt)}` : ''}`)
       .then((r) => r.json())
       .then((d: StreakData) => {
         setData(d);

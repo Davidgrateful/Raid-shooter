@@ -4,6 +4,7 @@ import { grantItem } from '@/lib/profile';
 import { getItem } from '@/lib/market';
 import { isKvConfigured, redisCommand } from '@/lib/kv';
 import { rateLimit, clientIp } from '@/lib/ratelimit';
+import { weekKey as mondayWeekKey } from '@/lib/weekly';
 
 // Weekly free boost for wallet-connected players. The gift rotates every
 // week and is claimable once per wallet per week. Purpose: convert guests
@@ -27,12 +28,33 @@ const ROTATION = ['consumable_shield', 'consumable_health', 'consumable_revive']
 // in-memory fallback so local dev works without KV (per-instance, ephemeral)
 const memClaims = new Set<string>();
 
+/*
+ * The gift week is the SAME week as the weekly ladder: Monday 00:00 UTC.
+ *
+ * It used to be `Math.floor(Date.now() / (7 * 86400000))`, an epoch-aligned
+ * week - and the Unix epoch was a Thursday, so the gift rolled over on
+ * Thursdays while the ladder rolled over on Mondays. Neither was wrong on its
+ * own; together they made "weekly" impossible to teach, because the game meant
+ * two different things by it three days apart.
+ *
+ * Reuses weekly.ts's key so the two can never drift again - one definition of
+ * a week, imported rather than reimplemented.
+ *
+ * TRANSITION: claim keys change shape (w2981 -> 2026-08-31), so nobody carries
+ * a claimed flag across the switch. The one-off cost is that a player who
+ * already claimed this Thursday-week can claim once more in the Monday-week
+ * that follows. That is a single extra consumable each, which is a far cheaper
+ * outcome than the alternative bug - a key collision silently denying someone
+ * a gift they never received.
+ */
 function weekKey(): string {
-  return `w${Math.floor(Date.now() / (7 * 86400000))}`;
+  return mondayWeekKey();
 }
 
 function weekItemId(): string {
-  return ROTATION[Math.floor(Date.now() / (7 * 86400000)) % ROTATION.length];
+  // rotate on the same Monday boundary: whole weeks since the epoch Monday
+  const monday = Date.parse(`${mondayWeekKey()}T00:00:00Z`);
+  return ROTATION[Math.floor(monday / (7 * 86400000)) % ROTATION.length];
 }
 
 async function hasClaimed(address: string): Promise<boolean> {
