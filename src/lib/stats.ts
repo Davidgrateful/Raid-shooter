@@ -521,3 +521,66 @@ export async function getPlayersList(limit = 200): Promise<PlayerRow[]> {
   rows.sort((a, b) => b.spendUsd - a.spendUsd || b.games - a.games);
   return rows.slice(0, Math.max(1, Math.min(1000, limit)));
 }
+
+/*==============================================================================
+FEATURE INTEREST  ("coming soon" demand gauge)
+
+A fake-door measurement, kept deliberately honest: the UI never claims the
+feature exists, and this only counts taps. Two numbers per feature -
+
+  players : a SET of opaque player ids, so one enthusiast tapping twenty times
+            counts once. This is the number that actually means something.
+  taps    : a raw counter. Divided by `players` it says whether people came
+            back to it, which is a different signal from how many tried it.
+
+No email, no personal data, no promise of a notification - we have nowhere
+honest to send one. The player is told their interest was recorded, and that
+is exactly all that happens.
+==============================================================================*/
+const INTEREST_PLAYERS = (f: string) => `interest:players:${f}`;
+const INTEREST_TAPS = 'interest:taps';
+
+const memInterestPlayers = new Map<string, Set<string>>();
+const memInterestTaps = new Map<string, number>();
+
+/** Allowlist, so a forged payload cannot mint arbitrary Redis keys. */
+export const INTEREST_FEATURES = ['duels'] as const;
+export type InterestFeature = (typeof INTEREST_FEATURES)[number];
+
+export function isInterestFeature(v: unknown): v is InterestFeature {
+  return typeof v === 'string' && (INTEREST_FEATURES as readonly string[]).includes(v);
+}
+
+export async function trackInterest(playerId: string, feature: InterestFeature): Promise<void> {
+  if (isKvConfigured()) {
+    await redisCommand(['SADD', INTEREST_PLAYERS(feature), playerId]);
+    await redisCommand(['HINCRBY', INTEREST_TAPS, feature, 1]);
+    return;
+  }
+  let set = memInterestPlayers.get(feature);
+  if (!set) { set = new Set(); memInterestPlayers.set(feature, set); }
+  set.add(playerId);
+  memInterestTaps.set(feature, (memInterestTaps.get(feature) || 0) + 1);
+}
+
+export interface InterestStat { feature: string; players: number; taps: number }
+
+export async function getInterest(): Promise<InterestStat[]> {
+  const out: InterestStat[] = [];
+  for (const feature of INTEREST_FEATURES) {
+    if (isKvConfigured()) {
+      const [players, taps] = (await Promise.all([
+        redisCommand(['SCARD', INTEREST_PLAYERS(feature)]),
+        redisCommand(['HGET', INTEREST_TAPS, feature]),
+      ])) as [number, string | null];
+      out.push({ feature, players: Number(players) || 0, taps: Number(taps) || 0 });
+    } else {
+      out.push({
+        feature,
+        players: memInterestPlayers.get(feature)?.size || 0,
+        taps: memInterestTaps.get(feature) || 0,
+      });
+    }
+  }
+  return out;
+}

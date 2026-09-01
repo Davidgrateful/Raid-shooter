@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAllEntries, isPersistent, type BoardEntry } from '@/lib/leaderboard';
-import { getTrackingStats, getLoadoutStats, getMarketStats, getRecentBuys } from '@/lib/stats';
+import { getTrackingStats, getLoadoutStats, getMarketStats, getRecentBuys, getInterest } from '@/lib/stats';
 import { marketEnabled, baseNetwork } from '@/lib/market';
 import { adminGate } from '@/lib/admin-auth';
 
@@ -25,11 +25,12 @@ export async function GET(req: NextRequest) {
   const denied = await adminGate(req, 'stats.view');
   if (denied) return denied;
 
-  const [entries, tracking, market, recentBuys] = await Promise.all([
+  const [entries, tracking, market, recentBuys, interest] = await Promise.all([
     getAllEntries() as Promise<BoardEntry[]>,
     getTrackingStats(14),
     getMarketStats(14),
     getRecentBuys(20),
+    getInterest(),
   ]);
   // loadout rates are relative to total runs, so compute after tracking
   const loadout = await getLoadoutStats(tracking.runsAllTime);
@@ -81,6 +82,12 @@ export async function GET(req: NextRequest) {
 
     // which pilots/drones players actually run with, across every run
     loadout,
+
+    // demand for features that are announced but NOT built. `players` is
+    // unique taps, `taps` is raw presses - the gap between them is the same
+    // person coming back, which is itself a signal. Read against
+    // tracking.uniquePlayersAllTime to get a rate rather than a count.
+    interest,
 
     // live storefront config (no secrets) so you can see at a glance
     // whether payments are actually live

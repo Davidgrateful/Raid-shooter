@@ -66,6 +66,7 @@ interface Stats {
     runsWithDrone: number;
     droneEquipRatePct: number;
   };
+  interest?: { feature: string; players: number; taps: number }[];
   config: {
     paymentsEnabled: boolean;
     network: string;
@@ -2039,6 +2040,35 @@ function Dashboard(p: DashboardProps) {
                 )}
               </div>
             </section>
+
+            {/* Demand for things that are announced but not built. This is the
+                number that should decide whether DUELS gets built, so it sits
+                next to the usage data rather than in a separate report. */}
+            {stats.interest && stats.interest.length > 0 && (
+              <section>
+                <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-cyan-300/80">
+                  Coming-soon demand
+                </h2>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  {stats.interest.map((f) => (
+                    <Stat
+                      key={f.feature}
+                      label={f.feature}
+                      value={fmtNum(f.players)}
+                      sub={
+                        t.uniquePlayersAllTime > 0
+                          ? `${Math.round((f.players / t.uniquePlayersAllTime) * 1000) / 10}% of players · ${fmtNum(f.taps)} taps`
+                          : `${fmtNum(f.taps)} taps`
+                      }
+                    />
+                  ))}
+                </div>
+                <p className="mt-2 text-xs text-white/35">
+                  Unique players who pressed &ldquo;I&rsquo;d play this&rdquo;. Nothing else is stored — no address,
+                  no contact, so this cannot be used to notify anyone.
+                </p>
+              </section>
+            )}
 
             <section>
               <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-cyan-300/80">

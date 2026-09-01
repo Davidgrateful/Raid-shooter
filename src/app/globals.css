@@ -4530,3 +4530,48 @@ focus programmatically mid-run.
   outline-color: #04121a;
   box-shadow: 0 0 0 4px rgba(53, 232, 255, 0.55);
 }
+
+/*==============================================================================
+COMING SOON PANEL
+
+Present, readable, and unmistakably not-yet. Muted on purpose: gold means money
+and cyan means "act on this", and a feature that does not exist is neither. The
+one interactive element is a low-key button, not a CTA, so it can never be
+mistaken for the thing itself.
+==============================================================================*/
+.rs-soon { opacity: 0.86; }
+.rs-soon:hover { opacity: 1; }
+.rs-soon-chip {
+  font-family: var(--rs-font-ui); font-weight: 700;
+  font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase;
+  padding: 3px 7px;
+  color: rgba(233, 241, 255, 0.5);
+  background: rgba(233, 241, 255, 0.06);
+  border: 1px solid rgba(233, 241, 255, 0.1);
+}
+.rs-soon-blurb {
+  margin: 0; font-size: 12.5px; line-height: 1.45;
+  color: rgba(233, 241, 255, 0.55); max-width: 46ch;
+}
+.rs-soon-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  margin-top: 11px;
+  font-family: var(--rs-font-ui); font-weight: 700;
+  font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+  padding: 0 16px; min-height: 40px;
+  color: rgba(233, 241, 255, 0.8);
+  background: rgba(233, 241, 255, 0.04);
+  border: 1px solid rgba(233, 241, 255, 0.16);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.rs-soon-btn:hover:not(:disabled) {
+  background: rgba(53, 232, 255, 0.10);
+  border-color: rgba(53, 232, 255, 0.45);
+  color: #fff;
+}
+.rs-soon-btn:disabled { opacity: 0.55; cursor: default; }
+.rs-soon-fine {
+  margin: 9px 0 0; font-size: 10.5px; line-height: 1.4;
+  color: rgba(233, 241, 255, 0.34);
+}

@@ -454,3 +454,64 @@ export function CupPanel({
     </button>
   );
 }
+
+/*------------------------------------------------------------------------------
+Coming soon
+
+A feature that is announced and not built has two ways to go wrong, and this
+panel is shaped around avoiding both.
+
+  A DEAD CONTROL THAT LOOKS LIVE. If it wears the same chrome as the cards
+  around it, someone presses it expecting the feature and gets nothing. So it
+  keeps the deck's panel frame - it belongs to this screen - but takes a muted
+  accent instead of cyan (active), gold (money) or purple (class), and carries
+  its status where the other panels put their "go" link.
+
+  A TEASER THAT OVERCLAIMS. No date, no countdown, no "notify me" with nothing
+  behind it. The single interaction is one counted tap, and the fine print says
+  precisely that and nothing more.
+------------------------------------------------------------------------------*/
+export function ComingSoonPanel({
+  title,
+  blurb,
+  registered,
+  busy,
+  failed = false,
+  onRegister,
+}: {
+  title: string;
+  blurb: string;
+  registered: boolean;
+  busy: boolean;
+  failed?: boolean;
+  onRegister: () => void;
+}) {
+  return (
+    <Panel
+      title={title}
+      accent="var(--rs-text-faint)"
+      className="rs-soon"
+      action={<span className="rs-soon-chip">Coming soon</span>}
+    >
+      <p className="rs-soon-blurb">{blurb}</p>
+      <button
+        type="button"
+        className="rs-soon-btn"
+        onClick={onRegister}
+        disabled={registered || busy}
+      >
+        {registered ? 'Noted — thanks' : busy ? 'Sending…' : "I'd play this"}
+      </button>
+      {/* The outcome of the tap is announced rather than left to the button
+          label alone, so a screen reader hears it and a failed tap is visible
+          instead of looking like nothing happened. */}
+      <p className="rs-soon-fine" aria-live="polite">
+        {failed
+          ? 'Could not record that — tap again.'
+          : registered
+            ? 'Your interest was counted. Nothing else was stored.'
+            : 'Counts an anonymous tap so we can see if this is worth building.'}
+      </p>
+    </Panel>
+  );
+}

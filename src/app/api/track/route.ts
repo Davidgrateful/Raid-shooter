@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession, getOrCreateGuestId } from '@/lib/session';
-import { trackRunStart, trackRunEnd } from '@/lib/stats';
+import { trackRunStart, trackRunEnd, trackInterest, isInterestFeature } from '@/lib/stats';
 import { rateLimit, clientIp } from '@/lib/ratelimit';
 
 // Fire-and-forget run telemetry from the game client. Identifies the player
@@ -8,7 +8,7 @@ import { rateLimit, clientIp } from '@/lib/ratelimit';
 // every player and every run - not just score submitters. No personal data
 // is stored, only counters and an opaque id in anonymous sets.
 export async function POST(req: NextRequest) {
-  let body: { event?: string; durationSec?: number; pilot?: string; drone?: string; name?: string };
+  let body: { event?: string; durationSec?: number; pilot?: string; drone?: string; name?: string; feature?: string };
   try {
     body = await req.json();
   } catch {
@@ -31,6 +31,13 @@ export async function POST(req: NextRequest) {
       await trackRunStart(playerId, { pilot: body.pilot, drone: body.drone, name: body.name });
     } else if (body.event === 'run_end') {
       await trackRunEnd(playerId, Number(body.durationSec) || 0);
+    } else if (body.event === 'interest') {
+      // "coming soon" demand gauge. Allowlisted feature names only, so a
+      // forged payload cannot mint arbitrary keys in Redis.
+      if (!isInterestFeature(body.feature)) {
+        return NextResponse.json({ ok: false, error: 'unknown feature' }, { status: 400 });
+      }
+      await trackInterest(playerId, body.feature);
     } else {
       return NextResponse.json({ ok: false, error: 'unknown event' }, { status: 400 });
     }

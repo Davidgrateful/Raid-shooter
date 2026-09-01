@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ShipViewport } from './ShipViewport';
 import { NavRail, TabBar, TopHud, type NavEntry } from './hud';
-import { CupPanel, DeployCta, MissionPanel, Panel, PilotIdentity, RankPanel, RewardPanel, RewardWonPanel } from './panels';
+import { ComingSoonPanel, CupPanel, DeployCta, MissionPanel, Panel, PilotIdentity, RankPanel, RewardPanel, RewardWonPanel } from './panels';
 import { Recover } from './Recover';
 import { engine, readPlayer, useEngineRevision, useEngineState, withEngine, type PlayerSnapshot, type ShipDef } from './engine';
 import { guestToken, timeLeft, useMenuData } from './useMenuData';
@@ -41,6 +41,22 @@ export const NAV: NavEntry[] = [
   { id: 'system', label: 'System', hint: 'Settings', short: 'System', Icon: IconSystem, state: 'settings' },
 ];
 
+/*
+ * DUELS - announced, not shipped.
+ *
+ * The blurb describes the ONE shape of head-to-head this stack can actually
+ * deliver, so the announcement does not write a cheque the build cannot cash:
+ * both pilots fly the same seed (dailyrun.ts already has the seeded PRNG) and
+ * the scores are compared afterwards. It is asynchronous by necessity - the
+ * game is served from Vercel functions, which cannot hold the open sockets a
+ * live side-by-side duel would need.
+ */
+const DUELS_BLURB =
+  'Challenge a pilot to the same seeded raid — same waves, same drops, same run. '
+  + 'You each fly it whenever you like, and the higher score takes it. Not built yet.';
+
+const DUELS_NOTED_KEY = 'rs-interest-duels';
+
 function openModal(which: 'news' | 'inbox' | 'invite' | 'feedback') {
   window.dispatchEvent(new CustomEvent('raidshooter:open', { detail: which }));
 }
@@ -63,6 +79,15 @@ export function CommandCenter() {
   const [commsUnread, setCommsUnread] = useState(false);
   const [commsLive, setCommsLive] = useState(false);
   const [won, setWon] = useState<{ id: string; title: string } | null>(null);
+  const [duelsNoted, setDuelsNoted] = useState(false);
+  const [duelsBusy, setDuelsBusy] = useState(false);
+  const [duelsFailed, setDuelsFailed] = useState(false);
+
+  /* --- an interest tap is remembered locally so the panel does not keep
+         asking the same player the same question every time they come home -- */
+  useEffect(() => {
+    try { setDuelsNoted(localStorage.getItem(DUELS_NOTED_KEY) === '1'); } catch { /* private mode */ }
+  }, []);
 
   /* --- gate the canvas menu off, once ---------------------------------- */
   useEffect(() => {
@@ -148,6 +173,34 @@ export function CommandCenter() {
     setWon(null);
     go('hangar');
   }, [go]);
+
+  /*
+   * DUELS is not built. The panel below says so, and this is the only thing
+   * it can do: count one anonymous tap so the demand is measured rather than
+   * guessed. It deliberately does not collect an address, an email, or a
+   * notification promise - there is nothing on the other end to send.
+   * A failure is shown, not swallowed: a silent no-op on the one control the
+   * player just pressed reads as a broken button.
+   */
+  const noteDuelsInterest = useCallback(async () => {
+    if (duelsNoted || duelsBusy) return;
+    setDuelsBusy(true);
+    setDuelsFailed(false);
+    try {
+      const res = await fetch('/api/track', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event: 'interest', feature: 'duels' }),
+      });
+      if (!res.ok) throw new Error('rejected');
+      setDuelsNoted(true);
+      try { localStorage.setItem(DUELS_NOTED_KEY, '1'); } catch { /* private mode */ }
+    } catch {
+      setDuelsFailed(true);
+    } finally {
+      setDuelsBusy(false);
+    }
+  }, [duelsNoted, duelsBusy]);
 
   const openCup = useCallback(() => {
     withEngine((e) => {
@@ -295,6 +348,18 @@ export function CommandCenter() {
       )}
 
       {player && <RankPanel player={player} rank={data.rank} onOpen={() => go('board')} />}
+
+      {/* Not built yet, and the panel says exactly that. It sits below the
+          things that ARE playable on purpose - a teaser must not outrank a
+          raid the player can actually fly right now. */}
+      <ComingSoonPanel
+        title="Duels"
+        blurb={DUELS_BLURB}
+        registered={duelsNoted}
+        busy={duelsBusy}
+        failed={duelsFailed}
+        onRegister={noteDuelsInterest}
+      />
 
       {data.news && (
         <Panel title="Transmission" accent="var(--rs-purple)">
