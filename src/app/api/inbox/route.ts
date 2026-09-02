@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession, getOrCreateGuestId } from '@/lib/session';
 import { getInbox, markInboxRead } from '@/lib/inbox';
+import { rateLimit, clientIp } from '@/lib/ratelimit';
 
 // The player's own inbox: targeted messages (payout confirmations, cup
 // thank-yous, direct notes). Identity resolves the same way scores do -
@@ -22,6 +23,12 @@ async function identityFor(req: NextRequest): Promise<string | null> {
 // GET reads the guest token from the query string (?guestToken=...) so it can
 // stay a simple GET; wallet players are resolved from their session cookie.
 export async function GET(req: NextRequest) {
+  // Fetched on every menu entry, so the ceiling is loose - this exists to stop
+  // a loop, not to pace a player bouncing between the deck and a raid.
+  if (!(await rateLimit('inbox-read', clientIp(req), 120, 60_000))) {
+    return NextResponse.json({ messages: [], unread: 0 }, { status: 429 });
+  }
+
   const session = await getSession();
   let key: string | null = null;
   if (session.siwe) {
@@ -43,6 +50,12 @@ export async function GET(req: NextRequest) {
 
 // POST { guestToken? } marks the inbox read (clears the unread badge).
 export async function POST(req: NextRequest) {
+  // A separate bucket from the GET above: sharing one counter between two
+  // limits with different ceilings makes both of them mean nothing.
+  if (!(await rateLimit('inbox-mark', clientIp(req), 60, 60_000))) {
+    return NextResponse.json({ ok: false, error: 'rate_limited' }, { status: 429 });
+  }
+
   const key = await identityFor(req);
   if (!key) return NextResponse.json({ ok: false });
   try {

@@ -3,8 +3,20 @@ import { SiweMessage } from 'siwe';
 import { getSession } from '@/lib/session';
 import { mergeGuestIntoWallet } from '@/lib/leaderboard';
 import { mergeGuestProfileIntoWallet } from '@/lib/profile';
+import { rateLimit, clientIp } from '@/lib/ratelimit';
 
 export async function POST(req: NextRequest) {
+  /*
+   * A successful verification runs two full guest->wallet merges, which are
+   * the heaviest writes in the app. IP is the only axis available: the whole
+   * point of this route is that no trusted identity exists until it returns.
+   * Signing in is a once-per-session act, so 20/min leaves room for retries
+   * and wallet quirks while capping a loop.
+   */
+  if (!(await rateLimit('siwe', clientIp(req), 20, 60_000))) {
+    return NextResponse.json({ ok: false, error: 'rate_limited' }, { status: 429 });
+  }
+
   try {
     const { message, signature, guestToken } = await req.json();
     const session = await getSession();

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession, getOrCreateGuestId } from '@/lib/session';
 import { spendConsumable } from '@/lib/profile';
+import { rateLimit } from '@/lib/ratelimit';
 
 // Spends one charge of an owned consumable. The effect itself happens
 // client side (heal/shield/revive) - this just decrements the stockpile
@@ -27,6 +28,25 @@ export async function POST(req: NextRequest) {
   const key = session.siwe
     ? session.siwe.address.toLowerCase()
     : (clientGuestToken || (await getOrCreateGuestId(session)));
+  /*
+   * Keyed on IDENTITY, not IP - the one route here where that is the right
+   * axis, for two reasons.
+   *
+   * First, the client applies the effect optimistically and fires this
+   * request without reading the reply (market.js useConsumable, drones.js
+   * activateXpBoost both end in `.catch(function(){})`). A 429 therefore
+   * means the heal or shield already happened while the charge was never
+   * spent - a rejected request hands out a FREE consumable. Per-IP, one
+   * abusive host behind a carrier NAT could push honest players into that.
+   *
+   * Second, honest use is already bounded by inventory: spendConsumable
+   * refuses at zero. The limiter is only here to cap the profile READ that
+   * a refusal still costs. 30/min is far past what a real run can spend.
+   */
+  if (!(await rateLimit('consumable', key, 30, 60_000))) {
+    return NextResponse.json({ error: 'rate_limited' }, { status: 429 });
+  }
+
   try {
     const spent = await spendConsumable(key, itemId);
     if (!spent) {

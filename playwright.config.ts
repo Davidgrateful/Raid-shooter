@@ -51,12 +51,12 @@ export default defineConfig({
      */
     {
       name: 'desktop',
-      testIgnore: /hud-matrix\.spec\.ts/,
+      testIgnore: /(hud-matrix|rate-limits)\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 }, launchOptions },
     },
     {
       name: 'phone-landscape',
-      testIgnore: /hud-matrix\.spec\.ts/,
+      testIgnore: /(hud-matrix|rate-limits)\.spec\.ts/,
       use: {
         ...devices['Desktop Chrome'],
         viewport: { width: 844, height: 390 },
@@ -65,6 +65,17 @@ export default defineConfig({
         deviceScaleFactor: 2,
         launchOptions,
       },
+    },
+    /*
+     * rate-limits.spec.ts drives the API only - no viewport means anything to
+     * it - and its limiters are keyed on IP, which the whole suite shares. Run
+     * under two viewport projects it would be two floods spending one budget,
+     * and the headroom assertions would fail on the other project's traffic.
+     */
+    {
+      name: 'api',
+      testMatch: /rate-limits\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], launchOptions },
     },
     {
       name: 'hud-matrix',

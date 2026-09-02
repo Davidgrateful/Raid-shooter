@@ -4,11 +4,25 @@ import { updateName } from '@/lib/leaderboard';
 import { updateWeeklyName } from '@/lib/weekly';
 import { updateCupName } from '@/lib/cup';
 import { getActiveSeason } from '@/lib/rewards';
+import { rateLimit, clientIp } from '@/lib/ratelimit';
 
 // Renames an existing Shooterboard entry immediately, so a name change
 // shows up without having to beat your personal best first. Works for both
 // wallet players and guests (whoever owns the current session identity).
 export async function POST(req: NextRequest) {
+  /*
+   * A rename fans out to the main board, the weekly ladder AND any live cup -
+   * four-plus writes for one request - and nothing bounded it. The limiter is
+   * keyed on IP rather than identity on purpose: a guest identity is a token
+   * the CLIENT chooses, so an identity limit is bypassed by minting a new one,
+   * while the cost being defended is per-host. 20/min is far above any honest
+   * use (a player renames once in a session, if ever), so a shared office or
+   * carrier NAT has room.
+   */
+  if (!(await rateLimit('rename', clientIp(req), 20, 60_000))) {
+    return NextResponse.json({ error: 'rate_limited' }, { status: 429 });
+  }
+
   const session = await getSession();
   const body = await req.json().catch(() => null);
 
