@@ -3669,11 +3669,31 @@ $.setupStates = function() {
 		// threshold below keep their meaning.
 		if( !$.loadingStartMs ) { $.loadingStartMs = Date.now(); }
 
+		// The splash used to run a FIXED 6s from the moment it was entered, on
+		// top of however long the engine had already taken to boot. Measured on
+		// the built app: engine up at 1.5s, splash entered at 3.4s, menu at
+		// 9.4s. Throttling the CPU 4x moved that by 88ms - proof the 6s was a
+		// timer, not work. The logo, the heaviest thing on screen, finished at
+		// 0.4s. So a player waited six seconds for nothing, and the progress
+		// bar charted a countdown while claiming to chart a load.
+		//
+		// It is now a BUDGET FOR THE WHOLE BOOT, measured from navigation
+		// rather than from splash entry, so slow init spends the same budget
+		// instead of adding to it. Fast device: the splash holds the floor.
+		// Slow device: the player already did the waiting, so it hands off as
+		// soon as it has been seen.
 		var loadCompact = ( $.ch < 640 ),
-			// 360 sixtieths of a second - 6s, on every device
-			dur = 360,
-			elapsed = ( Date.now() - $.loadingStartMs ) / ( 1000 / 60 ),
-			p = Math.max( 0, Math.min( 1, elapsed / dur ) ),
+			// a sponsor is a paid impression and gets a longer floor; without
+			// one there is nothing here worth keeping a player from the game
+			budgetMs = $.loadingSponsor ? 5200 : 4200,
+			// ms since navigation start, not since this state was entered
+			sincePageMs = ( typeof performance !== 'undefined' && performance.now )
+				? performance.now()
+				: ( Date.now() - $.loadingStartMs ),
+			inSplashMs = Date.now() - $.loadingStartMs,
+			dur = budgetMs / ( 1000 / 60 ),
+			elapsed = sincePageMs / ( 1000 / 60 ),
+			p = Math.max( 0, Math.min( 1, sincePageMs / budgetMs ) ),
 			cx = $.cw / 2,
 			cy = $.ch / 2;
 
@@ -3737,6 +3757,21 @@ $.setupStates = function() {
 		} );
 		$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 0.45)'; $.ctxmg.fill();
 
+		// A tap has ALWAYS skipped this, and nothing ever said so - the screen
+		// read "LOADING", which tells a player to wait. The hint appears once
+		// the skip is actually armed, so it is never a lie. Bitmap font has no
+		// lowercase (see text.js), hence the caps.
+		if( inSplashMs > 400 ) {
+			$.ctxmg.beginPath();
+			$.text( {
+				ctx: $.ctxmg, x: cx, y: barY + ( loadCompact ? 34 : 44 ),
+				text: 'TAP TO SKIP',
+				hspacing: 1, vspacing: 1, halign: 'center', valign: 'top',
+				scale: 1, snap: 1, render: 1
+			} );
+			$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 0.28)'; $.ctxmg.fill();
+		}
+
 		// advance the tick so the bar fills and the ship animates (menu/play
 		// reset it on entry, so borrowing it here is safe)
 		$.tick += 1;
@@ -3744,7 +3779,11 @@ $.setupStates = function() {
 		// hand off when done, or let the player tap to skip. A brand-new
 		// player is dropped straight into the guide once (auto-onboarding),
 		// then everyone lands on the menu.
-		if( elapsed >= dur || ( elapsed > 14 && $.mouse.down ) ) {
+		// Hand off when the boot budget is spent, or on a tap. `inSplashMs`
+		// guards a flash: on a device slow enough that the budget was already
+		// gone before this state was reached, the splash still shows long
+		// enough to be seen rather than blinking past.
+		if( ( elapsed >= dur && inSplashMs >= 900 ) || ( inSplashMs > 250 && $.mouse.down ) ) {
 			$.mouse.down = 0;
 			// only a genuinely new player (never started a run AND never seen
 			// the guide) gets auto-onboarded - existing players who update go
