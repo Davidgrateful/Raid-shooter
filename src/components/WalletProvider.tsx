@@ -203,11 +203,31 @@ const appKitOptions: AppKitOptionsWithBasic = {
     url: origin,
     icons: [`${origin}/wallet-icon.png`],
   },
-  basic: true,
+  // EMBEDDED EMAIL / SOCIAL WALLETS: ON, as a deliberate product decision.
+  //
+  // This was hard-off (`basic: true`) after a real bug: a player clicked
+  // Connect Wallet, the modal offered "Continue with email/Google", and picking
+  // one spun up a brand-new embedded wallet they never asked for and did not
+  // recognise. The block above documents that. It is being reversed on purpose,
+  // to give players with no wallet at all a way in - not because a dashboard
+  // toggle flipped.
+  //
+  // `basic` must be FALSE for this: it is the switch that forces every
+  // dashboard-controlled feature off locally. With it off, the Reown Cloud
+  // project config is authoritative again, which cuts both ways - the values
+  // below are a REQUEST, not a guarantee. Email and Socials must also be
+  // enabled for the project at cloud.reown.com or this does nothing, and
+  // anything that project has enabled and we have not asked for (swaps, onramp,
+  // activity) can appear. Those are listed explicitly so the intent is on the
+  // record even where the dashboard has the final say.
+  basic: false,
   features: {
     analytics: false,
-    email: false,
-    socials: false,
+    email: true,
+    socials: ['google', 'x', 'apple'],
+    emailShowWallets: true,   // keep "connect an existing wallet" the first-class path
+    swaps: false,
+    onramp: false,
   },
   themeMode: 'dark',
 };

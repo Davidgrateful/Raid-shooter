@@ -34,8 +34,17 @@ already built and gated — usually just an env var + redeploy.
   falls back to a placeholder the WalletConnect relay rejects. Get a free ID at
   cloud.reown.com, set it in Vercel, add `raidshooter.xyz` to the project's
   allowed domains, redeploy. The Connect button greys out with an explanation
-  until it's set (no dead modal). Email/social embedded wallets are enabled and
-  need the same ID.
+  until it's set (no dead modal). Check `/api/wallet/diag` first - it reports
+  whether the ID is set and valid, and names the allowed-domains step.
+  **The domain allowlist is the part that is easy to miss and breaks connection
+  even when the ID is correct.**
+
+- **"Sign in with email / Google doesn't appear"** → embedded email/social
+  wallets are requested in `WalletProvider.tsx`, but `basic: false` means the
+  Reown Cloud project config WINS. Email and Socials must also be toggled on
+  for the project at cloud.reown.com. Same project ID, same domain allowlist as
+  wallet connect - so if plain wallet connect is broken, email login is broken
+  the same way and for the same reason.
 
 ## Admin / team dashboard
 
