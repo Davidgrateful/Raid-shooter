@@ -3,11 +3,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ShipViewport } from './ShipViewport';
 import { NavRail, TabBar, TopHud, type NavEntry } from './hud';
-import { ComingSoonPanel, CupPanel, DeployCta, MissionPanel, Panel, PilotIdentity, RankPanel, RewardPanel, RewardWonPanel } from './panels';
+import { ComingSoonPanel, TokenPanel, CupPanel, DeployCta, MissionPanel, Panel, PilotIdentity, RankPanel, RewardPanel, RewardWonPanel } from './panels';
 import { Recover } from './Recover';
 import { engine, readPlayer, useEngineRevision, useEngineState, withEngine, type PlayerSnapshot, type ShipDef } from './engine';
 import { guestToken, timeLeft, useMenuData } from './useMenuData';
 import { IconArmory, IconDeploy, IconMail, IconPilot, IconRankings, IconSystem } from './icons';
+import { readTokenInfo } from '@/lib/token';
 
 /*==============================================================================
 COMMAND CENTRE
@@ -56,6 +57,9 @@ const DUELS_BLURB =
   + 'You each fly it whenever you like, and the higher score takes it. Not built yet.';
 
 const DUELS_NOTED_KEY = 'rs-interest-duels';
+
+/** Read once: NEXT_PUBLIC_ values are fixed at build time. */
+const TOKEN = readTokenInfo();
 
 function openModal(which: 'news' | 'inbox' | 'invite' | 'feedback') {
   window.dispatchEvent(new CustomEvent('raidshooter:open', { detail: which }));
@@ -348,6 +352,11 @@ export function CommandCenter() {
       )}
 
       {player && <RankPanel player={player} rank={data.rank} onOpen={() => go('board')} />}
+
+      {/* $RAIDSHOOTER: "launching soon" until the operator sets the contract
+          address in Vercel, then the official address. Above DUELS so the
+          one real, current thing is not ranked under a teaser. */}
+      <TokenPanel info={TOKEN} />
 
       {/* Not built yet, and the panel says exactly that. It sits below the
           things that ARE playable on purpose - a teaser must not outrank a

@@ -1,6 +1,7 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
+import { shortAddress } from '@/lib/token';
 import type { PlayerSnapshot, ShipDef } from './engine';
 import { IconBolt, IconChevron, IconFlame, IconGift, IconTarget } from './icons';
 
@@ -514,6 +515,88 @@ export function ComingSoonPanel({
             ? 'Your interest was counted. Nothing else was stored.'
             : 'Counts an anonymous tap so we can see if this is worth building.'}
       </p>
+    </Panel>
+  );
+}
+
+/*------------------------------------------------------------------------------
+$RAIDSHOOTER
+
+Gold, because gold is what this palette means by money (see the colour notes at
+the top of globals.css). Two states, and neither invents anything:
+
+  BEFORE LAUNCH  no address is configured - the panel says so, and says the
+                 real one will appear here and only here. Fake contract
+                 addresses always follow a token announcement; the one place
+                 a player can trust is the game itself.
+
+  LIVE           the configured address, shortened for display but copied in
+                 FULL (people paste this into swap apps - a truncated copy is
+                 useless at best), with the chain and a buy link when set.
+
+It says what the operator has confirmed - it launches on Base and will be
+used for in-game purchases - and promises nothing about price.
+------------------------------------------------------------------------------*/
+export function TokenPanel({ info }: { info: import('@/lib/token').TokenInfo }) {
+  const [copied, setCopied] = useState<'idle' | 'ok' | 'fail'>('idle');
+  const live = !!info.address;
+
+  async function copy() {
+    if (!info.address) return;
+    try {
+      await navigator.clipboard.writeText(info.address);
+      setCopied('ok');
+    } catch {
+      setCopied('fail');
+    }
+    setTimeout(() => setCopied('idle'), 2400);
+  }
+
+  return (
+    <Panel
+      title={info.symbol}
+      accent="var(--rs-gold)"
+      className="rs-token"
+      action={
+        live
+          ? (info.chain ? <span className="rs-token-chip">{info.chain}</span> : null)
+          : <span className="rs-token-chip">Launching on {info.chain || 'Base'}</span>
+      }
+    >
+      {live ? (
+        <>
+          <span className="rs-token-cap">Official contract</span>
+          <div className="rs-token-row">
+            <code className="rs-token-addr" title={info.address!} aria-label={`Contract address ${info.address}`}>
+              {shortAddress(info.address!)}
+            </code>
+            <button type="button" className="rs-token-copy" onClick={copy}>
+              {copied === 'ok' ? 'Copied' : copied === 'fail' ? 'Copy failed' : 'Copy'}
+            </button>
+          </div>
+          {info.buyUrl && (
+            <a className="rs-token-buy" href={info.buyUrl} target="_blank" rel="noopener noreferrer">
+              Get {info.symbol}
+            </a>
+          )}
+          <p className="rs-token-fine" aria-live="polite">
+            {copied === 'fail'
+              ? 'Your browser blocked the copy - press and hold the address to select it.'
+              : 'This is the only official address. We will never DM you a different one.'}
+          </p>
+        </>
+      ) : (
+        <>
+          <p className="rs-token-blurb">
+            The token Raid Shooter will use for in-game purchases.
+          </p>
+          <p className="rs-token-blurb rs-token-warn">
+            The official contract address will appear here, and only here. If anyone sends you an
+            address before it does, it isn&apos;t ours.
+          </p>
+        </>
+      )}
+      <p className="rs-token-fine">Crypto assets are volatile. Nothing here is financial advice.</p>
     </Panel>
   );
 }
