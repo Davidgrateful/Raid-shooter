@@ -245,8 +245,10 @@ export function MissionPanel({
           a caption "250 / 300 / 400" is three numbers with no meaning, so the
           rung count is stated plainly above it. */}
       <div className="rs-ladder-head">
-        <span>Streak reward</span>
-        <span className="rs-num">Day {Math.min(rung + 1, XP_LADDER.length)} of {XP_LADDER.length}</span>
+        <span style={{ whiteSpace: 'nowrap' }}>Streak reward</span>
+        {/* nowrap: in the narrow landscape ops column this broke as "DAY 1 OF"
+            over "3", splitting the number from the thing it counts */}
+        <span className="rs-num" style={{ whiteSpace: 'nowrap' }}>Day {Math.min(rung + 1, XP_LADDER.length)} of {XP_LADDER.length}</span>
       </div>
       <div className="rs-ladder" aria-label={`Streak reward ladder, currently paying ${xp} XP per completion`}>
         {XP_LADDER.map((amount, i) => (

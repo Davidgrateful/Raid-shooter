@@ -233,14 +233,20 @@ export function NavRail({
         <span className="rs-rail-head-tick" aria-hidden />
         <span>Squad</span>
       </div>
-      <div className="rs-rail-group">
-        <button className="rs-nav-item rs-nav-item-sm" onClick={onInvite}>
-          <span className="rs-nav-icon" style={{ color: 'var(--rs-gold)' }}>✦</span>
+      {/* aria-label because the collapsed rail hides the text label with
+          display:none - which also removes it from the accessibility tree, so
+          these were announced as a bare "✦" and "✎". The mini label is the
+          same fix for sighted players the destinations above already have. */}
+      <div className="rs-rail-group rs-rail-group-squad">
+        <button className="rs-nav-item rs-nav-item-sm" onClick={onInvite} aria-label="Invite a wingman">
+          <span className="rs-nav-icon" aria-hidden style={{ color: 'var(--rs-gold)' }}>✦</span>
           <span className="rs-nav-text"><span className="rs-nav-label">Invite</span></span>
+          <span className="rs-nav-mini" aria-hidden>Invite</span>
         </button>
-        <button className="rs-nav-item rs-nav-item-sm" onClick={onFeedback}>
-          <span className="rs-nav-icon">✎</span>
+        <button className="rs-nav-item rs-nav-item-sm" onClick={onFeedback} aria-label="Send feedback">
+          <span className="rs-nav-icon" aria-hidden>✎</span>
           <span className="rs-nav-text"><span className="rs-nav-label">Feedback</span></span>
+          <span className="rs-nav-mini" aria-hidden>Feedback</span>
         </button>
       </div>
     </nav>

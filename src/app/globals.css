@@ -992,6 +992,7 @@ on screen without a scroll.
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+  .rs-cc-rail .rs-nav-item-sm .rs-nav-mini { font-size: 7px; letter-spacing: 0.02em; }
   .rs-cc-rail .rs-rail-head { justify-content: center; padding: 2px 0 6px; }
   .rs-cc-rail .rs-rail-head span:not(.rs-rail-head-tick) { display: none; }
   /* a 62px column cannot hold the words COMMAND DECK - it sliced them to
@@ -1014,6 +1015,33 @@ on screen without a scroll.
      declaration, which is where it has to live to actually win */
   .rs-cc-cta { margin-top: 10px; max-width: 360px; }
   .rs-cc-veil { background: linear-gradient(180deg, rgba(4,6,11,0.86) 0%, rgba(4,6,11,0.32) 30%, rgba(4,6,11,0.8) 100%); }
+}
+
+/*
+ * A landscape phone with its browser bar showing leaves ~300-340px, and the
+ * rail's full stack is ~390px: Invite and Feedback sat below the fold on every
+ * screen (the deck included), and on an SE-sized screen System went too -
+ * with nothing to say the rail scrolled. Tighter items bring the whole stack
+ * inside ~295px, which covers the common phones; the smallest still scroll,
+ * but only the two Squad utilities, never a destination.
+ */
+@media (max-height: 430px) and (min-width: 640px) {
+  .rs-cc-rail { padding-top: 2px; padding-bottom: 2px; }
+  .rs-cc-rail .rs-nav-item { padding: 3px 2px; gap: 2px; }
+  .rs-cc-rail .rs-rail-home { padding: 2px 0 2px; }
+  /* in the collapsed rail the Squad caption is hidden, so this block is only
+     a divider line - it does not need a caption's worth of height */
+  .rs-cc-rail .rs-rail-head-sub { margin-top: 3px; padding: 3px 0 2px; }
+  .rs-cc-rail .rs-rail-head-sub .rs-rail-head-tick { height: 6px; }
+  .rs-cc-rail .rs-nav-item-sm { padding-block: 2px; }
+  .rs-cc-rail .rs-nav-item-sm .rs-nav-icon { font-size: 13px; line-height: 1; height: 14px; }
+  /* "FEEDBACK" is the longest mini label in the rail and was ellipsised to
+     "FEEDB..." at 8px with 0.08em tracking in a 62px column */
+  .rs-cc-rail .rs-nav-item-sm .rs-nav-mini { font-size: 7px; letter-spacing: 0.02em; }
+  /* 18px glyphs keep each item ~36px tall - above the 24px WCAG 2.2 target
+     minimum, and every item still spans the rail's full 62px width */
+  .rs-cc-rail .rs-nav-icon { width: 18px; height: 18px; }
+  .rs-cc-rail .rs-nav-icon svg { width: 18px; height: 18px; }
 }
 
 /* phone in landscape is narrow AND short - drop the ops lane to a single
@@ -3427,6 +3455,46 @@ PRE-FLIGHT
 /* (reduced motion is handled by the blanket rule near the top of this file) */
 
 /*--- pre-flight responsive --------------------------------------------------*/
+
+/*
+ * Pre-flight has no ops column, but the desktop page grid reserves 330px for
+ * one - the same blank strip a player's phone video showed, on every laptop.
+ */
+@media (min-width: 1100px) {
+  .rs-cc.rs-lx {
+    grid-template-columns: 184px minmax(0, 1fr);
+    grid-template-areas:
+      "top  top"
+      "rail main";
+  }
+}
+
+/*
+ * Landscape screens tall enough for the full chrome but too short for the
+ * stacked pre-flight: iPad landscape (1024x768) put LAUNCH RAID under the tab
+ * bar, and 1280x720 / 1366x768 - the two most common laptop screens - put it
+ * below the fold. Side by side, the launch control sits under the hull and the
+ * manifest runs beside both, the same composition as landscape phones.
+ * Declared before the short-landscape block so that block's tighter tuning
+ * still wins where both apply.
+ */
+@media (orientation: landscape) and (min-width: 900px) and (max-height: 900px) {
+  /* two classes on purpose: the desktop block just below caps the stage at
+     440px, which squeezed these two columns until LAUNCH RAID wrapped */
+  .rs-lx .rs-lx-stage { max-width: 980px; }
+  .rs-lx-stage {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+    grid-template-areas: "craft manifest" "act manifest";
+    grid-template-rows: auto 1fr;
+    gap: 16px 28px;
+    align-items: start;
+  }
+  .rs-lx-craft { grid-area: craft; }
+  .rs-lx-manifest { grid-area: manifest; }
+  .rs-lx-act { grid-area: act; }
+}
+
 @media (min-width: 1100px) {
   .rs-lx-main { align-items: safe center; padding: 8px 20px 20px; }
   .rs-lx-stage { max-width: 440px; }
@@ -3448,6 +3516,34 @@ PRE-FLIGHT
   .rs-lx-craft { grid-area: craft; }
   .rs-lx-manifest { grid-area: manifest; }
   .rs-lx-act { grid-area: act; max-width: 460px; margin: 0 auto; width: 100%; }
+
+  /*
+   * Reported from a player's video (iPhone, landscape, browser bar showing -
+   * a ~844x340 viewport). Two faults, both measured at that size:
+   *
+   *   The launch row spanned the FULL width beneath hull + manifest, so it
+   *   started below the fold: LAUNCH RAID was cut off and the Daily Run
+   *   button was entirely off-screen - on the screen whose only job is that
+   *   button - while the hull column above it sat half empty.
+   *
+   *   The page grid reserves a 220-280px "ops" column for the command deck's
+   *   side panels. Pre-flight has none, so a quarter of the width was blank.
+   *
+   * The launch controls now fill the space under the hull, and the manifest
+   * runs the full height beside them.
+   */
+  .rs-cc.rs-lx {
+    grid-template-columns: 62px minmax(0, 1fr);
+    grid-template-areas:
+      "top  top"
+      "rail main";
+  }
+  .rs-lx-stage {
+    grid-template-areas: "craft manifest" "act manifest";
+    grid-template-rows: auto 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+  }
+  .rs-lx-act { max-width: none; margin: 0; align-self: start; }
   .rs-lx-bayframe { width: min(34vh, 170px); }
   .rs-lx-hull { font-size: 17px; }
   .rs-lx-ability { display: none; }
@@ -3455,6 +3551,17 @@ PRE-FLIGHT
   .rs-lx-launch-face { padding: 10px 16px; }
   .rs-lx-launch-label { font-size: 15px; }
   .rs-lx-controls { display: none; }
+}
+
+/* SE-size landscape with the browser bar (~667x300): the launch column is the
+   priority, so the hull confirmation gives up height before the buttons do */
+@media (max-height: 320px) and (min-width: 600px) {
+  .rs-lx-bayframe { width: min(28vh, 96px); }
+  .rs-lx-hull { font-size: 15px; }
+  .rs-lx-level { margin-top: 3px; }
+  .rs-lx-launch-face { padding: 7px 14px; }
+  .rs-lx-daily { min-height: 34px; padding-block: 4px; }
+  .rs-lx-stage { gap: 6px 14px; }
 }
 
 @media (max-width: 640px) {
@@ -4574,4 +4681,56 @@ mistaken for the thing itself.
 .rs-soon-fine {
   margin: 9px 0 0; font-size: 10.5px; line-height: 1.4;
   color: rgba(233, 241, 255, 0.34);
+}
+
+/*
+ * Command deck and hangar at landscape-phone-with-browser-bar heights. Both
+ * put their one primary action (DEPLOY / the hangar's deploy) below the fold
+ * at 844x340, and on the deck the two loadout badges - absolutely positioned
+ * on the bay floor - wrapped to two lines in a ~110px bay and sat on the hull
+ * itself. At this height the hull and the action win: the badges stand down
+ * (the same loadout is in pre-flight's CARRYING IN and the hangar, one tap
+ * away) and the stack tightens until the action is on screen.
+ *
+ * Kept at the END of the file on purpose: it overrides the deck's and the
+ * hangar's own landscape blocks, and CSS resolves equal specificity by order.
+ * The first version of this sat earlier in the file and silently lost.
+ */
+@media (max-height: 430px) and (min-width: 640px) {
+  .rs-bay-loadout { display: none; }
+  .rs-cc-ship { width: min(26vh, 88px); }
+  .rs-ident { gap: 3px; }
+  .rs-cc-cta { margin-top: 6px; }
+  .rs-cta-face { padding: 9px 18px; }
+  .rs-cta-label { font-size: 20px; }
+
+  /* pre-flight, veteran profile: the earned-bonus line under the level bar
+     pushed Daily Run 12px below the fold at 844x340. The hangar states the
+     same bonus in full; here the launch column wins the height. */
+  .rs-lx-level-foot { display: none; }
+  .rs-lx-bayframe { width: min(30vh, 150px); }
+
+  .rs-hg-bayframe { width: min(42vh, 170px); }
+  .rs-hg-id { margin-top: 2px; }
+  .rs-hg-level { margin-top: 4px; }
+  .rs-hg-level-foot { display: none; }
+  .rs-hg-act { margin-top: 6px; }
+  .rs-hg-name { margin-top: 2px; }
+  .rs-roster { margin-top: 0; padding-block: 2px; }
+}
+
+/* SE-size landscape with the browser bar (~667x300): the hangar's deploy
+   control was the last one still 5px below the fold at this size */
+@media (max-height: 320px) and (min-width: 600px) {
+  .rs-hg-bayframe { width: min(34vh, 118px); }
+  .rs-hg-id-line { display: none; }
+}
+
+/* The empty-board line ("NO RUNS THIS WEEK YET..." - which every Weekly and
+   Daily tab shows after its reset) sat 64px down the list, and on a short
+   landscape screen that is exactly where the footer's Back button and its
+   opaque gradient are: the explanation for an empty board was hidden behind
+   the only button on it. Unlayered, so it wins over Tailwind's mt-16. */
+@media (max-height: 460px) {
+  .rs-board-empty { margin-top: 14px; }
 }

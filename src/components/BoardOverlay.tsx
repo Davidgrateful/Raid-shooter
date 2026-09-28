@@ -363,7 +363,7 @@ export function BoardOverlay() {
              the player two contradictory things at once. The Recover bar above
              owns the message and the retry; say nothing more here. */
           boardError ? null : (
-            <div className="mt-16 text-center text-sm text-white/50">
+            <div className="rs-board-empty mt-16 text-center text-sm text-white/50">
               {loading ? 'LOADING…' : tab === 'cup' ? 'NO CUP RUNS YET — PLAY TO ENTER' : tab === 'daily' ? 'NO DAILY RUNS YET — ONE SEEDED ATTEMPT PER DAY' : tab === 'weekly' ? 'NO RUNS THIS WEEK YET — FRESH BOARD, CLAIM IT' : 'NO PILOTS RANKED YET'}
             </div>
           )
