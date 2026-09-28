@@ -1,44 +1,50 @@
 /*==============================================================================
 $RAIDSHOOTER - the launch panel's configuration
 
-Read from public env vars (inlined at build time, so a change needs a
-redeploy - same as every other NEXT_PUBLIC_ setting here):
+The token is LIVE. Its contract address is fixed in code below, NOT read
+from an env var: the address is the one thing on this panel that must never be
+wrong, and a Vercel typo or a compromised dashboard must not be able to put a
+different "official" address in front of players. Changing it takes a reviewed
+commit.
 
-  NEXT_PUBLIC_RAIDSHOOTER_TOKEN_ADDRESS   the official contract address
-  NEXT_PUBLIC_RAIDSHOOTER_TOKEN_CHAIN     optional; defaults to Base, the
-                                          chain the operator confirmed
-  NEXT_PUBLIC_RAIDSHOOTER_TOKEN_BUY_URL   optional https link to buy
+It was checked on Base mainnet (chain 8453) before it went in: the contract
+reports name "Raid Shooter", symbol "$Raidshooter", 18 decimals.
 
-Nothing here is invented. With no address set the panel says the token is
-launching and that the real address will appear on this site and only here -
-which is the most useful thing it can say before launch, because the first
-thing that follows any token announcement is someone posting a fake contract.
+Optional public env vars (inlined at build time, so a change needs a redeploy):
 
-Every value is validated rather than trusted: the token launches on Base, so
-anything but a 0x-prefixed 40-hex EVM address is treated as unset (a pasted
-address from the wrong chain must never appear as "official"), and a buy link
-that is not plain https is dropped. A typo in Vercel should produce "launching
-soon", not a broken or dangerous link on the command deck.
+  NEXT_PUBLIC_RAIDSHOOTER_TOKEN_CHAIN     label only; defaults to Base
+  NEXT_PUBLIC_RAIDSHOOTER_TOKEN_BUY_URL   https link to buy
+
+A buy link that is not plain https (http:, javascript:, garbage) is dropped.
+Without one the panel still links the contract on BaseScan, so players can
+verify it themselves.
 ==============================================================================*/
 
 const EVM = /^0x[a-fA-F0-9]{40}$/;
+
+/** The official $RAIDSHOOTER contract on Base. Verified on-chain; see above. */
+export const OFFICIAL_TOKEN_ADDRESS = '0x0af55bfd094090f787a82666ac6496f66e95cba3';
+
+export function isBaseAddress(a: string): boolean {
+  return EVM.test(a);
+}
 
 export interface TokenInfo {
   symbol: string;
   address: string | null;
   chain: string | null;
   buyUrl: string | null;
+  explorerUrl: string | null;
 }
 
 export function readTokenInfo(env: {
-  address?: string; chain?: string; buyUrl?: string;
+  chain?: string; buyUrl?: string;
 } = {
   // referenced literally so Next can inline them into the client bundle
-  address: process.env.NEXT_PUBLIC_RAIDSHOOTER_TOKEN_ADDRESS,
   chain: process.env.NEXT_PUBLIC_RAIDSHOOTER_TOKEN_CHAIN,
   buyUrl: process.env.NEXT_PUBLIC_RAIDSHOOTER_TOKEN_BUY_URL,
 }): TokenInfo {
-  const address = (env.address || '').trim();
+  const address = OFFICIAL_TOKEN_ADDRESS;
   const chain = (env.chain || '').trim();
   let buyUrl: string | null = null;
   const rawUrl = (env.buyUrl || '').trim();
@@ -51,6 +57,7 @@ export function readTokenInfo(env: {
   return {
     symbol: '$RAIDSHOOTER',
     address: EVM.test(address) ? address : null,
+    explorerUrl: EVM.test(address) ? `https://basescan.org/token/${address}` : null,
     chain: /^[A-Za-z0-9 .-]{1,24}$/.test(chain) ? chain : 'Base',
     buyUrl,
   };

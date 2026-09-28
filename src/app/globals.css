@@ -4776,5 +4776,11 @@ mistaken for the thing itself.
   color: #1a1200; background: var(--rs-gold);
 }
 .rs-token-buy:hover { filter: brightness(1.08); }
+.rs-token-live { color: #5dffa0; border-color: rgba(93, 255, 160, 0.45); background: rgba(93, 255, 160, 0.08); }
+.rs-token-scan {
+  display: inline-block; margin-top: 8px; font-size: 11.5px; font-weight: 600;
+  color: var(--rs-cyan, #35e8ff); text-decoration: underline; text-underline-offset: 2px;
+}
+.rs-token-cap { margin-top: 8px; }
 .rs-token-fine { margin: 8px 0 0; font-size: 10.5px; line-height: 1.4; color: rgba(233, 241, 255, 0.36); }
 .rs-token-warn { margin-top: 8px; color: rgba(233, 241, 255, 0.5); font-size: 12px; }

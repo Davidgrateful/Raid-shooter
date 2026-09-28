@@ -559,12 +559,15 @@ export function TokenPanel({ info }: { info: import('@/lib/token').TokenInfo }) 
       className="rs-token"
       action={
         live
-          ? (info.chain ? <span className="rs-token-chip">{info.chain}</span> : null)
+          ? <span className="rs-token-chip rs-token-live">Live on {info.chain || 'Base'}</span>
           : <span className="rs-token-chip">Launching on {info.chain || 'Base'}</span>
       }
     >
       {live ? (
         <>
+          <p className="rs-token-blurb">
+            The token building the Raid Shooter economy - coming to the Armory for in-game purchases.
+          </p>
           <span className="rs-token-cap">Official contract</span>
           <div className="rs-token-row">
             <code className="rs-token-addr" title={info.address!} aria-label={`Contract address ${info.address}`}>
@@ -579,10 +582,15 @@ export function TokenPanel({ info }: { info: import('@/lib/token').TokenInfo }) 
               Get {info.symbol}
             </a>
           )}
+          {info.explorerUrl && (
+            <a className="rs-token-scan" href={info.explorerUrl} target="_blank" rel="noopener noreferrer">
+              Verify on BaseScan
+            </a>
+          )}
           <p className="rs-token-fine" aria-live="polite">
             {copied === 'fail'
               ? 'Your browser blocked the copy - press and hold the address to select it.'
-              : 'This is the only official address. We will never DM you a different one.'}
+              : 'This is the only official address. We will never DM you, and never a different one.'}
           </p>
         </>
       ) : (
