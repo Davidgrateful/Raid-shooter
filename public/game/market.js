@@ -265,6 +265,63 @@ $.consumableTitles = {
 	consumable_revive: 'SYSTEMS RESTORED'
 };
 
+// Server-side consumable spends, made DURABLE.
+//
+// The effect of a consumable is applied on the spot (a heal cannot wait for a
+// round trip mid-fight), and the spend used to be one fire-and-forget request
+// whose reply nobody read. So a 429, a 5xx, a dropped connection, or the tab
+// closing mid-request all left the charge unspent on the server - the next
+// profile sync handed it straight back, and the player had used it for free.
+//
+// Spends now go through a small queue kept in localStorage. Each is retried
+// until the server either confirms it (2xx) or refuses it outright (4xx other
+// than 429 - e.g. none_left, which means there is nothing left to reconcile).
+// A queued spend survives a reload and is flushed on the next boot.
+$.pendingSpendsKey = 'rs-pending-spends';
+$.readPendingSpends = function() {
+	try { return JSON.parse( localStorage.getItem( $.pendingSpendsKey ) || '[]' ) || []; } catch( e ) { return []; }
+};
+$.writePendingSpends = function( list ) {
+	try { localStorage.setItem( $.pendingSpendsKey, JSON.stringify( list.slice( -50 ) ) ); } catch( e ) {}
+};
+$.queueConsumableSpend = function( itemId, guestToken ) {
+	var list = $.readPendingSpends();
+	list.push( { id: itemId, g: guestToken || undefined, n: Date.now().toString( 36 ) + Math.random().toString( 36 ).slice( 2, 6 ) } );
+	$.writePendingSpends( list );
+	$.flushConsumableSpends();
+};
+$.flushConsumableSpends = function() {
+	if( $.flushingSpends ) { return; }
+	var list = $.readPendingSpends();
+	if( !list.length ) { return; }
+	$.flushingSpends = 1;
+	var next = list[ 0 ];
+	fetch( '/api/consumable/use', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify( { itemId: next.id, guestToken: next.g } ),
+		keepalive: true
+	} )
+		.then( function( r ) {
+			var settled = r.ok || ( r.status >= 400 && r.status < 500 && r.status !== 429 );
+			var retryIn = r.status === 429 ? 20000 : 4000;
+			return { settled: settled, retryIn: retryIn };
+		}, function() { return { settled: false, retryIn: 6000 }; } )
+		.then( function( res ) {
+			$.flushingSpends = 0;
+			var cur = $.readPendingSpends();
+			if( res.settled ) {
+				// remove exactly this entry (by nonce), then keep draining
+				$.writePendingSpends( cur.filter( function( e ) { return e.n !== next.n; } ) );
+				$.flushConsumableSpends();
+			} else {
+				setTimeout( $.flushConsumableSpends, res.retryIn );
+			}
+		} );
+};
+// anything left over from a previous session (closed tab, lost connection)
+setTimeout( function() { try { $.flushConsumableSpends(); } catch( e ) {} }, 4000 );
+
 $.useConsumable = function( id, effect ) {
 	if( $.consumableCount( id ) <= 0 ) {
 		return false;
@@ -278,14 +335,7 @@ $.useConsumable = function( id, effect ) {
 		$.pushFeed( $.consumableTitles[ id ] + '  ' + $.consumableCount( id ) + ' LEFT',
 			id === 'consumable_shield' ? 190 : 140 );
 	}
-	fetch( '/api/consumable/use', {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify( {
-			itemId: id,
-			guestToken: $.session.authenticated ? undefined : $.guestToken()
-		} )
-	} ).catch( function() {} );
+	$.queueConsumableSpend( id, $.session.authenticated ? undefined : $.guestToken() );
 	return true;
 };
 

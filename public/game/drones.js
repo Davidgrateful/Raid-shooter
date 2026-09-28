@@ -274,9 +274,8 @@ $.activateXpBoost = function() {
 	if( ( $.consumableCount( 'consumable_xpboost' ) || 0 ) <= 0 ) { return; }
 	$.profile.consumables[ 'consumable_xpboost' ]--;
 	$.xpBoostThisRun = 1;
-	fetch( '/api/consumable/use', {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify( { itemId: 'consumable_xpboost' } )
-	} ).catch( function() {} );
+	// durable, like every other spend - see $.queueConsumableSpend in market.js
+	if( $.queueConsumableSpend ) {
+		$.queueConsumableSpend( 'consumable_xpboost' );
+	}
 };
