@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/session';
-import { getItem, marketEnabled, treasury, baseRpcUrl } from '@/lib/market';
+import { getItem, marketEnabled, treasury, baseRpcUrl, tokenPayEnabled } from '@/lib/market';
+import { receiptPaysToken, tokenPrice, toRaw, type ReceiptLike } from '@/lib/tokenpay';
 import { claimTx, grantItem } from '@/lib/profile';
 import { trackPurchase } from '@/lib/stats';
 import { rateLimit, clientIp } from '@/lib/ratelimit';
@@ -47,26 +48,42 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'invalid_request' }, { status: 400 });
   }
 
-  try {
-    const [tx, receipt] = (await Promise.all([
-      rpc('eth_getTransactionByHash', [txHash]),
-      rpc('eth_getTransactionReceipt', [txHash]),
-    ])) as [
-      { from?: string; to?: string; value?: string } | null,
-      { status?: string } | null,
-    ];
+  const address = session.siwe.address.toLowerCase();
+  const currency = body?.currency === 'token' ? 'token' : 'eth';
 
-    const address = session.siwe.address.toLowerCase();
-    const priceWei = BigInt(Math.round(parseFloat(item.priceEth) * 1e6)) * BigInt('1000000000000');
-    if (
-      !tx ||
-      !receipt ||
-      receipt.status !== '0x1' ||
-      tx.from?.toLowerCase() !== address ||
-      tx.to?.toLowerCase() !== treasury ||
-      BigInt(tx.value || '0x0') < priceWei
-    ) {
-      return NextResponse.json({ error: 'payment_not_verified' }, { status: 400 });
+  try {
+    if (currency === 'token') {
+      // $RAIDSHOOTER: the proof is the token's own Transfer event in the
+      // confirmed receipt (see src/lib/tokenpay.ts). Price from the catalogue
+      // and the server's rate - never from the client.
+      const priceToken = tokenPrice(item.priceUsd);
+      if (!tokenPayEnabled || priceToken === null) {
+        return NextResponse.json({ error: 'token_pay_disabled' }, { status: 400 });
+      }
+      const receipt = (await rpc('eth_getTransactionReceipt', [txHash])) as ReceiptLike | null;
+      if (!receiptPaysToken(receipt, { from: address, to: treasury, minRaw: toRaw(priceToken) })) {
+        return NextResponse.json({ error: 'payment_not_verified' }, { status: 400 });
+      }
+    } else {
+      const [tx, receipt] = (await Promise.all([
+        rpc('eth_getTransactionByHash', [txHash]),
+        rpc('eth_getTransactionReceipt', [txHash]),
+      ])) as [
+        { from?: string; to?: string; value?: string } | null,
+        { status?: string } | null,
+      ];
+
+      const priceWei = BigInt(Math.round(parseFloat(item.priceEth) * 1e6)) * BigInt('1000000000000');
+      if (
+        !tx ||
+        !receipt ||
+        receipt.status !== '0x1' ||
+        tx.from?.toLowerCase() !== address ||
+        tx.to?.toLowerCase() !== treasury ||
+        BigInt(tx.value || '0x0') < priceWei
+      ) {
+        return NextResponse.json({ error: 'payment_not_verified' }, { status: 400 });
+      }
     }
 
     if (!(await claimTx(txHash))) {

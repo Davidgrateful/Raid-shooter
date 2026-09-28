@@ -138,6 +138,9 @@ $.fetchMarket = function() {
 			$.marketState.enabled = !!data.enabled;
 			$.marketState.network = data.network || '';
 			$.marketState.treasury = data.treasury || null;
+			// $RAIDSHOOTER checkout: { enabled, address } - items carry
+			// priceToken (whole tokens) only while it is enabled
+			$.marketState.token = ( data.token && data.token.enabled ) ? data.token : null;
 			$.marketState.items = data.items || [];
 			$.buildRarityScale( $.marketState.items );
 			$.marketState.loading = 0;
@@ -348,12 +351,19 @@ $.useConsumable = function( id, effect ) {
 	return true;
 };
 
-$.buyItem = function( item ) {
+// currency: 'eth' (default) or 'token' ($RAIDSHOOTER, when the server
+// offers it for this item)
+$.buyItem = function( item, currency ) {
 	if( !$.session.authenticated ) {
 		$.purchase = { status: 'guest', itemId: item.id };
 		return;
 	}
 	if( !$.marketState.enabled ) {
+		$.purchase = { status: 'soon', itemId: item.id };
+		return;
+	}
+	var token = currency === 'token' && $.marketState.token && item.priceToken ? $.marketState.token : null;
+	if( currency === 'token' && !token ) {
 		$.purchase = { status: 'soon', itemId: item.id };
 		return;
 	}
@@ -363,7 +373,10 @@ $.buyItem = function( item ) {
 			itemId: item.id,
 			priceEth: item.priceEth,
 			treasury: $.marketState.treasury,
-			network: $.marketState.network
+			network: $.marketState.network,
+			currency: token ? 'token' : 'eth',
+			tokenAddress: token ? token.address : undefined,
+			priceToken: token ? String( item.priceToken ) : undefined
 		}
 	} ) );
 };
@@ -394,6 +407,7 @@ $.purchaseStatusText = function() {
 		case 'failed': return 'PAYMENT NOT VERIFIED';
 		case 'cancelled': return 'CANCELLED';
 		case 'insufficient_funds': return 'NOT ENOUGH ETH ON BASE';
+		case 'insufficient_token': return 'NOT ENOUGH $RAIDSHOOTER';
 		case 'wrong_network': return 'SWITCH TO BASE FAILED';
 	}
 	return '';

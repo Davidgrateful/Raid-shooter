@@ -68,9 +68,9 @@ export function shortAddress(a: string): string {
   return a.length > 14 ? `${a.slice(0, 6)}…${a.slice(-4)}` : a;
 }
 
-/** 1_000_000 -> "1M", 12_400_000 -> "12.4M", 250_000 -> "250K" */
+/** 1_000_000 -> "1M", 8_450_000 -> "8.45M", 250_000 -> "250K" */
 export function compactTokens(n: number): string {
-  const f = (v: number, unit: string) => `${Number(v.toFixed(v < 100 ? 1 : 0))}${unit}`;
+  const f = (v: number, unit: string) => `${Number(v.toFixed(v < 100 ? 2 : 0))}${unit}`;
   if (n >= 1e9) return f(n / 1e9, 'B');
   if (n >= 1e6) return f(n / 1e6, 'M');
   if (n >= 1e3) return f(n / 1e3, 'K');

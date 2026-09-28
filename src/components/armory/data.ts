@@ -50,6 +50,8 @@ export interface ArmoryItem {
   kind: string;
   /** Real catalogue price. Null until the catalogue has loaded. */
   priceUsd: number | null;
+  /** $RAIDSHOOTER price in whole tokens, when token checkout is on. */
+  priceToken: number | null;
   owned: boolean;
   equipped: boolean;
   comingSoon: boolean;
@@ -99,6 +101,8 @@ export interface ArmoryView {
   catalogueFailed: boolean;
   /** Is a treasury configured? If not, nothing can be settled. */
   paymentsLive: boolean;
+  /** Can items also be paid for in $RAIDSHOOTER? */
+  tokenPay: boolean;
   network: string;
   walletLinked: boolean;
   /** Has /api/profile answered? Ownership is unknown until it has. */
@@ -250,6 +254,7 @@ export function readArmory(): ArmoryView | null {
         rack,
         kind: raw.kind,
         priceUsd: catalogueLoaded && typeof raw.priceUsd === 'number' ? raw.priceUsd : null,
+        priceToken: market.token?.enabled && typeof raw.priceToken === 'number' ? raw.priceToken : null,
         owned,
         equipped,
         comingSoon: !!raw.comingSoon,
@@ -300,6 +305,7 @@ export function readArmory(): ArmoryView | null {
       catalogueLoading: !!market.loading,
       catalogueFailed: !!market.failed,
       paymentsLive: !!market.enabled,
+      tokenPay: !!market.enabled && !!market.token?.enabled,
       network: market.network || '',
       walletLinked: !!e.session?.authenticated,
       profileLoaded: !!e.profile?.fetched,
@@ -353,11 +359,11 @@ export function actionFor(item: ArmoryItem, view: ArmoryView): Action {
 }
 
 /** Hand the item to the engine's own purchase pipeline. */
-export function acquire(itemId: string): void {
+export function acquire(itemId: string, currency: 'eth' | 'token' = 'eth'): void {
   const e = engine();
   const raw = (e?.marketState?.items || []).find((i) => i.id === itemId);
   if (!e || !raw) return;
-  e.buyItem?.(raw);
+  e.buyItem?.(raw, currency);
 }
 
 /*------------------------------------------------------------------------------
@@ -374,5 +380,6 @@ export const PURCHASE_COPY: Record<string, { text: string; tone: 'work' | 'good'
   failed: { text: 'Settlement not verified', tone: 'bad' },
   cancelled: { text: 'Requisition cancelled', tone: 'bad' },
   insufficient_funds: { text: 'Not enough ETH on Base', tone: 'bad' },
+  insufficient_token: { text: 'Not enough $RAIDSHOOTER in this wallet', tone: 'bad' },
   wrong_network: { text: 'Could not switch to Base', tone: 'bad' },
 };

@@ -3,6 +3,8 @@
 // Cosmetics only - they only affect looks. Nothing in the market may
 // affect a live run or a score; that rule keeps Shooterboard credible.
 
+import { tokensPerUsd } from '@/lib/tokenpay';
+
 export interface MarketItem {
   id: string;
   title: string;
@@ -154,3 +156,8 @@ export const baseNetwork = process.env.NEXT_PUBLIC_BASE_NETWORK === 'base' ? 'ba
 export const baseRpcUrl =
   process.env.BASE_RPC_URL ||
   (baseNetwork === 'base' ? 'https://mainnet.base.org' : 'https://sepolia.base.org');
+
+// $RAIDSHOOTER payments: the token lives on Base mainnet, so they are only
+// offered when the Armory itself settles there, and only once the operator has
+// set a rate (see src/lib/tokenpay.ts).
+export const tokenPayEnabled = marketEnabled && baseNetwork === 'base' && tokensPerUsd() !== null;

@@ -43,6 +43,8 @@ export interface MarketItem {
   /** The catalogue's own effect line, e.g. "PASSIVE: BULLETS PIERCE ENEMIES". */
   ability?: string;
   comingSoon?: boolean;
+  /** Whole $RAIDSHOOTER tokens, present only while token checkout is on. */
+  priceToken?: number;
 }
 
 export interface Engine {
@@ -100,7 +102,7 @@ export interface Engine {
   droneXpLabel?: (drone: ShipDef | null) => string;
   consumableCount?: (id: string) => number;
   profile?: { items: string[]; consumables: Record<string, number>; fetched?: number; loading?: number; failed?: number };
-  marketState?: { fetched?: number; loading?: number; failed?: number; enabled?: boolean; network?: string; treasury?: string | null; items?: MarketItem[] };
+  marketState?: { fetched?: number; loading?: number; failed?: number; enabled?: boolean; network?: string; treasury?: string | null; token?: { enabled: boolean; address: string } | null; items?: MarketItem[] };
   fetchMarket?: () => void;
   audio?: { play?: (name: string) => void };
 
@@ -109,7 +111,7 @@ export interface Engine {
   and treasury gates and hands off to MarketBridge, which settles on Base and
   reports back. The overlay drives that pipeline and reads its status - it
   never simulates a purchase. */
-  buyItem?: (item: MarketItem) => void;
+  buyItem?: (item: MarketItem, currency?: 'eth' | 'token') => void;
   purchase?: { status: string; itemId: string | null };
   purchaseStatusText?: () => string;
   itemRarity?: (item: MarketItem) => { label: string; color: string } | null;

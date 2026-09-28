@@ -21,6 +21,7 @@ import {
   type ArmoryView,
   type RackId,
 } from './data';
+import { compactTokens } from '@/lib/token';
 
 /*==============================================================================
 ARMORY - the procurement deck
@@ -427,6 +428,20 @@ export function ArmoryScreen() {
                     )}
                   </span>
                 </button>
+
+                {/* $RAIDSHOOTER checkout: the same item, paid in the token at the
+                    server's quoted price. Only offered where the ETH buy is. */}
+                {action.kind === 'acquire' && view?.tokenPay && selected?.priceToken ? (
+                  <button
+                    className="rs-am-token-pay"
+                    disabled={busy}
+                    title={`${selected.priceToken.toLocaleString('en-US')} $RAIDSHOOTER`}
+                    onClick={() => acquire(selected.id, 'token')}
+                  >
+                    Pay with $RAIDSHOOTER
+                    <span className="rs-num">{compactTokens(selected.priceToken)}</span>
+                  </button>
+                ) : null}
 
                 {/* the pipeline's own status, in the game's words */}
                 {copy && (

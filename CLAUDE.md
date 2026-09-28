@@ -64,6 +64,14 @@ already built and gated — usually just an env var + redeploy.
   the signed-in wallet (`src/lib/holder.ts`). The official contract address is
   a constant in `src/lib/token.ts`, deliberately not an env var.
 
+- **"Let players pay with the token" / "$RAIDSHOOTER checkout isn't showing"**
+  → built and gated. Set `RAIDSHOOTER_TOKENS_PER_USD` in Vercel (whole tokens
+  per $1; every item's token price = its USD price x this, rounded up) and
+  redeploy. It only appears when the Armory is live on Base mainnet
+  (`NEXT_PUBLIC_BASE_NETWORK=base` + treasury set). Re-set the rate as the
+  token's price moves - the site never reads a market price for this
+  (`src/lib/tokenpay.ts`).
+
 ## Admin / team dashboard
 
 `/admin` (gated by `ADMIN_STATS_TOKEN`): player stats, revenue, loadout usage,
