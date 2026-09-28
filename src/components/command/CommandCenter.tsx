@@ -353,9 +353,9 @@ export function CommandCenter() {
 
       {player && <RankPanel player={player} rank={data.rank} onOpen={() => go('board')} />}
 
-      {/* $RAIDSHOOTER: "launching soon" until the operator sets the contract
-          address in Vercel, then the official address. Above DUELS so the
-          one real, current thing is not ranked under a teaser. */}
+      {/* $RAIDSHOOTER: the official contract, and holder perks with this
+          player's tier. Above DUELS so the one real, current thing is not
+          ranked under a teaser. */}
       <TokenPanel info={TOKEN} />
 
       {/* Not built yet, and the panel says exactly that. It sits below the

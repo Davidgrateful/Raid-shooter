@@ -9,6 +9,7 @@ import { clientIp, rateLimit } from '@/lib/ratelimit';
 import { postMessage as postChatMessage } from '@/lib/chat';
 import { redeemRunTicket, runFitsTicket, runTicketRequired, recordAcceptedRun } from '@/lib/runs';
 import { recordPlay } from '@/lib/streak';
+import { withHolderTiers, cachedTiers, HOLDER_TRAIL_HUE } from '@/lib/holder';
 
 export async function GET(req: NextRequest) {
   try {
@@ -27,7 +28,7 @@ export async function GET(req: NextRequest) {
     const limitParam = parseInt(req.nextUrl.searchParams.get('limit') || '', 10);
     const limit = Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, 1000) : 1000;
     const [entries, total] = await Promise.all([getTop(limit), getBoardCount()]);
-    return NextResponse.json({ entries, total, persistent: isPersistent() });
+    return NextResponse.json({ entries: await withHolderTiers(entries), total, persistent: isPersistent() });
   } catch {
     return NextResponse.json({ error: 'board_unavailable' }, { status: 503 });
   }
@@ -211,6 +212,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'run_ticket_required' }, { status: 403 });
     }
 
+    // The holder trail is holders-only: a non-holder posting its hue (a forged
+    // payload, or a stale client after selling) shows no trail on the board.
+    let cosmetics = sanitizeCosmetics((body as Record<string, unknown>).cosmetics);
+    if (cosmetics?.trailHue === HOLDER_TRAIL_HUE && !(verified && (await cachedTiers([key])).size > 0)) {
+      const { trailHue: _dropped, ...rest } = cosmetics;
+      void _dropped;
+      cosmetics = Object.keys(rest).length > 0 ? rest : undefined;
+    }
+
     const entry = {
       address: key,
       name: displayName,
@@ -223,7 +233,7 @@ export async function POST(req: NextRequest) {
       at: Date.now(),
       verified,
       assisted,
-      cosmetics: sanitizeCosmetics((body as Record<string, unknown>).cosmetics),
+      cosmetics,
     };
     const result = await submitEntry(entry);
 

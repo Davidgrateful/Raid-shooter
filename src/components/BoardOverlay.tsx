@@ -18,12 +18,32 @@ interface Entry {
   kills: number;
   pilot: string;
   verified?: boolean;
+  /** $RAIDSHOOTER holder tier, when the server has one cached for the wallet */
+  holder?: string;
   cosmetics?: Cosmetics;
 }
 
 interface CupSeason { id: string; name: string; endsAt: number | null; sponsorName: string | null }
 
 const REFRESH_MS = 5_000;
+
+const HOLDER_LABEL: Record<string, string> = { holder: 'Holder', commander: 'Commander', admiral: 'Admiral' };
+
+/** $RAIDSHOOTER holder badge - gold is money in this palette; the chip fills
+ *  in as the tier rises. Cosmetic: it never touches score or rank. */
+function HolderChip({ tier }: { tier?: string }) {
+  if (!tier || !HOLDER_LABEL[tier]) return null;
+  return (
+    <span
+      className="rs-holder-chip"
+      data-tier={tier}
+      title={`$RAIDSHOOTER ${HOLDER_LABEL[tier]}`}
+      aria-label={`$RAIDSHOOTER ${HOLDER_LABEL[tier]}`}
+    >
+      $
+    </span>
+  );
+}
 
 function TierChip({ score }: { score: number }) {
   const tier = tierFromScore(score);
@@ -124,6 +144,7 @@ export function BoardOverlay() {
           kills: (e.kills as number) || 0,
           pilot: (e.pilot as string) || '',
           verified: !!e.verified,
+          holder: typeof e.holder === 'string' ? e.holder : undefined,
           cosmetics: e.cosmetics as Cosmetics | undefined,
         }));
         setEntries(rows);
@@ -431,6 +452,7 @@ export function BoardOverlay() {
                         <span className={`truncate font-extrabold tracking-wide ${champion ? 'rs-display text-lg' : 'text-sm sm:text-base'}`}>
                           {displayName(e.name, e.address)}
                           {e.verified && <span className="ml-1 text-[color:var(--rs-cyan)]">✓</span>}
+                          <HolderChip tier={e.holder} />
                           {isMe && <span className="ml-1 text-[color:var(--rs-gold)]">· YOU</span>}
                         </span>
                       </div>
@@ -486,6 +508,7 @@ export function BoardOverlay() {
                       <span className="truncate">
                         {displayName(e.name, e.address)}
                         {e.verified && <span className="ml-1 text-[color:var(--rs-cyan)]">✓</span>}
+                          <HolderChip tier={e.holder} />
                         {isMe && <span className="ml-1.5 text-[10px] font-black text-[color:var(--rs-gold)]">YOU</span>}
                       </span>
                     </span>

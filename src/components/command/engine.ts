@@ -30,7 +30,7 @@ export interface ShipDef {
   draw: (ctx: CanvasRenderingContext2D, r: number, fill: string, tick: number) => void;
 }
 
-export interface TrailDef { id: string; title: string; hue: number }
+export interface TrailDef { id: string; title: string; hue: number; holder?: boolean }
 export interface ColorDef { title: string; color: string }
 export interface MarketItem {
   id: string;

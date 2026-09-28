@@ -21,10 +21,18 @@ $.definitions.trails = [
 	{ id: 'trail_ion', title: 'ION', hue: 190 },
 	{ id: 'trail_void', title: 'VOID', hue: 285 },
 	// reward-only: granted to tournament champions, never sold
-	{ id: 'trail_champion', title: 'CHAMPION', hue: 45 }
+	{ id: 'trail_champion', title: 'CHAMPION', hue: 45 },
+	// $RAIDSHOOTER holders only, for as long as they hold (never sold). The
+	// server confirms the tier on each profile read; see src/lib/holder.ts.
+	{ id: 'trail_holder', title: 'HOLDER', hue: 130, holder: true }
 ];
 
+// $.profile.holder is the wallet's holder tier id ('holder' | 'commander' |
+// 'admiral') or null, as read from the chain by the server.
 $.ownsItem = function( id ) {
+	if( id === 'trail_holder' ) {
+		return !!$.profile.holder;
+	}
 	return $.profile.items.indexOf( id ) !== -1;
 };
 
@@ -175,6 +183,7 @@ $.fetchProfile = function() {
 		.then( function( data ) {
 			$.profile.items = data.items || [];
 			$.profile.consumables = data.consumables || {};
+			$.profile.holder = data.holder || null;
 			$.profile.loading = 0;
 			$.profile.failed = 0;
 			$.profile.fetched = 1;

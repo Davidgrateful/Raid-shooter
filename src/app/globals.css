@@ -4784,3 +4784,49 @@ mistaken for the thing itself.
 .rs-token-cap { margin-top: 8px; }
 .rs-token-fine { margin: 8px 0 0; font-size: 10.5px; line-height: 1.4; color: rgba(233, 241, 255, 0.36); }
 .rs-token-warn { margin-top: 8px; color: rgba(233, 241, 255, 0.5); font-size: 12px; }
+
+/*--- $RAIDSHOOTER holder badge (board) - gold is money; fills in by tier -----*/
+.rs-holder-chip {
+  display: inline-flex; align-items: center; justify-content: center;
+  margin-left: 5px; width: 15px; height: 15px; vertical-align: 1px;
+  font-family: var(--rs-font-ui); font-size: 10px; font-weight: 900; line-height: 1;
+  color: var(--rs-gold); border: 1px solid rgba(255, 200, 60, 0.45); border-radius: 3px;
+}
+.rs-holder-chip[data-tier="commander"] { background: rgba(255, 200, 60, 0.18); border-color: var(--rs-gold); }
+.rs-holder-chip[data-tier="admiral"] {
+  color: #1a1200; background: var(--rs-gold); border-color: var(--rs-gold);
+  box-shadow: 0 0 8px rgba(255, 200, 60, 0.55);
+}
+
+/*--- holder perks, inside the $RAIDSHOOTER panel ----------------------------*/
+.rs-hold { margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(255, 200, 60, 0.16); }
+.rs-hold-ladder { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.rs-hold-ladder li {
+  display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 0;
+  padding: 7px 4px 6px; border: 1px solid rgba(255, 255, 255, 0.08); background: rgba(255, 255, 255, 0.02);
+}
+.rs-hold-ladder li[data-on="1"] { border-color: var(--rs-gold); background: rgba(255, 200, 60, 0.08); box-shadow: inset 0 0 0 1px rgba(255, 200, 60, 0.25); }
+.rs-hold-ladder .rs-holder-chip { margin-left: 0; }
+.rs-hold-name {
+  font-family: var(--rs-font-ui); font-weight: 700; font-size: 9.5px; letter-spacing: 0.14em;
+  text-transform: uppercase; color: rgba(233, 241, 255, 0.85);
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.rs-hold-min { font-family: var(--rs-font-mono); font-size: 10.5px; color: var(--rs-gold); }
+.rs-hold-status { margin: 8px 0 0; font-size: 12px; line-height: 1.45; color: rgba(233, 241, 255, 0.7); }
+.rs-hold-status b { color: #fff; font-weight: 700; }
+.rs-hold-status .rs-hold-mine { color: var(--rs-gold); }
+.rs-hold-signin {
+  padding: 0; border: 0; background: none; cursor: pointer; font: inherit; font-weight: 700;
+  color: var(--rs-cyan); text-decoration: underline; text-underline-offset: 2px;
+}
+.rs-hold-how { margin-top: 6px; font-size: 11.5px; color: rgba(233, 241, 255, 0.6); }
+.rs-hold-how summary {
+  cursor: pointer; list-style: none; font-family: var(--rs-font-ui); font-weight: 700; font-size: 9.5px;
+  letter-spacing: 0.18em; text-transform: uppercase; color: rgba(233, 241, 255, 0.55);
+}
+.rs-hold-how summary::-webkit-details-marker { display: none; }
+.rs-hold-how summary::before { content: '+ '; color: var(--rs-gold); }
+.rs-hold-how[open] summary::before { content: '\2013  '; }
+.rs-hold-how ul { margin: 6px 0 0; padding-left: 16px; display: grid; gap: 3px; line-height: 1.4; }
+.rs-hold-how b { color: rgba(233, 241, 255, 0.9); }

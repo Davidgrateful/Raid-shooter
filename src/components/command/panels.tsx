@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, type ReactNode } from 'react';
-import { shortAddress } from '@/lib/token';
+import { useEffect, useState, type ReactNode } from 'react';
+import { compactTokens, shortAddress } from '@/lib/token';
 import type { PlayerSnapshot, ShipDef } from './engine';
 import { IconBolt, IconChevron, IconFlame, IconGift, IconTarget } from './icons';
 
@@ -592,6 +592,7 @@ export function TokenPanel({ info }: { info: import('@/lib/token').TokenInfo }) 
               ? 'Your browser blocked the copy - press and hold the address to select it.'
               : 'This is the only official address. We will never DM you, and never a different one.'}
           </p>
+          <HolderPerks />
         </>
       ) : (
         <>
@@ -606,5 +607,105 @@ export function TokenPanel({ info }: { info: import('@/lib/token').TokenInfo }) 
       )}
       <p className="rs-token-fine">Crypto assets are volatile. Nothing here is financial advice.</p>
     </Panel>
+  );
+}
+
+/*------------------------------------------------------------------------------
+HolderPerks - what holding $RAIDSHOOTER unlocks, and where THIS player stands.
+
+The tiers and the player's tier both come from /api/token/holder, which reads
+the signed-in wallet's balance from the token contract on Base. Nothing is
+estimated client side. Perks are cosmetic and follow the balance, and the panel
+says both, so nobody reads it as a promise of anything else.
+------------------------------------------------------------------------------*/
+interface HolderView {
+  signedIn: boolean;
+  tiers: { id: string; label: string; min: number }[];
+  checked?: boolean;
+  balance?: number | null;
+  tier?: string | null;
+}
+
+function HolderPerks() {
+  const [view, setView] = useState<HolderView | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    const load = () => {
+      if (document.visibilityState === 'hidden') return;
+      fetch('/api/token/holder')
+        .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+        .then((d: HolderView) => { if (alive) { setView(d); setFailed(false); } })
+        .catch(() => { if (alive) setFailed(true); });
+    };
+    load();
+    // a player who signs in from the deck should see their tier without a reload
+    const t = setInterval(load, 60_000);
+    document.addEventListener('visibilitychange', load);
+    return () => { alive = false; clearInterval(t); document.removeEventListener('visibilitychange', load); };
+  }, []);
+
+  const tiers = view?.tiers || [];
+  const mine = view?.tier || null;
+  const label = tiers.find((t) => t.id === mine)?.label;
+
+  let status: ReactNode;
+  if (!view) {
+    status = failed ? 'Holder status is unavailable right now.' : 'Checking holder status…';
+  } else if (!view.signedIn) {
+    status = (
+      <>
+        <button
+          type="button"
+          className="rs-hold-signin"
+          onClick={() => window.dispatchEvent(new CustomEvent('raidshooter:wallet'))}
+        >
+          Sign in
+        </button>{' '}
+        with the wallet that holds $RAIDSHOOTER to unlock your perks.
+      </>
+    );
+  } else if (!view.checked) {
+    status = 'Couldn’t reach Base just now - your tier will show on the next check.';
+  } else if (mine && label) {
+    status = (
+      <>
+        You hold <b>{compactTokens(view.balance || 0)}</b> - <b className="rs-hold-mine">{label}</b>. Perks active.
+      </>
+    );
+  } else {
+    status = (
+      <>
+        You hold <b>{compactTokens(view.balance || 0)}</b>. Hold {compactTokens(tiers[0]?.min || 0)}+ to unlock.
+      </>
+    );
+  }
+
+  return (
+    <div className="rs-hold" data-tier={mine || 'none'}>
+      <span className="rs-token-cap">Holder perks</span>
+      {tiers.length > 0 && (
+        <ol className="rs-hold-ladder" aria-label="Holder tiers">
+          {tiers.map((t) => (
+            <li key={t.id} data-on={t.id === mine ? '1' : '0'}>
+              <span className="rs-holder-chip" data-tier={t.id} aria-hidden>$</span>
+              <span className="rs-hold-name">{t.label}</span>
+              <span className="rs-hold-min">{compactTokens(t.min)}+</span>
+            </li>
+          ))}
+        </ol>
+      )}
+      <p className="rs-hold-status" aria-live="polite">{status}</p>
+      <details className="rs-hold-how">
+        <summary>What holders get</summary>
+        <ul>
+          <li>A <b>$</b> badge by your name on every leaderboard - it fills in as your tier rises.</li>
+          <li>The <b>HOLDER</b> engine trail, in your hangar.</li>
+          <li>Checked on-chain from your signed-in wallet. Perks follow your balance.</li>
+          <li>Cosmetic only - never changes a run, a score or a rank.</li>
+        </ul>
+      </details>
+    </div>
   );
 }

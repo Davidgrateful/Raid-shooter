@@ -132,14 +132,16 @@ export function Rack({
             data-on={item.equipped ? '1' : '0'}
             title={
               locked
-                ? item.rewardOnly
-                  ? `${item.title} — won, never sold`
-                  : `${item.title} — locked`
+                ? item.holderOnly
+                  ? `${item.title} — for $RAIDSHOOTER holders`
+                  : item.rewardOnly
+                    ? `${item.title} — won, never sold`
+                    : `${item.title} — locked`
                 : item.equipped
                   ? `${item.title} — equipped`
                   : `Equip ${item.title}`
             }
-            onClick={() => (locked ? onAcquire() : onEquip(item, i))}
+            onClick={() => (locked ? (item.holderOnly ? undefined : onAcquire()) : onEquip(item, i))}
           >
             {kind === 'drone' && item.def ? (
               <DroneGlyph item={item} />
@@ -159,7 +161,7 @@ export function Rack({
             </span>
             {locked ? (
               <span className="rs-slot-tag">
-                {item.rewardOnly ? 'Won' : item.priceUsd !== null ? `$${item.priceUsd.toFixed(2)}` : 'Locked'}
+                {item.holderOnly ? 'Holders' : item.rewardOnly ? 'Won' : item.priceUsd !== null ? `$${item.priceUsd.toFixed(2)}` : 'Locked'}
               </span>
             ) : item.equipped ? (
               <span className="rs-slot-tag rs-slot-tag-on">On</span>

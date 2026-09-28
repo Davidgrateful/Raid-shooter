@@ -56,6 +56,14 @@ already built and gated — usually just an env var + redeploy.
   Tickets do not prove a score was earned - keep reviewing flagged runs before
   any USDC payout.
 
+- **"Holder tiers are too cheap / too expensive" / token price moved a lot** →
+  $RAIDSHOOTER holder tiers (Holder / Commander / Admiral) are whole-token
+  minimums, default 1M / 50M / 500M. Set `RAIDSHOOTER_HOLDER_TIERS` in Vercel
+  (e.g. `1000000,50000000,500000000`, three increasing numbers) and redeploy.
+  Perks are cosmetic (board `$` badge + HOLDER trail) and read on-chain from
+  the signed-in wallet (`src/lib/holder.ts`). The official contract address is
+  a constant in `src/lib/token.ts`, deliberately not an env var.
+
 ## Admin / team dashboard
 
 `/admin` (gated by `ADMIN_STATS_TOKEN`): player stats, revenue, loadout usage,

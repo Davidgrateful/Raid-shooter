@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getActiveSeason } from '@/lib/rewards';
 import { getCupTop, getCupCount } from '@/lib/cup';
 import { listSponsors } from '@/lib/sponsors';
+import { withHolderTiers } from '@/lib/holder';
 
 // Public: the LIVE CUP board — the time-boxed esports ranking for the active
 // sponsored cup. Only runs played while the cup is live appear here. Returns
@@ -30,7 +31,7 @@ export async function GET() {
       endsAt: season.endsAt || null,
       sponsorName: sponsorName || null,
     },
-    entries,
+    entries: await withHolderTiers(entries),
     total,
   });
 }

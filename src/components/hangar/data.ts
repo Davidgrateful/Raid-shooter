@@ -87,6 +87,8 @@ export interface SlotItem {
   priceUsd: number | null;
   /** Reward-only cosmetics are never sold - they are won. */
   rewardOnly: boolean;
+  /** Unlocked by holding $RAIDSHOOTER, for as long as the wallet holds. */
+  holderOnly?: boolean;
   def?: ShipDef;
 }
 
@@ -237,7 +239,8 @@ export function readHangar(): HangarView | null {
         color: `hsl(${t.hue}, 100%, 62%)`,
         note: null,
         priceUsd: priceOf(items, t.id),
-        rewardOnly: !items.some((i) => i.id === t.id) && catalogueLoaded,
+        rewardOnly: !t.holder && !items.some((i) => i.id === t.id) && catalogueLoaded,
+        holderOnly: !!t.holder,
       };
     });
 

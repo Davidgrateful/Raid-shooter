@@ -5,6 +5,7 @@ import { verifyTurnstile } from '@/lib/turnstile';
 import { clientIp, rateLimit } from '@/lib/ratelimit';
 import { redeemRunTicket, runFitsTicket, runTicketRequired, recordAcceptedRun } from '@/lib/runs';
 import { recordPlay } from '@/lib/streak';
+import { withHolderTiers } from '@/lib/holder';
 
 // Daily Run: everyone plays the same seeded waves once per day; standings
 // live on a board that resets daily. The day key comes from the client (its
@@ -25,7 +26,7 @@ export async function GET(req: NextRequest) {
   const identity = session.siwe ? session.siwe.address.toLowerCase() : session.guestId || '';
   const [entries, total] = await Promise.all([getDailyTop(day, 100), getDailyCount(day)]);
   const played = identity ? await hasPlayedDaily(day, identity) : false;
-  return NextResponse.json({ entries, total, played });
+  return NextResponse.json({ entries: await withHolderTiers(entries), total, played });
 }
 
 export async function POST(req: NextRequest) {
