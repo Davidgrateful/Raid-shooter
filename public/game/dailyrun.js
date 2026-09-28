@@ -81,7 +81,13 @@ $.finishDailyRun = function() {
 			score: $.score,
 			pilot: ( $.hero && $.hero.character && $.hero.character.title ) || 'NOVA',
 			name: name,
-			turnstileToken: captcha
+			turnstileToken: captcha,
+			// the run ticket issued at run start (shooterboard.js trackRun),
+			// the run's own clock, and the durable guest id the ticket was
+			// issued to - the server checks all three against each other
+			runTicket: $.runTicket || undefined,
+			time: Math.floor( ( ( $.elapsed || 0 ) * ( 1000 / 60 ) ) / 1000 ),
+			guestToken: ( $.session && $.session.authenticated ) ? undefined : ( $.guestToken ? $.guestToken() : undefined )
 		} )
 	} )
 		.then( function( r ) { return r.json(); } )

@@ -42,6 +42,16 @@ $.persistReferrer = function() {
 	}
 };
 
+// The durable guest id the leaderboard and run ledger key guests by. The
+// referral route resolves identity the same way, so a referral credit reads
+// the same player's runs. Wallet players are identified by their session.
+$.referralGuestToken = function() {
+	try {
+		if( $.session && $.session.authenticated ) { return undefined; }
+		return $.guestToken ? $.guestToken() : undefined;
+	} catch( e ) { return undefined; }
+};
+
 // Bind the pending referrer to this identity server-side (idempotent there).
 // Also mints/refreshes our own code from our call sign in the same call.
 $.trackReferral = function() {
@@ -55,7 +65,7 @@ $.trackReferral = function() {
 	fetch( '/api/referral', {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify( { action: 'track', ref: refby, callSign: callSign } )
+		body: JSON.stringify( { action: 'track', ref: refby, callSign: callSign, guestToken: $.referralGuestToken() } )
 	} )
 		.then( function( r ) { return r.json(); } )
 		.then( function( d ) { if( d && d.code ) { $.referral.code = d.code; } } )
@@ -69,7 +79,7 @@ $.claimReferral = function( score ) {
 	fetch( '/api/referral', {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify( { action: 'claim', score: score | 0 } )
+		body: JSON.stringify( { action: 'claim', score: score | 0, guestToken: $.referralGuestToken() } )
 	} )
 		.then( function( r ) { return r.json(); } )
 		.then( function( d ) {
@@ -86,7 +96,8 @@ $.claimReferral = function( score ) {
 // Load our own code, invite count, and the recruiters board for the INVITE
 // screen.
 $.fetchReferral = function() {
-	fetch( '/api/referral' )
+	var gt = $.referralGuestToken();
+	fetch( '/api/referral' + ( gt ? '?guestToken=' + encodeURIComponent( gt ) : '' ) )
 		.then( function( r ) { return r.json(); } )
 		.then( function( d ) {
 			$.referral.code = d.code || $.referral.code;

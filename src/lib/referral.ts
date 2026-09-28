@@ -168,3 +168,50 @@ export async function getInviteCount(code: string): Promise<number> {
   }
   return memRecruiters.get(c) || 0;
 }
+
+/*
+ * PER-RECRUITER DAILY CAP.
+ *
+ * Idempotency above is per REFERRED identity, which bounds nothing about the
+ * RECRUITER: every new identity that qualifies is another credit, and another
+ * wallet reward, for the same owner. Qualification now needs a real ticketed
+ * run (see /api/referral), which makes each credit cost real play - this caps
+ * what even a patient farm can take in a day.
+ *
+ * A credit over the cap is DEFERRED, not lost: the referred player is not
+ * marked credited, so their next qualifying run (the client claims after
+ * every run until credited) lands on a later day. An influencer who brings in
+ * a crowd is paid out over several days rather than refused.
+ */
+export const REFERRAL_DAILY_CAP = 10;
+const dailyKey = (code: string, day: string) => `referral:daily:${code}:${day}`;
+const memDaily = new Map<string, number>();
+const utcDay = (now: number) => new Date(now).toISOString().slice(0, 10);
+
+/** Reserve one of today's credits for this recruiter code. False = cap reached. */
+export async function reserveDailyCredit(code: string, now = Date.now()): Promise<boolean> {
+  const k = dailyKey(code, utcDay(now));
+  if (kvUrl && kvToken) {
+    const n = (await redis(['INCR', k])) as number;
+    if (n === 1) await redis(['EXPIRE', k, 2 * 24 * 60 * 60]);
+    if (n > REFERRAL_DAILY_CAP) {
+      await redis(['DECR', k]);
+      return false;
+    }
+    return true;
+  }
+  const n = (memDaily.get(k) || 0) + 1;
+  if (n > REFERRAL_DAILY_CAP) return false;
+  memDaily.set(k, n);
+  return true;
+}
+
+/** Give back a reservation that did not turn into a credit. */
+export async function releaseDailyCredit(code: string, now = Date.now()): Promise<void> {
+  const k = dailyKey(code, utcDay(now));
+  if (kvUrl && kvToken) {
+    await redis(['DECR', k]);
+    return;
+  }
+  memDaily.set(k, Math.max(0, (memDaily.get(k) || 0) - 1));
+}

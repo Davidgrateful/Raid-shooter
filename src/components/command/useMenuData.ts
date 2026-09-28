@@ -168,7 +168,15 @@ export function useMenuData(active: boolean): MenuData {
         // behind catches up without the player replaying anything
         withEngine((e) => {
           const store = e.storage as Record<string, unknown>;
-          store.pilotxp = { ...(store.pilotxp as object), ...d.pilotxp };
+          // Per pilot, keep the HIGHER of local and server. The server now
+          // clamps and may decline to raise a total it has no play to back,
+          // so its answer can be below what this device holds - and a sync
+          // must never take a level away from someone on their own screen.
+          const mine = { ...((store.pilotxp as Record<string, number>) || {}) };
+          for (const [id, v] of Object.entries(d.pilotxp as Record<string, number>)) {
+            if (typeof v === 'number' && v > (mine[id] || 0)) mine[id] = v;
+          }
+          store.pilotxp = mine;
           (e as unknown as { updateStorage?: () => void }).updateStorage?.();
         });
       })

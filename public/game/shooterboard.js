@@ -235,6 +235,24 @@ $.cupTabLabel = function() {
 	return ( t.length > 14 ) ? t.slice( 0, 14 ) : t;
 };
 
+// The ticket for the run in progress, or null. Cleared the moment a new run
+// starts so a ticket can never carry over into the next run's submission.
+$.runTicket = null;
+$.requestRunTicket = function() {
+	$.runTicket = null;
+	try {
+		var guest = ( $.session && $.session.authenticated ) ? undefined : ( $.guestToken ? $.guestToken() : undefined );
+		fetch( '/api/run/start', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify( { guestToken: guest } )
+		} )
+			.then( function( r ) { return r.ok ? r.json() : null; } )
+			.then( function( d ) { if( d && d.ticket ) { $.runTicket = d.ticket; } } )
+			.catch( function() {} );
+	} catch( e ) {}
+};
+
 // Fire-and-forget run telemetry. Counts every run (and every player, via
 // the server session) for the dev stats dashboard - never blocks gameplay
 // and swallows all errors so a flaky network can't disrupt a run.
@@ -244,6 +262,12 @@ $.trackRun = function( event, durationSec ) {
 		// on run start, record the loadout the player chose so the dashboard
 		// can show pilot picks and drone equip rate across every run
 		if( event === 'run_start' ) {
+			// Ask the server for this run's single-use ticket (see
+			// src/lib/runs.ts). The score is later submitted against it, so
+			// the server can tell a run it saw start from a number that simply
+			// arrived. Best-effort like everything here: no ticket means a
+			// degraded submission, never a blocked run.
+			$.requestRunTicket();
 			// spend an XP BOOST charge (if any) to double this run's pilot XP
 			if( $.activateXpBoost ) { $.activateXpBoost(); }
 			var pilot = $.currentCharacter && $.currentCharacter();
@@ -328,6 +352,9 @@ $.submitScore = function() {
 			// durable guest identity (survives cookie loss on iOS / in-app
 			// browsers) so wallet-less scores always attach to one player
 			guestToken: $.session.authenticated ? undefined : $.guestToken(),
+			// the ticket this run was issued at its start - captured into the
+			// payload once, so the cooldown retry below resends the same one
+			runTicket: $.runTicket || undefined,
 			// did this run lean on a paid combat consumable? recorded for
 			// operator audit only - it no longer blocks the score
 			assisted: !!$.runAssisted,

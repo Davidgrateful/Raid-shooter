@@ -3,6 +3,8 @@ import { getOrCreateGuestId, getSession } from '@/lib/session';
 import { submitDaily, getDailyTop, getDailyCount, hasPlayedDaily, dayWithinWindow, type DailyEntry } from '@/lib/dailyrun';
 import { verifyTurnstile } from '@/lib/turnstile';
 import { clientIp, rateLimit } from '@/lib/ratelimit';
+import { redeemRunTicket, runFitsTicket, runTicketRequired, recordAcceptedRun } from '@/lib/runs';
+import { recordPlay } from '@/lib/streak';
 
 // Daily Run: everyone plays the same seeded waves once per day; standings
 // live on a board that resets daily. The day key comes from the client (its
@@ -64,6 +66,30 @@ export async function POST(req: NextRequest) {
     if (!ok) return NextResponse.json({ error: 'captcha_failed' }, { status: 403 });
   }
 
+  /*
+   * Run ticket - see lib/runs.ts and the matching block in /api/leaderboard.
+   * The daily board keys guests by session cookie, but tickets are issued the
+   * way the leaderboard resolves a guest (durable client token first), so the
+   * ticket is redeemed against THAT identity. Using the board's identity here
+   * would make every guest's ticket look like someone else's.
+   *
+   * This does not make a daily attempt uncheatable - a guest identity is still
+   * something a client can shed and remake. What it does is make each attempt
+   * cost a real run in real time, where before it cost one HTTP request.
+   */
+  const rawToken = (body as Record<string, unknown>).guestToken;
+  const ticketIdentity = verified
+    ? identity
+    : (typeof rawToken === 'string' && /^[a-z0-9-]{8,40}$/i.test(rawToken) ? `guest:${rawToken.toLowerCase()}` : identity);
+  const ticket = await redeemRunTicket((body as Record<string, unknown>).runTicket, ticketIdentity);
+  const claimedTime = (body as Record<string, unknown>).time;
+  if (ticket && isInt(claimedTime, 0, 86_400) && !runFitsTicket(claimedTime, ticket)) {
+    return NextResponse.json({ error: 'run_time_mismatch' }, { status: 400 });
+  }
+  if (!ticket && runTicketRequired()) {
+    return NextResponse.json({ error: 'run_ticket_required' }, { status: 403 });
+  }
+
   const entry: DailyEntry = {
     identity,
     name: displayName,
@@ -73,5 +99,10 @@ export async function POST(req: NextRequest) {
     verified,
   };
   const result = await submitDaily(day, entry);
+  // a ticketed daily run is a real play, exactly like an endless one
+  if (ticket && result.accepted !== false) {
+    recordAcceptedRun(ticketIdentity, score).catch(() => {});
+    recordPlay(ticketIdentity).catch(() => {});
+  }
   return NextResponse.json({ ok: true, verified, ...result });
 }

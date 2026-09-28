@@ -10,7 +10,7 @@ import { hasScope, type Role, type Scope } from '@/lib/roles';
 //   1. Wallet session - the caller signed in with SIWE and their address is
 //      in the admin roster (or ADMIN_OWNER_ADDRESSES). Role comes from there.
 //   2. Break-glass token - the legacy ADMIN_STATS_TOKEN, sent as a Bearer
-//      header or ?key=. Treated as Owner, so recovery/bootstrap always works.
+//      header. Treated as Owner, so recovery/bootstrap always works.
 //
 // adminAuth resolves the caller and (optionally) checks a required scope,
 // returning either the authorized identity or a ready-to-return error.
@@ -27,7 +27,12 @@ function tokenMatches(req: NextRequest): boolean {
   if (!expected) return false;
   const header = req.headers.get('authorization') || '';
   const bearer = header.startsWith('Bearer ') ? header.slice(7) : '';
-  const provided = bearer || req.nextUrl.searchParams.get('key') || '';
+  // Header only. A `?key=` query fallback used to be accepted here too, and a
+  // secret in a URL leaks into server/CDN logs, browser history and Referer
+  // headers. Nothing sends it: the dashboard reads ?key= from ITS OWN page URL
+  // once, strips it (history.replaceState), and calls the APIs with a Bearer
+  // header - so this only ever widened where the token could end up.
+  const provided = bearer;
   if (provided.length !== expected.length) return false;
   try {
     return timingSafeEqual(Buffer.from(provided), Buffer.from(expected));

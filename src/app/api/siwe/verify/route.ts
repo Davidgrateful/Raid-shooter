@@ -3,6 +3,7 @@ import { SiweMessage } from 'siwe';
 import { getSession } from '@/lib/session';
 import { mergeGuestIntoWallet } from '@/lib/leaderboard';
 import { mergeGuestProfileIntoWallet } from '@/lib/profile';
+import { tryLock, unlock } from '@/lib/lock';
 import { rateLimit, clientIp } from '@/lib/ratelimit';
 
 export async function POST(req: NextRequest) {
@@ -62,16 +63,30 @@ export async function POST(req: NextRequest) {
     session.nonce = undefined;
     await session.save();
 
+    /*
+     * Both merges read the guest, write the wallet, then clear the guest. Two
+     * sign-ins racing on the same guest identity could each read it before
+     * either cleared it and copy its consumables into two wallets. One lock per
+     * guest identity serialises them; the loser simply skips the merge - by
+     * the time it could run, the guest has already been emptied into a wallet.
+     */
     if (guestId) {
-      try {
-        await mergeGuestIntoWallet(guestId, walletKey);
-      } catch {
-        // best-effort: a failed merge shouldn't block sign-in
-      }
-      try {
-        await mergeGuestProfileIntoWallet(guestId, walletKey);
-      } catch {
-        // best-effort: a failed merge shouldn't block sign-in
+      const lock = await tryLock(`merge:${guestId}`).catch(() => null);
+      if (lock) {
+        try {
+          try {
+            await mergeGuestIntoWallet(guestId, walletKey);
+          } catch {
+            // best-effort: a failed merge shouldn't block sign-in
+          }
+          try {
+            await mergeGuestProfileIntoWallet(guestId, walletKey);
+          } catch {
+            // best-effort: a failed merge shouldn't block sign-in
+          }
+        } finally {
+          await unlock(`merge:${guestId}`, lock).catch(() => {});
+        }
       }
     }
 

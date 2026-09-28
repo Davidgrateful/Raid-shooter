@@ -7,6 +7,8 @@ import { submitWeekly } from '@/lib/weekly';
 import { verifyTurnstile } from '@/lib/turnstile';
 import { clientIp, rateLimit } from '@/lib/ratelimit';
 import { postMessage as postChatMessage } from '@/lib/chat';
+import { redeemRunTicket, runFitsTicket, runTicketRequired, recordAcceptedRun } from '@/lib/runs';
+import { recordPlay } from '@/lib/streak';
 
 export async function GET(req: NextRequest) {
   try {
@@ -187,6 +189,28 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    /*
+     * The run ticket (lib/runs.ts). Redeemed HERE - after the cooldown and the
+     * duplicate check - on purpose: the client resends the identical payload
+     * after a 429, and spending the ticket on the bounced attempt would fail
+     * the honest retry.
+     *
+     * A ticket that exists but cannot cover the claimed run time is refused
+     * outright: that is an impossibility measured on the server's own clock,
+     * not a judgement about skill. A MISSING ticket is refused only once the
+     * operator sets REQUIRE_RUN_TICKET=1; until then the run ranks and goes to
+     * the review queue, so a client still running cached pre-ticket code is
+     * never silently robbed of a real score during the rollout.
+     */
+    const ticket = await redeemRunTicket((body as Record<string, unknown>).runTicket, key);
+    if (ticket && !runFitsTicket(time, ticket)) {
+      return NextResponse.json({ error: 'run_time_mismatch' }, { status: 400 });
+    }
+    const ticketed = !!ticket;
+    if (!ticketed && runTicketRequired()) {
+      return NextResponse.json({ error: 'run_ticket_required' }, { status: 403 });
+    }
+
     const entry = {
       address: key,
       name: displayName,
@@ -232,9 +256,24 @@ export async function POST(req: NextRequest) {
 
     // outlier runs still rank (no false-positive punishment) but are copied
     // to the admin review queue - the gate for tournament payouts
-    const reason = suspicionReason(entry);
+    const reason = [suspicionReason(entry), ticketed ? null : 'NO RUN TICKET']
+      .filter(Boolean)
+      .join(' · ');
     if (reason) {
       flagRun(entry, reason).catch(() => {});
+    }
+
+    // Only a ticketed run counts as evidence that this player PLAYED - it is
+    // what the streak and referral routes check instead of trusting a request.
+    //
+    // The daily streak is recorded HERE, where the evidence is created, rather
+    // than trusted from a separate request. The menu still posts to
+    // /api/streak, but that call can no longer make a day count on its own -
+    // and recording at the source means a slow connection can't lose an
+    // honest player's day by letting the menu's call arrive first.
+    if (ticketed) {
+      recordAcceptedRun(key, score).catch(() => {});
+      recordPlay(key).catch(() => {});
     }
 
     // High-score hype in chat: EVERY new personal best gets announced,

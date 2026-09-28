@@ -136,24 +136,47 @@ export async function claimTx(txHash: string): Promise<boolean> {
  * XP only ever goes up in this game (gainPilotXp adds; nothing spends it), so
  * max-merge cannot lose a legitimate decrease - there is no such thing.
  */
+/**
+ * The XP at which a pilot reaches max level - the last entry of
+ * $.pilotLevelThresholds in public/game/characters.js. XP past it buys
+ * nothing, so no honest total is ever above it. A test pins the two together.
+ */
+export const MAX_PILOT_XP = 31_000;
+
 export async function mergePilotXp(
   address: string,
   incoming: Record<string, number>,
+  // May this sync RAISE a stored total? The route passes true only when the
+  // run ledger shows this identity actually played recently (a ticketed,
+  // accepted run). A sync with no play behind it can still READ back the
+  // stored totals - it just cannot write new ones.
+  allowIncrease = true,
 ): Promise<Record<string, number>> {
   const profile = await getProfile(address);
-  const merged: Record<string, number> = { ...(profile.pilotxp || {}) };
+  const merged: Record<string, number> = {};
   let changed = false;
 
-  for (const [id, raw] of Object.entries(incoming || {})) {
-    // ignore anything that is not a sane number: a forged payload should not
-    // be able to write NaN or Infinity into a profile
-    if (!/^[a-z0-9_]{1,32}$/i.test(id)) continue;
-    const value = Number(raw);
-    if (!Number.isFinite(value) || value < 0) continue;
-    const capped = Math.min(Math.floor(value), 10_000_000);
-    if (capped > (merged[id] || 0)) {
-      merged[id] = capped;
-      changed = true;
+  // Clamp what is already stored, too. The cap used to be 10,000,000 - 322x
+  // the max-level total - so it rejected nothing a forged payload would send,
+  // and some profiles will be holding values like that now.
+  for (const [id, v] of Object.entries(profile.pilotxp || {})) {
+    const c = Math.min(Math.max(0, Math.floor(Number(v) || 0)), MAX_PILOT_XP);
+    merged[id] = c;
+    if (c !== v) changed = true;
+  }
+
+  if (allowIncrease) {
+    for (const [id, raw] of Object.entries(incoming || {})) {
+      // ignore anything that is not a sane number: a forged payload should not
+      // be able to write NaN or Infinity into a profile
+      if (!/^[a-z0-9_]{1,32}$/i.test(id)) continue;
+      const value = Number(raw);
+      if (!Number.isFinite(value) || value < 0) continue;
+      const capped = Math.min(Math.floor(value), MAX_PILOT_XP);
+      if (capped > (merged[id] || 0)) {
+        merged[id] = capped;
+        changed = true;
+      }
     }
   }
 

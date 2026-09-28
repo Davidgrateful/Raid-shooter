@@ -51,12 +51,12 @@ export default defineConfig({
      */
     {
       name: 'desktop',
-      testIgnore: /(hud-matrix|rate-limits)\.spec\.ts/,
+      testIgnore: /(hud-matrix|rate-limits|anti-abuse)\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 }, launchOptions },
     },
     {
       name: 'phone-landscape',
-      testIgnore: /(hud-matrix|rate-limits)\.spec\.ts/,
+      testIgnore: /(hud-matrix|rate-limits|anti-abuse)\.spec\.ts/,
       use: {
         ...devices['Desktop Chrome'],
         viewport: { width: 844, height: 390 },
@@ -74,7 +74,7 @@ export default defineConfig({
      */
     {
       name: 'api',
-      testMatch: /rate-limits\.spec\.ts/,
+      testMatch: /(rate-limits|anti-abuse)\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], launchOptions },
     },
     {

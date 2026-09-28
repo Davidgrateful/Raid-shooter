@@ -3,6 +3,7 @@ import { getSession } from '@/lib/session';
 import { getProfile, mergePilotXp } from '@/lib/profile';
 import { getOrCreateGuestId } from '@/lib/session';
 import { rateLimit, clientIp } from '@/lib/ratelimit';
+import { hasAcceptedRunSince } from '@/lib/runs';
 
 export async function GET(req: NextRequest) {
   const session = await getSession();
@@ -73,7 +74,11 @@ export async function POST(req: NextRequest) {
     : (clientGuest || (await getOrCreateGuestId(session)));
 
   try {
-    const pilotxp = await mergePilotXp(key, incoming as Record<string, number>);
+    // XP is earned by playing, so a sync may only RAISE the stored totals when
+    // the server has seen this identity play recently. 48h rather than 24h so
+    // a player whose menu sync failed after last night's run is not stranded.
+    const played = await hasAcceptedRunSince(key, Date.now() - 48 * 60 * 60 * 1000);
+    const pilotxp = await mergePilotXp(key, incoming as Record<string, number>, played);
     return NextResponse.json({ ok: true, pilotxp });
   } catch {
     return NextResponse.json({ error: 'profile_unavailable' }, { status: 503 });

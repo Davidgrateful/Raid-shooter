@@ -38,9 +38,30 @@ export async function rateLimit(
   return entry.count <= max;
 }
 
-// Best-effort client IP from the proxy headers Vercel sets.
+/*
+ * The client IP every IP-keyed limiter is keyed on.
+ *
+ * This used to take the FIRST entry of x-forwarded-for. That header is a list
+ * each hop appends to, and its first entry is whatever the original request
+ * claimed - so a caller that sets its own x-forwarded-for chooses its own
+ * limiter key, and a limiter keyed on a value the caller chooses limits
+ * nothing. Measured against `next start`, where no proxy rewrites the header:
+ * 30 renames with a rotating header against a 20/min ceiling, 30 accepted.
+ *
+ * Vercel's edge sets x-vercel-forwarded-for and x-real-ip itself from the
+ * connection it actually received, so those come first. x-forwarded-for is
+ * the last resort, and its LAST entry is used rather than its first: the last
+ * hop is the one nearest this server, the only one a remote caller cannot
+ * write. Local dev and tests have no edge in front of them and fall through
+ * to it, which is fine - there is nothing to spoof past there.
+ */
 export function clientIp(req: Request): string {
+  const platform = req.headers.get('x-vercel-forwarded-for') || req.headers.get('x-real-ip');
+  if (platform) return platform.split(',')[0].trim();
   const fwd = req.headers.get('x-forwarded-for');
-  if (fwd) return fwd.split(',')[0].trim();
-  return req.headers.get('x-real-ip') || 'unknown';
+  if (fwd) {
+    const hops = fwd.split(',').map((h) => h.trim()).filter(Boolean);
+    if (hops.length) return hops[hops.length - 1];
+  }
+  return 'unknown';
 }

@@ -46,6 +46,16 @@ already built and gated — usually just an env var + redeploy.
   wallet connect - so if plain wallet connect is broken, email login is broken
   the same way and for the same reason.
 
+- **Forged / impossible scores on the board, or "how do we stop fake runs"** →
+  run tickets are built (`src/lib/runs.ts`). Every run gets a single-use ticket
+  at launch; a submission claiming more run time than has really passed since
+  its ticket is refused outright. A submission with NO ticket still ranks but
+  lands in the review queue flagged `NO RUN TICKET`. Once the new client has
+  been live a day or two (so no cached old client is still playing), set
+  `REQUIRE_RUN_TICKET=1` in Vercel and redeploy to refuse unticketed runs.
+  Tickets do not prove a score was earned - keep reviewing flagged runs before
+  any USDC payout.
+
 ## Admin / team dashboard
 
 `/admin` (gated by `ADMIN_STATS_TOKEN`): player stats, revenue, loadout usage,

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSession, getOrCreateGuestId } from '@/lib/session';
 import { recordPlay, getStreak, STREAK_GOAL_DAYS, STREAK_PILOT_GOAL_DAYS } from '@/lib/streak';
 import { rateLimit, clientIp } from '@/lib/ratelimit';
+import { hasAcceptedRunSince } from '@/lib/runs';
 
 // Same guest-identity resolution as /api/leaderboard and /api/chat: prefer
 // the client's durable localStorage token (survives cookie loss - iOS
@@ -38,6 +39,20 @@ export async function POST(req: NextRequest) {
   const key = session.siwe
     ? session.siwe.address.toLowerCase()
     : (clientGuestToken || (await getOrCreateGuestId(session)));
+  /*
+   * This used to record a play for anyone who asked. The earlier fix for "the
+   * streak counts opening the app" gated the CLIENT on a finished run - which
+   * fixed honest players and left the route itself answering any script that
+   * posted to it once a day. A day now counts only if the server has seen a
+   * ticketed run accepted for this identity in the last 24 hours (the
+   * leaderboard and daily routes record the day themselves when that happens;
+   * this is a second door to the same room, not a way around it).
+   */
+  const recent = await hasAcceptedRunSince(key, Date.now() - 24 * 60 * 60 * 1000);
+  if (!recent) {
+    const current = await getStreak(key);
+    return NextResponse.json({ days: current.days, goal: STREAK_GOAL_DAYS, recorded: false });
+  }
   const days = await recordPlay(key);
-  return NextResponse.json({ days, goal: STREAK_GOAL_DAYS });
+  return NextResponse.json({ days, goal: STREAK_GOAL_DAYS, recorded: true });
 }
