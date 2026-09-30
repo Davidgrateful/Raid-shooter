@@ -2631,13 +2631,13 @@ $.setState = function( state ) {
 				lockedWidth: 199,
 				lockedHeight: 45,
 				scale: 1,
-				title: 'COLOR: ' + $.definitions.shipColors[ $.storage['ship'] || 0 ].title,
+				title: 'COLOR: ' + ( $.definitions.shipColors[ $.storage['ship'] || 0 ] || $.definitions.shipColors[ 0 ] ).title,
 				scrollable: 1,
 				action: function() {
 					$.mouse.down = 0;
 					$.storage['ship'] = ( ( $.storage['ship'] || 0 ) + 1 ) % $.definitions.shipColors.length;
 					$.updateStorage();
-					this.title = 'COLOR: ' + $.definitions.shipColors[ $.storage['ship'] ].title;
+					this.title = 'COLOR: ' + ( $.definitions.shipColors[ $.storage['ship'] ] || $.definitions.shipColors[ 0 ] ).title;
 				}
 			} ) );
 			$.buttons.push( new $.Button( {

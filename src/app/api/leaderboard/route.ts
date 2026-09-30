@@ -9,7 +9,7 @@ import { clientIp, rateLimit } from '@/lib/ratelimit';
 import { postMessage as postChatMessage } from '@/lib/chat';
 import { redeemRunTicket, runFitsTicket, runTicketRequired, recordAcceptedRun } from '@/lib/runs';
 import { recordPlay } from '@/lib/streak';
-import { withHolderTiers, cachedTiers, HOLDER_TRAIL_HUE } from '@/lib/holder';
+import { withHolderTiers, cachedTiers, stripUnearnedCosmetics } from '@/lib/holder';
 
 export async function GET(req: NextRequest) {
   try {
@@ -212,14 +212,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'run_ticket_required' }, { status: 403 });
     }
 
-    // The holder trail is holders-only: a non-holder posting its hue (a forged
-    // payload, or a stale client after selling) shows no trail on the board.
-    let cosmetics = sanitizeCosmetics((body as Record<string, unknown>).cosmetics);
-    if (cosmetics?.trailHue === HOLDER_TRAIL_HUE && !(verified && (await cachedTiers([key])).size > 0)) {
-      const { trailHue: _dropped, ...rest } = cosmetics;
-      void _dropped;
-      cosmetics = Object.keys(rest).length > 0 ? rest : undefined;
-    }
+    // Holder cosmetics are tier-gated: a trail or finish the submitter's
+    // cached tier does not unlock (a forged payload, or a stale client after
+    // selling) is dropped before it reaches every viewer's board.
+    const tier = verified ? (await cachedTiers([key])).get(key.toLowerCase()) ?? null : null;
+    const cosmetics = stripUnearnedCosmetics(sanitizeCosmetics((body as Record<string, unknown>).cosmetics), tier);
 
     const entry = {
       address: key,

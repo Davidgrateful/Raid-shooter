@@ -50,6 +50,35 @@ const LABELS = ['Holder', 'Commander', 'Admiral'];
 /** The hue of the holder-only engine trail (see market.js). */
 export const HOLDER_TRAIL_HUE = 130;
 
+/*
+ * Holder cosmetics as the board sees them (must match market.js): the trail
+ * hue or ship color, and the lowest tier that unlocks it.
+ */
+const RANK: Record<string, number> = { holder: 1, commander: 2, admiral: 3 };
+export const HOLDER_TRAILS: Record<number, HolderTierId> = { 130: 'holder', 240: 'admiral' };
+export const HOLDER_FINISHES: Record<string, HolderTierId> = { 'hsl(345, 85%, 72%)': 'commander' };
+
+export function tierAtLeast(tier: HolderTierId | null | undefined, need: HolderTierId): boolean {
+  return (RANK[tier || ''] || 0) >= RANK[need];
+}
+
+/**
+ * Removes any holder cosmetic the submitter's tier does not unlock - a forged
+ * payload, or a stale client after selling, shows nothing holder-only.
+ */
+export function stripUnearnedCosmetics<C extends { trailHue?: number; shipColor?: string }>(
+  cosmetics: C | undefined,
+  tier: HolderTierId | null
+): C | undefined {
+  if (!cosmetics) return cosmetics;
+  const out = { ...cosmetics };
+  const trailNeed = typeof out.trailHue === 'number' ? HOLDER_TRAILS[out.trailHue] : undefined;
+  if (trailNeed && !tierAtLeast(tier, trailNeed)) delete out.trailHue;
+  const finishNeed = typeof out.shipColor === 'string' ? HOLDER_FINISHES[out.shipColor] : undefined;
+  if (finishNeed && !tierAtLeast(tier, finishNeed)) delete out.shipColor;
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
 const FRESH_MS = 10 * 60_000;
 const KEEP_S = 24 * 60 * 60;
 const DECIMALS = BigInt(10) ** BigInt(18);

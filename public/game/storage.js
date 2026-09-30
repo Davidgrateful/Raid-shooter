@@ -44,7 +44,15 @@ $.setupStorage = function() {
 		$.storage['character'] = 0;
 		$.updateStorage();
 	}
-	if( $.definitions.shipColors && ( $.storage['ship'] || 0 ) >= $.definitions.shipColors.length ) {
+	// Owned premium finishes join shipColors only once the server profile
+	// loads (market.js applyOwnedItems), so at boot an index into them looks
+	// out of range - and this can run before market.js has even defined them
+	// (referral.js reaches it through $.guestToken). Only reset an index that
+	// is not a plausible color at all; applyOwnedItems clamps the rest once
+	// ownership is known. Resetting anything past the base colors here made
+	// every paid skin unequip itself on reload.
+	var ship = $.storage['ship'] || 0;
+	if( typeof ship !== 'number' || ship < 0 || ship > 63 || ship !== Math.floor( ship ) ) {
 		$.storage['ship'] = 0;
 	}
 

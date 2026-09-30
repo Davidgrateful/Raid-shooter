@@ -133,7 +133,7 @@ export function Rack({
             title={
               locked
                 ? item.holderOnly
-                  ? `${item.title} — for $RAIDSHOOTER holders`
+                  ? `${item.title} — for $RAIDSHOOTER ${TIER_TAG[item.holderTier || 'holder'] || 'holders'}`
                   : item.rewardOnly
                     ? `${item.title} — won, never sold`
                     : `${item.title} — locked`
@@ -161,7 +161,7 @@ export function Rack({
             </span>
             {locked ? (
               <span className="rs-slot-tag">
-                {item.holderOnly ? 'Holders' : item.rewardOnly ? 'Won' : item.priceUsd !== null ? `$${item.priceUsd.toFixed(2)}` : 'Locked'}
+                {item.holderOnly ? TIER_TAG[item.holderTier || 'holder'] || 'Holders' : item.rewardOnly ? 'Won' : item.priceUsd !== null ? `$${item.priceUsd.toFixed(2)}` : 'Locked'}
               </span>
             ) : item.equipped ? (
               <span className="rs-slot-tag rs-slot-tag-on">On</span>
@@ -172,6 +172,9 @@ export function Rack({
     </div>
   );
 }
+
+/** The tag on a locked holder item: the lowest tier that unlocks it. */
+const TIER_TAG: Record<string, string> = { holder: 'Holders', commander: 'Commander+', admiral: 'Admiral' };
 
 /** A drone renders itself — the same draw() the game flies. */
 function DroneGlyph({ item }: { item: SlotItem }) {

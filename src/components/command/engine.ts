@@ -30,7 +30,7 @@ export interface ShipDef {
   draw: (ctx: CanvasRenderingContext2D, r: number, fill: string, tick: number) => void;
 }
 
-export interface TrailDef { id: string; title: string; hue: number; holder?: boolean }
+export interface TrailDef { id: string; title: string; hue: number; holder?: string }
 export interface ColorDef { title: string; color: string }
 export interface MarketItem {
   id: string;
@@ -55,7 +55,7 @@ export interface Engine {
     shipColors: ColorDef[];
     drones?: ShipDef[];
     trails?: TrailDef[];
-    premiumColors?: { id: string; title: string; color: string }[];
+    premiumColors?: { id: string; title: string; color: string; holder?: string }[];
   };
   setState: (s: string) => void;
   updateStorage?: () => void;

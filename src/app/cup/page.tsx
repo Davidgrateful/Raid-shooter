@@ -15,7 +15,7 @@ export const metadata: Metadata = {
   description: 'The live Raid Shooter cup: prizes, rules, and current standings.',
 };
 
-interface Prize { fromRank: number; toRank: number; itemId: string | null; usd: number }
+interface Prize { fromRank: number; toRank: number; itemId: string | null; usd: number; tokens?: number }
 interface Season { name: string; prize1Usd: number; poolUsd: number; endsAt: number | null; sponsorName: string | null; prizes: Prize[] }
 interface Entry { address: string; name?: string; score: number; verified?: boolean }
 
@@ -26,9 +26,10 @@ async function baseUrl(): Promise<string> {
   return `${proto}://${host}`;
 }
 
-function prizeLabel(itemId: string | null, usd: number): string {
+function prizeLabel(itemId: string | null, usd: number, tokens = 0): string {
   const parts: string[] = [];
   if (usd > 0) parts.push(`${usd} USDC`);
+  if (tokens > 0) parts.push(`${tokens.toLocaleString('en-US')} $RAIDSHOOTER`);
   if (itemId) {
     const item = getItem(itemId);
     parts.push(item ? item.title : itemId.replace(/_/g, ' ').toUpperCase());
@@ -99,7 +100,7 @@ export default async function CupPage() {
             {prizes.map((p, i) => (
               <tr key={i} className="border-t border-white/5">
                 <td className="px-4 py-2.5 font-bold">{p.fromRank === p.toRank ? `#${p.fromRank}` : `#${p.fromRank}–${p.toRank}`}</td>
-                <td className="px-4 py-2.5">{prizeLabel(p.itemId, p.usd)}</td>
+                <td className="px-4 py-2.5">{prizeLabel(p.itemId, p.usd, p.tokens)}</td>
               </tr>
             ))}
           </tbody>

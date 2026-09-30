@@ -13,7 +13,9 @@ $.definitions.premiumColors = [
 	{ id: 'color_gold', title: 'GOLD', color: 'hsl(45, 100%, 60%)' },
 	{ id: 'color_void', title: 'VOID', color: 'hsl(285, 100%, 65%)' },
 	{ id: 'color_emerald', title: 'EMERALD', color: 'hsl(150, 100%, 55%)' },
-	{ id: 'color_ice', title: 'ICE', color: 'hsl(200, 100%, 80%)' }
+	{ id: 'color_ice', title: 'ICE', color: 'hsl(200, 100%, 80%)' },
+	// $RAIDSHOOTER Commander tier and up, for as long as they hold (never sold)
+	{ id: 'color_commander', title: 'COMMANDER', color: 'hsl(345, 85%, 72%)', holder: 'commander' }
 ];
 
 $.definitions.trails = [
@@ -24,14 +26,21 @@ $.definitions.trails = [
 	{ id: 'trail_champion', title: 'CHAMPION', hue: 45 },
 	// $RAIDSHOOTER holders only, for as long as they hold (never sold). The
 	// server confirms the tier on each profile read; see src/lib/holder.ts.
-	{ id: 'trail_holder', title: 'HOLDER', hue: 130, holder: true }
+	{ id: 'trail_holder', title: 'HOLDER', hue: 130, holder: 'holder' },
+	{ id: 'trail_admiral', title: 'ADMIRAL', hue: 240, holder: 'admiral' }
 ];
 
 // $.profile.holder is the wallet's holder tier id ('holder' | 'commander' |
-// 'admiral') or null, as read from the chain by the server.
+// 'admiral') or null, as read from the chain by the server. Tiers stack: an
+// Admiral owns every holder cosmetic, a Commander all but the Admiral's.
+$.holderRank = function( tier ) {
+	return { holder: 1, commander: 2, admiral: 3 }[ tier ] || 0;
+};
+$.holderItemTier = { trail_holder: 'holder', color_commander: 'commander', trail_admiral: 'admiral' };
 $.ownsItem = function( id ) {
-	if( id === 'trail_holder' ) {
-		return !!$.profile.holder;
+	var need = $.holderItemTier[ id ];
+	if( need ) {
+		return $.holderRank( $.profile.holder ) >= $.holderRank( need );
 	}
 	return $.profile.items.indexOf( id ) !== -1;
 };
@@ -90,6 +99,17 @@ $.equippedDrone = function() {
 
 // owned premium colors join the regular color cycle
 $.applyOwnedItems = function() {
+	// A holder finish leaves the cycle when the wallet drops below its tier.
+	// Removing a color shifts the ones after it, so the equipped color is
+	// re-found by title; if it was the one removed, the ship goes back to 0.
+	var index = $.storage['ship'] || 0;
+	var equipped = $.definitions.shipColors[ index ];
+	// no color at this index yet = a premium finish from before the reload,
+	// which the loop below re-adds in the same catalogue order
+	var equippedTitle = equipped ? equipped.title : null;
+	$.definitions.shipColors = $.definitions.shipColors.filter( function( c ) {
+		return !c.id || $.ownsItem( c.id );
+	} );
 	for( var i = 0; i < $.definitions.premiumColors.length; i++ ) {
 		var color = $.definitions.premiumColors[ i ];
 		if( $.ownsItem( color.id ) ) {
@@ -105,6 +125,15 @@ $.applyOwnedItems = function() {
 			}
 		}
 	}
+	var at = -1;
+	if( equippedTitle ) {
+		for( var k = 0; k < $.definitions.shipColors.length; k++ ) {
+			if( $.definitions.shipColors[ k ].title === equippedTitle ) { at = k; break; }
+		}
+	} else if( index < $.definitions.shipColors.length ) {
+		at = index;
+	}
+	$.storage['ship'] = at >= 0 ? at : 0;
 	if( $.storage['trail'] && !$.ownsItem( $.storage['trail'] ) ) {
 		$.storage['trail'] = '';
 	}

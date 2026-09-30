@@ -74,6 +74,24 @@ already built and gated — usually just an env var + redeploy.
   Armory live on Base mainnet (`NEXT_PUBLIC_BASE_NETWORK=base` + treasury).
   Prices never follow the pool automatically (`src/lib/tokenpay.ts`).
 
+- **"Pay cup winners in the token" / "$RAIDSHOOTER prizes"** → built. In
+  `/admin` → Rewards, each prize tier has a `$RAIDSHOOTER` per-wallet field
+  next to USDC. "Create payout" makes a separate $RAIDSHOOTER batch (official
+  contract, Base mainnet, 18 decimals) paid the same ways as USDC: "Pay from my
+  wallet", Export for Disperse, or auto-send if `PAYOUT_PRIVATE_KEY` is set
+  (that wallet must then hold the tokens). Never pay tokens per-run: scores
+  are not proof of play, so bots would farm them - prizes go through the
+  reviewed cup flow.
+
+- **"Who gets DUELS first" / "holder early access list"** → `/admin` → Token
+  tab lists holders who claimed DUELS early access (confirmed on-chain when
+  they joined), with Copy wallets. DUELS itself is still not built.
+
+- **"Ask the players" / "run a poll" / "what should we build next"** →
+  `/admin` → Content → Pilot vote: question + 2-5 options, shows on the deck.
+  One vote each; guests can repeat by clearing storage, so steer by the
+  separate **holder** count. Close it to freeze, Remove to take it off the deck.
+
 ## Admin / team dashboard
 
 `/admin` (gated by `ADMIN_STATS_TOKEN`): player stats, revenue, loadout usage,

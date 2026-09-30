@@ -25,6 +25,7 @@ export interface PrizeTier {
   toRank: number;
   itemId?: string; // cosmetic granted to each wallet in range
   usd?: number; // USDC paid to each wallet in range
+  tokens?: number; // whole $RAIDSHOOTER paid to each wallet in range
 }
 
 export interface Season {
@@ -58,6 +59,7 @@ export interface WinnerRow {
   verified: boolean;
   itemId?: string;
   usd?: number;
+  tokens?: number;
   // populated after a grant/payout pass
   granted?: boolean;
   paid?: boolean;
@@ -75,6 +77,15 @@ export interface PayoutBatch {
   network: string;
   rows: WinnerRow[];
   totalUsd: number;
+  /** what this batch pays: USDC prizes (row.usd) or $RAIDSHOOTER (row.tokens).
+   *  Absent on batches from before token prizes = USDC. */
+  currency?: 'usdc' | 'raidshooter';
+  totalTokens?: number;
+}
+
+/** The amount a row is owed in its batch's own currency. */
+export function rowAmount(row: WinnerRow, currency: PayoutBatch['currency']): number {
+  return (currency === 'raidshooter' ? row.tokens : row.usd) || 0;
 }
 
 const memSeasons = new Map<string, Season>();
@@ -96,8 +107,9 @@ export function cleanSeason(input: Partial<Season>): Season {
           toRank: Math.max(1, Math.floor(Number(p.toRank) || Number(p.fromRank) || 1)),
           itemId: p.itemId && getItem(p.itemId) ? p.itemId : undefined,
           usd: Number.isFinite(Number(p.usd)) && Number(p.usd) > 0 ? Number(p.usd) : undefined,
+          tokens: Number.isSafeInteger(Number(p.tokens)) && Number(p.tokens) > 0 ? Number(p.tokens) : undefined,
         }))
-        .filter((p) => p.itemId || p.usd)
+        .filter((p) => p.itemId || p.usd || p.tokens)
         .sort((a, b) => a.fromRank - b.fromRank)
     : [];
   const status: Season['status'] = ['draft', 'active', 'ended'].includes(input.status as string)
@@ -199,6 +211,7 @@ export async function computeWinners(season: Season): Promise<WinnerRow[]> {
       verified: !!entry.verified && wallet,
       itemId: tier.itemId,
       usd: tier.usd,
+      tokens: tier.tokens,
       note: wallet ? undefined : 'GUEST - must connect a wallet to claim',
     });
   });
@@ -261,18 +274,22 @@ export async function createPayoutBatch(
   season: Season,
   rows: WinnerRow[],
   tokenSymbol: string,
-  network: string
-): Promise<PayoutBatch> {
-  const payable = rows.filter((r) => r.usd && r.usd > 0 && isWallet(r.address));
+  network: string,
+  currency: 'usdc' | 'raidshooter' = 'usdc'
+): Promise<PayoutBatch | null> {
+  const payable = rows.filter((r) => rowAmount(r, currency) > 0 && isWallet(r.address));
+  if (payable.length === 0) return null;
   const batch: PayoutBatch = {
-    id: `payout-${Date.now().toString(36)}`,
+    id: `payout-${Date.now().toString(36)}${currency === 'raidshooter' ? '-rs' : ''}`,
     seasonId: season.id,
     createdAt: Date.now(),
     status: 'pending',
     tokenSymbol,
     network,
     rows: payable,
-    totalUsd: payable.reduce((sum, r) => sum + (r.usd || 0), 0),
+    currency,
+    totalUsd: currency === 'usdc' ? payable.reduce((sum, r) => sum + (r.usd || 0), 0) : 0,
+    ...(currency === 'raidshooter' ? { totalTokens: payable.reduce((sum, r) => sum + (r.tokens || 0), 0) } : {}),
   };
   await savePayout(batch);
   return batch;

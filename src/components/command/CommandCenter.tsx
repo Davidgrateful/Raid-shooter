@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ShipViewport } from './ShipViewport';
 import { NavRail, TabBar, TopHud, type NavEntry } from './hud';
-import { ComingSoonPanel, TokenPanel, CupPanel, DeployCta, MissionPanel, Panel, PilotIdentity, RankPanel, RewardPanel, RewardWonPanel } from './panels';
+import { ComingSoonPanel, DuelsEarlyAccess, PollPanel, TokenPanel, CupPanel, DeployCta, MissionPanel, Panel, PilotIdentity, RankPanel, RewardPanel, RewardWonPanel } from './panels';
 import { Recover } from './Recover';
 import { engine, readPlayer, useEngineRevision, useEngineState, withEngine, type PlayerSnapshot, type ShipDef } from './engine';
 import { guestToken, timeLeft, useMenuData } from './useMenuData';
@@ -287,6 +287,7 @@ export function CommandCenter() {
         <CupPanel
           name={data.cup.name}
           prize={data.cup.prize1Usd || data.cup.poolUsd || null}
+          prizeTokens={data.cup.prize1Tokens || data.cup.poolTokens || null}
           ends={cupEnds}
           sponsor={data.cup.sponsorName}
           onOpen={openCup}
@@ -358,6 +359,9 @@ export function CommandCenter() {
           ranked under a teaser. */}
       <TokenPanel info={TOKEN} />
 
+      {/* the operator's Pilot vote, when one is running */}
+      <PollPanel guestToken={guestToken()} />
+
       {/* Not built yet, and the panel says exactly that. It sits below the
           things that ARE playable on purpose - a teaser must not outrank a
           raid the player can actually fly right now. */}
@@ -368,7 +372,9 @@ export function CommandCenter() {
         busy={duelsBusy}
         failed={duelsFailed}
         onRegister={noteDuelsInterest}
-      />
+      >
+        <DuelsEarlyAccess />
+      </ComingSoonPanel>
 
       {data.news && (
         <Panel title="Transmission" accent="var(--rs-purple)">

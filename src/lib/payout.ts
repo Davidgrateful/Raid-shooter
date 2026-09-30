@@ -10,10 +10,12 @@
 // behavior is the default and a misconfig can't move funds.
 
 import { baseNetwork, baseRpcUrl } from '@/lib/market';
+import { OFFICIAL_TOKEN_ADDRESS } from '@/lib/token';
 
 export interface PayoutRow {
   address: string;
-  amountUsd: number;
+  /** in the batch token's human units (USDC dollars, or whole $RAIDSHOOTER) */
+  amount: number;
 }
 
 // Token config. Defaults to Circle's native USDC on the active Base network,
@@ -29,6 +31,16 @@ export interface TokenConfig {
 // Circle native USDC addresses.
 const USDC_BASE_MAINNET = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
 const USDC_BASE_SEPOLIA = '0x036CbD53842c5426634e7929541eC2318f3dCF7e';
+
+/** $RAIDSHOOTER cup prizes: the official contract, always Base mainnet. */
+export function raidshooterPayoutToken(): TokenConfig {
+  return { address: OFFICIAL_TOKEN_ADDRESS, symbol: '$RAIDSHOOTER', decimals: 18, network: 'base' };
+}
+
+/** The token a batch pays in: $RAIDSHOOTER batches, else the USDC config. */
+export function payoutTokenFor(batch: { currency?: string }): TokenConfig {
+  return batch.currency === 'raidshooter' ? raidshooterPayoutToken() : tokenConfig();
+}
 
 export function tokenConfig(): TokenConfig {
   const envAddr = (process.env.PAYOUT_TOKEN_ADDRESS || '').trim();
@@ -58,9 +70,9 @@ export function buildDisperse(rows: PayoutRow[], token: TokenConfig) {
   const recipients: string[] = [];
   const amounts: string[] = [];
   for (const r of rows) {
-    if (!/^0x[0-9a-fA-F]{40}$/.test(r.address) || !(r.amountUsd > 0)) continue;
+    if (!/^0x[0-9a-fA-F]{40}$/.test(r.address) || !(r.amount > 0)) continue;
     recipients.push(r.address);
-    amounts.push(toBaseUnits(r.amountUsd, token.decimals));
+    amounts.push(toBaseUnits(r.amount, token.decimals));
   }
   return {
     token: token.address,
@@ -69,17 +81,17 @@ export function buildDisperse(rows: PayoutRow[], token: TokenConfig) {
     amounts,
     // disperse.app's textarea format: "address, amount" per line (human units)
     pasteFormat: rows
-      .filter((r) => /^0x[0-9a-fA-F]{40}$/.test(r.address) && r.amountUsd > 0)
-      .map((r) => `${r.address}, ${r.amountUsd}`)
+      .filter((r) => /^0x[0-9a-fA-F]{40}$/.test(r.address) && r.amount > 0)
+      .map((r) => `${r.address}, ${r.amount}`)
       .join('\n'),
   };
 }
 
 export function buildCsv(rows: PayoutRow[]): string {
-  const header = 'address,amount_usd';
+  const header = 'address,amount';
   const lines = rows
-    .filter((r) => /^0x[0-9a-fA-F]{40}$/.test(r.address) && r.amountUsd > 0)
-    .map((r) => `${r.address},${r.amountUsd}`);
+    .filter((r) => /^0x[0-9a-fA-F]{40}$/.test(r.address) && r.amount > 0)
+    .map((r) => `${r.address},${r.amount}`);
   return [header, ...lines].join('\n');
 }
 
@@ -90,7 +102,7 @@ export function canAutoSend(): boolean {
 
 export interface SendResult {
   ok: boolean;
-  txHashes: { address: string; amountUsd: number; txHash?: string; error?: string }[];
+  txHashes: { address: string; amount: number; txHash?: string; error?: string }[];
   error?: string;
 }
 
@@ -99,11 +111,12 @@ export interface SendResult {
 // caller (admin route) must additionally require an explicit confirm flag.
 // Kept deliberately simple (sequential transfers) so a failure is isolated to
 // one recipient and the rest still go through.
-export async function sendBatch(rows: PayoutRow[]): Promise<SendResult> {
+export async function sendBatch(rows: PayoutRow[], token: TokenConfig = tokenConfig()): Promise<SendResult> {
   if (!canAutoSend()) {
     return { ok: false, txHashes: [], error: 'Automated payouts are not configured (PAYOUT_PRIVATE_KEY unset).' };
   }
-  const token = tokenConfig();
+  // $RAIDSHOOTER is on Base mainnet even when the Armory runs on testnet
+  const rpc = token.network === baseNetwork ? baseRpcUrl : 'https://mainnet.base.org';
   // viem is already a project dependency (wallet login). Imported lazily so a
   // missing key path never pulls signing code into the request.
   const { createWalletClient, http, getContract, parseAbi } = await import('viem');
@@ -114,7 +127,7 @@ export async function sendBatch(rows: PayoutRow[]): Promise<SendResult> {
     (process.env.PAYOUT_PRIVATE_KEY as `0x${string}`)
   );
   const chain = token.network === 'base' ? base : baseSepolia;
-  const client = createWalletClient({ account, chain, transport: http(baseRpcUrl) });
+  const client = createWalletClient({ account, chain, transport: http(rpc) });
   const erc20 = getContract({
     address: token.address as `0x${string}`,
     abi: parseAbi(['function transfer(address to, uint256 amount) returns (bool)']),
@@ -123,13 +136,13 @@ export async function sendBatch(rows: PayoutRow[]): Promise<SendResult> {
 
   const txHashes: SendResult['txHashes'] = [];
   for (const r of rows) {
-    if (!/^0x[0-9a-fA-F]{40}$/.test(r.address) || !(r.amountUsd > 0)) continue;
+    if (!/^0x[0-9a-fA-F]{40}$/.test(r.address) || !(r.amount > 0)) continue;
     try {
-      const amount = BigInt(toBaseUnits(r.amountUsd, token.decimals));
+      const amount = BigInt(toBaseUnits(r.amount, token.decimals));
       const hash = await erc20.write.transfer([r.address as `0x${string}`, amount]);
-      txHashes.push({ address: r.address, amountUsd: r.amountUsd, txHash: hash });
+      txHashes.push({ address: r.address, amount: r.amount, txHash: hash });
     } catch (e) {
-      txHashes.push({ address: r.address, amountUsd: r.amountUsd, error: (e as Error).message });
+      txHashes.push({ address: r.address, amount: r.amount, error: (e as Error).message });
     }
   }
   return { ok: txHashes.every((t) => t.txHash), txHashes };

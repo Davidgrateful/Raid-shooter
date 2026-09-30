@@ -428,12 +428,15 @@ Live cup — stakes, not a crypto banner
 export function CupPanel({
   name,
   prize,
+  prizeTokens = null,
   ends,
   sponsor,
   onOpen,
 }: {
   name: string;
   prize: number | null;
+  /** $RAIDSHOOTER prize, shown when there is no USD headline */
+  prizeTokens?: number | null;
   ends: string;
   sponsor: string | null;
   onOpen: () => void;
@@ -447,7 +450,11 @@ export function CupPanel({
       </span>
       <span className="rs-cup-row">
         <span className="rs-cup-name">{name}</span>
-        {prize ? <span className="rs-num rs-cup-prize">${prize.toLocaleString()}</span> : null}
+        {prize ? (
+          <span className="rs-num rs-cup-prize">${prize.toLocaleString()}</span>
+        ) : prizeTokens ? (
+          <span className="rs-num rs-cup-prize" title={`${prizeTokens.toLocaleString('en-US')} $RAIDSHOOTER`}>{compactTokens(prizeTokens)} $RS</span>
+        ) : null}
       </span>
       <span className="rs-cup-meta">
         <span className="rs-cup-bolt"><IconBolt /></span>
@@ -481,6 +488,7 @@ export function ComingSoonPanel({
   busy,
   failed = false,
   onRegister,
+  children,
 }: {
   title: string;
   blurb: string;
@@ -488,6 +496,7 @@ export function ComingSoonPanel({
   busy: boolean;
   failed?: boolean;
   onRegister: () => void;
+  children?: ReactNode;
 }) {
   return (
     <Panel
@@ -515,7 +524,70 @@ export function ComingSoonPanel({
             ? 'Your interest was counted. Nothing else was stored.'
             : 'Counts an anonymous tap so we can see if this is worth building.'}
       </p>
+      {children}
     </Panel>
+  );
+}
+
+/*------------------------------------------------------------------------------
+DuelsEarlyAccess - $RAIDSHOOTER holders get first access when DUELS opens.
+
+Joining stores the wallet on a list, so it is an explicit tap, and the server
+re-reads the wallet's tier on-chain before accepting it. Nothing here promises
+a date: it says holders get in first, which is what the list is for.
+------------------------------------------------------------------------------*/
+interface EarlyView { signedIn: boolean; minHold: number; holder?: string | null; onList?: boolean }
+
+export function DuelsEarlyAccess() {
+  const [v, setV] = useState<EarlyView | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+
+  useEffect(() => {
+    let alive = true;
+    const cancel = whenIdle(() => {
+      fetch('/api/duels/early-access')
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => { if (alive && d) setV(d); })
+        .catch(() => {});
+    });
+    return () => { alive = false; cancel(); };
+  }, []);
+
+  async function join() {
+    setBusy(true); setErr('');
+    try {
+      const r = await fetch('/api/duels/early-access', { method: 'POST' });
+      const d = await r.json().catch(() => ({}));
+      if (r.ok) setV((p) => (p ? { ...p, onList: true, holder: d.holder ?? p.holder } : p));
+      else setErr(d.error === 'not_a_holder' ? 'This wallet does not hold enough $RAIDSHOOTER yet.' : 'Could not join just now - try again.');
+    } catch { setErr('Could not join just now - try again.'); }
+    finally { setBusy(false); }
+  }
+
+  if (!v) return null;
+  const min = compactTokens(v.minHold);
+  return (
+    <div className="rs-early" data-state={v.onList ? 'on' : v.holder ? 'can' : 'no'}>
+      <span className="rs-holder-chip" data-tier={v.holder || 'holder'} aria-hidden>$</span>
+      <div className="rs-early-body">
+        <b>Holders play DUELS first.</b>{' '}
+        {!v.signedIn ? (
+          <>Sign in with a wallet holding {min}+ $RAIDSHOOTER to claim early access.</>
+        ) : v.onList ? (
+          <>You&apos;re on the early-access list.</>
+        ) : v.holder ? (
+          <>
+            <button type="button" className="rs-early-btn" onClick={join} disabled={busy}>
+              {busy ? 'Joining…' : 'Claim early access'}
+            </button>
+          </>
+        ) : (
+          <>Hold {min}+ $RAIDSHOOTER to claim early access.</>
+        )}
+        {err && <span className="rs-early-err" role="status"> {err}</span>}
+      </div>
+    </div>
   );
 }
 
@@ -618,6 +690,21 @@ the signed-in wallet's balance from the token contract on Base. Nothing is
 estimated client side. Perks are cosmetic and follow the balance, and the panel
 says both, so nobody reads it as a promise of anything else.
 ------------------------------------------------------------------------------*/
+/**
+ * Runs a panel's first, non-urgent fetch once the browser is idle, so the
+ * deck's extras don't compete with the game engine's boot on a slow phone
+ * (measured: ~250ms of 4x-throttled boot). Returns a cancel function.
+ */
+function whenIdle(fn: () => void): () => void {
+  const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void };
+  if (w.requestIdleCallback) {
+    const id = w.requestIdleCallback(fn, { timeout: 2500 });
+    return () => w.cancelIdleCallback?.(id);
+  }
+  const t = window.setTimeout(fn, 1200);
+  return () => window.clearTimeout(t);
+}
+
 interface HolderView {
   signedIn: boolean;
   tiers: { id: string; label: string; min: number }[];
@@ -639,11 +726,11 @@ function HolderPerks() {
         .then((d: HolderView) => { if (alive) { setView(d); setFailed(false); } })
         .catch(() => { if (alive) setFailed(true); });
     };
-    load();
+    const cancel = whenIdle(load);
     // a player who signs in from the deck should see their tier without a reload
     const t = setInterval(load, 60_000);
     document.addEventListener('visibilitychange', load);
-    return () => { alive = false; clearInterval(t); document.removeEventListener('visibilitychange', load); };
+    return () => { alive = false; cancel(); clearInterval(t); document.removeEventListener('visibilitychange', load); };
   }, []);
 
   const tiers = view?.tiers || [];
@@ -702,10 +789,99 @@ function HolderPerks() {
         <ul>
           <li>A <b>$</b> badge by your name on every leaderboard - it fills in as your tier rises.</li>
           <li>The <b>HOLDER</b> engine trail, in your hangar.</li>
+          <li><b>Commander</b> adds the COMMANDER ship finish; <b>Admiral</b> adds the ADMIRAL trail.</li>
           <li>Checked on-chain from your signed-in wallet. Perks follow your balance.</li>
           <li>Cosmetic only - never changes a run, a score or a rank.</li>
         </ul>
       </details>
     </div>
+  );
+}
+
+/*------------------------------------------------------------------------------
+PollPanel - the Pilot vote. The operator asks from /admin; one vote each.
+
+Results appear once you've voted (or the poll has closed), so the first votes
+are not just an echo of the leading option. The holder line is the count that
+cannot be faked by clearing storage, so it is shown on its own.
+------------------------------------------------------------------------------*/
+interface PollView {
+  poll: { id: string; question: string; options: string[]; active: boolean } | null;
+  myVote: number | null;
+  results: { total: number; counts: number[]; holderTotal: number; holderCounts: number[] } | null;
+}
+
+export function PollPanel({ guestToken }: { guestToken: string | null }) {
+  const [v, setV] = useState<PollView | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const qs = guestToken ? `?guestToken=${encodeURIComponent(guestToken)}` : '';
+
+  useEffect(() => {
+    let alive = true;
+    const cancel = whenIdle(() => {
+      fetch(`/api/poll${qs}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => { if (alive && d) setV(d); })
+        .catch(() => {});
+    });
+    return () => { alive = false; cancel(); };
+  }, [qs]);
+
+  async function vote(option: number) {
+    if (!v?.poll) return;
+    setBusy(true); setErr('');
+    try {
+      const r = await fetch('/api/poll', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pollId: v.poll.id, option, guestToken }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (r.ok) setV({ ...v, myVote: d.myVote, results: d.results });
+      else setErr(d.error === 'poll_closed' ? 'This vote has closed.' : 'Could not count that - try again.');
+    } catch { setErr('Could not count that - try again.'); }
+    finally { setBusy(false); }
+  }
+
+  if (!v?.poll) return null;
+  const { poll, results } = v;
+  const pct = (n: number, of: number) => (of > 0 ? Math.round((n / of) * 100) : 0);
+
+  return (
+    <Panel
+      title="Pilot vote"
+      accent="var(--rs-cyan)"
+      className="rs-poll"
+      action={<span className="rs-soon-chip">{poll.active ? 'Open' : 'Closed'}</span>}
+    >
+      <p className="rs-poll-q">{poll.question}</p>
+      {results ? (
+        <ul className="rs-poll-res" aria-label="Results">
+          {poll.options.map((o, i) => (
+            <li key={o} data-mine={v.myVote === i ? '1' : '0'}>
+              <span className="rs-poll-bar" style={{ width: `${pct(results.counts[i], results.total)}%` }} aria-hidden />
+              <span className="rs-poll-opt">{o}{v.myVote === i && <b> · your vote</b>}</span>
+              <span className="rs-num">{pct(results.counts[i], results.total)}%</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <div className="rs-poll-opts">
+          {poll.options.map((o, i) => (
+            <button key={o} type="button" className="rs-poll-btn" disabled={busy} onClick={() => vote(i)}>{o}</button>
+          ))}
+        </div>
+      )}
+      {err && <p className="rs-early-err" role="status">{err}</p>}
+      {results && (
+        <p className="rs-poll-fine">
+          {results.total} vote{results.total === 1 ? '' : 's'}
+          {results.holderTotal > 0 && (
+            <> · $RAIDSHOOTER holders ({results.holderTotal}): {poll.options.map((o, i) => `${o} ${pct(results.holderCounts[i], results.holderTotal)}%`).join(', ')}</>
+          )}
+        </p>
+      )}
+    </Panel>
   );
 }

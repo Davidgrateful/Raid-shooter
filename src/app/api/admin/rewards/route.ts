@@ -7,7 +7,7 @@ import {
   listPayouts,
   type Season,
 } from '@/lib/rewards';
-import { canAutoSend, tokenConfig } from '@/lib/payout';
+import { canAutoSend, raidshooterPayoutToken, tokenConfig } from '@/lib/payout';
 
 // Admin: tournament seasons + payout history. The operator builds prize
 // tables (rank -> cosmetic and/or USDC) and runs reward rounds entirely from
@@ -22,6 +22,8 @@ export async function GET(req: NextRequest) {
     payouts,
     payout: {
       token: { symbol: token.symbol, address: token.address, network: token.network, decimals: token.decimals },
+      // $RAIDSHOOTER prize batches pay from this token instead
+      raidshooter: raidshooterPayoutToken(),
       autoSend: canAutoSend(),
     },
   });

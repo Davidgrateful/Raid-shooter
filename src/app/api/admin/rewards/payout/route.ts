@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth } from '@/lib/admin-auth';
 import { audit } from '@/lib/audit';
-import { getPayout, savePayout, getSeason } from '@/lib/rewards';
+import { getPayout, savePayout, getSeason, rowAmount } from '@/lib/rewards';
 import { sendToInbox } from '@/lib/inbox';
 import type { PayoutBatch } from '@/lib/rewards';
 import {
@@ -9,7 +9,7 @@ import {
   buildCsv,
   canAutoSend,
   sendBatch,
-  tokenConfig,
+  payoutTokenFor,
   type PayoutRow,
 } from '@/lib/payout';
 
@@ -24,15 +24,17 @@ async function notifyPaidWinners(payout: PayoutBatch): Promise<void> {
     /* fall back to the generic name */
   }
   for (const row of payout.rows) {
-    if (!row.paid || !row.usd) continue;
+    const amount = rowAmount(row, payout.currency);
+    if (!row.paid || !amount) continue;
+    const shown = payout.currency === 'raidshooter' ? amount.toLocaleString('en-US') : String(amount);
     await sendToInbox(row.address, {
       kind: 'payout',
-      title: `You've been paid ${row.usd} ${payout.tokenSymbol}!`,
+      title: `You've been paid ${shown} ${payout.tokenSymbol}!`,
       body:
-        `Your #${row.rank} finish in ${cupName} has been paid: ${row.usd} ${payout.tokenSymbol} ` +
+        `Your #${row.rank} finish in ${cupName} has been paid: ${shown} ${payout.tokenSymbol} ` +
         `sent to your wallet on ${payout.network}.` +
         (row.txHash ? ' Tap to view the transaction.' : ''),
-      meta: { txHash: row.txHash, amountUsd: row.usd, rank: row.rank },
+      meta: { txHash: row.txHash, ...(payout.currency === 'raidshooter' ? { tokens: amount } : { amountUsd: amount }), rank: row.rank },
     }).catch(() => {});
   }
 }
@@ -56,10 +58,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Unknown payoutId' }, { status: 400 });
   }
 
-  const token = tokenConfig();
+  const token = payoutTokenFor(payout);
   const rows: PayoutRow[] = payout.rows
-    .filter((r) => r.usd && r.usd > 0)
-    .map((r) => ({ address: r.address, amountUsd: r.usd as number }));
+    .filter((r) => rowAmount(r, payout.currency) > 0)
+    .map((r) => ({ address: r.address, amount: rowAmount(r, payout.currency) }));
 
   if (body?.action === 'export') {
     payout.status = payout.status === 'sent' ? 'sent' : 'exported';
@@ -86,7 +88,7 @@ export async function POST(req: NextRequest) {
     if (!body?.confirm) {
       return NextResponse.json({ error: 'confirm:true is required to move real funds.' }, { status: 400 });
     }
-    const result = await sendBatch(rows);
+    const result = await sendBatch(rows, token);
     // write tx hashes back onto the batch
     for (const t of result.txHashes) {
       const row = payout.rows.find((r) => r.address.toLowerCase() === t.address.toLowerCase());
@@ -99,7 +101,7 @@ export async function POST(req: NextRequest) {
     payout.status = result.ok ? 'sent' : payout.status;
     await savePayout(payout);
     await notifyPaidWinners(payout);
-    await audit({ actor: auth.identity.actor, action: 'payout.send', target: payout.id, detail: `${payout.totalUsd} ${payout.tokenSymbol} to ${rows.length}` });
+    await audit({ actor: auth.identity.actor, action: 'payout.send', target: payout.id, detail: `${payout.currency === 'raidshooter' ? payout.totalTokens : payout.totalUsd} ${payout.tokenSymbol} to ${rows.length}` });
     return NextResponse.json({ ok: result.ok, payout, result });
   }
 
@@ -111,7 +113,7 @@ export async function POST(req: NextRequest) {
     }
     await savePayout(payout);
     await notifyPaidWinners(payout);
-    await audit({ actor: auth.identity.actor, action: 'payout.mark-sent', target: payout.id, detail: `${payout.totalUsd} ${payout.tokenSymbol}` });
+    await audit({ actor: auth.identity.actor, action: 'payout.mark-sent', target: payout.id, detail: `${payout.currency === 'raidshooter' ? payout.totalTokens : payout.totalUsd} ${payout.tokenSymbol}` });
     return NextResponse.json({ ok: true, payout });
   }
 

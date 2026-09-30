@@ -89,6 +89,8 @@ export interface SlotItem {
   rewardOnly: boolean;
   /** Unlocked by holding $RAIDSHOOTER, for as long as the wallet holds. */
   holderOnly?: boolean;
+  /** the lowest holder tier that unlocks it: 'holder' | 'commander' | 'admiral' */
+  holderTier?: string;
   def?: ShipDef;
 }
 
@@ -210,6 +212,8 @@ export function readHangar(): HangarView | null {
         note: null,
         priceUsd: match ? priceOf(items, match.id) : null,
         rewardOnly: false,
+        holderOnly: !!match?.holder,
+        holderTier: match?.holder,
       };
     });
     // premium skins the player does not own are absent from shipColors, so
@@ -225,6 +229,8 @@ export function readHangar(): HangarView | null {
         note: null,
         priceUsd: priceOf(items, p.id),
         rewardOnly: false,
+        holderOnly: !!p.holder,
+        holderTier: p.holder,
       });
     });
 
@@ -241,6 +247,7 @@ export function readHangar(): HangarView | null {
         priceUsd: priceOf(items, t.id),
         rewardOnly: !t.holder && !items.some((i) => i.id === t.id) && catalogueLoaded,
         holderOnly: !!t.holder,
+        holderTier: t.holder,
       };
     });
 

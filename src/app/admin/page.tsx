@@ -720,6 +720,129 @@ function TokenCheckout({ token }: { token: string }) {
           {cfg.updatedAt ? <p className="mt-1 text-[11px] text-white/35">Last changed {fmtAgo(cfg.updatedAt)} by {cfg.updatedBy === 'token' ? 'recovery token' : short(cfg.updatedBy || '')}.</p> : null}
         </div>
       </>)}
+      <EarlyAccessList token={token} />
+    </section>
+  );
+}
+
+// ---- DUELS early access: holders who claimed it, oldest first ----
+function EarlyAccessList({ token }: { token: string }) {
+  const [rows, setRows] = useState<{ address: string; tier: string; at: number }[] | null>(null);
+  const [msg, setMsg] = useState('');
+  useEffect(() => {
+    fetch('/api/admin/early-access', { cache: 'no-store', headers: authHeaders(token) })
+      .then(async (r) => { const d = await r.json(); if (!r.ok) throw new Error(d.error || `Failed (${r.status})`); setRows(d.rows); })
+      .catch((e) => setMsg(e instanceof Error ? e.message : 'Failed to load.'));
+  }, [token]);
+  return (
+    <div className="rounded-lg border border-white/10 bg-white/[0.02] p-4">
+      <div className="mb-2 flex items-center justify-between">
+        <h3 className="text-xs uppercase tracking-wider text-white/50">DUELS early access · holders</h3>
+        {rows && rows.length > 0 && (
+          <button onClick={() => navigator.clipboard.writeText(rows.map((r) => r.address).join('\n'))} className="rounded bg-white/10 px-2 py-1 text-xs hover:bg-white/20">Copy wallets</button>
+        )}
+      </div>
+      {msg && <p className="text-sm text-white/50">{msg}</p>}
+      {rows && (rows.length === 0 ? (
+        <p className="text-sm text-white/40">No holders have claimed early access yet.</p>
+      ) : (
+        <div className="space-y-1 text-sm">
+          <p className="mb-1 text-xs text-white/40">{rows.length} wallet{rows.length === 1 ? '' : 's'}. The tier shown is from when they joined.</p>
+          {rows.map((r) => (
+            <div key={r.address} className="flex justify-between gap-3 border-b border-white/5 py-1 font-mono text-xs">
+              <span className="text-white/75">{short(r.address)}</span>
+              <span className="text-amber-200/80">{r.tier}</span>
+              <span className="text-white/40">{fmtAgo(r.at)}</span>
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ---- Pilot vote: ask players a question, see all votes and holder votes ----
+interface PollState {
+  poll: { id: string; question: string; options: string[]; active: boolean; createdAt: number } | null;
+  results: { total: number; counts: number[]; holderTotal: number; holderCounts: number[] } | null;
+}
+
+function PollManager({ token }: { token: string }) {
+  const [st, setSt] = useState<PollState | null>(null);
+  const [q, setQ] = useState('');
+  const [opts, setOpts] = useState<string[]>(['', '']);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState('');
+  const inputCls = 'w-full rounded-md border border-white/15 bg-white/[0.05] px-3 py-2 text-sm outline-none focus:border-cyan-400/60';
+
+  async function call(body?: object) {
+    setBusy(true); setMsg('');
+    try {
+      const res = await fetch('/api/admin/poll', body
+        ? { method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeaders(token) }, body: JSON.stringify(body) }
+        : { cache: 'no-store', headers: authHeaders(token) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `Failed (${res.status})`);
+      setSt(data);
+      return true;
+    } catch (e) { setMsg(e instanceof Error ? e.message : 'Failed.'); return false; }
+    finally { setBusy(false); }
+  }
+  useEffect(() => { call(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function start() {
+    if (st?.poll?.active && !confirm('This replaces the live vote and its results start from zero. Continue?')) return;
+    if (await call({ action: 'start', question: q, options: opts.filter((o) => o.trim()) })) {
+      setMsg('✓ Vote is live on the command deck.'); setQ(''); setOpts(['', '']);
+    }
+  }
+
+  const pct = (n: number, of: number) => (of > 0 ? Math.round((n / of) * 100) : 0);
+  const r = st?.results;
+  return (
+    <section>
+      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-cyan-300/80">Pilot vote</h2>
+      {msg && <div className="mb-3 rounded-md border border-white/15 bg-white/[0.05] p-2 text-sm text-white/80">{msg}</div>}
+      {st?.poll && r && (
+        <div className="mb-4 rounded-lg border border-white/10 bg-white/[0.02] p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="text-sm font-medium text-white/90">{st.poll.question} <span className={`ml-1 rounded px-1.5 py-0.5 text-[10px] ${st.poll.active ? 'bg-emerald-500/20 text-emerald-300' : 'bg-white/10 text-white/40'}`}>{st.poll.active ? 'live' : 'closed'}</span></div>
+            <div className="flex gap-1.5">
+              {st.poll.active && <button onClick={() => call({ action: 'close' })} disabled={busy} className="rounded bg-white/10 px-2 py-1 text-xs hover:bg-white/20">Close vote</button>}
+              <button onClick={() => { if (confirm('Remove this vote from the command deck?')) call({ action: 'clear' }); }} disabled={busy} className="rounded bg-red-500/15 px-2 py-1 text-xs text-red-300 hover:bg-red-500/25">Remove from deck</button>
+            </div>
+          </div>
+          <table className="mt-3 w-full text-left text-sm">
+            <thead className="text-[11px] uppercase tracking-wider text-white/40"><tr><th className="py-1">Option</th><th className="py-1 text-right">All votes ({r.total})</th><th className="py-1 text-right text-amber-200/70">Holders ({r.holderTotal})</th></tr></thead>
+            <tbody>
+              {st.poll.options.map((o, i) => (
+                <tr key={o} className="border-t border-white/5">
+                  <td className="py-1.5 text-white/80">{o}</td>
+                  <td className="py-1.5 text-right tabular-nums">{r.counts[i]} · {pct(r.counts[i], r.total)}%</td>
+                  <td className="py-1.5 text-right tabular-nums text-amber-200">{r.holderCounts[i]} · {pct(r.holderCounts[i], r.holderTotal)}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="mt-2 text-[11px] text-white/35">Anyone can vote once, but guest votes are easy to repeat by clearing a browser. Holder votes come from wallets with an on-chain $RAIDSHOOTER tier - steer by those.</p>
+        </div>
+      )}
+      <div className="rounded-lg border border-cyan-500/20 bg-cyan-500/[0.04] p-4">
+        <div className="mb-2 text-xs uppercase tracking-wider text-white/50">{st?.poll?.active ? 'Replace with a new vote' : 'Start a vote'}</div>
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Question (e.g. What should $RAIDSHOOTER unlock next?)" className={inputCls} />
+        <div className="mt-2 space-y-2">
+          {opts.map((o, i) => (
+            <div key={i} className="flex gap-2">
+              <input value={o} onChange={(e) => setOpts(opts.map((x, j) => (j === i ? e.target.value : x)))} placeholder={`Option ${i + 1}`} className={inputCls} />
+              {opts.length > 2 && <button onClick={() => setOpts(opts.filter((_, j) => j !== i))} className="rounded bg-red-500/15 px-2 text-xs text-red-300">✕</button>}
+            </div>
+          ))}
+        </div>
+        <div className="mt-3 flex gap-2">
+          {opts.length < 5 && <button onClick={() => setOpts([...opts, ''])} className="rounded bg-white/10 px-2 py-1 text-xs hover:bg-white/20">+ Option</button>}
+          <button onClick={start} disabled={busy || q.trim().length < 3 || opts.filter((o) => o.trim()).length < 2} className="rounded-md bg-cyan-500/80 px-4 py-1.5 text-sm font-semibold text-black hover:bg-cyan-400 disabled:opacity-40">Go live</button>
+        </div>
+      </div>
     </section>
   );
 }
@@ -1440,7 +1563,7 @@ function FeedbackInbox({ token }: { token: string }) {
 }
 
 // ---- tournament rewards: seasons, prize tables, grants & USDC payouts ----
-interface PrizeTier { fromRank: number; toRank: number; itemId?: string; usd?: number }
+interface PrizeTier { fromRank: number; toRank: number; itemId?: string; usd?: number; tokens?: number }
 interface Season { id: string; name: string; sponsorId?: string; prizes: PrizeTier[]; status: 'draft' | 'active' | 'ended'; createdAt: number; endsAt?: number; requiredPilotId?: string; thanksMessage?: string }
 
 // <input type="datetime-local"> speaks "YYYY-MM-DDTHH:MM" in local time
@@ -1454,8 +1577,16 @@ function localInputToMs(v: string): number | undefined {
   const ms = new Date(v).getTime();
   return Number.isFinite(ms) ? ms : undefined;
 }
-interface WinnerRow { rank: number; address: string; name?: string; score: number; verified: boolean; itemId?: string; usd?: number; granted?: boolean; paid?: boolean; txHash?: string; note?: string }
-interface PayoutBatch { id: string; seasonId: string; createdAt: number; status: string; tokenSymbol: string; network: string; rows: WinnerRow[]; totalUsd: number }
+interface WinnerRow { rank: number; address: string; name?: string; score: number; verified: boolean; itemId?: string; usd?: number; tokens?: number; granted?: boolean; paid?: boolean; txHash?: string; note?: string }
+interface PayoutBatch { id: string; seasonId: string; createdAt: number; status: string; tokenSymbol: string; network: string; rows: WinnerRow[]; totalUsd: number; currency?: 'usdc' | 'raidshooter'; totalTokens?: number }
+
+/** What a winner row is owed in its batch's currency. */
+const owed = (r: WinnerRow, b: { currency?: string }) => (b.currency === 'raidshooter' ? r.tokens : r.usd) || 0;
+/** One prize tier / winner reward as a line: "trail_champion + 50 USDC + 5,000,000 $RS". */
+function rewardLine(x: { itemId?: string; usd?: number; tokens?: number }, usdcSymbol: string): string {
+  return [x.itemId, x.usd ? `${x.usd} ${usdcSymbol}` : null, x.tokens ? `${x.tokens.toLocaleString('en-US')} $RAIDSHOOTER` : null]
+    .filter(Boolean).join(' + ') || '—';
+}
 
 const REWARD_ITEMS = [
   'trail_champion', 'drone_champion', 'color_gold', 'color_void', 'color_emerald', 'color_ice',
@@ -1469,6 +1600,7 @@ function RewardsManager({ token }: { token: string }) {
   const [seasons, setSeasons] = useState<Season[] | null>(null);
   const [payouts, setPayouts] = useState<PayoutBatch[]>([]);
   const [tokenInfo, setTokenInfo] = useState<{ symbol: string; network: string; autoSend: boolean; address: string; decimals: number } | null>(null);
+  const [rsToken, setRsToken] = useState<{ symbol: string; network: string; address: string; decimals: number } | null>(null);
   const { isConnected, address: walletAddress } = useAccount();
   const { open } = useAppKit();
   const { writeContractAsync } = useWriteContract();
@@ -1490,6 +1622,7 @@ function RewardsManager({ token }: { token: string }) {
       if (!res.ok) throw new Error(data.error || `Failed (${res.status})`);
       setSeasons(data.seasons); setPayouts(data.payouts || []);
       setTokenInfo({ symbol: data.payout.token.symbol, network: data.payout.token.network, autoSend: data.payout.autoSend, address: data.payout.token.address, decimals: data.payout.token.decimals });
+      setRsToken(data.payout.raidshooter || null);
     } catch (e) { setMsg(e instanceof Error ? e.message : 'Failed to load.'); }
     finally { setBusy(false); }
   }
@@ -1521,7 +1654,12 @@ function RewardsManager({ token }: { token: string }) {
       if (!res.ok) throw new Error(data.error || `Failed (${res.status})`);
       setWinners({ seasonId, rows: data.winners });
       if (grant) setMsg('✓ Cosmetic prizes granted to the winning wallets.');
-      if (createPayout && data.payout) setMsg(`✓ Payout batch created: ${data.payout.rows.length} wallets, ${data.payout.totalUsd} ${tokenInfo?.symbol}.`);
+      if (createPayout) {
+        const made = (data.payouts || []) as PayoutBatch[];
+        setMsg(made.length === 0
+          ? 'No payout needed: no winning wallet has a USDC or $RAIDSHOOTER prize.'
+          : `✓ Created ${made.map((b) => b.currency === 'raidshooter' ? `${(b.totalTokens || 0).toLocaleString('en-US')} $RAIDSHOOTER to ${b.rows.length}` : `${b.totalUsd} ${b.tokenSymbol} to ${b.rows.length}`).join(' and ')} wallet(s).`);
+      }
       await load();
     } catch (e) { setMsg(e instanceof Error ? e.message : 'Failed.'); }
     finally { setBusy(false); }
@@ -1548,17 +1686,19 @@ function RewardsManager({ token }: { token: string }) {
   // notified. A failed/declined transfer just leaves that row unpaid to
   // retry - the loop keeps going for the rest.
   async function payFromWallet(b: PayoutBatch) {
-    if (!tokenInfo?.address) { setMsg('Payout token not configured.'); return; }
-    const targetChain = CHAIN_ID[tokenInfo.network] || 8453;
-    const recipients = b.rows.filter((r) => r.usd && r.usd > 0 && /^0x[0-9a-fA-F]{40}$/.test(r.address) && !r.paid);
+    // a $RAIDSHOOTER batch pays from the official token on Base mainnet
+    const payToken = b.currency === 'raidshooter' ? rsToken : tokenInfo;
+    if (!payToken?.address) { setMsg('Payout token not configured.'); return; }
+    const targetChain = CHAIN_ID[payToken.network] || 8453;
+    const recipients = b.rows.filter((r) => owed(r, b) > 0 && /^0x[0-9a-fA-F]{40}$/.test(r.address) && !r.paid);
     if (recipients.length === 0) { setMsg('Nothing left to pay in this batch.'); return; }
     if (!isConnected) { open(); return; }
-    if (!confirm(`Pay ${recipients.length} winner(s) a total of ${recipients.reduce((s, r) => s + (r.usd || 0), 0)} ${tokenInfo.symbol} from your connected wallet? You'll sign one transaction per winner.`)) return;
+    if (!confirm(`Pay ${recipients.length} winner(s) a total of ${recipients.reduce((s, r) => s + owed(r, b), 0).toLocaleString('en-US')} ${payToken.symbol} from your connected wallet? You'll sign one transaction per winner.`)) return;
 
     setBusy(true); setMsg(''); setPayProgress('');
     try {
       if (chainId !== targetChain) {
-        setPayProgress(`Switching wallet to ${tokenInfo.network}…`);
+        setPayProgress(`Switching wallet to ${payToken.network}…`);
         await switchChainAsync({ chainId: targetChain });
       }
       const results: { address: string; txHash: string }[] = [];
@@ -1568,9 +1708,9 @@ function RewardsManager({ token }: { token: string }) {
         try {
           const hash = await writeContractAsync({
             abi: ERC20_TRANSFER_ABI,
-            address: tokenInfo.address as `0x${string}`,
+            address: payToken.address as `0x${string}`,
             functionName: 'transfer',
-            args: [r.address as `0x${string}`, parseUnits(String(r.usd), tokenInfo.decimals)],
+            args: [r.address as `0x${string}`, parseUnits(String(owed(r, b)), payToken.decimals)],
             chainId: targetChain,
           });
           results.push({ address: r.address, txHash: hash });
@@ -1652,6 +1792,8 @@ function RewardsManager({ token }: { token: string }) {
                 </select>
                 <span className="text-white/40">{tokenInfo?.symbol || 'USDC'}</span>
                 <input type="number" value={p.usd ?? ''} onChange={(e) => setPrize(i, { usd: parseFloat(e.target.value) || undefined })} placeholder="0" className={`${inputCls} w-20`} />
+                <span className="text-amber-200/60">$RAIDSHOOTER</span>
+                <input type="number" value={p.tokens ?? ''} onChange={(e) => setPrize(i, { tokens: Math.floor(Number(e.target.value)) || undefined })} placeholder="0" className={`${inputCls} w-32`} />
                 <button onClick={() => setForm({ ...form, prizes: form.prizes.filter((_, idx) => idx !== i) })} className="rounded bg-red-500/15 px-2 py-1 text-xs text-red-300">✕</button>
               </div>
             ))}
@@ -1674,7 +1816,7 @@ function RewardsManager({ token }: { token: string }) {
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <div className="text-sm font-medium text-white/90">{s.name} <span className={`ml-1 rounded px-1.5 py-0.5 text-[10px] ${s.status === 'active' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-white/10 text-white/40'}`}>{s.status}</span>{s.endsAt ? <span className="ml-2 text-[11px] text-amber-300/70">ends {new Date(s.endsAt).toLocaleString()}</span> : null}</div>
-                  <div className="text-[11px] text-white/40">{s.prizes.map((p) => `#${p.fromRank}${p.toRank !== p.fromRank ? `-${p.toRank}` : ''}: ${[p.itemId, p.usd ? `${p.usd} ${tokenInfo?.symbol || 'USDC'}` : null].filter(Boolean).join(' + ')}`).join('  ·  ')}</div>
+                  <div className="text-[11px] text-white/40">{s.prizes.map((p) => `#${p.fromRank}${p.toRank !== p.fromRank ? `-${p.toRank}` : ''}: ${rewardLine(p, tokenInfo?.symbol || 'USDC')}`).join('  ·  ')}</div>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   <button onClick={() => runWinners(s.id, false, false)} disabled={busy} className="rounded bg-white/10 px-2 py-1 text-xs hover:bg-white/20">Preview winners</button>
@@ -1696,7 +1838,7 @@ function RewardsManager({ token }: { token: string }) {
                           <td className="px-2 py-1.5">{w.rank}</td>
                           <td className="px-2 py-1.5">{w.name || '—'}</td>
                           <td className="px-2 py-1.5 font-mono text-white/50">{short(w.address)}</td>
-                          <td className="px-2 py-1.5">{[w.itemId, w.usd ? `${w.usd} ${tokenInfo?.symbol}` : null].filter(Boolean).join(' + ') || '—'}</td>
+                          <td className="px-2 py-1.5">{rewardLine(w, tokenInfo?.symbol || 'USDC')}</td>
                           <td className="px-2 py-1.5">{w.note ? <span className="text-amber-300/80">{w.note}</span> : w.granted ? <span className="text-emerald-300">granted</span> : <span className="text-white/40">ready</span>}</td>
                         </tr>
                       ))}
@@ -1715,7 +1857,7 @@ function RewardsManager({ token }: { token: string }) {
           <h3 className="mb-1 text-xs font-semibold uppercase tracking-wider text-cyan-300/70">Payout batches</h3>
           <div className="mb-2 flex flex-wrap items-center gap-2 text-[11px]">
             {isConnected
-              ? <span className="text-white/50">Wallet <span className="font-mono text-emerald-300">{walletAddress ? short(walletAddress) : ''}</span> connected — use “Pay from my wallet” to send USDC directly.</span>
+              ? <span className="text-white/50">Wallet <span className="font-mono text-emerald-300">{walletAddress ? short(walletAddress) : ''}</span> connected — use “Pay from my wallet” to send the batch&apos;s token directly (USDC or $RAIDSHOOTER).</span>
               : <button onClick={() => open()} className="rounded bg-violet-500/80 px-2 py-1 font-semibold text-black hover:bg-violet-400">Connect wallet to pay players</button>}
           </div>
           {payProgress && <div className="mb-2 rounded-md bg-violet-500/10 p-2 text-xs text-violet-200">{payProgress}</div>}
@@ -1723,7 +1865,7 @@ function RewardsManager({ token }: { token: string }) {
             {payouts.map((b) => (
               <div key={b.id} className="rounded-lg border border-white/10 bg-white/[0.02] p-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="text-sm text-white/85">{b.rows.length} wallets · <span className="font-semibold text-white">{b.totalUsd} {b.tokenSymbol}</span> <span className={`ml-1 rounded px-1.5 py-0.5 text-[10px] ${b.status === 'sent' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-white/10 text-white/40'}`}>{b.status}</span></div>
+                  <div className="text-sm text-white/85">{b.rows.length} wallets · <span className={`font-semibold ${b.currency === 'raidshooter' ? 'text-amber-200' : 'text-white'}`}>{b.currency === 'raidshooter' ? (b.totalTokens || 0).toLocaleString('en-US') : b.totalUsd} {b.tokenSymbol}</span> <span className={`ml-1 rounded px-1.5 py-0.5 text-[10px] ${b.status === 'sent' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-white/10 text-white/40'}`}>{b.status}</span></div>
                   <div className="flex flex-wrap gap-1.5">
                     <button onClick={() => payFromWallet(b)} disabled={busy || b.status === 'sent'} className="rounded bg-violet-500/80 px-2 py-1 text-xs font-semibold text-black hover:bg-violet-400 disabled:opacity-40">💜 Pay from my wallet</button>
                     <button onClick={() => payoutAction(b.id, 'export')} disabled={busy} className="rounded bg-cyan-500/20 px-2 py-1 text-xs text-cyan-200 hover:bg-cyan-500/30">Export to sign</button>
@@ -1737,7 +1879,7 @@ function RewardsManager({ token }: { token: string }) {
                     <div key={w.address} className="flex items-center justify-between gap-2 text-white/50">
                       <span>#{w.rank} <span className="font-mono">{short(w.address)}</span>{w.name ? ` · ${w.name}` : ''}</span>
                       <span className="flex items-center gap-2">
-                        <span className="text-white/70">{w.usd} {b.tokenSymbol}</span>
+                        <span className="text-white/70">{owed(w, b).toLocaleString('en-US')} {b.tokenSymbol}</span>
                         {w.paid
                           ? <a href={w.txHash ? `https://basescan.org/tx/${w.txHash}` : undefined} target="_blank" rel="noopener noreferrer" className="text-emerald-300 underline">paid{w.txHash ? ' ↗' : ''}</a>
                           : <span className="text-white/30">unpaid</span>}
@@ -2285,6 +2427,7 @@ function Dashboard(p: DashboardProps) {
             {tab === 'Content' && (
               <section className="space-y-8">
                 <AIAssistant token={token} />
+                <PollManager token={token} />
                 <AnnouncementsManager token={token} />
                 <FeedbackInbox token={token} />
               </section>

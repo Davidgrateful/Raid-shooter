@@ -21,6 +21,8 @@ export interface CupSeason {
   live: boolean;
   prize1Usd?: number;
   poolUsd?: number;
+  prize1Tokens?: number;
+  poolTokens?: number;
   endsAt: number | null;
   sponsorName: string | null;
 }

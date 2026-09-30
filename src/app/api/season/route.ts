@@ -20,11 +20,17 @@ export async function GET() {
   // headline prize = what rank #1 takes home; pool = every tier summed
   let prize1Usd = 0;
   let poolUsd = 0;
+  // $RAIDSHOOTER prizes are counted in tokens, never converted to dollars
+  let prize1Tokens = 0;
+  let poolTokens = 0;
   for (const tier of season.prizes) {
     const perWallet = tier.usd || 0;
-    poolUsd += perWallet * Math.max(0, tier.toRank - tier.fromRank + 1);
+    const wallets = Math.max(0, tier.toRank - tier.fromRank + 1);
+    poolUsd += perWallet * wallets;
+    poolTokens += (tier.tokens || 0) * wallets;
     if (tier.fromRank <= 1 && tier.toRank >= 1) {
       prize1Usd = perWallet;
+      prize1Tokens = tier.tokens || 0;
     }
   }
 
@@ -41,6 +47,8 @@ export async function GET() {
       name: season.name,
       prize1Usd,
       poolUsd,
+      prize1Tokens,
+      poolTokens,
       endsAt: season.endsAt || null,
       sponsorName: sponsorName || null,
       requiredPilotId: season.requiredPilotId || null,
@@ -49,6 +57,7 @@ export async function GET() {
         toRank: t.toRank,
         itemId: t.itemId || null,
         usd: t.usd || 0,
+        tokens: t.tokens || 0,
       })),
     },
   });
