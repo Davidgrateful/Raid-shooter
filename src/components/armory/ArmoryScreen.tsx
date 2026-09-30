@@ -21,7 +21,9 @@ import {
   type ArmoryView,
   type RackId,
 } from './data';
-import { compactTokens } from '@/lib/token';
+import { buyLink, compactTokens, readTokenInfo } from '@/lib/token';
+
+const TOKEN_BUY = buyLink(readTokenInfo());
 
 /*==============================================================================
 ARMORY - the procurement deck
@@ -72,7 +74,17 @@ export function ArmoryScreen() {
   const [moreOpen, setMoreOpen] = useState(false);
   const [short, setShort] = useState(false);
   const [pane, setPane] = useState<'stock' | 'manifest'>('stock');
+  // the signed-in wallet's $RAIDSHOOTER balance (whole tokens), read on-chain
+  // by /api/token/holder; null = unknown, so the Armory claims nothing
+  const [tokenBalance, setTokenBalance] = useState<number | null>(null);
   const enteredRef = useRef(false);
+
+  function readTokenBalance(fresh: boolean) {
+    fetch(`/api/token/holder${fresh ? '?fresh=1' : ''}`, { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setTokenBalance(d && d.signedIn && d.checked && typeof d.balance === 'number' ? d.balance : null))
+      .catch(() => setTokenBalance(null));
+  }
 
   /* --- take the screen off the canvas, once ---------------------------- */
   useEffect(() => {
@@ -95,11 +107,20 @@ export function ArmoryScreen() {
       setStatus({ status: String(d.status || ''), itemId: d.itemId ?? null });
       // a completed purchase re-reads the profile; give the engine a beat to
       // land the grant, then re-read what we show
-      if (d.status === 'done') setTimeout(() => setView(readArmory()), 600);
+      if (d.status === 'done') {
+        setTimeout(() => setView(readArmory()), 600);
+        readTokenBalance(true);
+      }
     };
     window.addEventListener('raidshooter:purchase', onPurchase as EventListener);
     return () => window.removeEventListener('raidshooter:purchase', onPurchase as EventListener);
   }, []);
+
+  /* --- the player's $RAIDSHOOTER balance, only while token checkout is on */
+  const tokenPayOn = !!(onMarket && view?.tokenPay && view.walletLinked);
+  useEffect(() => {
+    if (tokenPayOn) readTokenBalance(false);
+  }, [tokenPayOn]);
 
   /* --- read the engine's truth on every revision ------------------------ */
   useEffect(() => {
@@ -438,9 +459,25 @@ export function ArmoryScreen() {
                     title={`${selected.priceToken.toLocaleString('en-US')} $RAIDSHOOTER`}
                     onClick={() => acquire(selected.id, 'token')}
                   >
-                    Pay with $RAIDSHOOTER
+                    <span>
+                      Pay with $RAIDSHOOTER
+                      {view.tokenDiscountPct > 0 && <span className="rs-am-token-off">-{view.tokenDiscountPct}%</span>}
+                    </span>
                     <span className="rs-num">{compactTokens(selected.priceToken)}</span>
                   </button>
+                ) : null}
+                {action.kind === 'acquire' && tokenPayOn && selected?.priceToken && tokenBalance !== null ? (
+                  <p className="rs-am-token-bal" data-short={tokenBalance < selected.priceToken ? '1' : '0'}>
+                    You have <b>{compactTokens(tokenBalance)}</b> $RAIDSHOOTER
+                    {tokenBalance < selected.priceToken && (
+                      <>
+                        {' '}- not enough for this.{' '}
+                        {TOKEN_BUY && (
+                          <a href={TOKEN_BUY} target="_blank" rel="noopener noreferrer">Get $RAIDSHOOTER</a>
+                        )}
+                      </>
+                    )}
+                  </p>
                 ) : null}
 
                 {/* the pipeline's own status, in the game's words */}

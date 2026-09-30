@@ -20,6 +20,10 @@ const RUNS_WITH_DRONE = 'stats:runs:withdrone';
 // market / revenue
 const PURCHASES_TOTAL = 'stats:purchases:total';
 const REVENUE_TOTAL = 'stats:revenue:total'; // USD
+// $RAIDSHOOTER checkout: how many purchases were paid in the token, and how
+// many whole tokens they brought in (at the quoted price)
+const TOKEN_PURCHASES_TOTAL = 'stats:tokenpay:purchases';
+const TOKENS_TOTAL = 'stats:tokenpay:tokens';
 const BUYERS_ALL = 'stats:buyers:all';
 const ITEM_UNITS = 'stats:items:units'; // hash itemId -> units sold
 const ITEM_REVENUE = 'stats:items:revenue'; // hash itemId -> USD
@@ -64,6 +68,8 @@ const mem = {
   runsWithDrone: 0,
   purchasesTotal: 0,
   revenueTotal: 0,
+  tokenPurchasesTotal: 0,
+  tokensTotal: 0,
   buyersAll: new Set<string>(),
   itemUnits: new Map<string, number>(),
   itemRevenue: new Map<string, number>(),
@@ -79,6 +85,10 @@ const mem = {
 export interface RecentBuy {
   itemId: string;
   priceUsd: number;
+  /** 'token' when paid in $RAIDSHOOTER; absent on older rows = ETH */
+  currency?: 'eth' | 'token';
+  /** whole $RAIDSHOOTER tokens, for token payments */
+  tokens?: number;
   buyer: string; // short, masked wallet (never the full address)
   at: number; // epoch ms
 }
@@ -157,14 +167,27 @@ export async function trackRunStart(
 // faked by the client. priceUsd comes from the catalog, not the request.
 export async function trackPurchase(
   playerId: string,
-  item: { id: string; priceUsd: number }
+  item: { id: string; priceUsd: number },
+  // A token payment counts at its USD value under the operator's own rate
+  // (list price less the pay-in-token discount) - the site has no other
+  // honest USD figure for it.
+  paid: { currency: 'eth' } | { currency: 'token'; tokens: number; discountPct: number } = { currency: 'eth' }
 ): Promise<void> {
   const day = dayKey(new Date());
   const id = cleanId(item.id, 'unknown');
-  const usd = Math.max(0, Number(item.priceUsd) || 0);
-  const buy: RecentBuy = { itemId: id, priceUsd: usd, buyer: maskBuyer(playerId), at: Date.now() };
+  const list = Math.max(0, Number(item.priceUsd) || 0);
+  const token = paid.currency === 'token';
+  const tokens = token ? Math.max(0, Math.floor(paid.tokens)) : 0;
+  const usd = token ? round2((list * (100 - Math.max(0, Math.min(100, paid.discountPct)))) / 100) : list;
+  const buy: RecentBuy = {
+    itemId: id, priceUsd: usd, buyer: maskBuyer(playerId), at: Date.now(),
+    ...(token ? { currency: 'token' as const, tokens } : {}),
+  };
   if (isKvConfigured()) {
     await Promise.all([
+      ...(token
+        ? [redisCommand(['INCR', TOKEN_PURCHASES_TOTAL]), redisCommand(['INCRBY', TOKENS_TOTAL, tokens])]
+        : []),
       redisCommand(['INCR', PURCHASES_TOTAL]),
       redisCommand(['INCRBYFLOAT', REVENUE_TOTAL, usd]),
       redisCommand(['SADD', BUYERS_ALL, playerId]),
@@ -183,6 +206,10 @@ export async function trackPurchase(
   }
   mem.purchasesTotal += 1;
   mem.revenueTotal += usd;
+  if (token) {
+    mem.tokenPurchasesTotal += 1;
+    mem.tokensTotal += tokens;
+  }
   mem.buyersAll.add(playerId);
   mem.itemUnits.set(id, (mem.itemUnits.get(id) || 0) + 1);
   mem.itemRevenue.set(id, (mem.itemRevenue.get(id) || 0) + usd);
@@ -393,23 +420,31 @@ export interface MarketStats {
   purchasesToday: number;
   topItems: { id: string; units: number; revenueUsd: number }[];
   dailyRevenueUsd: { date: string; revenueUsd: number; purchases: number }[];
+  /** purchases paid in $RAIDSHOOTER, and whole tokens received for them */
+  tokenPurchasesAllTime: number;
+  tokensReceivedAllTime: number;
 }
 
 export async function getMarketStats(days = 14): Promise<MarketStats> {
   const dayKeys = recentDayKeys(days);
 
   let revenueTotal: number, purchasesTotal: number, buyers: number;
+  let tokenPurchases: number, tokensReceived: number;
   let unitPairs: [string, string][], revPairs: [string, string][];
   let dailyRevRaw: (string | null)[], dailyPurRaw: (string | null)[];
 
   if (isKvConfigured()) {
-    const [rev, pur, buy, units, itemRev] = await Promise.all([
+    const [rev, pur, buy, units, itemRev, tokPur, tokTot] = await Promise.all([
       redisCommand(['GET', REVENUE_TOTAL]),
       redisCommand(['GET', PURCHASES_TOTAL]),
       redisCommand(['SCARD', BUYERS_ALL]),
       redisCommand(['HGETALL', ITEM_UNITS]),
       redisCommand(['HGETALL', ITEM_REVENUE]),
+      redisCommand(['GET', TOKEN_PURCHASES_TOTAL]),
+      redisCommand(['GET', TOKENS_TOTAL]),
     ]);
+    tokenPurchases = num(tokPur);
+    tokensReceived = num(tokTot);
     revenueTotal = flt(rev);
     purchasesTotal = num(pur);
     buyers = num(buy);
@@ -426,6 +461,8 @@ export async function getMarketStats(days = 14): Promise<MarketStats> {
   } else {
     revenueTotal = mem.revenueTotal;
     purchasesTotal = mem.purchasesTotal;
+    tokenPurchases = mem.tokenPurchasesTotal;
+    tokensReceived = mem.tokensTotal;
     buyers = mem.buyersAll.size;
     unitPairs = [...mem.itemUnits.entries()].map(([k, v]) => [k, String(v)]);
     revPairs = [...mem.itemRevenue.entries()].map(([k, v]) => [k, String(v)]);
@@ -454,6 +491,8 @@ export async function getMarketStats(days = 14): Promise<MarketStats> {
     purchasesToday: todayRow.purchases,
     topItems,
     dailyRevenueUsd,
+    tokenPurchasesAllTime: tokenPurchases,
+    tokensReceivedAllTime: tokensReceived,
   };
 }
 

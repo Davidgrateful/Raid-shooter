@@ -103,6 +103,8 @@ export interface ArmoryView {
   paymentsLive: boolean;
   /** Can items also be paid for in $RAIDSHOOTER? */
   tokenPay: boolean;
+  /** Pay-in-token discount the server applied to priceToken (0 = none). */
+  tokenDiscountPct: number;
   network: string;
   walletLinked: boolean;
   /** Has /api/profile answered? Ownership is unknown until it has. */
@@ -306,6 +308,7 @@ export function readArmory(): ArmoryView | null {
       catalogueFailed: !!market.failed,
       paymentsLive: !!market.enabled,
       tokenPay: !!market.enabled && !!market.token?.enabled,
+      tokenDiscountPct: market.token?.enabled ? Math.max(0, Number(market.token.discountPct) || 0) : 0,
       network: market.network || '',
       walletLinked: !!e.session?.authenticated,
       profileLoaded: !!e.profile?.fetched,

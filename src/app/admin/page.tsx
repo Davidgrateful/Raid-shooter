@@ -58,7 +58,9 @@ interface Stats {
     revenuePerBuyerUsd: number;
     topItems: { id: string; units: number; revenueUsd: number }[];
     dailyRevenueUsd: { date: string; revenueUsd: number; purchases: number }[];
-    recentBuys: { itemId: string; priceUsd: number; buyer: string; at: number }[];
+    recentBuys: { itemId: string; priceUsd: number; buyer: string; at: number; currency?: 'eth' | 'token'; tokens?: number }[];
+    tokenPurchasesAllTime?: number;
+    tokensReceivedAllTime?: number;
   };
   loadout: {
     pilots: { id: string; runs: number }[];
@@ -74,6 +76,7 @@ interface Stats {
     customRpc: boolean;
     walletConnectConfigured: boolean;
     sessionSecretSet: boolean;
+    tokenCheckout?: boolean;
   };
   leaderboard: {
     players: { total: number; verified: number; guests: number };
@@ -585,6 +588,138 @@ function SponsorsManager({ token }: { token: string }) {
           ))}
         </div>
       ))}
+    </section>
+  );
+}
+
+// ---- $RAIDSHOOTER checkout: the one rate that prices the Armory in tokens ----
+interface TokenPayView {
+  config: { enabled: boolean; perUsd: number | null; discountPct: number; source: 'admin' | 'env' | 'none'; updatedAt?: number; updatedBy?: string };
+  live: boolean;
+  blockers: string[];
+  samples: { id: string; title: string; priceUsd: number; priceToken: number | null }[];
+  reference: { priceUsd: number; perUsd: number; liquidityUsd: number | null; dex: string; url: string } | null;
+  graceMinutes: number;
+  maxDiscountPct: number;
+}
+
+function TokenCheckout({ token }: { token: string }) {
+  const [v, setV] = useState<TokenPayView | null>(null);
+  const [rate, setRate] = useState('');
+  const [discount, setDiscount] = useState('0');
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState('');
+  const inputCls = 'w-full rounded-md border border-white/15 bg-white/[0.05] px-3 py-2 text-sm outline-none focus:border-amber-400/60';
+
+  function take(d: TokenPayView) {
+    setV(d);
+    setRate(d.config.perUsd ? String(d.config.perUsd) : '');
+    setDiscount(String(d.config.discountPct || 0));
+  }
+
+  async function load() {
+    setBusy(true); setMsg('');
+    try {
+      const res = await fetch('/api/admin/tokenpay', { cache: 'no-store', headers: authHeaders(token) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `Failed (${res.status})`);
+      take(data);
+    } catch (e) { setMsg(e instanceof Error ? e.message : 'Failed to load.'); }
+    finally { setBusy(false); }
+  }
+  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function save(enabled: boolean) {
+    setBusy(true); setMsg('');
+    try {
+      const res = await fetch('/api/admin/tokenpay', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
+        body: JSON.stringify({ enabled, perUsd: rate.trim() === '' ? null : Number(rate.replace(/[,_\s]/g, '')), discountPct: Number(discount || 0) }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `Failed (${res.status})`);
+      take(data);
+      setMsg(enabled ? '✓ Saved. Players see the new prices within about 30 seconds.' : '✓ Token checkout switched off.');
+    } catch (e) { setMsg(e instanceof Error ? e.message : 'Save failed.'); }
+    finally { setBusy(false); }
+  }
+
+  const n = Number(rate.replace(/[,_\s]/g, ''));
+  const d = Math.max(0, Math.min(v?.maxDiscountPct ?? 50, Number(discount) || 0));
+  const preview = (usd: number) => (n > 0 ? Math.ceil((Math.round(usd * 100) * n * (100 - d)) / 10000) : null);
+  const cfg = v?.config;
+
+  return (
+    <section className="space-y-5">
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-amber-300/80">$RAIDSHOOTER checkout</h2>
+        <button onClick={load} disabled={busy} className="rounded-md bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20 disabled:opacity-40">Refresh</button>
+      </div>
+      {msg && <div className="rounded-md border border-white/15 bg-white/[0.05] p-2 text-sm text-white/80">{msg}</div>}
+
+      {v && cfg && (<>
+        <div className="flex flex-wrap gap-2">
+          <ConfigPill ok={v.live} warn={!v.live} label={v.live ? 'Token checkout LIVE' : 'Token checkout OFF'} />
+          <ConfigPill ok={cfg.source !== 'none'} label={cfg.source === 'admin' ? 'Set here' : cfg.source === 'env' ? 'From env var' : 'Not set'} />
+          {cfg.perUsd ? <ConfigPill ok label={`${cfg.perUsd.toLocaleString('en-US')} tokens / $1`} /> : null}
+          {cfg.discountPct ? <ConfigPill ok label={`${cfg.discountPct}% off in $RAIDSHOOTER`} /> : null}
+        </div>
+        {v.blockers.map((b) => (
+          <div key={b} className="rounded-md border border-red-500/30 bg-red-500/10 p-2 text-sm text-red-300">{b}</div>
+        ))}
+
+        <div className="rounded-lg border border-amber-400/20 bg-amber-400/[0.04] p-4">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="text-xs text-white/50">Tokens per $1
+              <input value={rate} onChange={(e) => setRate(e.target.value)} inputMode="numeric" placeholder="e.g. 8450000" className={`${inputCls} mt-1`} />
+            </label>
+            <label className="text-xs text-white/50">Discount for paying in $RAIDSHOOTER (%)
+              <input value={discount} onChange={(e) => setDiscount(e.target.value)} inputMode="numeric" placeholder="0" className={`${inputCls} mt-1`} />
+            </label>
+          </div>
+
+          {v.reference ? (
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-white/60">
+              <span>
+                Pool price now: <b className="text-white/85">${v.reference.priceUsd.toLocaleString('en-US', { maximumSignificantDigits: 3, maximumFractionDigits: 20 })}</b> →{' '}
+                <b className="text-white/85">{v.reference.perUsd.toLocaleString('en-US')}</b> tokens per $1
+                {v.reference.liquidityUsd !== null && <> · liquidity ${Math.round(v.reference.liquidityUsd).toLocaleString('en-US')}</>}
+                {' '}({v.reference.dex})
+              </span>
+              <button onClick={() => setRate(String(v.reference!.perUsd))} className="rounded bg-white/10 px-2 py-1 hover:bg-white/20">Use this rate</button>
+            </div>
+          ) : (
+            <p className="mt-3 text-xs text-white/40">Pool price unavailable right now. Set the rate yourself.</p>
+          )}
+          <p className="mt-1 text-[11px] text-white/35">
+            Reference only. Prices never follow the pool automatically, because a thin pool is easy to push around. Update this when the price moves.
+          </p>
+
+          <h3 className="mt-4 mb-1 text-xs uppercase tracking-wider text-white/40">What players will pay</h3>
+          <div className="space-y-1 text-sm">
+            {v.samples.map((it) => (
+              <div key={it.id} className="flex justify-between gap-3 border-b border-white/5 py-1">
+                <span className="text-white/70">{it.title} <span className="text-white/35">(${it.priceUsd.toFixed(2)})</span></span>
+                <span className="font-mono text-amber-200">{preview(it.priceUsd) !== null ? `${preview(it.priceUsd)!.toLocaleString('en-US')} $RAIDSHOOTER` : '-'}</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button onClick={() => save(true)} disabled={busy || !(n > 0)} className="rounded-md bg-amber-400/90 px-4 py-2 text-sm font-semibold text-black hover:bg-amber-300 disabled:opacity-40">
+              {cfg.enabled ? 'Save prices' : 'Save & switch ON'}
+            </button>
+            {cfg.enabled && (
+              <button onClick={() => save(false)} disabled={busy} className="rounded-md bg-red-500/15 px-4 py-2 text-sm text-red-300 hover:bg-red-500/25 disabled:opacity-40">Switch OFF</button>
+            )}
+          </div>
+          <p className="mt-2 text-[11px] text-white/35">
+            After a change, payments made at the previous price are still accepted for {v.graceMinutes} minutes, so nobody who was already paying gets refused. Every change is recorded in the Audit tab.
+          </p>
+          {cfg.updatedAt ? <p className="mt-1 text-[11px] text-white/35">Last changed {fmtAgo(cfg.updatedAt)} by {cfg.updatedBy === 'token' ? 'recovery token' : short(cfg.updatedBy || '')}.</p> : null}
+        </div>
+      </>)}
     </section>
   );
 }
@@ -1872,6 +2007,7 @@ const TAB_DEFS = [
   { id: 'Leaderboard', scope: 'players.view' },
   { id: 'Rewards', scope: 'rewards.view' },
   { id: 'Players', scope: 'players.view' },
+  { id: 'Token', scope: 'market.manage' },
   { id: 'Sponsors', scope: 'sponsors.manage' },
   { id: 'Content', scope: 'content.manage' },
   { id: 'Actions', scope: 'players.moderate' },
@@ -1929,6 +2065,7 @@ function Dashboard(p: DashboardProps) {
         {tab === 'Home' && <MissionControl token={token} me={me} go={setTab} />}
         {tab === 'Admins' && <AdminsManager token={token} me={me} />}
         {tab === 'Audit' && <AuditLog token={token} />}
+        {tab === 'Token' && <TokenCheckout token={token} />}
 
         {stats && t && lb && mk && lo && (
           <div className="space-y-8">
@@ -1954,6 +2091,7 @@ function Dashboard(p: DashboardProps) {
                 <ConfigPill ok={stats.config.sessionSecretSet} warn={!stats.config.sessionSecretSet} label="Session secret" />
                 <ConfigPill ok={stats.config.walletConnectConfigured} label="WalletConnect" />
                 <ConfigPill ok={stats.config.customRpc} label="Custom RPC" />
+                <ConfigPill ok={!!stats.config.tokenCheckout} label={stats.config.tokenCheckout ? '$RAIDSHOOTER checkout ON' : '$RAIDSHOOTER checkout OFF (Token tab)'} />
               </div>
             </section>
 
@@ -1968,6 +2106,12 @@ function Dashboard(p: DashboardProps) {
                 <Stat label="Paying players" value={fmtNum(mk.uniqueBuyers)} sub={`${fmtUsd(mk.revenuePerBuyerUsd)} / buyer`} />
                 <Stat label="Conversion" value={`${mk.conversionPct}%`} sub="of all players" />
               </div>
+              {(mk.tokenPurchasesAllTime ?? 0) > 0 && (
+                <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  <Stat label="Paid in $RAIDSHOOTER" value={fmtNum(mk.tokenPurchasesAllTime ?? 0)} sub={`${mk.purchasesAllTime ? Math.round(((mk.tokenPurchasesAllTime ?? 0) / mk.purchasesAllTime) * 100) : 0}% of purchases`} />
+                  <Stat label="Tokens received" value={fmtNum(mk.tokensReceivedAllTime ?? 0)} sub="to the treasury" />
+                </div>
+              )}
 
               <h3 className="mt-5 mb-2 text-xs uppercase tracking-wider text-white/40">Revenue per day (last 14)</h3>
               <div className="space-y-1.5">
@@ -1998,7 +2142,13 @@ function Dashboard(p: DashboardProps) {
                     <div key={i} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
                       <span className="truncate font-medium text-white/80">{b.itemId}</span>
                       <span className="shrink-0 font-mono text-xs text-white/40">{b.buyer}</span>
-                      <span className="shrink-0 w-16 text-right text-emerald-300/90 tabular-nums">{fmtUsd(b.priceUsd)}</span>
+                      {b.currency === 'token' ? (
+                        <span className="shrink-0 text-right text-amber-300/90 tabular-nums" title={`${(b.tokens ?? 0).toLocaleString('en-US')} $RAIDSHOOTER · ${fmtUsd(b.priceUsd)} at your rate`}>
+                          {(b.tokens ?? 0).toLocaleString('en-US')} $RS
+                        </span>
+                      ) : (
+                        <span className="shrink-0 w-16 text-right text-emerald-300/90 tabular-nums">{fmtUsd(b.priceUsd)}</span>
+                      )}
                       <span className="shrink-0 w-20 text-right text-white/40">{fmtAgo(b.at)}</span>
                     </div>
                   ))}

@@ -64,13 +64,15 @@ already built and gated — usually just an env var + redeploy.
   the signed-in wallet (`src/lib/holder.ts`). The official contract address is
   a constant in `src/lib/token.ts`, deliberately not an env var.
 
-- **"Let players pay with the token" / "$RAIDSHOOTER checkout isn't showing"**
-  → built and gated. Set `RAIDSHOOTER_TOKENS_PER_USD` in Vercel (whole tokens
-  per $1; every item's token price = its USD price x this, rounded up) and
-  redeploy. It only appears when the Armory is live on Base mainnet
-  (`NEXT_PUBLIC_BASE_NETWORK=base` + treasury set). Re-set the rate as the
-  token's price moves - the site never reads a market price for this
-  (`src/lib/tokenpay.ts`).
+- **"Let players pay with the token" / "$RAIDSHOOTER checkout isn't showing" /
+  "token price moved, items are too cheap/expensive in tokens"** → built. Go to
+  `/admin` → **Token** tab: set tokens per $1 (a "Use this rate" button fills
+  in the live pool price as a reference), an optional pay-in-token discount
+  (0-50%), and switch it on. Applies in ~30s, no redeploy; every change is in
+  the Audit tab. `RAIDSHOOTER_TOKENS_PER_USD` in Vercel still works as a
+  fallback until the tab is first saved (after that the tab wins). Needs the
+  Armory live on Base mainnet (`NEXT_PUBLIC_BASE_NETWORK=base` + treasury).
+  Prices never follow the pool automatically (`src/lib/tokenpay.ts`).
 
 ## Admin / team dashboard
 

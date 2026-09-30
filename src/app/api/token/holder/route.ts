@@ -17,7 +17,9 @@ export async function GET(req: NextRequest) {
   if (!session.siwe) {
     return NextResponse.json({ signedIn: false, tiers });
   }
-  const status = await getHolderStatus(session.siwe.address);
+  // ?fresh=1 re-reads the chain (the Armory asks after a token payment, so
+  // the balance it shows is not the pre-payment one); still rate limited above
+  const status = await getHolderStatus(session.siwe.address, req.nextUrl.searchParams.get('fresh') === '1');
   return NextResponse.json({
     signedIn: true,
     tiers,

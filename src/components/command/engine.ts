@@ -102,7 +102,7 @@ export interface Engine {
   droneXpLabel?: (drone: ShipDef | null) => string;
   consumableCount?: (id: string) => number;
   profile?: { items: string[]; consumables: Record<string, number>; fetched?: number; loading?: number; failed?: number };
-  marketState?: { fetched?: number; loading?: number; failed?: number; enabled?: boolean; network?: string; treasury?: string | null; token?: { enabled: boolean; address: string } | null; items?: MarketItem[] };
+  marketState?: { fetched?: number; loading?: number; failed?: number; enabled?: boolean; network?: string; treasury?: string | null; token?: { enabled: boolean; address: string; discountPct?: number } | null; items?: MarketItem[] };
   fetchMarket?: () => void;
   audio?: { play?: (name: string) => void };
 

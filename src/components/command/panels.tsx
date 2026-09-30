@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, type ReactNode } from 'react';
-import { compactTokens, shortAddress } from '@/lib/token';
+import { buyLink, compactTokens, shortAddress } from '@/lib/token';
 import type { PlayerSnapshot, ShipDef } from './engine';
 import { IconBolt, IconChevron, IconFlame, IconGift, IconTarget } from './icons';
 
@@ -577,8 +577,8 @@ export function TokenPanel({ info }: { info: import('@/lib/token').TokenInfo }) 
               {copied === 'ok' ? 'Copied' : copied === 'fail' ? 'Copy failed' : 'Copy'}
             </button>
           </div>
-          {info.buyUrl && (
-            <a className="rs-token-buy" href={info.buyUrl} target="_blank" rel="noopener noreferrer">
+          {buyLink(info) && (
+            <a className="rs-token-buy" href={buyLink(info)!} target="_blank" rel="noopener noreferrer">
               Get {info.symbol}
             </a>
           )}

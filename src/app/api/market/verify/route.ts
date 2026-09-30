@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/session';
-import { getItem, marketEnabled, treasury, baseRpcUrl, tokenPayEnabled } from '@/lib/market';
-import { receiptPaysToken, tokenPrice, toRaw, type ReceiptLike } from '@/lib/tokenpay';
+import { getItem, marketEnabled, treasury, baseRpcUrl, liveTokenPay } from '@/lib/market';
+import { receiptPaysToken, minAcceptable, toRaw, type ReceiptLike } from '@/lib/tokenpay';
 import { claimTx, grantItem } from '@/lib/profile';
 import { trackPurchase } from '@/lib/stats';
 import { rateLimit, clientIp } from '@/lib/ratelimit';
@@ -50,20 +50,23 @@ export async function POST(req: NextRequest) {
 
   const address = session.siwe.address.toLowerCase();
   const currency = body?.currency === 'token' ? 'token' : 'eth';
+  let tokenPaid: { currency: 'token'; tokens: number; discountPct: number } | null = null;
 
   try {
     if (currency === 'token') {
       // $RAIDSHOOTER: the proof is the token's own Transfer event in the
       // confirmed receipt (see src/lib/tokenpay.ts). Price from the catalogue
       // and the server's rate - never from the client.
-      const priceToken = tokenPrice(item.priceUsd);
-      if (!tokenPayEnabled || priceToken === null) {
+      const tokenPay = await liveTokenPay();
+      const priceToken = tokenPay ? minAcceptable(item.priceUsd, tokenPay) : null;
+      if (priceToken === null) {
         return NextResponse.json({ error: 'token_pay_disabled' }, { status: 400 });
       }
       const receipt = (await rpc('eth_getTransactionReceipt', [txHash])) as ReceiptLike | null;
       if (!receiptPaysToken(receipt, { from: address, to: treasury, minRaw: toRaw(priceToken) })) {
         return NextResponse.json({ error: 'payment_not_verified' }, { status: 400 });
       }
+      tokenPaid = { currency: 'token', tokens: priceToken, discountPct: tokenPay!.discountPct };
     } else {
       const [tx, receipt] = (await Promise.all([
         rpc('eth_getTransactionByHash', [txHash]),
@@ -95,7 +98,7 @@ export async function POST(req: NextRequest) {
     // comes from the catalog, never the client. Non-blocking - a stats
     // hiccup must not fail a paid purchase.
     try {
-      await trackPurchase(`wallet:${address}`, { id: item.id, priceUsd: item.priceUsd });
+      await trackPurchase(`wallet:${address}`, { id: item.id, priceUsd: item.priceUsd }, tokenPaid ?? { currency: 'eth' });
     } catch {
       // swallow: the player already got their item
     }

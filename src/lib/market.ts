@@ -3,7 +3,7 @@
 // Cosmetics only - they only affect looks. Nothing in the market may
 // affect a live run or a score; that rule keeps Shooterboard credible.
 
-import { tokensPerUsd } from '@/lib/tokenpay';
+import { getTokenPayConfig, type TokenPayConfig } from '@/lib/tokenpay';
 
 export interface MarketItem {
   id: string;
@@ -159,5 +159,9 @@ export const baseRpcUrl =
 
 // $RAIDSHOOTER payments: the token lives on Base mainnet, so they are only
 // offered when the Armory itself settles there, and only once the operator has
-// set a rate (see src/lib/tokenpay.ts).
-export const tokenPayEnabled = marketEnabled && baseNetwork === 'base' && tokensPerUsd() !== null;
+// set a rate (see src/lib/tokenpay.ts). Returns the config when live, else null.
+export async function liveTokenPay(): Promise<TokenPayConfig | null> {
+  if (!marketEnabled || baseNetwork !== 'base') return null;
+  const cfg = await getTokenPayConfig();
+  return cfg.enabled && cfg.perUsd ? cfg : null;
+}

@@ -11,6 +11,7 @@ export type Scope =
   | 'rewards.view'      // see tournaments & payouts
   | 'rewards.manage'    // create seasons, compute winners, grant cosmetics
   | 'payouts.send'      // create & send USDC payout batches
+  | 'market.manage'     // $RAIDSHOOTER checkout: rate, discount, on/off
   | 'flagged.review'    // work the anti-cheat queue
   | 'sponsors.manage'   // add/edit sponsors & partners
   | 'content.manage'    // announcements & feedback
@@ -19,7 +20,7 @@ export type Scope =
 
 export const ALL_SCOPES: Scope[] = [
   'stats.view', 'players.view', 'players.moderate', 'rewards.view', 'rewards.manage',
-  'payouts.send', 'flagged.review', 'sponsors.manage', 'content.manage', 'audit.view', 'admins.manage',
+  'payouts.send', 'market.manage', 'flagged.review', 'sponsors.manage', 'content.manage', 'audit.view', 'admins.manage',
 ];
 
 export type Role = 'owner' | 'finance' | 'community' | 'moderator' | 'analyst';
@@ -32,8 +33,8 @@ export const ROLES: Record<Role, { label: string; desc: string; scopes: Scope[] 
   },
   finance: {
     label: 'Finance',
-    desc: 'Runs tournaments and USDC payouts. No moderation or content.',
-    scopes: ['stats.view', 'rewards.view', 'rewards.manage', 'payouts.send', 'audit.view'],
+    desc: 'Runs tournaments, USDC payouts and token checkout pricing. No moderation or content.',
+    scopes: ['stats.view', 'rewards.view', 'rewards.manage', 'payouts.send', 'market.manage', 'audit.view'],
   },
   community: {
     label: 'Community',

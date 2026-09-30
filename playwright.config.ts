@@ -90,5 +90,12 @@ export default defineConfig({
     timeout: 300_000,
     stdout: 'ignore',
     stderr: 'pipe',
+    // a test-only break-glass admin token, so the admin APIs can be exercised
+    // end to end (tests/token-pay.spec.ts). No treasury is set, so nothing
+    // the admin changes here can switch real payments on for other tests.
+    env: {
+      ...Object.fromEntries(Object.entries(process.env).filter((e): e is [string, string] => typeof e[1] === 'string')),
+      ADMIN_STATS_TOKEN: process.env.ADMIN_STATS_TOKEN || 'test-admin-token-0123456789',
+    },
   },
 });

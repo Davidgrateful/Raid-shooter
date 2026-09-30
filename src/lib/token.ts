@@ -63,6 +63,13 @@ export function readTokenInfo(env: {
   };
 }
 
+/** Where a player gets the token: the operator's link if set, else the
+ *  official contract on Uniswap (Base), where its pool is. */
+export function buyLink(info: TokenInfo): string | null {
+  if (info.buyUrl) return info.buyUrl;
+  return info.address ? `https://app.uniswap.org/swap?chain=base&outputCurrency=${info.address}` : null;
+}
+
 /** 0x1234…abcd - enough to recognise, never enough to mistake for another. */
 export function shortAddress(a: string): string {
   return a.length > 14 ? `${a.slice(0, 6)}…${a.slice(-4)}` : a;

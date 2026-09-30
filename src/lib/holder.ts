@@ -139,11 +139,11 @@ async function writeCache(address: string, s: HolderStatus): Promise<void> {
  * is stale; if the chain can't be reached, falls back to the last answer (or
  * null) rather than failing the page.
  */
-export async function getHolderStatus(rawAddress: string): Promise<HolderStatus | null> {
+export async function getHolderStatus(rawAddress: string, force = false): Promise<HolderStatus | null> {
   const address = rawAddress.toLowerCase();
   if (!EVM.test(address)) return null;
   const cached = await readCache(address);
-  if (cached && Date.now() - cached.at < FRESH_MS) return cached;
+  if (!force && cached && Date.now() - cached.at < FRESH_MS) return cached;
   try {
     const balance = await readBalance(address);
     const status: HolderStatus = { balance, tier: tierFor(balance), at: Date.now() };

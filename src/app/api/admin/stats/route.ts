@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAllEntries, isPersistent, type BoardEntry } from '@/lib/leaderboard';
 import { getTrackingStats, getLoadoutStats, getMarketStats, getRecentBuys, getInterest } from '@/lib/stats';
-import { marketEnabled, baseNetwork } from '@/lib/market';
+import { marketEnabled, baseNetwork, liveTokenPay } from '@/lib/market';
 import { adminGate } from '@/lib/admin-auth';
 
 // Dev-only stats dashboard data, gated behind ADMIN_STATS_TOKEN. Combines
@@ -25,12 +25,13 @@ export async function GET(req: NextRequest) {
   const denied = await adminGate(req, 'stats.view');
   if (denied) return denied;
 
-  const [entries, tracking, market, recentBuys, interest] = await Promise.all([
+  const [entries, tracking, market, recentBuys, interest, tokenPay] = await Promise.all([
     getAllEntries() as Promise<BoardEntry[]>,
     getTrackingStats(14),
     getMarketStats(14),
     getRecentBuys(20),
     getInterest(),
+    liveTokenPay(),
   ]);
   // loadout rates are relative to total runs, so compute after tracking
   const loadout = await getLoadoutStats(tracking.runsAllTime);
@@ -98,6 +99,7 @@ export async function GET(req: NextRequest) {
       customRpc: !!process.env.BASE_RPC_URL,
       walletConnectConfigured: !!process.env.NEXT_PUBLIC_REOWN_PROJECT_ID,
       sessionSecretSet: !!process.env.SESSION_SECRET,
+      tokenCheckout: !!tokenPay,
     },
 
     // derived from the leaderboard: best run per score-submitter only
