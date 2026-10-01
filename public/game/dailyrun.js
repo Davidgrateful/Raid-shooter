@@ -37,10 +37,11 @@ $.dailyRunPlayedToday = function() {
 	return $.storage['dailyrundone'] === $.dailyRunDay();
 };
 
-// swap in the seeded generator so the whole run is deterministic
-$.beginSeededRng = function() {
+// swap in the seeded generator so the whole run is deterministic (a duel
+// passes its own seed; the daily run uses today's)
+$.beginSeededRng = function( seed ) {
 	if( !$.__realRandom ) { $.__realRandom = Math.random; }
-	Math.random = $.__seededRand( $.dailyRunSeed() );
+	Math.random = $.__seededRand( seed === undefined ? $.dailyRunSeed() : seed );
 };
 $.endSeededRng = function() {
 	if( $.__realRandom ) { Math.random = $.__realRandom; }
@@ -117,4 +118,74 @@ $.fetchDailyBoard = function() {
 			$.dailyBoard.fetched = 1;
 		} )
 		.catch( function() { $.dailyBoard.loading = 0; $.dailyBoard.fetched = 1; } );
+};
+
+/*==============================================================================
+DUELS - fly a duel's seeded raid, then post the run to that duel only
+
+A duel is a seed and two pilots (src/lib/duels.ts). The run is seeded exactly
+like the Daily Run, and like it never touches the endless board or the
+personal-best records: the score goes to the duel and nowhere else.
+
+  $.startDuelRun( { id, seed } )   from the React layer (deck, duel link)
+  $.finishDuelRun()                at game over, instead of submitScore
+  $.duelResult                     { state: sending|done|error, duel } for the
+                                   debrief to show
+==============================================================================*/
+$.duelActive = 0;
+$.duel = null;
+$.duelResult = null;
+
+$.startDuelRun = function( duel ) {
+	if( !duel || typeof duel.seed !== 'number' || !duel.id ) { return; }
+	$.duelActive = 1;
+	$.duel = { id: duel.id, seed: duel.seed >>> 0 };
+	$.duelResult = null;
+	$.beginSeededRng( $.duel.seed );
+	$.reset();
+	$.firstRun = 0;
+	$.instructionTick = $.instructionTickMax; // skip the tutorial overlay
+	$.trackRun( 'run_start' );
+	$.audio.play( 'levelup' );
+	$.music.start();
+	$.setState( 'play' );
+};
+
+$.finishDuelRun = function() {
+	$.endSeededRng();
+	$.duelActive = 0;
+	var duel = $.duel;
+	$.duel = null;
+	if( !duel ) { return; }
+	$.duelResult = { state: 'sending', id: duel.id, duel: null };
+	// the debrief's status line rides the same slot the boards use
+	$.boardSubmit = { state: 'duelpending', rank: 0, improved: false, verified: false };
+	var authed = $.session && $.session.authenticated;
+	fetch( '/api/duels/' + encodeURIComponent( duel.id ), {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify( {
+			score: Math.max( 0, Math.floor( $.score ) ),
+			pilot: ( $.hero && $.hero.character && $.hero.character.title ) || 'ONYIX',
+			level: ( $.level.current || 0 ) + 1,
+			kills: $.kills || 0,
+			time: Math.floor( ( ( $.elapsed || 0 ) * ( 1000 / 60 ) ) / 1000 ),
+			name: authed ? ( $.storage['pilotname'] || undefined ) : $.ensurePilotName(),
+			turnstileToken: ( !authed && typeof window !== 'undefined' ) ? window.__turnstileToken : undefined,
+			runTicket: $.runTicket || undefined,
+			guestToken: authed ? undefined : ( $.guestToken ? $.guestToken() : undefined )
+		} )
+	} )
+		.then( function( r ) { return r.json().then( function( d ) { return { ok: r.ok, d: d }; } ); } )
+		.then( function( res ) {
+			if( typeof window !== 'undefined' && window.__turnstileReset ) { window.__turnstileReset(); }
+			$.duelResult = res.ok
+				? { state: 'done', id: duel.id, duel: res.d.duel || null }
+				: { state: 'error', id: duel.id, duel: null, error: ( res.d && res.d.error ) || 'failed' };
+			$.boardSubmit = { state: res.ok ? 'duel' : 'error', rank: 0, improved: false, verified: false };
+		} )
+		.catch( function() {
+			$.duelResult = { state: 'error', id: duel.id, duel: null, error: 'offline' };
+			$.boardSubmit = { state: 'error', rank: 0, improved: false, verified: false };
+		} );
 };

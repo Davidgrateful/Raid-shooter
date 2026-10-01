@@ -720,8 +720,56 @@ function TokenCheckout({ token }: { token: string }) {
           {cfg.updatedAt ? <p className="mt-1 text-[11px] text-white/35">Last changed {fmtAgo(cfg.updatedAt)} by {cfg.updatedBy === 'token' ? 'recovery token' : short(cfg.updatedBy || '')}.</p> : null}
         </div>
       </>)}
+      <DuelsAccess token={token} />
       <EarlyAccessList token={token} />
     </section>
+  );
+}
+
+// ---- DUELS: who may create one (anyone with a link can accept) ----
+const DUEL_ACCESS_LABEL: Record<string, string> = { off: 'Off', holders: 'Holders only', all: 'Everyone' };
+function DuelsAccess({ token }: { token: string }) {
+  const [st, setSt] = useState<{ config: { access: string; updatedAt: number; updatedBy?: string }; count: number } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState('');
+  async function call(access?: string) {
+    setBusy(true); setMsg('');
+    try {
+      const res = await fetch('/api/admin/duels', access
+        ? { method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeaders(token) }, body: JSON.stringify({ access }) }
+        : { cache: 'no-store', headers: authHeaders(token) });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || `Failed (${res.status})`);
+      setSt(d);
+    } catch (e) { setMsg(e instanceof Error ? e.message : 'Failed.'); }
+    finally { setBusy(false); }
+  }
+  useEffect(() => { call(); }, [token]); // eslint-disable-line react-hooks/exhaustive-deps
+  return (
+    <div className="rounded-lg border border-white/10 bg-white/[0.02] p-4">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-xs uppercase tracking-wider text-white/50">DUELS · who can create one</h3>
+        {st && <span className="text-xs text-white/40">{st.count.toLocaleString()} duel{st.count === 1 ? '' : 's'} created</span>}
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {(['holders', 'all', 'off'] as const).map((a) => (
+          <button
+            key={a}
+            disabled={busy || !st}
+            onClick={() => call(a)}
+            className={`rounded px-3 py-1.5 text-xs font-semibold ${st?.config.access === a ? 'bg-cyan-400 text-black' : 'bg-white/10 hover:bg-white/20'}`}
+          >
+            {DUEL_ACCESS_LABEL[a]}
+          </button>
+        ))}
+      </div>
+      <p className="mt-2 text-[11px] text-white/40">
+        Holders only: signed-in wallets with a $RAIDSHOOTER holder tier (the early-access promise). Everyone: guests too.
+        Off: no new duels; open ones can still be finished. Anyone with a link can accept a duel. Applies in about 30s.
+      </p>
+      {st?.config.updatedAt ? <p className="mt-1 text-[11px] text-white/35">Last changed {fmtAgo(st.config.updatedAt)} by {st.config.updatedBy === 'token' ? 'recovery token' : short(st.config.updatedBy || '')}.</p> : null}
+      {msg && <p className="mt-1 text-sm text-red-300/80">{msg}</p>}
+    </div>
   );
 }
 

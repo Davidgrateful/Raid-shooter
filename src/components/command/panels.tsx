@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, type ReactNode } from 'react';
+import { whenIdle } from '@/lib/idle';
 import { buyLink, compactTokens, shortAddress } from '@/lib/token';
 import type { PlayerSnapshot, ShipDef } from './engine';
 import { IconBolt, IconChevron, IconFlame, IconGift, IconTarget } from './icons';
@@ -466,132 +467,6 @@ export function CupPanel({
 }
 
 /*------------------------------------------------------------------------------
-Coming soon
-
-A feature that is announced and not built has two ways to go wrong, and this
-panel is shaped around avoiding both.
-
-  A DEAD CONTROL THAT LOOKS LIVE. If it wears the same chrome as the cards
-  around it, someone presses it expecting the feature and gets nothing. So it
-  keeps the deck's panel frame - it belongs to this screen - but takes a muted
-  accent instead of cyan (active), gold (money) or purple (class), and carries
-  its status where the other panels put their "go" link.
-
-  A TEASER THAT OVERCLAIMS. No date, no countdown, no "notify me" with nothing
-  behind it. The single interaction is one counted tap, and the fine print says
-  precisely that and nothing more.
-------------------------------------------------------------------------------*/
-export function ComingSoonPanel({
-  title,
-  blurb,
-  registered,
-  busy,
-  failed = false,
-  onRegister,
-  children,
-}: {
-  title: string;
-  blurb: string;
-  registered: boolean;
-  busy: boolean;
-  failed?: boolean;
-  onRegister: () => void;
-  children?: ReactNode;
-}) {
-  return (
-    <Panel
-      title={title}
-      accent="var(--rs-text-faint)"
-      className="rs-soon"
-      action={<span className="rs-soon-chip">Coming soon</span>}
-    >
-      <p className="rs-soon-blurb">{blurb}</p>
-      <button
-        type="button"
-        className="rs-soon-btn"
-        onClick={onRegister}
-        disabled={registered || busy}
-      >
-        {registered ? 'Noted — thanks' : busy ? 'Sending…' : "I'd play this"}
-      </button>
-      {/* The outcome of the tap is announced rather than left to the button
-          label alone, so a screen reader hears it and a failed tap is visible
-          instead of looking like nothing happened. */}
-      <p className="rs-soon-fine" aria-live="polite">
-        {failed
-          ? 'Could not record that — tap again.'
-          : registered
-            ? 'Your interest was counted. Nothing else was stored.'
-            : 'Counts an anonymous tap so we can see if this is worth building.'}
-      </p>
-      {children}
-    </Panel>
-  );
-}
-
-/*------------------------------------------------------------------------------
-DuelsEarlyAccess - $RAIDSHOOTER holders get first access when DUELS opens.
-
-Joining stores the wallet on a list, so it is an explicit tap, and the server
-re-reads the wallet's tier on-chain before accepting it. Nothing here promises
-a date: it says holders get in first, which is what the list is for.
-------------------------------------------------------------------------------*/
-interface EarlyView { signedIn: boolean; minHold: number; holder?: string | null; onList?: boolean }
-
-export function DuelsEarlyAccess() {
-  const [v, setV] = useState<EarlyView | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState('');
-
-  useEffect(() => {
-    let alive = true;
-    const cancel = whenIdle(() => {
-      fetch('/api/duels/early-access')
-        .then((r) => (r.ok ? r.json() : null))
-        .then((d) => { if (alive && d) setV(d); })
-        .catch(() => {});
-    });
-    return () => { alive = false; cancel(); };
-  }, []);
-
-  async function join() {
-    setBusy(true); setErr('');
-    try {
-      const r = await fetch('/api/duels/early-access', { method: 'POST' });
-      const d = await r.json().catch(() => ({}));
-      if (r.ok) setV((p) => (p ? { ...p, onList: true, holder: d.holder ?? p.holder } : p));
-      else setErr(d.error === 'not_a_holder' ? 'This wallet does not hold enough $RAIDSHOOTER yet.' : 'Could not join just now - try again.');
-    } catch { setErr('Could not join just now - try again.'); }
-    finally { setBusy(false); }
-  }
-
-  if (!v) return null;
-  const min = compactTokens(v.minHold);
-  return (
-    <div className="rs-early" data-state={v.onList ? 'on' : v.holder ? 'can' : 'no'}>
-      <span className="rs-holder-chip" data-tier={v.holder || 'holder'} aria-hidden>$</span>
-      <div className="rs-early-body">
-        <b>Holders play DUELS first.</b>{' '}
-        {!v.signedIn ? (
-          <>Sign in with a wallet holding {min}+ $RAIDSHOOTER to claim early access.</>
-        ) : v.onList ? (
-          <>You&apos;re on the early-access list.</>
-        ) : v.holder ? (
-          <>
-            <button type="button" className="rs-early-btn" onClick={join} disabled={busy}>
-              {busy ? 'Joining…' : 'Claim early access'}
-            </button>
-          </>
-        ) : (
-          <>Hold {min}+ $RAIDSHOOTER to claim early access.</>
-        )}
-        {err && <span className="rs-early-err" role="status"> {err}</span>}
-      </div>
-    </div>
-  );
-}
-
-/*------------------------------------------------------------------------------
 $RAIDSHOOTER
 
 Gold, because gold is what this palette means by money (see the colour notes at
@@ -690,21 +565,6 @@ the signed-in wallet's balance from the token contract on Base. Nothing is
 estimated client side. Perks are cosmetic and follow the balance, and the panel
 says both, so nobody reads it as a promise of anything else.
 ------------------------------------------------------------------------------*/
-/**
- * Runs a panel's first, non-urgent fetch once the browser is idle, so the
- * deck's extras don't compete with the game engine's boot on a slow phone
- * (measured: ~250ms of 4x-throttled boot). Returns a cancel function.
- */
-function whenIdle(fn: () => void): () => void {
-  const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void };
-  if (w.requestIdleCallback) {
-    const id = w.requestIdleCallback(fn, { timeout: 2500 });
-    return () => w.cancelIdleCallback?.(id);
-  }
-  const t = window.setTimeout(fn, 1200);
-  return () => window.clearTimeout(t);
-}
-
 interface HolderView {
   signedIn: boolean;
   tiers: { id: string; label: string; min: number }[];

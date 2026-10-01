@@ -268,7 +268,7 @@ $.Hero.prototype.update = function() {
 						if( $.powerupTimers[ 2 ] > 0 ) { colors.push( 'hsl(' + $.definitions.powerups[ 2 ].hue + ', ' + $.definitions.powerups[ 2 ].saturation + '%, ' + $.definitions.powerups[ 2 ].lightness + '%)' ); }
 						if( $.powerupTimers[ 3 ] > 0 ) { colors.push( 'hsl(' + $.definitions.powerups[ 3 ].hue + ', ' + $.definitions.powerups[ 3 ].saturation + '%, ' + $.definitions.powerups[ 3 ].lightness + '%)' ); }
 						if( $.powerupTimers[ 4 ] > 0 ) { colors.push( 'hsl(' + $.definitions.powerups[ 4 ].hue + ', ' + $.definitions.powerups[ 4 ].saturation + '%, ' + $.definitions.powerups[ 4 ].lightness + '%)' ); }
-						color = colors[ Math.floor( $.util.rand( 0, colors.length ) ) ];
+						color = colors[ Math.floor( $.fxRand( 0, colors.length ) ) ];
 					}
 					if( i === 0 ) { this.weapon.flashColor = color; }
 					$.bullets.push( new $.Bullet( {					
@@ -331,6 +331,9 @@ $.Hero.prototype.update = function() {
 			}
 		}		
 	}
+
+	// roll into turns and sideways slips (cosmetic - the hitbox never tilts)
+	$.heroBank( this );
 };
 
 /*==============================================================================
@@ -367,10 +370,14 @@ $.Hero.prototype.render = function() {
 			var fillStyle = this.fillStyle;
 		}
 
+		// the launch: drawn large with the afterburner lit, settling to size
+		var launch = $.launchScale();
+		$.renderLaunchBurn( $.ctxmg, this.x, this.y, this.direction, this.radius * launch );
 		$.ctxmg.save();
 		$.ctxmg.translate( this.x, this.y );
 		$.ctxmg.rotate( this.direction );
-		this.character.draw( $.ctxmg, this.radius, fillStyle, $.tick );
+		if( launch !== 1 ) { $.ctxmg.scale( launch, launch ); }
+		$.drawBanked( $.ctxmg, this.character.draw, this.radius, fillStyle, $.tick, this.bank || 0 );
 		$.ctxmg.restore();
 
 		// MUZZLE FLASH - short, small, and in the projectile's own colour, so

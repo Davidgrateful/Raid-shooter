@@ -1,11 +1,16 @@
 /*==============================================================================
 Sector Definitions
 ==============================================================================*/
+// Every five levels the run warps to the next sector. The last three are new:
+// their hazards live in scenery.js, next to the art for all seven.
 $.definitions.sectors = [
 	{ title: 'DEEP SPACE', hue: -1, hazard: null },
 	{ title: 'ASTEROID BELT', hue: 30, hazard: 'asteroids' },
 	{ title: 'BLACK HOLE ZONE', hue: 260, hazard: 'blackhole' },
-	{ title: 'SOLAR STORM', hue: 10, hazard: 'flares' }
+	{ title: 'SOLAR STORM', hue: 10, hazard: 'flares' },
+	{ title: 'ION NEBULA', hue: 185, hazard: 'ion' },
+	{ title: 'WRECK FIELD', hue: 210, hazard: 'wrecks' },
+	{ title: 'PULSAR', hue: 200, hazard: 'pulsar' }
 ];
 
 /*==============================================================================
@@ -20,6 +25,7 @@ $.resetSector = function() {
 	$.boss = null;
 	$.bossDraftQueued = 0;
 	$.bossAnnounceTick = 0;
+	if( $.music ) { $.music.boss = 0; }
 	$.updateSector();
 	// no announcement for the starting sector
 	$.sectorAnnounceTick = 0;
@@ -35,7 +41,15 @@ $.updateSector = function() {
 		$.flare = null;
 		$.flareTimer = 480;
 		$.blackhole = null;
+		$.ion = null;
+		$.wrecks = null;
+		$.pulsar = null;
 		$.spawnProps();
+		if( $.music && $.music.setTheme ) { $.music.setTheme( index ); }
+		// the far landmark is repainted at the warp's flash, so the swap is
+		// never seen; the very first sector of a run has no warp
+		$.sectorBackdropDirty = 1;
+		if( $.sectorIndex > 0 && $.startWarp ) { $.startWarp( $.sector.hue ); }
 	}
 };
 
@@ -245,7 +259,16 @@ $.updateHazards = function() {
 		$.bossAnnounceTick -= $.dt;
 	}
 
+	if( $.sectorBackdropDirty && ( !$.warpFx || $.warpFx.t <= 0 || $.warpAtFlash() ) ) {
+		$.sectorBackdropDirty = 0;
+		$.repaintSectorBackdrop();
+	}
+
 	var hazard = $.sector.hazard;
+
+	if( hazard === 'ion' ) { $.updateIon(); }
+	if( hazard === 'wrecks' ) { $.updateWrecks(); }
+	if( hazard === 'pulsar' ) { $.updatePulsar(); }
 
 	/*==============================================================================
 	Asteroid Belt
@@ -469,68 +492,21 @@ $.renderHazards = function() {
 
 	if( hazard === 'asteroids' ) {
 		for( var ai = 0; ai < $.asteroids.length; ai++ ) {
-			var rock = $.asteroids[ ai ];
-			$.ctxmg.save();
-			$.ctxmg.translate( rock.x, rock.y );
-			$.ctxmg.rotate( rock.rotation );
-			$.ctxmg.beginPath();
-			for( var p = 0; p < rock.points.length; p++ ) {
-				var angle = ( p / rock.points.length ) * $.twopi,
-					pr = rock.radius * rock.points[ p ];
-				if( p === 0 ) {
-					$.ctxmg.moveTo( Math.cos( angle ) * pr, Math.sin( angle ) * pr );
-				} else {
-					$.ctxmg.lineTo( Math.cos( angle ) * pr, Math.sin( angle ) * pr );
-				}
-			}
-			$.ctxmg.closePath();
-			$.ctxmg.fillStyle = 'hsla(30, 15%, 28%, 1)';
-			$.ctxmg.fill();
-			$.ctxmg.strokeStyle = 'hsla(30, 20%, 45%, 1)';
-			$.ctxmg.lineWidth = 2;
-			$.ctxmg.stroke();
-			$.ctxmg.restore();
+			$.drawRock( $.ctxmg, $.asteroids[ ai ] );
 		}
 	}
 
 	if( hazard === 'blackhole' && $.blackhole && $.blackhole.alpha > 0.01 ) {
-		var bh = $.blackhole,
-			cx = bh.x,
-			cy = bh.y,
-			a = bh.alpha;
-		$.util.fillCircle( $.ctxmg, cx, cy, 200, 'hsla(260, 100%, 60%, ' + ( 0.06 * a ) + ')' );
-		$.util.fillCircle( $.ctxmg, cx, cy, 110, 'hsla(0, 0%, 0%, ' + ( 0.95 * a ) + ')' );
-		$.util.strokeCircle( $.ctxmg, cx, cy, 118, 'hsla(260, 100%, 65%, ' + ( 0.7 * a ) + ')', 3 );
-		$.ctxmg.strokeStyle = 'hsla(280, 100%, 75%, ' + ( 0.5 * a ) + ')';
-		$.ctxmg.lineWidth = 2;
-		for( var s = 0; s < 3; s++ ) {
-			var swirl = $.tick / 30 + ( s * $.twopi / 3 );
-			$.ctxmg.beginPath();
-			$.ctxmg.arc( cx, cy, 135 + s * 22, swirl, swirl + $.pi / 1.5 );
-			$.ctxmg.stroke();
-		}
+		$.drawBlackhole( $.ctxmg, $.blackhole.x, $.blackhole.y, $.blackhole.alpha, $.tick );
 	}
 
 	if( hazard === 'flares' && $.flare ) {
-		if( $.flare.warnTick > 0 ) {
-			// flashing warning band at the entry edge
-			if( Math.floor( $.tick / 6 ) % 2 ) {
-				$.ctxmg.fillStyle = 'hsla(15, 100%, 55%, 0.25)';
-				$.ctxmg.fillRect( $.flare.x - 20, 0, 40, $.wh );
-			}
-		} else {
-			var gradient = $.ctxmg.createLinearGradient( $.flare.x - $.flare.width, 0, $.flare.x + $.flare.width, 0 );
-			gradient.addColorStop( 0, 'hsla(15, 100%, 55%, 0)' );
-			gradient.addColorStop( 0.5, 'hsla(25, 100%, 60%, 0.45)' );
-			gradient.addColorStop( 1, 'hsla(15, 100%, 55%, 0)' );
-			$.ctxmg.fillStyle = gradient;
-			$.ctxmg.fillRect( $.flare.x - $.flare.width, 0, $.flare.width * 2, $.wh );
-			$.ctxmg.fillStyle = 'hsla(40, 100%, 75%, 0.8)';
-			$.ctxmg.fillRect( $.flare.x - 2, 0, 4, $.wh );
+		$.drawFlare( $.ctxmg, $.flare, 0, $.wh, $.tick );
+		if( $.flare.warnTick <= 0 ) {
 			if( Math.floor( $.tick ) % 3 === 0 ) {
 				$.particleEmitters.push( new $.ParticleEmitter( {
-					x: $.flare.x + $.util.rand( -$.flare.width, $.flare.width ),
-					y: -$.screen.y + $.util.rand( 0, $.ch ),
+					x: $.flare.x + $.fxRand( -$.flare.width, $.flare.width ),
+					y: -$.screen.y + $.fxRand( 0, $.ch ),
 					count: 1,
 					spawnRange: 5,
 					friction: 0.9,
@@ -543,6 +519,10 @@ $.renderHazards = function() {
 			}
 		}
 	}
+
+	if( hazard === 'ion' ) { $.renderIon( $.ctxmg ); }
+	if( hazard === 'wrecks' ) { $.renderWrecks( $.ctxmg ); }
+	if( hazard === 'pulsar' ) { $.renderPulsar( $.ctxmg ); }
 };
 
 /*==============================================================================
@@ -665,7 +645,7 @@ $.spawnBoss = function() {
 	// whole pool (no immediate repeat) so runs stay fresh instead of one boss
 	// per sector. Flags drive the shared behavior/render: spiral/aimed/pull are
 	// attacks; summon births minions; pulseRing adds a second volley; spikes/
-	// rings/flames/bell/sacs/crown are the silhouettes.
+	// rings/flames/bell/sacs/crown name the silhouettes (drawn in art.js).
 	var variants = [
 		{ title: 'ASTEROID KING', hue: 30, saturation: 40, speed: 1.6, burstCount: 14, burstSpeed: 7, burstEvery: 150, spikes: 1, spiral: 1 },
 		{ title: 'VOID TYRANT', hue: 270, saturation: 90, speed: 1.4, burstCount: 18, burstSpeed: 5.5, burstEvery: 130, pull: 1, rings: 1, spiral: 1 },
@@ -692,6 +672,8 @@ $.spawnBoss = function() {
 		hue: variant.hue,
 		saturation: variant.saturation,
 		isBoss: 1,
+		// drawn by art.js: a lit body that breaks up phase by phase
+		shape: 'boss',
 		title: variant.title,
 		variant: variant,
 		x: coords.x,
@@ -920,83 +902,10 @@ $.spawnBoss = function() {
 				}
 			}
 		},
-		renderExtra: function() {
-			// distinct silhouettes per boss
-			if( this.variant.spikes ) {
-				$.ctxmg.fillStyle = this.strokeStyle;
-				for( var s = 0; s < 8; s++ ) {
-					var angle = s / 8 * $.twopi + $.tick / 60;
-					$.ctxmg.save();
-					$.ctxmg.translate( this.x + Math.cos( angle ) * this.radius, this.y + Math.sin( angle ) * this.radius );
-					$.ctxmg.rotate( angle );
-					$.ctxmg.beginPath();
-					$.ctxmg.moveTo( 22, 0 ); $.ctxmg.lineTo( -8, 12 ); $.ctxmg.lineTo( -8, -12 );
-					$.ctxmg.closePath();
-					$.ctxmg.fill();
-					$.ctxmg.restore();
-				}
-			}
-			if( this.variant.rings ) {
-				$.ctxmg.strokeStyle = 'hsla(270, 100%, 70%, 0.6)';
-				$.ctxmg.lineWidth = 3;
-				for( var ringIdx = 0; ringIdx < 2; ringIdx++ ) {
-					var swirl = $.tick / 25 + ringIdx * $.pi;
-					$.ctxmg.beginPath();
-					$.ctxmg.arc( this.x, this.y, this.radius + 18 + ringIdx * 14, swirl, swirl + $.pi * 1.2 );
-					$.ctxmg.stroke();
-				}
-			}
-			if( this.variant.flames ) {
-				for( var flameIdx = 0; flameIdx < 3; flameIdx++ ) {
-					var fa = $.tick / 18 + flameIdx * $.twopi / 3;
-					$.util.fillCircle( $.ctxmg, this.x + Math.cos( fa ) * ( this.radius + 16 ), this.y + Math.sin( fa ) * ( this.radius + 16 ), 9 + Math.cos( $.tick / 6 ) * 3, 'hsla(25, 100%, 60%, 0.7)' );
-				}
-			}
-			// PLASMA MEDUSA: a pulsing translucent bell with trailing tendrils
-			if( this.variant.bell ) {
-				var pulse = 1 + Math.sin( $.tick / 10 ) * 0.12;
-				$.ctxmg.strokeStyle = 'hsla(' + this.hue + ', 100%, 78%, 0.5)';
-				$.ctxmg.lineWidth = 3;
-				$.ctxmg.beginPath();
-				$.ctxmg.arc( this.x, this.y - this.radius * 0.15, this.radius * 1.05 * pulse, $.pi, $.twopi );
-				$.ctxmg.stroke();
-				$.ctxmg.strokeStyle = 'hsla(' + this.hue + ', 100%, 72%, 0.4)';
-				$.ctxmg.lineWidth = 2;
-				for( var tn = 0; tn < 7; tn++ ) {
-					var tnx = this.x - this.radius + tn * ( this.radius * 2 / 6 );
-					$.ctxmg.beginPath();
-					$.ctxmg.moveTo( tnx, this.y );
-					$.ctxmg.quadraticCurveTo( tnx + Math.sin( $.tick / 8 + tn ) * 10, this.y + this.radius * 0.9, tnx + Math.sin( $.tick / 6 + tn ) * 15, this.y + this.radius * 1.7 );
-					$.ctxmg.stroke();
-				}
-			}
-			// HIVE QUEEN: three pulsing egg-sacs orbiting the abdomen
-			if( this.variant.sacs ) {
-				for( var eg = 0; eg < 3; eg++ ) {
-					var ega = $.tick / 60 + eg * $.twopi / 3,
-						grow = 0.5 + ( Math.sin( $.tick / 12 + eg * 2 ) + 1 ) * 0.28;
-					$.util.fillCircle( $.ctxmg, this.x + Math.cos( ega ) * this.radius * 0.9, this.y + Math.sin( ega ) * this.radius * 0.9, this.radius * 0.28 * grow, 'hsla(' + this.hue + ', 90%, 60%, 0.55)' );
-				}
-			}
-			// XENO MONARCH: six counter-rotating blade-limbs, a crowned warlord
-			if( this.variant.crown ) {
-				$.ctxmg.save();
-				$.ctxmg.translate( this.x, this.y );
-				$.ctxmg.rotate( $.tick / 40 );
-				$.ctxmg.strokeStyle = 'hsla(' + this.hue + ', 100%, 75%, 0.85)';
-				$.ctxmg.lineWidth = 4;
-				for( var bl = 0; bl < 6; bl++ ) {
-					var ba = bl / 6 * $.twopi;
-					$.ctxmg.beginPath();
-					$.ctxmg.moveTo( Math.cos( ba ) * this.radius * 0.8, Math.sin( ba ) * this.radius * 0.8 );
-					$.ctxmg.lineTo( Math.cos( ba ) * this.radius * 1.5, Math.sin( ba ) * this.radius * 1.5 );
-					$.ctxmg.stroke();
-				}
-				$.ctxmg.restore();
-			}
-		},
 		death: function() {
 			$.spawnBossChunks( this, 5 );
+			if( $.sfx ) { $.sfx.play( 'bigboom' ); }
+			if( $.music ) { $.music.boss = 0; }
 			$.explosions.push( new $.Explosion( {
 				x: this.x,
 				y: this.y,
@@ -1018,4 +927,6 @@ $.spawnBoss = function() {
 	$.bossAnnounceTick = 200;
 	$.enemies.push( boss );
 	$.audio.play( 'death' );
+	if( $.sfx ) { $.sfx.play( 'alarm' ); }
+	if( $.music ) { $.music.boss = 1; }
 };

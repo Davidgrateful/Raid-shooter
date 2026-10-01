@@ -48,7 +48,7 @@ $.Particle.prototype.render = function( i ) {
 		// brightness was a per-frame random flicker (50-100%); we lock in one
 		// random lightness at first render so it still varies between particles.
 		if( this.strokeStyle === undefined ) {
-			this.strokeStyle = 'hsla(' + this.hue + ', ' + this.saturation + '%, ' + $.util.rand( 50, 100 ) + '%, 1)';
+			this.strokeStyle = 'hsla(' + this.hue + ', ' + this.saturation + '%, ' + $.fxRand( 50, 100 ) + '%, 1)';
 		}
 		$.ctxmg.beginPath();
 		$.ctxmg.moveTo( this.x, this.y );

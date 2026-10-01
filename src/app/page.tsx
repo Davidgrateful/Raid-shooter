@@ -15,6 +15,7 @@ import { StarterBundleModal } from '@/components/StarterBundleModal';
 import { StreakBoard } from '@/components/StreakBoard';
 import { GameChatWidget } from '@/components/GameChatWidget';
 import { SettingsOverlay } from '@/components/SettingsOverlay';
+import { DuelInvite } from '@/components/duels/DuelInvite';
 
 export default function Home() {
   return (
@@ -36,6 +37,7 @@ export default function Home() {
       <StreakBoard />
       <GameChatWidget />
       <SettingsOverlay />
+      <DuelInvite />
       <div id="rotate-overlay">
         <div className="phone" />
         <p className="rs-label" style={{ color: 'var(--rs-cyan)', fontSize: 12 }}>

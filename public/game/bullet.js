@@ -75,7 +75,7 @@ $.Bullet.prototype.update = function( i ) {
 				$.particleEmitters.push( new $.ParticleEmitter( {
 					x: this.x,
 					y: this.y,
-					count: Math.floor( $.util.rand( 1, 4 ) ),
+					count: Math.floor( $.fxRand( 1, 4 ) ),
 					spawnRange: 0,
 					friction: 0.85,
 					minSpeed: 5,

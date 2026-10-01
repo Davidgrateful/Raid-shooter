@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { TIER_COLORS, tierFromScore, displayName } from '@/lib/tiers';
 import { PilotIcon, type Cosmetics } from '@/components/PilotIcon';
 import { TopChat } from '@/components/TopChat';
+import { Podium3D } from '@/components/three/Podium3D';
 
 // The live half of the public Shooterboard page. Server render provides the
 // initial standings (so links unfurl + first paint is instant); this component
@@ -182,6 +183,7 @@ export function LiveBoard({
       ) : (
         <>
           {/* podium */}
+          {podium.length === 3 && <Podium3D top={podium} />}
           {podium.length === 3 && (
             <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-end">
               {podium.map((e, i) => (

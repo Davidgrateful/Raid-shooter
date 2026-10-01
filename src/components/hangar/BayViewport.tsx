@@ -31,7 +31,7 @@ always done this ($.hangarAnim); keeping it means switching pilots still feels
 like a choose-your-fighter moment rather than a list selection.
 ==============================================================================*/
 
-interface Props {
+export interface BayViewportProps {
   ship: ShipDef | null;
   /** The player's equipped hull colour. */
   color: string;
@@ -71,7 +71,7 @@ export function BayViewport({
   swapDir,
   compact = false,
   subject = 'hull',
-}: Props) {
+}: BayViewportProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const frameRef = useRef(0);
   const propsRef = useRef({ ship, color, accentHue, trailHue, drone, unlocked, compact, subject });

@@ -6,7 +6,7 @@ import { NAV } from '@/components/command/CommandCenter';
 import { NavRail, TabBar } from '@/components/command/hud';
 import { IconSystem } from '@/components/command/icons';
 import { engine, useEngineRevision, useEngineState, withEngine } from '@/components/command/engine';
-import { BayViewport } from '@/components/hangar/BayViewport';
+import { BayView } from '@/components/hangar/BayView';
 import { launchEndless, readLaunch, type LaunchView } from './data';
 
 /*==============================================================================
@@ -150,7 +150,7 @@ export function LaunchScreen() {
           {/*--- the hull, confirming rather than presenting ---------------*/}
           <div className="rs-lx-craft">
             <div className="rs-hg-bayframe rs-lx-bayframe">
-              <BayViewport
+              <BayView
                 ship={view?.hull ?? null}
                 color={view?.hullColor ?? '#fff'}
                 accentHue={view?.accentHue ?? 200}

@@ -102,7 +102,7 @@ $.audio = {
 				// fast path: Web Audio buffer (decoded once, cheap to fire)
 				var bufs = $.audio.buffers[ sound ];
 				if( $.audio.ctx && bufs && bufs.length ) {
-					var buf = bufs.length > 1 ? bufs[ Math.floor( $.util.rand( 0, bufs.length ) ) ] : bufs[ 0 ],
+					var buf = bufs.length > 1 ? bufs[ Math.floor( $.fxRand( 0, bufs.length ) ) ] : bufs[ 0 ],
 						src = $.audio.ctx.createBufferSource();
 					src.buffer = buf;
 					src.connect( $.audio.gain );
@@ -114,7 +114,7 @@ $.audio = {
 				var audio = $.audio.sounds[ sound ];
 				if( !audio || !audio.length ) { return; }
 				if( audio.length > 1 ){
-					audio = $.audio.sounds[ sound ][ Math.floor( $.util.rand( 0, audio.length ) ) ];
+					audio = $.audio.sounds[ sound ][ Math.floor( $.fxRand( 0, audio.length ) ) ];
 				} else {
 					audio = $.audio.sounds[ sound ][ 0 ];
 				}

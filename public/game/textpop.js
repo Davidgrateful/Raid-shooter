@@ -20,7 +20,7 @@ $.TextPop = function( opt ) {
 	this.alpha = 2;
 	this.vy = 0;
 	// a small random lean, biased away from centre so pairs separate
-	this.vx = $.util.rand( -0.55, 0.55 );
+	this.vx = $.fxRand( -0.55, 0.55 );
 	this.chain = $.comboMultiplier || 1;
 	// bigger banks get bigger numbers: 2 for trash, 4 for a serious kill
 	this.scale = ( this.value >= 400 ) ? 4 : ( this.value >= 120 ) ? 3 : 2;

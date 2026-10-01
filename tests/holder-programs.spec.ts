@@ -10,7 +10,8 @@ import { OFFICIAL_TOKEN_ADDRESS } from '../src/lib/token';
 $RAIDSHOOTER ROADMAP PHASES 3-4
 
   tier cosmetics   COMMANDER finish (Commander+), ADMIRAL trail (Admiral)
-  DUELS            holders claim a place on the early-access list
+  DUELS            the early-access list (holders first is now DUELS' own
+                   gate - see tests/duels-api.spec.ts)
   cup prizes       tiers can pay $RAIDSHOOTER, in a batch of its own
   Pilot vote       one vote each; holder votes counted on their own
 ==============================================================================*/
@@ -112,34 +113,6 @@ test('DUELS early access: a guest cannot join, and the list is admin-only', asyn
   expect([401, 403]).toContain((await request.get('/api/admin/early-access')).status());
   const list = await (await request.get('/api/admin/early-access', { headers: asAdmin })).json();
   expect(Array.isArray(list.rows)).toBe(true);
-});
-
-async function deckWithEarly(page: Page, view: unknown, onJoin?: unknown) {
-  await page.route('**/api/duels/early-access', (r) =>
-    r.request().method() === 'POST' ? json(onJoin ?? { ok: true, onList: true, holder: 'holder' })(r) : json(view)(r));
-  await boot(page, { profile: VETERAN });
-  return page.locator('.rs-soon .rs-early');
-}
-
-test.describe('the DUELS panel', () => {
-  test('tells a guest what unlocks early access', async ({ page }) => {
-    const e = await deckWithEarly(page, { signedIn: false, minHold: 1_000_000 });
-    await expect(e).toContainText('Holders play DUELS first.');
-    await expect(e).toContainText('1M+ $RAIDSHOOTER');
-  });
-
-  test('lets a holder claim their place', async ({ page }) => {
-    const e = await deckWithEarly(page, { signedIn: true, minHold: 1_000_000, holder: 'commander', onList: false }, { ok: true, onList: true, holder: 'commander' });
-    await e.getByRole('button', { name: 'Claim early access' }).click();
-    await expect(e).toContainText("You're on the early-access list.");
-    await expect(e).toHaveAttribute('data-state', 'on');
-  });
-
-  test('tells a signed-in non-holder how much to hold', async ({ page }) => {
-    const e = await deckWithEarly(page, { signedIn: true, minHold: 1_000_000, holder: null, onList: false });
-    await expect(e).toContainText('Hold 1M+ $RAIDSHOOTER');
-    await expect(e.getByRole('button')).toHaveCount(0);
-  });
 });
 
 /*--- $RAIDSHOOTER cup prizes ------------------------------------------------------*/

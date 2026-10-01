@@ -6,7 +6,7 @@ import { NAV } from '@/components/command/CommandCenter';
 import { NavRail, TabBar } from '@/components/command/hud';
 import { IconMail, IconSystem } from '@/components/command/icons';
 import { engine, useEngineRevision, useEngineState, withEngine } from '@/components/command/engine';
-import { BayViewport } from './BayViewport';
+import { BayView } from './BayView';
 import { Rack, SpecRow, StatBank, SystemSection, TuningBlock } from './systems';
 import { equipColor, equipDrone, equipHull, equipTrail, readHangar, type HangarView, type HullView, type SlotItem } from './data';
 
@@ -204,7 +204,7 @@ export function HangarScreen() {
       <main className="rs-cc-main rs-hg-main rs-scroll">
         <div className="rs-hg-stage">
           <div className="rs-hg-bayframe">
-            <BayViewport
+            <BayView
               ship={hull?.def ?? null}
               color={hullColor}
               accentHue={hull?.accentHue ?? 200}

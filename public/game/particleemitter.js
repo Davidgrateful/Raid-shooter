@@ -17,18 +17,18 @@ $.ParticleEmitter = function( opt ) {
 	}
 	this.particles = [];
 	for( var i = 0; i < this.count; i++ ) {
-		var radius = Math.sqrt( Math.random() ) * this.spawnRange,
-            angle = Math.random() * $.twopi,
+		var radius = Math.sqrt( $.fxRandom() ) * this.spawnRange,
+            angle = $.fxRandom() * $.twopi,
             x = this.x + Math.cos( angle ) * radius,
             y = this.y + Math.sin( angle ) * radius;
 		this.particles.push( new $.Particle( {
 			parent: this.particles,
 			x: x,
 			y: y,
-			speed: $.util.rand( this.minSpeed, this.maxSpeed ),
+			speed: $.fxRand( this.minSpeed, this.maxSpeed ),
 			friction: this.friction,
-			direction: $.util.rand( this.minDirection, this.maxDirection ),
-			lineWidth: $.util.rand( 0.5, 1.5 ),
+			direction: $.fxRand( this.minDirection, this.maxDirection ),
+			lineWidth: $.fxRand( 0.5, 1.5 ),
 			hue: this.hue,
 			saturation: this.saturation
 		} ) );

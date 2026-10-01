@@ -90,9 +90,20 @@ already built and gated — usually just an env var + redeploy.
   are not proof of play, so bots would farm them - prizes go through the
   reviewed cup flow.
 
-- **"Who gets DUELS first" / "holder early access list"** → `/admin` → Token
-  tab lists holders who claimed DUELS early access (confirmed on-chain when
-  they joined), with Copy wallets. DUELS itself is still not built.
+- **"Open DUELS to everyone" / "pause duels" / "who can create a duel"** →
+  DUELS is built. `/admin` → Token → **DUELS · who can create one**: Holders
+  only (default - signed-in wallets with a $RAIDSHOOTER tier), Everyone
+  (guests too), or Off (no new duels; open ones can still finish). Applies in
+  ~30s, audited. Anyone with a link (`/duel/CODE`) can ACCEPT. One run each,
+  48h window, run tickets apply, and duel scores never touch the boards, cups
+  or payouts. `DUELS_ACCESS` in Vercel is only the fallback before the switch
+  is first used. The old early-access list (holders who claimed a place) is
+  still in the Token tab with Copy wallets.
+
+- **"The 3D hangar is slow / looks broken on my phone"** → each player can
+  turn it off: System → **3D graphics: OFF** (flat bays, and the 3D code is
+  never downloaded). Browsers without WebGL already get the flat bays. The
+  in-run fight is always 2D.
 
 - **"Ask the players" / "run a poll" / "what should we build next"** →
   `/admin` → Content → Pilot vote: question + 2-5 options, shows on the deck.
@@ -122,6 +133,16 @@ spend) with derank/ban moderation, plus player lookup and item grant tools.
 - The bitmap font (`text.js`) supports only ` $+,.\/0-9:@A-Z` — no lowercase or
   parentheses. Keep new in-game UI text within that set.
 - Gated features degrade gracefully: no env key → feature is a silent no-op.
+- Purely visual randomness in the engine (particles, explosions, text pops,
+  sound variants, backdrops) uses `$.fxRandom()` / `$.fxRand(min, max)`, never
+  `Math.random` / `$.util.rand`. During a Daily Run or a duel `Math.random`
+  IS the seeded generator, and every cosmetic roll taken from it shifts the
+  waves for that player. `tests/battle-upgrades.spec.ts` holds this.
+- Art lives in `public/game/art.js` (pilot airframes `$.planeDraws`, the enemy
+  fleet, boss art, banking, warp/launch/explosions/damage numbers) and
+  `scenery.js` (sector hazards and far landmarks, incl. ION NEBULA, WRECK
+  FIELD, PULSAR). The 3D models are `src/components/three/planeSpecs.ts` -
+  keep a pilot's 2D airframe and 3D spec describing the same plane.
 - Verify game changes with Playwright (`/opt/pw-browsers/chromium`) against
   `next start`; check TS with `npx tsc --noEmit` and `node --check` for the
   vanilla JS engine files.

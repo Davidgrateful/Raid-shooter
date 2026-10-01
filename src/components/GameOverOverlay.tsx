@@ -1,6 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Bay3D } from '@/components/three/Bay3D';
+import type { ShipDef } from '@/components/command/engine';
+import { copyText, duelUrl, type DuelView } from '@/components/duels/duelClient';
 
 /*==============================================================================
 Debrief
@@ -28,12 +31,13 @@ interface Engine {
   runXp?: number;
   runAssisted?: boolean;
   dailyRunActive?: number;
+  duelResult?: { state: 'sending' | 'done' | 'error'; id: string; duel: DuelView | null; error?: string } | null;
   dailyResult?: { xp: number; streak: number } | null;
   boardSubmit?: { state: string; rank?: number; improved?: boolean; verified?: boolean; gap?: number; nextRank?: number };
   storage: Record<string, unknown>;
   upgrades: Record<string, number>;
   definitions: { upgrades: { id: string; title: string }[] };
-  hero?: { character?: { id: string; title: string } };
+  hero?: { character?: ShipDef; fillStyle?: string };
   dailyChallenge?: () => { text: string; stat: string; n: number };
   dailyStreak?: () => number;
   dailyRunStats?: () => Record<string, number>;
@@ -80,6 +84,11 @@ interface Snap {
   xpSpan: number;
   tierName: string;
   tierColor: string;
+  /** the airframe and colour that flew it, for the pad */
+  ship: ShipDef | null;
+  shipColor: string;
+  /** a duel run: how its submission went, and the duel as it now stands */
+  duel: { state: 'sending' | 'done' | 'error'; id: string; view: DuelView | null; error?: string } | null;
 }
 
 function snapshot(): Snap | null {
@@ -134,6 +143,9 @@ function snapshot(): Snap | null {
     })(),
     ...pilotProgress($),
     ...tierOf($, $.score || 0),
+    ship: $.hero?.character && typeof $.hero.character.draw === 'function' ? $.hero.character : null,
+    shipColor: $.hero?.fillStyle || '#ffffff',
+    duel: $.duelResult ? { state: $.duelResult.state, id: $.duelResult.id, view: $.duelResult.duel, error: $.duelResult.error } : null,
   };
 }
 
@@ -170,6 +182,16 @@ function tierOf($: Engine, score: number) {
 
 export function GameOverOverlay() {
   const [open, setOpen] = useState(false);
+  // the 3D pad gets its own column only where there is room for one; a phone
+  // keeps the single-column debrief and never downloads the 3D code for it
+  const [roomy, setRoomy] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 900px) and (min-height: 600px)');
+    const on = () => setRoomy(mq.matches);
+    on();
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, []);
   const [snap, setSnap] = useState<Snap | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -234,6 +256,8 @@ export function GameOverOverlay() {
     switch (snap.board) {
       case 'sending': return { t: 'SUBMITTING TO SHOOTERBOARD…', c: 'text-white/50' };
       case 'dailypending': return { t: 'SUBMITTING DAILY RUN…', c: 'text-white/50' };
+      case 'duelpending': return { t: 'SUBMITTING DUEL RUN…', c: 'text-white/50' };
+      case 'duel': return null;
       case 'daily': return { t: snap.rank ? `DAILY RUN · RANK #${snap.rank}` : 'DAILY RUN SUBMITTED', c: 'text-[color:var(--rs-cyan)]' };
       case 'done': return { t: snap.rank ? `SHOOTERBOARD · RANK #${snap.rank}${snap.improved ? '' : ' · BEST STANDS'}` : 'SCORE SAVED', c: 'text-[color:var(--rs-gold)]' };
       case 'error': return { t: 'SHOOTERBOARD UNAVAILABLE', c: 'text-[color:var(--rs-red)]' };
@@ -263,7 +287,23 @@ export function GameOverOverlay() {
           the result, then what was banked, then what evaporated, then the way
           back in. It is one short stagger, not a celebration sequence - the
           whole thing has settled well before a player could reach REDEPLOY. */}
-      <div className="rs-panel rs-cut rs-rise rs-debrief rs-ao-seq relative my-auto w-full max-w-md overflow-hidden text-white">
+      <div className={`relative my-auto flex w-full items-stretch gap-3 ${roomy && snap.ship ? 'max-w-[880px]' : 'max-w-md'}`}>
+      {roomy && snap.ship && (
+        <div className="rs-panel rs-cut rs-rise rs-go-pad relative hidden min-w-0 flex-1 overflow-hidden md:block" aria-hidden>
+          <Bay3D
+            mode="pad"
+            ship={snap.ship}
+            color={snap.shipColor}
+            trailHue={null}
+            fallback={null}
+          />
+          <div className="rs-go-pad-cap">
+            <span className="rs-label">{snap.ship.title}</span>
+            <span className="rs-label text-white/40">Back on the pad</span>
+          </div>
+        </div>
+      )}
+      <div className="rs-panel rs-cut rs-rise rs-debrief rs-ao-seq relative w-full max-w-md shrink-0 overflow-hidden text-white">
         {/* the run's outcome, stated in one colour before a single number */}
         <div
           data-s="0"
@@ -342,10 +382,12 @@ export function GameOverOverlay() {
         )}
 
         {/* where it landed you, and how close the next place is */}
+        {snap.duel && <DuelDebrief duel={snap.duel} />}
+
         {(boardMsg || (snap.gap > 0 && snap.nextRank > 0) || snap.dailyResult
           || (snap.dailyText && !snap.daily)) && (
           <div className="space-y-1.5 border-b border-white/10 px-6 py-3 text-center text-[12px]">
-            {boardMsg && <div className={`font-bold ${boardMsg.c}`}>{boardMsg.t}</div>}
+            {boardMsg && !(snap.duel && snap.board === 'error') && <div className={`font-bold ${boardMsg.c}`}>{boardMsg.t}</div>}
             {snap.gap > 0 && snap.nextRank > 0 && (
               <div className="rs-num text-[color:var(--rs-cyan)]">
                 {fmt(snap.gap)} POINTS BEHIND #{snap.nextRank} — ONE MORE RUN?
@@ -426,6 +468,58 @@ export function GameOverOverlay() {
           </div>
         </div>
       </div>
+      </div>
+    </div>
+  );
+}
+
+/*------------------------------------------------------------------------------
+The duel's line in the debrief: the verdict when both have flown, otherwise
+"your run is in" with the link to send. Errors say what happened in words.
+------------------------------------------------------------------------------*/
+const DUEL_ERR: Record<string, string> = {
+  already_flown: 'You have already flown this duel - your first run stands.',
+  seat_taken: 'Someone else took this duel first.',
+  settled: 'This duel was settled before your run landed.',
+  expired: 'This duel expired before your run landed.',
+  run_ticket_required: 'This run could not be verified, so it was not counted.',
+  run_time_mismatch: 'This run could not be verified, so it was not counted.',
+  captcha_failed: 'The bot check did not pass, so the run was not counted.',
+  offline: 'Could not reach the server - the run was not counted.',
+};
+
+function DuelDebrief({ duel }: { duel: NonNullable<Snap['duel']> }) {
+  const [copied, setCopied] = useState(false);
+  const v = duel.view;
+  const mine = v?.entries.find((e) => e.mine);
+  const theirs = v?.entries.find((e) => !e.mine);
+  const verdict = v?.state === 'settled' ? (v.outcome === 'won' ? 'VICTORY' : v.outcome === 'lost' ? 'DEFEAT' : 'DEAD HEAT') : null;
+  return (
+    <div className="rs-ao-duel border-b border-white/10 px-6 py-3 text-center" data-outcome={v?.outcome || ''}>
+      <div className="rs-label text-[color:var(--rs-cyan)]">Duel {duel.id}</div>
+      {duel.state === 'sending' && <div className="mt-1 text-[12px] font-bold text-white/50">SUBMITTING DUEL RUN…</div>}
+      {duel.state === 'error' && <div className="mt-1 text-[12px] text-[color:var(--rs-red)]">{DUEL_ERR[duel.error || ''] || 'The duel run could not be submitted.'}</div>}
+      {duel.state === 'done' && verdict && mine && theirs && (
+        <>
+          <div className="rs-display mt-1 text-2xl" style={{ color: v?.outcome === 'won' ? 'var(--rs-gold)' : v?.outcome === 'lost' ? 'var(--rs-red)' : '#fff' }}>{verdict}</div>
+          <div className="rs-num mt-1 text-[12px] text-white/70">YOU {mine.score.toLocaleString()} · {theirs.name} {theirs.score.toLocaleString()}</div>
+        </>
+      )}
+      {duel.state === 'done' && !verdict && (
+        <>
+          <div className="mt-1 text-[12px] font-bold text-white/80">YOUR RUN IS IN</div>
+          <div className="mt-0.5 text-[11px] text-white/50">
+            {theirs ? `${theirs.name} has flown it - this settles when the result lands.` : 'Send the link: the first pilot to fly it is your rival.'}
+          </div>
+          <button
+            type="button"
+            className="rs-duel-btn mt-2"
+            onClick={async () => { setCopied(await copyText(duelUrl(duel.id))); setTimeout(() => setCopied(false), 1800); }}
+          >
+            {copied ? 'Link copied' : 'Copy duel link'}
+          </button>
+        </>
+      )}
     </div>
   );
 }

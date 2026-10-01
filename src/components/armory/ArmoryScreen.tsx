@@ -6,7 +6,7 @@ import { NAV } from '@/components/command/CommandCenter';
 import { NavRail, TabBar } from '@/components/command/hud';
 import { IconMail, IconSystem } from '@/components/command/icons';
 import { engine, useEngineRevision, useEngineState, withEngine } from '@/components/command/engine';
-import { BayViewport } from '@/components/hangar/BayViewport';
+import { BayView } from '@/components/hangar/BayView';
 import { StatBank, SpecRow, SystemSection } from '@/components/hangar/systems';
 import { equipColor, equipDrone, equipHull, equipTrail } from '@/components/hangar/data';
 import { Recover } from '@/components/command/Recover';
@@ -37,7 +37,7 @@ It is built as a place, not a storefront:
   MANIFEST      what you are flying right now, stated first - because
                 "what would this change" is meaningless until you know
                 what it would change FROM
-  INSPECTION    one cradle, running the same BayViewport the hangar uses,
+  INSPECTION    one cradle, running the same bay the hangar uses,
                 so a hull under inspection here is presented exactly as it
                 is presented in your own bay. Same facility, same lighting.
   RACKS         five walls matching the five real catalogue kinds. Not a
@@ -286,7 +286,7 @@ export function ArmoryScreen() {
     if (!selected) return null;
     if (selected.rack === 'hull') {
       return (
-        <BayViewport
+        <BayView
           ship={selected.shipDef}
           color={hullColor}
           /* The hangar lights each bay in that pilot's own accent hue. Here it
@@ -305,7 +305,7 @@ export function ArmoryScreen() {
     }
     if (selected.rack === 'drone') {
       return (
-        <BayViewport
+        <BayView
           ship={selected.droneDef}
           color={selected.droneDef?.color || 'hsl(190, 95%, 66%)'}
           accentHue={190}
@@ -321,7 +321,7 @@ export function ArmoryScreen() {
     }
     if (selected.rack === 'trail' || selected.rack === 'finish') {
       return (
-        <BayViewport
+        <BayView
           ship={view?.equipped.hull?.def ?? null}
           color={selected.rack === 'finish' ? selected.swatch || hullColor : hullColor}
           accentHue={190}

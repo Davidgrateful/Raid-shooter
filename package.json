@@ -25,6 +25,7 @@
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "siwe": "^3.0.0",
+    "three": "^0.186.1",
     "viem": "^2.47.6",
     "wagmi": "^3.6.0"
   },
@@ -39,6 +40,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/three": "^0.186.0",
     "eslint": "^9",
     "eslint-config-next": "16.2.2",
     "tailwindcss": "^4",

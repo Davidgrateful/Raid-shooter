@@ -9,8 +9,8 @@ import { useEffect, useRef } from 'react';
  * attaches everything to a global `$` object. We preserve this exactly as-is
  * to avoid breaking any game behavior.
  *
- * Scripts are loaded sequentially (order matters) via dynamic <script> tags,
- * matching the original index.html load order.
+ * Scripts execute in list order (order matters), matching the original
+ * index.html load order; they download in parallel.
  */
 
 const GAME_SCRIPTS = [
@@ -23,6 +23,7 @@ const GAME_SCRIPTS = [
   '/game/text.js',
   '/game/hero.js',
   '/game/enemy.js',
+  '/game/art.js',
   '/game/bullet.js',
   '/game/explosion.js',
   '/game/powerup.js',
@@ -37,6 +38,7 @@ const GAME_SCRIPTS = [
   '/game/dailyrun.js',
   '/game/drones.js',
   '/game/sectors.js',
+  '/game/scenery.js',
   '/game/shooterboard.js',
   '/game/referral.js',
   '/game/market.js',
@@ -62,32 +64,31 @@ export function GameCanvas() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (window as any).__BUILD = process.env.NEXT_PUBLIC_BUILD_ID || 'dev';
 
-    // Load scripts sequentially
-    let index = 0;
-    function loadNext() {
-      if (index >= GAME_SCRIPTS.length) {
-        // All scripts loaded — trigger the game's init via "load" event simulation
-        mount!.classList.add('loaded');
-        document.documentElement.classList.add('loaded');
-        return;
-      }
+    // Download every script at once, execute them strictly in list order.
+    // A dynamic <script> with async=false is queued in insertion order but
+    // fetched in parallel, so boot pays one round trip for the whole engine
+    // instead of one per file - which matters now that the list is ~30 long.
+    const v = process.env.NEXT_PUBLIC_BUILD_ID || 'dev';
+    let settled = 0;
+    const done = () => {
+      settled++;
+      if (settled < GAME_SCRIPTS.length) return;
+      // All scripts loaded — trigger the game's init via "load" event simulation
+      mount.classList.add('loaded');
+      document.documentElement.classList.add('loaded');
+    };
+    for (const src of GAME_SCRIPTS) {
       const script = document.createElement('script');
       // cache-bust per deploy so browsers never serve a stale game engine
-      const v = process.env.NEXT_PUBLIC_BUILD_ID || 'dev';
-      script.src = `${GAME_SCRIPTS[index]}?v=${v}`;
-      script.onload = () => {
-        index++;
-        loadNext();
-      };
+      script.src = `${src}?v=${v}`;
+      script.async = false;
+      script.onload = done;
       script.onerror = () => {
-        console.error(`Failed to load game script: ${GAME_SCRIPTS[index]}`);
-        index++;
-        loadNext();
+        console.error(`Failed to load game script: ${src}`);
+        done();
       };
       document.body.appendChild(script);
     }
-
-    loadNext();
   }, []);
 
   return (

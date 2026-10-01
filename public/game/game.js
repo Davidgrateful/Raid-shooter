@@ -341,6 +341,11 @@ $.reset = function() {
 		$.recomputeUpgrades();
 	}
 	$.resetSector();
+	$.dmgNums.length = 0;
+	$.warpFx.t = 0;
+	// reset also runs for the menu and the loading screen, so the launch is
+	// armed here and fired by the first entry into play (setState)
+	$.launchPending = 1;
 
 	$.levelPops.push( new $.LevelPop( {
 		level: 1
@@ -421,6 +426,13 @@ $.paintNebula = function( ctx, x, y, radius, hue, alpha ) {
 	ctx.fillRect( x - radius, y - radius, radius * 2, radius * 2 );
 };
 
+// the backdrops roll the cosmetic dice (art.js), never Math.random: a plate
+// repainted mid-run (a sector change, a phone rotating) must not shift the
+// waves of a seeded Daily Run or duel
+$.fxRand = function( min, max ) {
+	return min + $.fxRandom() * ( max - min );
+};
+
 $.renderBackground1 = function() {
 	var w = $.cbg1.width,
 		h = $.cbg1.height,
@@ -443,16 +455,16 @@ $.renderBackground1 = function() {
 	// the deep field: thousands of pinpricks, almost all of them very dim
 	var i = 1700;
 	while( i-- ) {
-		$.util.fillCircle( ctx, $.util.rand( 0, w ), $.util.rand( 0, h ), $.util.rand( 0.2, 0.5 ),
-			'hsla(210, 40%, 92%, ' + $.util.rand( 0.05, 0.22 ) + ')' );
+		$.util.fillCircle( ctx, $.fxRand( 0, w ), $.fxRand( 0, h ), $.fxRand( 0.2, 0.5 ),
+			'hsla(210, 40%, 92%, ' + $.fxRand( 0.05, 0.22 ) + ')' );
 	}
 
 	// a scattering of slightly larger, slightly warmer stars for variety
 	i = 500;
 	while( i-- ) {
 		var starHue = ( Math.random() < 0.7 ) ? 210 : ( Math.random() < 0.5 ? 35 : 190 );
-		$.util.fillCircle( ctx, $.util.rand( 0, w ), $.util.rand( 0, h ), $.util.rand( 0.2, 0.75 ),
-			'hsla(' + starHue + ', 60%, 88%, ' + $.util.rand( 0.15, 0.5 ) + ')' );
+		$.util.fillCircle( ctx, $.fxRand( 0, w ), $.fxRand( 0, h ), $.fxRand( 0.2, 0.75 ),
+			'hsla(' + starHue + ', 60%, 88%, ' + $.fxRand( 0.15, 0.5 ) + ')' );
 	}
 };
 
@@ -465,23 +477,39 @@ $.renderBackground2 = function() {
 	// has something to focus on when the parallax moves
 	var i = 70;
 	while( i-- ) {
-		var x = $.util.rand( 0, w ),
-			y = $.util.rand( 0, h ),
-			r = $.util.rand( 0.8, 1.9 ),
+		var x = $.fxRand( 0, w ),
+			y = $.fxRand( 0, h ),
+			r = $.fxRand( 0.8, 1.9 ),
 			hue = ( Math.random() < 0.6 ) ? 200 : ( Math.random() < 0.5 ? 45 : 280 );
 		var glow = ctx.createRadialGradient( x, y, 0, x, y, r * 5 );
 		glow.addColorStop( 0, 'hsla(' + hue + ', 90%, 80%, 0.2)' );
 		glow.addColorStop( 1, 'hsla(' + hue + ', 90%, 70%, 0)' );
 		ctx.fillStyle = glow;
 		ctx.fillRect( x - r * 5, y - r * 5, r * 10, r * 10 );
-		$.util.fillCircle( ctx, x, y, r, 'hsla(' + hue + ', 70%, 92%, ' + $.util.rand( 0.35, 0.75 ) + ')' );
+		$.util.fillCircle( ctx, x, y, r, 'hsla(' + hue + ', 70%, 92%, ' + $.fxRand( 0.35, 0.75 ) + ')' );
 	}
+};
+
+// Sector change (or a new run, or back to the menu): repaint the near plate.
+// In a run each sector shows its own far landmark (scenery.js); deep space
+// and every screen outside a run keep the planet.
+$.backdropSector = null;
+$.repaintSectorBackdrop = function( key ) {
+	$.backdropSector = key === undefined ? ( $.sector ? $.sector.hazard : null ) : key;
+	if( !$.ctxbg3 || !$.cbg3 ) { return; }
+	$.ctxbg3.clearRect( 0, 0, $.cbg3.width, $.cbg3.height );
+	$.renderBackground3();
 };
 
 $.renderBackground3 = function() {
 	var w = $.cbg3.width,
 		h = $.cbg3.height,
 		ctx = $.ctxbg3;
+
+	if( $.backdropSector && $.paintSectorLandmark && $.paintSectorLandmark( ctx, w, h, $.backdropSector ) ) {
+		$.renderBackgroundDebris( ctx, w, h );
+		return;
+	}
 
 	/*--- a distant planet: the single landmark that fixes the scale --------*/
 	var pr = Math.max( w, h ) * 0.19,
@@ -523,11 +551,15 @@ $.renderBackground3 = function() {
 	ctx.stroke();
 	ctx.restore();
 
-	/*--- drifting debris: near-field specks, larger than the deep stars ----*/
+	$.renderBackgroundDebris( ctx, w, h );
+};
+
+/*--- drifting debris: near-field specks, larger than the deep stars ----*/
+$.renderBackgroundDebris = function( ctx, w, h ) {
 	var i = 34;
 	while( i-- ) {
-		$.util.fillCircle( ctx, $.util.rand( 0, w ), $.util.rand( 0, h ), $.util.rand( 1, 2.4 ),
-			'hsla(210, 30%, 88%, ' + $.util.rand( 0.05, 0.13 ) + ')' );
+		$.util.fillCircle( ctx, $.fxRand( 0, w ), $.fxRand( 0, h ), $.fxRand( 1, 2.4 ),
+			'hsla(210, 30%, 88%, ' + $.fxRand( 0.05, 0.13 ) + ')' );
 	}
 };
 
@@ -559,17 +591,17 @@ $.renderBackground4 = function() {
 	// lit sector nodes at a few intersections - the grid reads as a live
 	// instrument rather than a texture
 	for( var n = 0; n < 26; n++ ) {
-		var gx = Math.floor( $.util.rand( 0, cols ) ) * size,
-			gy = Math.floor( $.util.rand( 0, rows ) ) * size;
-		$.util.fillCircle( ctx, gx, gy, 1.4, 'hsla(190, 100%, 75%, ' + $.util.rand( 0.1, 0.3 ) + ')' );
+		var gx = Math.floor( $.fxRand( 0, cols ) ) * size,
+			gy = Math.floor( $.fxRand( 0, rows ) ) * size;
+		$.util.fillCircle( ctx, gx, gy, 1.4, 'hsla(190, 100%, 75%, ' + $.fxRand( 0.1, 0.3 ) + ')' );
 	}
 
 	// a couple of long survey vectors cutting across the plate
 	ctx.strokeStyle = 'hsla(190, 90%, 70%, 0.07)';
 	for( var v = 0; v < 3; v++ ) {
 		ctx.beginPath();
-		ctx.moveTo( $.util.rand( -w * 0.2, w ), -10 );
-		ctx.lineTo( $.util.rand( 0, w * 1.2 ), h + 10 );
+		ctx.moveTo( $.fxRand( -w * 0.2, w ), -10 );
+		ctx.lineTo( $.fxRand( 0, w * 1.2 ), h + 10 );
 		ctx.stroke();
 	}
 };
@@ -2229,6 +2261,16 @@ $.setState = function( state ) {
 	// hero. One reset here covers every entry path.
 	if( state === 'play' ) {
 		$.lt = Date.now();
+		// a fresh run opens with the launch: the plane comes in large and
+		// hot, then settles. Unpausing or leaving the upgrade draft does not.
+		if( $.launchPending ) {
+			$.launchPending = 0;
+			$.startLaunch();
+		}
+	}
+	// leaving a run: the menu backdrop is the planet again, not the last sector
+	if( state === 'menu' && $.backdropSector && $.repaintSectorBackdrop ) {
+		$.repaintSectorBackdrop( null );
 	}
 	// handle clean up between states
 	$.buttons.length = 0;
@@ -2279,6 +2321,12 @@ $.setState = function( state ) {
 		if( $.dailyRunActive ) {
 			$.endSeededRng();
 			$.dailyRunActive = 0;
+		}
+		// abandoning a duel run does not post it - the seat stays open
+		if( $.duelActive ) {
+			$.endSeededRng();
+			$.duelActive = 0;
+			$.duel = null;
 		}
 
 		$.reset();
@@ -3559,10 +3607,10 @@ $.setState = function( state ) {
 		// update below folds this run into the records
 		// daily runs live on their own board and must not touch the endless
 		// personal-best records (or fire the NEW PERSONAL BEST banner)
-		$.runWasBest = !$.dailyRunActive && $.score > 0 && $.score > ( $.storage['score'] || 0 );
+		$.runWasBest = !$.dailyRunActive && !$.duelActive && $.score > 0 && $.score > ( $.storage['score'] || 0 );
 		$.dailyResult = $.dailySettle();
 
-		if( !$.dailyRunActive ) {
+		if( !$.dailyRunActive && !$.duelActive ) {
 			$.storage['score'] = Math.max( $.storage['score'], $.score );
 			$.storage['level'] = Math.max( $.storage['level'], $.level.current );
 			$.storage['combo'] = Math.max( $.storage['combo'] || 0, $.bestCombo );
@@ -3578,8 +3626,13 @@ $.setState = function( state ) {
 		$.trackRun( 'run_end', Math.floor( ( $.elapsed * ( 1000 / 60 ) ) / 1000 ) );
 		// a daily run posts to the daily board only (never the endless one)
 		// and restores the real RNG; everything else submits as normal
+		// the debrief shows $.duelResult, so only a duel run may leave one
+		if( !$.duelActive ) { $.duelResult = null; }
 		if( $.dailyRunActive ) {
 			$.finishDailyRun();
+		} else if( $.duelActive ) {
+			// a duel run posts to its duel and nowhere else
+			$.finishDuelRun();
 		} else {
 			$.submitScore();
 		}
@@ -5261,7 +5314,7 @@ $.setupStates = function() {
 	// run assisted (recorded for operator audit), but the run still ranks -
 	// only ONE revive per run keeps the score lever bounded.
 	$.continueEligible = function() {
-		return !$.continueUsedThisRun && !$.dailyRunActive && ( $.score | 0 ) > 0;
+		return !$.continueUsedThisRun && !$.dailyRunActive && !$.duelActive && ( $.score | 0 ) > 0;
 	};
 
 	// Resurrect the current run: spend one revive, restore 40 PCT HP + a beat of
@@ -5318,6 +5371,9 @@ $.setupStates = function() {
 			$.buildEnemyGrid();
 			i = $.bullets.length; while( i-- ){ $.bullets[ i ].update( i ) }
 		$.hero.update();
+		$.updateWarp();
+		$.updateLaunch();
+		$.updateDamageNumbers();
 
 		// render entities
 		$.clearScreen();
@@ -5333,6 +5389,7 @@ $.setupStates = function() {
 		i = $.textPops.length; while( i-- ){ $.textPops[ i ].render( i ) }
 		i = $.bullets.length; while( i-- ){ $.bullets[ i ].render( i ) }
 		$.hero.render();
+		if( $.storage[ 'dmgnums' ] !== 0 ) { $.renderDamageNumbers( $.ctxmg ); }
 		$.ctxmg.restore();
 		i = $.levelPops.length; while( i-- ){ $.levelPops[ i ].render( i ) }
 
@@ -5373,6 +5430,8 @@ $.setupStates = function() {
 			$.ctxmg.fillRect( 0, 0, $.cw, $.ch );
 		}
 		$.renderSectorOverlay();
+		$.renderLaunchLines( $.ctxmg, $.cw, $.ch );
+		$.renderWarp( $.ctxmg, $.cw, $.ch );
 		$.renderInterface();
 		$.renderOffscreenArrows();
 		$.renderLowHpWarning();

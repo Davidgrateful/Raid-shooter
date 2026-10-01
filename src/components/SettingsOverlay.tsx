@@ -75,6 +75,8 @@ export function SettingsOverlay() {
   const pilotName = ($?.storage['pilotname'] as string) || 'SET NAME';
   const controls = (($?.storage['controls'] as Controls) || 'hybrid');
   const musicOn = $ ? $.storage['music'] !== 0 : true;
+  const numbersOn = $ ? $.storage['dmgnums'] !== 0 : true;
+  const gfx3dOn = $ ? $.storage['gfx3d'] !== 0 : true;
   const soundLabel = $ ? $.soundLevelLabels[$.soundLevel] : 'FULL';
   const canFullscreen = typeof document !== 'undefined' && !!document.documentElement.requestFullscreen;
   const isFullscreen = typeof document !== 'undefined' && !!document.fullscreenElement;
@@ -97,6 +99,22 @@ export function SettingsOverlay() {
     $.storage['music'] = musicOn ? 0 : 1;
     $.updateStorage();
     if ($.storage['music'] !== 0) $.music.start();
+    refresh();
+  }
+
+  function toggleNumbers() {
+    if (!$) return;
+    $.storage['dmgnums'] = numbersOn ? 0 : 1;
+    $.updateStorage();
+    refresh();
+  }
+
+  // the 3D hangar, deck ship, game-over pad and podium; off = the flat bays.
+  // Read when a bay opens, so it applies from the next screen on.
+  function toggle3d() {
+    if (!$) return;
+    $.storage['gfx3d'] = gfx3dOn ? 0 : 1;
+    $.updateStorage();
     refresh();
   }
 
@@ -155,6 +173,8 @@ export function SettingsOverlay() {
           <Row label="Controls" value={CONTROL_LABELS[controls]} onClick={cycleControls} />
           <Row label="Music" value={musicOn ? 'ON' : 'OFF'} onClick={toggleMusic} />
           <Row label="Sound" value={soundLabel} onClick={cycleSound} />
+          <Row label="Damage numbers" value={numbersOn ? 'ON' : 'OFF'} onClick={toggleNumbers} />
+          <Row label="3D graphics" value={gfx3dOn ? 'ON' : 'OFF'} onClick={toggle3d} />
           {canFullscreen && (
             <Row label="Fullscreen" value={isFullscreen ? 'ON' : 'OFF'} onClick={toggleFullscreen} />
           )}

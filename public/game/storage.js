@@ -28,6 +28,8 @@ $.setupStorage = function() {
 		'pilotxp': {},
 		'controls': 'hybrid',
 		'music': 1,
+		'dmgnums': 1,
+		'gfx3d': 1,
 		'difficulty': 'extreme',
 		'seen': 0,
 		'rounds': 0,
