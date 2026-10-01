@@ -141,8 +141,17 @@ spend) with derank/ban moderation, plus player lookup and item grant tools.
 - Art lives in `public/game/art.js` (pilot airframes `$.planeDraws`, the enemy
   fleet, boss art, banking, warp/launch/explosions/damage numbers) and
   `scenery.js` (sector hazards and far landmarks, incl. ION NEBULA, WRECK
-  FIELD, PULSAR). The 3D models are `src/components/three/planeSpecs.ts` -
+  FIELD, PULSAR, MINEFIELD, METEOR SHOWER, CRYSTAL FIELD - ten sectors in
+  `sectors.js`). The 3D models are `src/components/three/planeSpecs.ts` -
   keep a pilot's 2D airframe and 3D spec describing the same plane.
+- The arena's objects (`public/game/objects.js`: rock, crate, fuel,
+  satellite, ice, mine, crystal) are gameplay, not decor: solid to the plane,
+  enemies and fire both ways, they pay score when the player breaks them, and
+  fuel/mines explode. Each sector has its own mix (`$.sectorObjectMix`).
+  Anything about them that rolls dice uses `$.objRandom()` - never
+  `Math.random` (shifts a seeded raid's waves) and never `$.fxRandom` (differs
+  between two duel pilots on one seed). Placement always rolls the same
+  number of candidates so the stream stays in step wherever the plane is.
 - Verify game changes with Playwright (`/opt/pw-browsers/chromium`) against
   `next start`; check TS with `npx tsc --noEmit` and `node --check` for the
   vanilla JS engine files.

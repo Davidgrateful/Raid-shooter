@@ -41,10 +41,15 @@ $.dailyRunPlayedToday = function() {
 // passes its own seed; the daily run uses today's)
 $.beginSeededRng = function( seed ) {
 	if( !$.__realRandom ) { $.__realRandom = Math.random; }
-	Math.random = $.__seededRand( seed === undefined ? $.dailyRunSeed() : seed );
+	var s = seed === undefined ? $.dailyRunSeed() : seed;
+	Math.random = $.__seededRand( s );
+	// the arena's objects roll their own stream from the same seed, so two
+	// pilots get the same arena and breaking things never shifts the waves
+	if( $.reseedObjects ) { $.reseedObjects( s ); }
 };
 $.endSeededRng = function() {
 	if( $.__realRandom ) { Math.random = $.__realRandom; }
+	$.objRng = null;
 };
 
 // start today's daily run (guarded by the hub button; no-op if already played)

@@ -6,8 +6,11 @@ BATTLE UPGRADES
 
   art        every pilot flies an airframe, every enemy has fleet art, all six
              bosses are drawn by the new art - none of them throws
-  sectors    seven sectors; each hazard runs and draws; entering one warps,
+  sectors    ten sectors; each hazard runs and draws; entering one warps,
              switches the music theme and repaints the far landmark
+  objects    the arena's objects are solid: they stop fire both ways, push
+             the plane out, break and pay, and blow up (mines, fuel); a
+             seeded raid gets the same arena and its waves never shift
   banking    the plane rolls toward the side it slips to
   wrecks     a derelict hull stops bullets, enemy fire and the plane
   dice       cosmetic effects never advance a seeded raid's dice
@@ -59,7 +62,7 @@ test.describe('the art', () => {
 });
 
 test.describe('the sectors', () => {
-  test('seven sectors, and every hazard runs and draws for a while without throwing', async ({ page }) => {
+  test('ten sectors, and every hazard and its objects run and draw for a while without throwing', async ({ page }) => {
     await boot(page, { profile: VETERAN });
     await startRun(page, 500);
     const result = await page.evaluate(() => {
@@ -68,15 +71,18 @@ test.describe('the sectors', () => {
       for (let k = 0; k < $.definitions.sectors.length; k++) {
         $.level.current = k * 5;
         $.updateSector();
+        const mix = $.sectorObjectMix[$.sector.hazard || 'none'];
+        if ($.objects.length < 12) errors.push(`${$.sector.title}: only ${$.objects.length} objects`);
+        for (const o of $.objects) if (!mix[o.kind]) errors.push(`${$.sector.title}: a ${o.kind} is not in its mix`);
         for (let f = 0; f < 240; f++) {
-          try { $.updateHazards(); $.renderHazards(); } catch (e) { errors.push(`${$.sector.title}: ${e}`); break; }
+          try { $.updateHazards(); $.renderHazards(); $.updateObjects(); $.renderObjects(); } catch (e) { errors.push(`${$.sector.title}: ${e}`); break; }
         }
       }
       return { count: $.definitions.sectors.length, hazards: $.definitions.sectors.map((s: any) => s.hazard), errors };
     });
     expect(result.errors).toEqual([]);
-    expect(result.count).toBe(7);
-    expect(result.hazards.slice(4)).toEqual(['ion', 'wrecks', 'pulsar']);
+    expect(result.count).toBe(10);
+    expect(result.hazards.slice(4)).toEqual(['ion', 'wrecks', 'pulsar', 'mines', 'meteors', 'crystals']);
   });
 
   test('entering a sector warps, switches the music theme and queues the landmark', async ({ page }) => {
@@ -113,6 +119,142 @@ test.describe('the sectors', () => {
       return { bullets: $.bullets.length, boltGone: $.enemies.indexOf(bolt) === -1, heroOut: Math.abs(p.x) >= w.hw || Math.abs(p.y) >= w.hh };
     });
     expect(r).toEqual({ bullets: 0, boltGone: true, heroOut: true });
+  });
+});
+
+test.describe('the objects', () => {
+  /*
+   * Every test clears the arena down to the objects it needs, parks them in
+   * the middle and the plane in a corner, and runs one update by hand. The
+   * game loop keeps running between page.evaluate calls, so each test does
+   * its work inside one evaluate and leaves no fake enemies behind.
+   */
+  const arena = `
+    const $ = window.$;
+    $.spawnObjects();
+    const one = (kind, life) => {
+      const o = $.objects.find((x) => x.kind === kind) || $.objects[0];
+      Object.assign(o, { kind, x: $.ww / 2, y: $.wh / 2, vx: 0, vy: 0, rotationSpeed: 0, life, lifeMax: life, armed: 0, fuse: 0, radius: kind === 'mine' ? 12 : 24, hue: $.objectKinds[kind].hue });
+      return o;
+    };
+    $.hero.x = 120; $.hero.y = 120;
+    $.bullets.length = 0;
+  `;
+  const inArena = (page: Page, body: string) => page.evaluate(`(() => { ${arena} ${body} })()`) as Promise<any>;
+
+  test('a shot chips an object and the shot that breaks it pays its value', async ({ page }) => {
+    await boot(page, { profile: VETERAN });
+    await startRun(page, 500);
+    const r = await inArena(page, `
+      const o = one('satellite', 1);
+      $.objects = [o];
+      const score = $.score;
+      $.bullets.push({ x: o.x, y: o.y, damage: 0.4 });
+      $.updateObjects();
+      const chipped = { bullets: $.bullets.length, life: Math.round(o.life * 10) / 10, there: $.objects.includes(o) };
+      $.bullets.push({ x: o.x, y: o.y, damage: 1 });
+      $.updateObjects();
+      return { chipped, broken: !$.objects.includes(o), paid: $.score - score, respawn: $.objectRespawns.length };
+    `);
+    expect(r).toEqual({ chipped: { bullets: 0, life: 0.6, there: true }, broken: true, paid: 50, respawn: 1 });
+  });
+
+  test('enemy fire stops on an object and the plane is pushed out of it', async ({ page }) => {
+    await boot(page, { profile: VETERAN });
+    await startRun(page, 500);
+    const r = await inArena(page, `
+      const o = one('rock', 50);
+      $.objects = [o];
+      const bolt = { isBolt: 1, radius: 6, x: o.x + 3, y: o.y };
+      $.enemies.push(bolt);
+      $.hero.x = o.x + 4; $.hero.y = o.y;
+      $.updateObjects();
+      const boltGone = $.enemies.indexOf(bolt) === -1;
+      if (!boltGone) $.enemies.splice($.enemies.indexOf(bolt), 1);
+      const d = Math.hypot($.hero.x - o.x, $.hero.y - o.y);
+      return { boltGone, heroOut: d >= o.radius + $.hero.radius - 0.01, life: o.life };
+    `);
+    expect(r).toEqual({ boltGone: true, heroOut: true, life: 50 });
+  });
+
+  test('a crate you break always drops a power-up', async ({ page }) => {
+    await boot(page, { profile: VETERAN });
+    await startRun(page, 500);
+    const r = await inArena(page, `
+      const o = one('crate', 1);
+      $.objects = [o];
+      const before = $.powerups.length;
+      $.hurtObject(0, 1, true);
+      return $.powerups.length - before;
+    `);
+    expect(r).toBe(1);
+  });
+
+  test('a mine blast wrecks the enemies around it and sets off the fuel next to it', async ({ page }) => {
+    await boot(page, { profile: VETERAN });
+    await startRun(page, 500);
+    const r = await inArena(page, `
+      const mine = one('mine', 1);
+      const fuel = $.objects.find((x) => x !== mine);
+      Object.assign(fuel, { kind: 'fuel', x: mine.x + 60, y: mine.y, vx: 0, vy: 0, life: 2, radius: 13, armed: 0, fuse: 0 });
+      $.objects = [mine, fuel];
+      const hits = [];
+      const near = { x: mine.x - 50, y: mine.y, radius: 12, receiveDamage: (i, d) => hits.push(d) };
+      const far = { x: mine.x - 600, y: mine.y, radius: 12, receiveDamage: (i, d) => hits.push('far') };
+      $.enemies.push(near, far);
+      const life = $.hero.life;
+      try {
+        $.hurtObject(0, 1, true);
+        $.updateObjects();
+      } finally {
+        for (const e of [near, far]) { const i = $.enemies.indexOf(e); if (i >= 0) $.enemies.splice(i, 1); }
+      }
+      return { hits, objectsLeft: $.objects.length, heroUntouched: $.hero.life === life };
+    `);
+    // the near drone takes the mine's blast and then the fuel's; the far one neither
+    expect(r).toEqual({ hits: [3, 3], objectsLeft: 0, heroUntouched: true });
+  });
+
+  test('a crystal you break throws shards that fly as your own fire', async ({ page }) => {
+    await boot(page, { profile: VETERAN });
+    await startRun(page, 500);
+    const r = await inArena(page, `
+      const o = one('crystal', 1);
+      $.objects = [o];
+      $.hurtObject(0, 1, true);
+      return { shards: $.bullets.filter((b) => b.fromObject).length, range: $.bullets[0] && $.bullets[0].range };
+    `);
+    expect(r).toEqual({ shards: 7, range: 300 });
+  });
+
+  test('a seeded raid gets the same arena wherever the pilot starts, and breaking things never shifts its waves', async ({ page }) => {
+    await boot(page, { profile: VETERAN });
+    await startRun(page, 500);
+    const r = await page.evaluate(() => {
+      const $ = (window as any).$;
+      const fly = (hx: number, hy: number, breakThings: boolean) => {
+        $.beginSeededRng(4242);
+        $.hero.x = hx; $.hero.y = hy;
+        $.spawnObjects();
+        const layout = $.objects.map((o: any) => `${o.kind}:${o.radius.toFixed(2)}`).join(',');
+        if (breakThings) {
+          // a crate (a power-up), rocks that split, a crystal's shards
+          for (const kind of ['crate', 'rock', 'crystal', 'crate']) {
+            const i = $.objects.findIndex((o: any) => o.kind === kind);
+            const at = i >= 0 ? i : 0;
+            $.objects[at].kind = kind;
+            $.hurtObject(at, 99, true);
+          }
+        }
+        const waves = [Math.random(), Math.random(), Math.random()];
+        $.endSeededRng();
+        return { layout, waves };
+      };
+      // two open-arena starts, so some spots near each plane are refused
+      return { a: fly($.ww / 2, $.wh / 2, false), b: fly($.ww / 3, $.wh * 2 / 3, true) };
+    });
+    expect(r.b.layout).toBe(r.a.layout);
+    expect(r.b.waves).toEqual(r.a.waves);
   });
 });
 

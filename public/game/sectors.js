@@ -1,8 +1,10 @@
 /*==============================================================================
 Sector Definitions
 ==============================================================================*/
-// Every five levels the run warps to the next sector. The last three are new:
-// their hazards live in scenery.js, next to the art for all seven.
+// Every five levels the run warps to the next sector. ION NEBULA onward are
+// the newer ones: their hazards live in scenery.js, next to the art for all
+// of them, and every sector's arena is filled with solid objects (objects.js)
+// - MINEFIELD and CRYSTAL FIELD are mostly made of theirs.
 $.definitions.sectors = [
 	{ title: 'DEEP SPACE', hue: -1, hazard: null },
 	{ title: 'ASTEROID BELT', hue: 30, hazard: 'asteroids' },
@@ -10,7 +12,10 @@ $.definitions.sectors = [
 	{ title: 'SOLAR STORM', hue: 10, hazard: 'flares' },
 	{ title: 'ION NEBULA', hue: 185, hazard: 'ion' },
 	{ title: 'WRECK FIELD', hue: 210, hazard: 'wrecks' },
-	{ title: 'PULSAR', hue: 200, hazard: 'pulsar' }
+	{ title: 'PULSAR', hue: 200, hazard: 'pulsar' },
+	{ title: 'MINEFIELD', hue: 0, hazard: 'mines' },
+	{ title: 'METEOR SHOWER', hue: 25, hazard: 'meteors' },
+	{ title: 'CRYSTAL FIELD', hue: 285, hazard: 'crystals' }
 ];
 
 /*==============================================================================
@@ -44,35 +49,13 @@ $.updateSector = function() {
 		$.ion = null;
 		$.wrecks = null;
 		$.pulsar = null;
-		$.spawnProps();
+		$.meteors = null;
+		$.spawnObjects();
 		if( $.music && $.music.setTheme ) { $.music.setTheme( index ); }
 		// the far landmark is repainted at the warp's flash, so the swap is
 		// never seen; the very first sector of a run has no warp
 		$.sectorBackdropDirty = 1;
 		if( $.sectorIndex > 0 && $.startWarp ) { $.startWarp( $.sector.hue ); }
-	}
-};
-
-// ambient drifting wreckage: pure decor, sells the sector as a real place
-$.spawnProps = function() {
-	$.props = [];
-	var hue = ( $.sector.hue >= 0 ) ? $.sector.hue : 210;
-	for( var i = 0; i < 7; i++ ) {
-		var points = [];
-		for( var p = 0; p < 7; p++ ) {
-			points.push( $.util.rand( 0.5, 1.3 ) );
-		}
-		$.props.push( {
-			x: $.util.rand( 0, $.ww ),
-			y: $.util.rand( 0, $.wh ),
-			vx: $.util.rand( -0.35, 0.35 ),
-			vy: $.util.rand( -0.35, 0.35 ),
-			radius: $.util.rand( 14, 42 ),
-			rotation: $.util.rand( 0, $.twopi ),
-			rotationSpeed: $.util.rand( -0.008, 0.008 ),
-			hue: hue,
-			points: points
-		} );
 	}
 };
 
@@ -153,47 +136,6 @@ $.renderBillboards = function() {
 	}
 };
 
-$.updateProps = function() {
-	if( !$.props ) {
-		return;
-	}
-	for( var i = 0; i < $.props.length; i++ ) {
-		var prop = $.props[ i ];
-		prop.x += prop.vx * $.dt;
-		prop.y += prop.vy * $.dt;
-		prop.rotation += prop.rotationSpeed * $.dt;
-		if( prop.x < -60 ) { prop.x = $.ww + 60; }
-		if( prop.x > $.ww + 60 ) { prop.x = -60; }
-		if( prop.y < -60 ) { prop.y = $.wh + 60; }
-		if( prop.y > $.wh + 60 ) { prop.y = -60; }
-	}
-};
-
-$.renderProps = function() {
-	if( !$.props ) {
-		return;
-	}
-	for( var i = 0; i < $.props.length; i++ ) {
-		var prop = $.props[ i ];
-		$.ctxmg.save();
-		$.ctxmg.translate( prop.x, prop.y );
-		$.ctxmg.rotate( prop.rotation );
-		$.ctxmg.beginPath();
-		for( var p = 0; p < prop.points.length; p++ ) {
-			var angle = ( p / prop.points.length ) * $.twopi,
-				pr = prop.radius * prop.points[ p ];
-			if( p === 0 ) { $.ctxmg.moveTo( Math.cos( angle ) * pr, Math.sin( angle ) * pr ); } else { $.ctxmg.lineTo( Math.cos( angle ) * pr, Math.sin( angle ) * pr ); }
-		}
-		$.ctxmg.closePath();
-		$.ctxmg.fillStyle = 'hsla(' + prop.hue + ', 20%, 16%, 0.55)';
-		$.ctxmg.fill();
-		$.ctxmg.strokeStyle = 'hsla(' + prop.hue + ', 25%, 30%, 0.5)';
-		$.ctxmg.lineWidth = 1;
-		$.ctxmg.stroke();
-		$.ctxmg.restore();
-	}
-};
-
 /*==============================================================================
 Hazard Helpers
 ==============================================================================*/
@@ -269,6 +211,7 @@ $.updateHazards = function() {
 	if( hazard === 'ion' ) { $.updateIon(); }
 	if( hazard === 'wrecks' ) { $.updateWrecks(); }
 	if( hazard === 'pulsar' ) { $.updatePulsar(); }
+	if( hazard === 'meteors' ) { $.updateMeteors(); }
 
 	/*==============================================================================
 	Asteroid Belt
@@ -523,6 +466,7 @@ $.renderHazards = function() {
 	if( hazard === 'ion' ) { $.renderIon( $.ctxmg ); }
 	if( hazard === 'wrecks' ) { $.renderWrecks( $.ctxmg ); }
 	if( hazard === 'pulsar' ) { $.renderPulsar( $.ctxmg ); }
+	if( hazard === 'meteors' ) { $.renderMeteors( $.ctxmg ); }
 };
 
 /*==============================================================================

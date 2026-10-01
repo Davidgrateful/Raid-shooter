@@ -5345,7 +5345,7 @@ $.setupStates = function() {
 		$.updateCombo();
 		$.updateLevel();
 		$.updateHazards();
-		$.updateProps();
+		$.updateObjects();
 		$.updateBillboards();
 		$.updatePowerupTimers();
 		$.spawnEnemies();
@@ -5380,7 +5380,7 @@ $.setupStates = function() {
 		$.ctxmg.save();
 		$.ctxmg.translate( $.screen.x - $.rumble.x, $.screen.y - $.rumble.y );
 		$.renderBillboards();
-		$.renderProps();
+		$.renderObjects();
 		$.renderHazards();
 		i = $.enemies.length; while( i-- ){ $.enemies[ i ].render( i ) }
 		i = $.explosions.length; while( i-- ){ $.explosions[ i ].render( i ) }

@@ -21,6 +21,11 @@ as the old ones, so dash and shield still protect you):
                them. Cover, not a trap - touching one does no damage.
   PULSAR       a neutron star sweeps two beams around the arena. The beams
                flicker before they fire and pause between pulses.
+  MINEFIELD    the arena is sown with proximity mines (objects.js)
+  METEOR SHOWER  volleys of meteors streak through along marked lanes: the
+               lanes show first, the rocks follow a second later
+  CRYSTAL FIELD  crystals that shatter into shards that hit enemies
+               (objects.js)
 
 The light comes from the upper left everywhere, matching the bosses.
 Nothing in a render path draws from Math.random, so a seeded daily or duel
@@ -321,6 +326,39 @@ run is not disturbed by drawing.
 			var pg = ctx.createRadialGradient( qx, qy, 0, qx, qy, M * 0.03 );
 			pg.addColorStop( 0, 'hsla(200, 100%, 95%, 0.9)' ); pg.addColorStop( 1, 'hsla(200, 100%, 70%, 0)' );
 			ctx.fillStyle = pg; ctx.fillRect( qx - M * 0.03, qy - M * 0.03, M * 0.06, M * 0.06 );
+		} else if( key === 'mines' ) {
+			// a grid of distant warning beacons, the field's own lights
+			for( var bc = 0; bc < 40; bc++ ) {
+				var bx = rnd() * w, by = rnd() * h, br = 2 + rnd() * 3;
+				var bg = ctx.createRadialGradient( bx, by, 0, bx, by, br * 6 );
+				bg.addColorStop( 0, 'hsla(0, 100%, 65%, 0.35)' ); bg.addColorStop( 1, 'hsla(0, 100%, 50%, 0)' );
+				ctx.fillStyle = bg; ctx.fillRect( bx - br * 6, by - br * 6, br * 12, br * 12 );
+				ctx.fillStyle = 'hsla(0, 100%, 75%, 0.6)'; ctx.fillRect( bx - 1, by - 1, 2, 2 );
+			}
+			planet( ctx, w * 0.82, h * 0.78, M * 0.1, 355, 35 );
+		} else if( key === 'meteors' ) {
+			// the comet the shower is shed from, its tail across the sky
+			var cx0 = w * 0.78, cy0 = h * 0.2, ang = Math.PI * 0.8;
+			for( var tl = 0; tl < 3; tl++ ) {
+				var tg = ctx.createLinearGradient( cx0, cy0, cx0 + Math.cos( ang ) * M * 0.9, cy0 + Math.sin( ang ) * M * 0.9 );
+				tg.addColorStop( 0, 'hsla(' + ( 30 + tl * 160 ) + ', 100%, 75%, ' + ( 0.22 - tl * 0.05 ) + ')' ); tg.addColorStop( 1, 'hsla(30, 100%, 60%, 0)' );
+				ctx.strokeStyle = tg; ctx.lineWidth = M * ( 0.05 - tl * 0.012 );
+				ctx.beginPath(); ctx.moveTo( cx0, cy0 ); ctx.quadraticCurveTo( cx0 - M * 0.2, cy0 + M * 0.05 * ( tl + 1 ), cx0 + Math.cos( ang ) * M * 0.9, cy0 + Math.sin( ang ) * M * 0.9 ); ctx.stroke();
+			}
+			var cg = ctx.createRadialGradient( cx0, cy0, 0, cx0, cy0, M * 0.03 );
+			cg.addColorStop( 0, 'hsla(45, 100%, 95%, 0.95)' ); cg.addColorStop( 1, 'hsla(30, 100%, 60%, 0)' );
+			ctx.fillStyle = cg; ctx.fillRect( cx0 - M * 0.03, cy0 - M * 0.03, M * 0.06, M * 0.06 );
+		} else if( key === 'crystals' ) {
+			// a violet aurora over a crystal moon
+			for( var au = 0; au < 5; au++ ) {
+				ctx.beginPath();
+				for( var ax = 0; ax <= w; ax += w / 24 ) {
+					var ay = h * ( 0.18 + au * 0.03 ) + Math.sin( ax / w * 7 + au ) * h * 0.04;
+					if( ax === 0 ) { ctx.moveTo( ax, ay ); } else { ctx.lineTo( ax, ay ); }
+				}
+				ctx.strokeStyle = 'hsla(' + ( 280 + au * 12 ) + ', 100%, 70%, 0.07)'; ctx.lineWidth = h * 0.05; ctx.stroke();
+			}
+			planet( ctx, w * 0.2, h * 0.72, M * 0.11, 285, 50 );
 		} else {
 			return false;
 		}
@@ -577,6 +615,11 @@ run is not disturbed by drawing.
 			across = Math.abs( -s * dx + c * dy );
 		return across < 16 + pad && ( dx * dx + dy * dy ) > 60 * 60;
 	}
+	// for objects.js: is this point in a firing beam right now?
+	$.pulsarHits = function( x, y, pad ) {
+		return !!( $.pulsar && $.sector && $.sector.hazard === 'pulsar' && $.pulsarState() === 'on' && inBeam( $.pulsar, x, y, pad ) );
+	};
+
 	$.updatePulsar = function() {
 		if( !$.pulsar ) { $.initPulsar(); }
 		var p = $.pulsar;
@@ -634,6 +677,88 @@ run is not disturbed by drawing.
 			ctx.beginPath();
 			ctx.ellipse( p.x, p.y, 34 + m * 10, 12 + m * 4, spinA + m, 0, TWO_PI );
 			ctx.stroke();
+		}
+	};
+
+	/*==========================================================================
+	METEOR SHOWER
+	==========================================================================*/
+	$.meteors = null;
+	var LANE_WARN = 60, METEOR_SPEED = 15;
+	$.updateMeteors = function() {
+		if( !$.meteors ) { $.meteors = { timer: 120, lanes: [], volley: 0 }; }
+		var m = $.meteors, dt = $.dt, i;
+		m.timer -= dt;
+		if( m.timer <= 0 && $.hero ) {
+			// a volley: 3-5 parallel lanes through the area around the plane.
+			// The lane angles and offsets come from the volley count, not
+			// Math.random, so a seeded raid's waves are untouched
+			m.volley++;
+			var ang = 0.6 + ( ( m.volley * 0.7548 ) % 1 ) * 1.9, n = 3 + m.volley % 3,
+				nx = -Math.sin( ang ), ny = Math.cos( ang ), span = Math.max( $.cw, $.ch ) * 1.2;
+			for( i = 0; i < n; i++ ) {
+				var off = ( i - ( n - 1 ) / 2 ) * 130 + ( ( m.volley * 37 ) % 90 ) - 45,
+					cx = $.hero.x + nx * off, cy = $.hero.y + ny * off;
+				m.lanes.push( {
+					x0: cx - Math.cos( ang ) * span, y0: cy - Math.sin( ang ) * span,
+					x1: cx + Math.cos( ang ) * span, y1: cy + Math.sin( ang ) * span,
+					ang: ang, warn: LANE_WARN + i * 8, t: 0, len: span * 2, hitHero: 0, r: 13 + ( i % 2 ) * 5
+				} );
+			}
+			m.timer = 200 + ( m.volley * 53 ) % 120;
+			if( $.audio ) { $.audio.play( 'explosionAlt' ); }
+		}
+		for( i = m.lanes.length - 1; i >= 0; i-- ) {
+			var l = m.lanes[ i ];
+			if( l.warn > 0 ) { l.warn -= dt; continue; }
+			l.t += METEOR_SPEED * dt;
+			if( l.t > l.len ) { m.lanes.splice( i, 1 ); continue; }
+			var mx = l.x0 + Math.cos( l.ang ) * l.t, my = l.y0 + Math.sin( l.ang ) * l.t;
+			l.mx = mx; l.my = my;
+			if( !l.hitHero && $.hero.life > 0 && $.util.distance( mx, my, $.hero.x, $.hero.y ) < l.r + $.hero.radius ) {
+				l.hitHero = 1;
+				$.hazardDamageHero( 0.11 );
+				if( $.addHitstop ) { $.addHitstop( 4 ); }
+			}
+			var ei = $.enemies.length;
+			while( ei-- ) {
+				var en = $.enemies[ ei ];
+				if( !en.isBoss && $.util.distance( mx, my, en.x, en.y ) < l.r + en.radius ) { $.hazardDamageEnemy( en, ei, 0.2 * dt ); }
+			}
+			if( $.objects ) {
+				for( var oi = $.objects.length - 1; oi >= 0; oi-- ) {
+					var ob = $.objects[ oi ];
+					if( $.util.distance( mx, my, ob.x, ob.y ) < l.r + ob.radius ) { $.hurtObject( oi, 0.4 * dt, false ); }
+				}
+			}
+		}
+	};
+	$.renderMeteors = function( ctx ) {
+		if( !$.meteors ) { return; }
+		var lanes = $.meteors.lanes;
+		for( var i = 0; i < lanes.length; i++ ) {
+			var l = lanes[ i ];
+			if( l.warn > 0 ) {
+				// the lane first: a dashed red line with arrowheads, brighter as it nears
+				var a = 0.25 + ( 1 - l.warn / ( LANE_WARN + 24 ) ) * 0.5;
+				ctx.setLineDash( [ 22, 16 ] );
+				ctx.lineWidth = 2; ctx.strokeStyle = 'hsla(15, 100%, 60%, ' + a.toFixed( 3 ) + ')';
+				ctx.beginPath(); ctx.moveTo( l.x0, l.y0 ); ctx.lineTo( l.x1, l.y1 ); ctx.stroke();
+				ctx.setLineDash( [] );
+				continue;
+			}
+			// the meteor: a hot rock with a long fiery tail (from its first
+			// moved frame - the lane's warning can end between update and draw)
+			if( l.mx === undefined ) { continue; }
+			var tx = -Math.cos( l.ang ), ty = -Math.sin( l.ang ), tail = 150;
+			var g = ctx.createLinearGradient( l.mx, l.my, l.mx + tx * tail, l.my + ty * tail );
+			g.addColorStop( 0, 'hsla(40, 100%, 75%, 0.9)' ); g.addColorStop( 0.3, 'hsla(18, 100%, 55%, 0.5)' ); g.addColorStop( 1, 'hsla(10, 100%, 45%, 0)' );
+			ctx.strokeStyle = g; ctx.lineCap = 'round'; ctx.lineWidth = l.r * 1.4;
+			ctx.beginPath(); ctx.moveTo( l.mx, l.my ); ctx.lineTo( l.mx + tx * tail, l.my + ty * tail ); ctx.stroke();
+			var rg = ctx.createRadialGradient( l.mx - l.r * 0.3, l.my - l.r * 0.3, 1, l.mx, l.my, l.r );
+			rg.addColorStop( 0, 'hsl(35, 60%, 70%)' ); rg.addColorStop( 1, 'hsl(18, 40%, 22%)' );
+			ctx.beginPath(); ctx.arc( l.mx, l.my, l.r, 0, TWO_PI ); ctx.fillStyle = rg; ctx.fill();
+			ctx.lineCap = 'butt';
 		}
 	};
 } )();
