@@ -1,11 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { Recover } from '@/components/command/Recover';
 import { TIER_COLORS, tierFromScore, displayName } from '@/lib/tiers';
 import { BoardBackdrop } from '@/components/BoardBackdrop';
 import { PilotIcon, type Cosmetics } from '@/components/PilotIcon';
-import { Podium3D } from '@/components/three/Podium3D';
+// the podium is fetched only when the board opens with a top three, so the
+// game's boot bundle does not carry it
+const Podium3D = lazy(() => import('@/components/three/Podium3D').then((m) => ({ default: m.Podium3D })));
 
 // The DEFAULT in-game leaderboard. When the player opens SHOOTERBOARD the
 // engine hands the screen to this overlay (window.__htmlBoard flags the canvas
@@ -397,7 +399,9 @@ export function BoardOverlay() {
                 it would push every ranked row off the first screen. */}
             {podium.length === 3 && (
               <div className="rs-sb-podium3d -mb-2">
-                <Podium3D top={podium} />
+                <Suspense fallback={null}>
+                  <Podium3D top={podium} />
+                </Suspense>
               </div>
             )}
             {podium.length === 3 && (

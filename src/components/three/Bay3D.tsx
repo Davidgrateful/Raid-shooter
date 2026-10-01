@@ -81,10 +81,27 @@ export function Bay3D(props: Bay3DProps) {
         })
         .catch(() => { if (!cancelled) setState('off'); });
     };
-    // the deck is the first screen after boot: let the engine settle first
-    const cancelIdle = mode === 'deck' ? whenIdle(start) : (start(), () => {});
+    // The deck is the first screen after boot, so its scene must never cost
+    // the boot anything: wait until the engine is past its splash, THEN for
+    // an idle moment. (Idle alone was not enough - requestIdleCallback's
+    // timeout fired mid-boot on a 4x-throttled CPU, and building the scene
+    // there, shader compiles and all, cost a slow phone ~0.5-1s of splash.)
+    let cancelIdle = () => {};
+    let poll = 0;
+    if (mode === 'deck') {
+      const booted = () => {
+        const st = (window as unknown as { $?: { state?: string } }).$?.state;
+        return !!st && st !== 'loading';
+      };
+      const arm = () => { cancelIdle = whenIdle(start); };
+      if (booted()) arm();
+      else poll = window.setInterval(() => { if (booted()) { window.clearInterval(poll); poll = 0; arm(); } }, 250);
+    } else {
+      start();
+    }
     return () => {
       cancelled = true;
+      if (poll) window.clearInterval(poll);
       cancelIdle();
       ctlRef.current?.dispose();
       ctlRef.current = null;

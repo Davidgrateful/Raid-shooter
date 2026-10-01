@@ -2031,15 +2031,14 @@ changes the colour of the room, not the layout of it.
   display: block;
   width: 100%;
   height: 100%;
-  /* the scene is transparent and its floor fades out on its own; this only
-     feathers the canvas edge so a bolt or a landing pilot never cuts off at a
-     hard line */
   -webkit-mask-image:
-    linear-gradient(180deg, transparent 0%, #000 6%, #000 90%, transparent 100%),
-    linear-gradient(90deg, transparent 0%, #000 7%, #000 93%, transparent 100%);
+    radial-gradient(96% 92% at 50% 46%, #000 24%, transparent 84%),
+    linear-gradient(180deg, transparent 0%, #000 22%, #000 88%, transparent 100%),
+    linear-gradient(90deg, transparent 0%, #000 11%, #000 89%, transparent 100%);
   mask-image:
-    linear-gradient(180deg, transparent 0%, #000 6%, #000 90%, transparent 100%),
-    linear-gradient(90deg, transparent 0%, #000 7%, #000 93%, transparent 100%);
+    radial-gradient(96% 92% at 50% 46%, #000 24%, transparent 84%),
+    linear-gradient(180deg, transparent 0%, #000 22%, #000 88%, transparent 100%),
+    linear-gradient(90deg, transparent 0%, #000 11%, #000 89%, transparent 100%);
   -webkit-mask-composite: source-in;
   mask-composite: intersect;
 }
