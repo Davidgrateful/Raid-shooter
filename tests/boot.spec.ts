@@ -26,7 +26,10 @@ async function timeToMenu(page: import('@playwright/test').Page): Promise<number
   const t0 = Date.now();
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => !!(window as any).$, null, { timeout: 60_000 });
-  await page.waitForFunction(() => (window as any).$.state !== 'loading', null, { timeout: 60_000 });
+  // `$` exists from the first script on, but `$.state` only once the engine has
+  // initialised - an undefined state is NOT past the splash. Checking only
+  // `!== 'loading'` let a slow boot "finish" before the engine had even run.
+  await page.waitForFunction(() => { const s = (window as any).$.state; return !!s && s !== 'loading'; }, null, { timeout: 60_000 });
   return Date.now() - t0;
 }
 

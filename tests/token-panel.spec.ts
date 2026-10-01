@@ -62,10 +62,12 @@ test('the deck shows the live token and copies the FULL official address', async
   await expect(panel, 'no warning about fake addresses').toContainText(/never dm you/i);
 });
 
-test('the token panel sits above the DUELS teaser, not below it', async ({ page }) => {
+test('the token panel sits above the DUELS panel, not below it', async ({ page }) => {
   await boot(page, { profile: VETERAN });
+  const duelsPanel = page.locator('.rs-panel', { has: page.locator('h2', { hasText: /^Duels$/ }) });
+  await expect(duelsPanel).toBeVisible();
   const token = await page.locator('.rs-token').boundingBox();
-  const duels = await page.locator('.rs-soon').boundingBox();
+  const duels = await duelsPanel.boundingBox();
   expect(token && duels, 'a panel did not render').toBeTruthy();
   expect(token!.y).toBeLessThan(duels!.y);
 });
