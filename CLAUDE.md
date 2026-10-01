@@ -46,6 +46,13 @@ already built and gated — usually just an env var + redeploy.
   wallet connect - so if plain wallet connect is broken, email login is broken
   the same way and for the same reason.
 
+- **"Social/email login connects but sign-in never completes"** → fixed in
+  `src/lib/siwe-verify.ts`: those logins create smart-account wallets whose
+  signatures are ERC-6492/1271, which the old EOA-only `siwe.verify` always
+  refused. The server now falls back to viem's `verifyMessage` on Base. If it
+  ever recurs, check the chain RPC is reachable (`BASE_RPC_URL`) - a down RPC
+  makes smart-account sign-in fail with `chain_unavailable`.
+
 - **Forged / impossible scores on the board, or "how do we stop fake runs"** →
   run tickets are built (`src/lib/runs.ts`). Every run gets a single-use ticket
   at launch; a submission claiming more run time than has really passed since

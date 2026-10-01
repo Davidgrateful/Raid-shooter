@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { SiweMessage } from 'siwe';
+import { verifySiwe } from '@/lib/siwe-verify';
 import { getSession } from '@/lib/session';
 import { mergeGuestIntoWallet } from '@/lib/leaderboard';
 import { mergeGuestProfileIntoWallet } from '@/lib/profile';
@@ -22,8 +22,13 @@ export async function POST(req: NextRequest) {
     const { message, signature, guestToken } = await req.json();
     const session = await getSession();
 
-    const siweMessage = new SiweMessage(message);
-    const { data: fields } = await siweMessage.verify({ signature });
+    // EOA, ERC-1271 and ERC-6492 signatures all verify here - the last two
+    // are what email / social (smart-account) wallets produce
+    const verified = await verifySiwe(String(message), String(signature));
+    if (!verified.ok) {
+      return NextResponse.json({ ok: false, error: verified.reason }, { status: 400 });
+    }
+    const fields = verified.fields;
 
     // Verify nonce matches session
     if (fields.nonce !== session.nonce) {
