@@ -39,7 +39,10 @@ $.resetSector = function() {
 $.updateSector = function() {
 	var index = Math.floor( $.level.current / 5 ) % $.definitions.sectors.length;
 	if( index !== $.sectorIndex ) {
+		// leaving a sector the pilot fought through counts as clearing it
+		if( $.achievementSectorCleared && $.sectorIndex !== undefined && $.sectorIndex !== null && $.sectorIndex >= 0 && $.level.current > 0 ) { $.achievementSectorCleared(); }
 		$.sectorIndex = index;
+		if( $.achievementSectorEntered ) { $.achievementSectorEntered( $.definitions.sectors[ index ].title ); }
 		$.sector = $.definitions.sectors[ index ];
 		$.sectorAnnounceTick = 200;
 		$.asteroids.length = 0;
@@ -208,6 +211,7 @@ $.updateHazards = function() {
 
 	var hazard = $.sector.hazard;
 
+	$.updateBossLanes();
 	if( hazard === 'ion' ) { $.updateIon(); }
 	if( hazard === 'wrecks' ) { $.updateWrecks(); }
 	if( hazard === 'pulsar' ) { $.updatePulsar(); }
@@ -432,6 +436,7 @@ Hazard Render (world space, called inside the screen translate)
 ==============================================================================*/
 $.renderHazards = function() {
 	var hazard = $.sector.hazard;
+	$.renderBossLanes( $.ctxmg );
 
 	if( hazard === 'asteroids' ) {
 		for( var ai = 0; ai < $.asteroids.length; ai++ ) {
@@ -580,6 +585,215 @@ $.spawnBossChunks = function( boss, count ) {
 	}
 };
 
+/*==============================================================================
+Boss attack lanes - telegraphed lines the sector bosses fight with
+
+A lane is a straight strip from (x0, y0) along `ang` for `len`. It first shows
+as a dashed warning for `warn` frames, then is live for `live` frames:
+  bolt   STORM CALLER's lightning: one hit per lane, then it is spent
+  beam   PULSAR LORD's sweep: anchored to the boss, rotating, burns while on
+  fire   COMET HERALD's trail: a short segment left burning behind a charge
+Damage goes through $.hazardDamageHero, so dash and the shield still protect.
+==============================================================================*/
+$.bossLanes = [];
+
+$.addBossLane = function( l ) {
+	l.t = 0;
+	l.hit = 0;
+	$.bossLanes.push( l );
+	return l;
+};
+
+$.updateBossLanes = function() {
+	var lanes = $.bossLanes, dt = $.dt;
+	for( var i = lanes.length - 1; i >= 0; i-- ) {
+		var l = lanes[ i ];
+		if( l.anchor ) {
+			// a lane tied to a boss dies with it
+			if( l.anchor.life <= 0 || $.enemies.indexOf( l.anchor ) === -1 ) { lanes.splice( i, 1 ); continue; }
+			l.x0 = l.anchor.x; l.y0 = l.anchor.y;
+		}
+		l.t += dt;
+		if( l.warn > 0 ) { l.warn -= dt; continue; }
+		if( l.spin ) { l.ang += l.spin * dt; }
+		l.live -= dt;
+		if( l.live <= 0 ) { lanes.splice( i, 1 ); continue; }
+		if( !$.hero || $.hero.life <= 0 ) { continue; }
+		// distance from the hero to the lane's segment
+		var ex = l.x0 + Math.cos( l.ang ) * l.len, ey = l.y0 + Math.sin( l.ang ) * l.len,
+			vx = ex - l.x0, vy = ey - l.y0, wx = $.hero.x - l.x0, wy = $.hero.y - l.y0,
+			tt = Math.max( 0, Math.min( 1, ( wx * vx + wy * vy ) / ( vx * vx + vy * vy || 1 ) ) ),
+			dx = $.hero.x - ( l.x0 + vx * tt ), dy = $.hero.y - ( l.y0 + vy * tt );
+		if( dx * dx + dy * dy < Math.pow( l.width / 2 + $.hero.radius, 2 ) ) {
+			if( l.style === 'bolt' ) {
+				if( !l.hit ) { l.hit = 1; $.hazardDamageHero( 0.12 ); if( $.addHitstop ) { $.addHitstop( 3 ); } }
+			} else {
+				$.hazardDamageHero( ( l.style === 'beam' ? 0.006 : 0.004 ) * dt );
+			}
+		}
+	}
+};
+
+$.renderBossLanes = function( ctx ) {
+	var lanes = $.bossLanes;
+	if( !lanes || !lanes.length ) { return; }
+	ctx.save();
+	ctx.lineCap = 'round';
+	for( var i = 0; i < lanes.length; i++ ) {
+		var l = lanes[ i ], ca = Math.cos( l.ang ), sa = Math.sin( l.ang ),
+			ex = l.x0 + ca * l.len, ey = l.y0 + sa * l.len;
+		if( l.warn > 0 ) {
+			// the warning: dashed, brightening, and for a beam, flickering
+			var on = l.style !== 'beam' || Math.floor( l.t / 4 ) % 2;
+			ctx.setLineDash( [ 18, 14 ] );
+			ctx.lineWidth = 2;
+			ctx.strokeStyle = 'hsla(' + l.hue + ', 100%, 70%, ' + ( on ? 0.25 + Math.min( 1, l.t / 40 ) * 0.5 : 0.08 ) + ')';
+			ctx.beginPath(); ctx.moveTo( l.x0, l.y0 ); ctx.lineTo( ex, ey ); ctx.stroke();
+			ctx.setLineDash( [] );
+			continue;
+		}
+		if( l.style === 'bolt' ) {
+			// lightning: a jagged line re-struck every couple of frames
+			var segs = 14, nx = -sa, ny = ca;
+			for( var pass = 0; pass < 2; pass++ ) {
+				ctx.lineWidth = pass ? 2.5 : 10;
+				ctx.strokeStyle = pass ? 'hsla(' + l.hue + ', 100%, 92%, 0.95)' : 'hsla(' + l.hue + ', 100%, 60%, 0.3)';
+				ctx.beginPath(); ctx.moveTo( l.x0, l.y0 );
+				for( var k = 1; k <= segs; k++ ) {
+					var f = k / segs, j = k === segs ? 0 : ( ( ( Math.floor( l.t / 2 ) * 31 + k * 17 + i * 7 ) % 11 ) - 5 ) * 3.2;
+					ctx.lineTo( l.x0 + ca * l.len * f + nx * j, l.y0 + sa * l.len * f + ny * j );
+				}
+				ctx.stroke();
+			}
+		} else if( l.style === 'beam' ) {
+			var pulse = 0.75 + Math.sin( l.t / 3 ) * 0.2;
+			ctx.lineWidth = l.width * 1.8; ctx.strokeStyle = 'hsla(' + l.hue + ', 100%, 70%, ' + ( 0.18 * pulse ) + ')';
+			ctx.beginPath(); ctx.moveTo( l.x0, l.y0 ); ctx.lineTo( ex, ey ); ctx.stroke();
+			ctx.lineWidth = l.width * 0.55; ctx.strokeStyle = 'hsla(' + l.hue + ', 100%, 92%, ' + ( 0.85 * pulse ) + ')';
+			ctx.beginPath(); ctx.moveTo( l.x0, l.y0 ); ctx.lineTo( ex, ey ); ctx.stroke();
+		} else {
+			// fire: a burning strip that fades as it cools
+			var heat = Math.max( 0, Math.min( 1, l.live / 60 ) );
+			ctx.lineWidth = l.width; ctx.strokeStyle = 'hsla(25, 100%, 55%, ' + ( 0.35 * heat ) + ')';
+			ctx.beginPath(); ctx.moveTo( l.x0, l.y0 ); ctx.lineTo( ex, ey ); ctx.stroke();
+			ctx.lineWidth = l.width * 0.35; ctx.strokeStyle = 'hsla(45, 100%, 75%, ' + ( 0.7 * heat ) + ')';
+			ctx.beginPath(); ctx.moveTo( l.x0, l.y0 ); ctx.lineTo( ex, ey ); ctx.stroke();
+		}
+	}
+	ctx.restore();
+};
+
+// a boss bolt that flies straight; `split` makes a PRISM GIANT shard that
+// breaks into three after a short flight
+$.bossBolt = function( boss, dir, speed, radius, split ) {
+	$.enemies.push( new $.Enemy( {
+		shape: 'shard', isBolt: 1, value: 5, speed: speed, life: 1, radius: radius,
+		hue: boss.variant.hue, saturation: boss.variant.saturation, lockBounds: 1,
+		x: boss.x + Math.cos( dir ) * ( boss.radius + 10 ),
+		y: boss.y + Math.sin( dir ) * ( boss.radius + 10 ),
+		direction: dir, splitAt: split ? 34 : 0, age: 0,
+		behavior: function() {
+			var s = $.slow ? this.speed / $.slowEnemyDivider : this.speed;
+			this.vx = Math.cos( this.direction ) * s;
+			this.vy = Math.sin( this.direction ) * s;
+			if( this.splitAt ) {
+				this.age += $.dt;
+				if( this.age >= this.splitAt && $.enemies.length < 180 ) {
+					this.splitAt = 0;
+					for( var k = -1; k <= 1; k += 2 ) {
+						$.enemies.push( new $.Enemy( {
+							shape: 'shard', isBolt: 1, value: 5, speed: this.speed * 0.9, life: 1, radius: 5,
+							hue: this.hue, saturation: this.saturation, lockBounds: 1,
+							x: this.x, y: this.y, direction: this.direction + k * 0.45,
+							behavior: function() {
+								var s2 = $.slow ? this.speed / $.slowEnemyDivider : this.speed;
+								this.vx = Math.cos( this.direction ) * s2;
+								this.vy = Math.sin( this.direction ) * s2;
+							}
+						} ) );
+					}
+				}
+			}
+		}
+	} ) );
+};
+
+// each sector boss's signature, called from the boss behaviour every frame
+$.bossSignature = function( boss, direction, boltsAllowed ) {
+	var v = boss.variant, dt = $.dt, ph = boss.phase;
+	if( v.lanes ) {
+		boss.laneTick = ( boss.laneTick || 0 ) + dt;
+		if( boss.laneTick > 170 - ph * 28 ) {
+			boss.laneTick = 0;
+			var n = 2 + ph;
+			for( var k = 0; k < n; k++ ) {
+				$.addBossLane( { x0: boss.x, y0: boss.y, ang: direction + ( k - ( n - 1 ) / 2 ) * 0.3, len: 1500, width: 22, warn: 58, live: 16, hue: v.hue, style: 'bolt' } );
+			}
+			if( boss.inView ) { $.audio.play( 'hit' ); }
+		}
+	}
+	if( v.sweep ) {
+		// a cycle: two beams flicker, then sweep, then the star rests
+		boss.sweepTick = ( boss.sweepTick || 0 ) + dt;
+		if( boss.sweepTick > 320 - ph * 30 ) {
+			boss.sweepTick = 0;
+			var spin = 0.011 * ( 1 + ph * 0.3 ) * ( Math.floor( $.tick / 600 ) % 2 ? -1 : 1 );
+			for( var b = 0; b < 2; b++ ) {
+				$.addBossLane( { anchor: boss, x0: boss.x, y0: boss.y, ang: direction + b * Math.PI + 0.6, len: 1400, width: 26, warn: 54, live: 130, spin: spin, hue: v.hue, style: 'beam' } );
+			}
+		}
+	}
+	if( v.layMines && $.spawnObjectAt ) {
+		boss.mineTick = ( boss.mineTick || 0 ) + dt;
+		var laid = 0;
+		for( var oi = 0; oi < $.objects.length; oi++ ) { if( $.objects[ oi ].fromBoss ) { laid++; } }
+		if( boss.mineTick > 78 - ph * 12 && laid < 12 ) {
+			boss.mineTick = 0;
+			var back = ( boss.vx || boss.vy ) ? Math.atan2( boss.vy, boss.vx ) + Math.PI : direction + Math.PI;
+			$.spawnObjectAt( 'mine', boss.x + Math.cos( back ) * ( boss.radius + 26 ), boss.y + Math.sin( back ) * ( boss.radius + 26 ), { noRespawn: 1, fromBoss: 1 } );
+		}
+	}
+	if( v.scrap && boltsAllowed ) {
+		// slow, heavy scrap fans, and a pair of tugs every so often
+		boss.scrapTick = ( boss.scrapTick || 0 ) + dt;
+		if( boss.scrapTick > 200 - ph * 30 && $.enemies.length < 64 ) {
+			boss.scrapTick = 0;
+			for( var tg = 0; tg < 2 + ( ph > 1 ? 1 : 0 ); tg++ ) {
+				var ta = direction + Math.PI / 2 + tg * Math.PI;
+				$.enemies.push( new $.Enemy( {
+					shape: 'block', value: 20, speed: 1.9, life: 3, radius: 15, hue: v.hue, saturation: 40,
+					x: boss.x + Math.cos( ta ) * ( boss.radius + 24 ), y: boss.y + Math.sin( ta ) * ( boss.radius + 24 ),
+					behavior: function() {
+						var s = $.slow ? this.speed / $.slowEnemyDivider : this.speed,
+							hx = $.hero.x - this.x, hy = $.hero.y - this.y, hd = Math.max( 1, Math.sqrt( hx * hx + hy * hy ) );
+						this.vx = ( hx / hd ) * s; this.vy = ( hy / hd ) * s;
+					}
+				} ) );
+			}
+		}
+	}
+	if( v.prism && boltsAllowed ) {
+		boss.prismTick = ( boss.prismTick || 0 ) + dt;
+		if( boss.prismTick > 130 - ph * 22 ) {
+			boss.prismTick = 0;
+			for( var pz = 0; pz < 5; pz++ ) { $.bossBolt( boss, direction + ( pz - 2 ) * 0.22, 5.2, 7, 1 ); }
+		}
+	}
+	if( v.trail && boss.charging > 0 ) {
+		// a burning segment behind the charge every few frames
+		boss.trailTick = ( boss.trailTick || 0 ) + dt;
+		if( boss.trailTick > 4 ) {
+			boss.trailTick = 0;
+			var tx = boss.lastTrailX === undefined ? boss.x : boss.lastTrailX, ty = boss.lastTrailY === undefined ? boss.y : boss.lastTrailY;
+			var seg = Math.sqrt( ( boss.x - tx ) * ( boss.x - tx ) + ( boss.y - ty ) * ( boss.y - ty ) );
+			if( seg > 2 ) { $.addBossLane( { x0: tx, y0: ty, ang: Math.atan2( boss.y - ty, boss.x - tx ), len: seg, width: 30, warn: 0, live: 110, hue: 25, style: 'fire' } ); }
+			boss.lastTrailX = boss.x; boss.lastTrailY = boss.y;
+		}
+	} else if( v.trail ) {
+		boss.lastTrailX = undefined;
+	}
+};
+
 $.spawnBoss = function() {
 	var coords = $.getSpawnCoordinates( 90 ),
 		levelScale = 1 + $.level.current * 0.16;
@@ -602,11 +816,35 @@ $.spawnBoss = function() {
 		// "everything you have learned" fight
 		{ title: 'XENO MONARCH', hue: 15, saturation: 100, speed: 1.7, burstCount: 12, burstSpeed: 7, burstEvery: 112, crown: 1, spiral: 1, aimed: 1, summon: 1 }
 	];
-	// random boss, never the same one twice in a row
-	var pick = Math.floor( Math.random() * variants.length );
-	if( variants.length > 1 && pick === $.lastBossPick ) { pick = ( pick + 1 ) % variants.length; }
-	$.lastBossPick = pick;
-	var variant = variants[ pick ];
+	// THE SECTOR BOSSES: each of the six newer sectors has a boss of its own,
+	// built from what the sector is made of. A sector's first boss wave in a
+	// run is its home boss; after that the wave draws from the pool as before.
+	var homeBosses = [
+		// STORM CALLER: telegraphed lightning lanes from the boss at the pilot
+		{ title: 'STORM CALLER', home: 'ion', hue: 195, saturation: 100, speed: 1.5, burstCount: 10, burstSpeed: 6, burstEvery: 150, spiral: 1, lanes: 1 },
+		// SCRAP COLOSSUS: slow, heavy, flings scrap fans and launches tugs
+		{ title: 'SCRAP COLOSSUS', home: 'wrecks', hue: 32, saturation: 30, speed: 1.05, burstCount: 6, burstSpeed: 3.6, burstEvery: 115, aimed: 1, scrap: 1 },
+		// PULSAR LORD: two beams that flicker, then sweep round the arena
+		{ title: 'PULSAR LORD', home: 'pulsar', hue: 210, saturation: 95, speed: 1.2, burstCount: 16, burstSpeed: 5, burstEvery: 160, sweep: 1 },
+		// MINE LAYER: seeds proximity mines in its wake
+		{ title: 'MINE LAYER', home: 'mines', hue: 0, saturation: 70, speed: 1.6, burstCount: 6, burstSpeed: 7, burstEvery: 135, aimed: 1, layMines: 1 },
+		// COMET HERALD: charges often and leaves a burning trail behind it
+		{ title: 'COMET HERALD', home: 'meteors', hue: 25, saturation: 100, speed: 2.0, burstCount: 12, burstSpeed: 6, burstEvery: 165, trail: 1 },
+		// PRISM GIANT: shard volleys that split, and crystals shed at each phase
+		{ title: 'PRISM GIANT', home: 'crystals', hue: 285, saturation: 90, speed: 1.3, burstCount: 9, burstSpeed: 5.5, burstEvery: 120, prism: 1 }
+	];
+	var variant = null, hz = $.sector && $.sector.hazard;
+	$.homeBossMet = $.homeBossMet || {};
+	for( var hb = 0; hb < homeBosses.length; hb++ ) {
+		if( homeBosses[ hb ].home === hz && !$.homeBossMet[ hz ] ) { variant = homeBosses[ hb ]; $.homeBossMet[ hz ] = 1; }
+	}
+	if( !variant ) {
+		// random boss, never the same one twice in a row
+		var pick = Math.floor( Math.random() * variants.length );
+		if( variants.length > 1 && pick === $.lastBossPick ) { pick = ( pick + 1 ) % variants.length; }
+		$.lastBossPick = pick;
+		variant = variants[ pick ];
+	}
 
 	var boss = new $.Enemy( {
 		value: 750,
@@ -623,7 +861,7 @@ $.spawnBoss = function() {
 		x: coords.x,
 		y: coords.y,
 		chargeTick: 0,
-		chargeCooldown: 70,
+		chargeCooldown: variant.trail ? 45 : 70,
 		spiralTick: 0,
 		spiralAngle: 0,
 		roamX: 0,
@@ -784,6 +1022,8 @@ $.spawnBoss = function() {
 				}
 			}
 
+			$.bossSignature( this, direction, bossBoltsAllowed );
+
 			// pick a fresh roam waypoint: alternate between strafing around the
 			// hero and darting to a random arena corner, so movement is varied
 			this.roamTick -= $.dt;
@@ -841,6 +1081,13 @@ $.spawnBoss = function() {
 			if( ( this.phase === 0 && lifeRatio < 0.75 ) || ( this.phase === 1 && lifeRatio < 0.5 ) || ( this.phase === 2 && lifeRatio < 0.25 ) ) {
 				this.phase++;
 				$.spawnBossChunks( this, 4 );
+				if( this.variant.prism && $.spawnObjectAt ) {
+					for( var pc = 0; pc < 4; pc++ ) {
+						var pca = pc * $.twopi / 4 + this.phase;
+						$.spawnObjectAt( 'crystal', this.x + Math.cos( pca ) * ( this.radius + 60 ), this.y + Math.sin( pca ) * ( this.radius + 60 ), { noRespawn: 1 } );
+					}
+				}
+				if( this.variant.trail && $.meteors ) { $.meteors.timer = 0; }
 				if( this.inView ) {
 					$.audio.play( 'explosionAlt' );
 				}
@@ -861,6 +1108,10 @@ $.spawnBoss = function() {
 			$.bossDraftQueued = 1;
 			// hull recovery comes from the level-pass heal this kill triggers
 			$.storage['bosskills'] = ( $.storage['bosskills'] || 0 ) + 1;
+			if( $.achieve ) {
+				$.achieve( 'bosses', 1 );
+				if( this.variant.home ) { $.achieveOnce( 'homeBosses', this.variant.title ); }
+			}
 			$.updateStorage();
 			// the boss kill completes the level
 			$.level.kills = $.level.killsToLevel;

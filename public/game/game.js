@@ -227,6 +227,9 @@ Reset
 ==============================================================================*/
 $.reset = function() {
 	$.indexGlobal = 0;
+	// sector bosses already met this run, and live boss attack lanes
+	$.homeBossMet = {};
+	$.bossLanes = [];
 	$.dt = 1;
 	$.lt = 0;
 	$.elapsed = 0;
@@ -2056,6 +2059,7 @@ $.renderFeed = function( x, y ) {
 $.registerKill = function( value, radius ) {
 	$.score += value * $.comboMultiplier;
 	$.combo++;
+	if( $.achieve && $.combo % 5 === 0 ) { $.achieve( 'bestCombo', $.combo, true ); }
 	$.comboTimer = $.comboTimerMax;
 	// kills only restore hull for pilots whose skill heals on kills (VAMPIRE);
 	// everyone else recovers by clearing levels, not by passive trickle
@@ -2110,6 +2114,7 @@ $.updateCombo = function() {
 
 $.updateLevel = function() {
 	if( $.level.kills >= $.level.killsToLevel && !$.boss ) {
+		if( $.achieve ) { $.achieve( 'bestLevel', $.level.current + 2, true ); }
 		if( $.level.current + 1 < $.levelCount ){
 			$.level.current++;
 			$.level.kills = 0;
@@ -5371,6 +5376,7 @@ $.setupStates = function() {
 			$.buildEnemyGrid();
 			i = $.bullets.length; while( i-- ){ $.bullets[ i ].update( i ) }
 		$.hero.update();
+		if( $.ghostTick ) { $.ghostTick(); }
 		$.updateWarp();
 		$.updateLaunch();
 		$.updateDamageNumbers();
@@ -5388,9 +5394,13 @@ $.setupStates = function() {
 		i = $.particleEmitters.length; while( i-- ){ $.particleEmitters[ i ].render( i ) }
 		i = $.textPops.length; while( i-- ){ $.textPops[ i ].render( i ) }
 		i = $.bullets.length; while( i-- ){ $.bullets[ i ].render( i ) }
+		if( $.renderGhost ) { $.renderGhost(); }
 		$.hero.render();
 		if( $.storage[ 'dmgnums' ] !== 0 ) { $.renderDamageNumbers( $.ctxmg ); }
 		$.ctxmg.restore();
+		// the 3D arena draws its models in the same frame, on its own canvas
+		// under this one. Drawing only: nothing it does feeds back into a rule.
+		if( $.arena3d && $.arena3d.active ) { $.arena3d.frame(); }
 		i = $.levelPops.length; while( i-- ){ $.levelPops[ i ].render( i ) }
 
 		// render virtual joystick left (movement)
@@ -5429,10 +5439,15 @@ $.setupStates = function() {
 			$.ctxmg.fillStyle = 'hsla(55, 100%, 70%, ' + ( $.nukeFlashTick / 14 * 0.45 ) + ')';
 			$.ctxmg.fillRect( 0, 0, $.cw, $.ch );
 		}
+		if( $.achievementTick ) {
+			if( $.hero.takingDamage ) { $.achievementHit(); }
+			$.achievementTick();
+		}
 		$.renderSectorOverlay();
 		$.renderLaunchLines( $.ctxmg, $.cw, $.ch );
 		$.renderWarp( $.ctxmg, $.cw, $.ch );
 		$.renderInterface();
+		if( $.renderAchievementBanner ) { $.renderAchievementBanner(); }
 		$.renderOffscreenArrows();
 		$.renderLowHpWarning();
 

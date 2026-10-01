@@ -110,10 +110,15 @@ and never $.fxRandom, which differs between two pilots on the same seed.
 		};
 	}
 
-	// how many objects fill an arena of this size
+	// how many objects fill an arena of this size. It used to be one per
+	// 230,000 px2 (12-26), which left only 3-5 on a screen at once - too few
+	// for cover or mine-baiting to matter. Now one per 150,000 px2 (18-40),
+	// and the sectors built around their objects carry more of them.
+	var DENSITY = { mines: 1.25, crystals: 1.2, meteors: 0.9, wrecks: 0.85 };
 	function target() {
-		var area = ( $.ww || 2000 ) * ( $.wh || 2000 );
-		return Math.max( 12, Math.min( 26, Math.round( area / 230000 ) ) );
+		var area = ( $.ww || 2000 ) * ( $.wh || 2000 ),
+			mult = DENSITY[ ( $.sector && $.sector.hazard ) || '' ] || 1;
+		return Math.max( 18, Math.min( 40, Math.round( area / 150000 * mult ) ) );
 	}
 
 	// a spot away from the plane (and, when respawning, off screen). Always
@@ -147,6 +152,19 @@ and never $.fxRandom, which differs between two pilots on the same seed.
 		}
 	};
 
+	// an object placed by something in the fight (a MINE LAYER's mines, a
+	// PRISM GIANT's crystals). `noRespawn` keeps it from queueing a
+	// replacement when it breaks, so a boss cannot grow the arena's count.
+	$.spawnObjectAt = function( kind, x, y, extra ) {
+		if( !KINDS[ kind ] ) { return null; }
+		var o = make( kind, Math.max( 30, Math.min( $.ww - 30, x ) ), Math.max( 30, Math.min( $.wh - 30, y ) ) );
+		o.vx = 0; o.vy = 0;
+		o.lifeMax = o.life;
+		if( extra ) { for( var k in extra ) { o[ k ] = extra[ k ]; } }
+		$.objects.push( o );
+		return o;
+	};
+
 	/*--------------------------------------------------------------------------
 	Breaking things
 	--------------------------------------------------------------------------*/
@@ -161,6 +179,7 @@ and never $.fxRandom, which differs between two pilots on the same seed.
 			if( d < radius + e.radius ) {
 				if( e.isBolt ) { $.enemies.splice( ei, 1 ); continue; }
 				e.receiveDamage( ei, 3 );
+				if( o.kind === 'fuel' && o.byPlayer && $.achieve && e.life <= 0 ) { $.achieve( 'fuelKills', 1 ); }
 			}
 		}
 		if( $.hero && $.hero.life > 0 && $.util.distance( o.x, o.y, $.hero.x, $.hero.y ) < radius + $.hero.radius ) {
@@ -227,13 +246,18 @@ and never $.fxRandom, which differs between two pilots on the same seed.
 			Math.random = $.objRandom;
 			try { $.powerups.push( new $.Powerup( params ) ); } finally { Math.random = real; }
 		}
+		if( byPlayer && $.achieve ) {
+			if( o.kind === 'crate' ) { $.achieve( 'crates', 1 ); }
+			if( o.kind === 'mine' ) { $.achieve( 'mines', 1 ); }
+			if( o.kind === 'crystal' ) { $.achieve( 'crystals', 1 ); }
+		}
 		if( byPlayer ) {
 			$.score += def.value;
 			$.textPops.push( new $.TextPop( { x: o.x, y: o.y, value: def.value, hue: o.hue, saturation: 80, lightness: 60 } ) );
 			$.audio.play( 'explosionAlt' );
 		}
 		// keep the arena full: a replacement drifts in later, off screen
-		if( o.radius > 15 || o.kind !== 'rock' ) {
+		if( !o.noRespawn && ( o.radius > 15 || o.kind !== 'rock' ) ) {
 			$.objectRespawns.push( { t: rnd( 300, 600 ) } );
 		}
 	};
@@ -487,6 +511,7 @@ and never $.fxRandom, which differs between two pilots on the same seed.
 	};
 
 	$.renderObjects = function() {
+		if( $.arena3d && $.arena3d.active ) { return; }
 		var ctx = $.ctxmg, list = $.objects;
 		for( var i = 0; i < list.length; i++ ) {
 			var o = list[ i ];

@@ -1029,6 +1029,195 @@ Phase and life come from the boss itself; nothing here changes the fight.
 			// the eye, swelling as it weakens
 			$.coreEye( ctx, 0, 0, r * ( 0.18 + phase * 0.03 ), h, 100, tick );
 			rim( ctx, r * 0.95, h, 0.55 );
+		},
+
+		/*======================================================================
+		THE SECTOR BOSSES - each sector's own boss, built from what the sector
+		is made of. Same rules as the six above: lit from the upper left,
+		parts give way at phases 1-3, radius 90.
+		======================================================================*/
+
+		/*--- STORM CALLER (Ion Nebula): a caged storm on three pylons ---------*/
+		'STORM CALLER': function( ctx, r, e, tick, phase ) {
+			var h = 195;
+			var glow = ctx.createRadialGradient( 0, 0, r * 0.2, 0, 0, r * 1.2 );
+			glow.addColorStop( 0, hsla( h, 100, 70, 0.35 ) );
+			glow.addColorStop( 1, hsla( h, 100, 50, 0 ) );
+			ctx.fillStyle = glow;
+			ctx.beginPath(); ctx.arc( 0, 0, r * 1.2, 0, TWO_PI ); ctx.fill();
+			// three pylons on a ring; one shorts out per phase
+			for( var i = 0; i < 3; i++ ) {
+				if( i < phase ) { continue; }
+				var a = i * TWO_PI / 3 + tick / 90;
+				var px = Math.cos( a ) * r * 0.82, py = Math.sin( a ) * r * 0.82;
+				// the arc from the core to the pylon, re-struck every few frames
+				ctx.save();
+				ctx.strokeStyle = hsla( h, 100, 85, 0.9 );
+				ctx.lineWidth = 2.5;
+				ctx.shadowColor = hsla( h, 100, 70, 1 );
+				ctx.shadowBlur = 12;
+				ctx.beginPath(); ctx.moveTo( 0, 0 );
+				for( var k = 1; k <= 5; k++ ) {
+					var t = k / 5, j = ( ( ( Math.floor( tick / 3 ) + i * 7 + k * 13 ) % 9 ) - 4 ) * 3.5;
+					ctx.lineTo( px * t - Math.sin( a ) * j, py * t + Math.cos( a ) * j );
+				}
+				ctx.stroke();
+				ctx.restore();
+				ctx.beginPath(); ctx.arc( px, py, r * 0.16, 0, TWO_PI );
+				sphere( ctx, r * 0.16, h, 30, 70, 25, 1 ); ctx.fill();
+				$.util.fillCircle( ctx, px, py, r * 0.06, hsla( h, 100, 92, 1 ) );
+			}
+			// the core: a lit cage around a white-hot centre
+			ctx.beginPath(); ctx.arc( 0, 0, r * 0.5, 0, TWO_PI );
+			sphere( ctx, r * 0.5, h, 60, 55, 14, 1 ); ctx.fill();
+			ctx.save(); ctx.rotate( tick / 40 );
+			ctx.strokeStyle = hsla( h, 80, 70, 0.6 ); ctx.lineWidth = 2;
+			for( var c = 0; c < 6; c++ ) { ctx.beginPath(); ctx.ellipse( 0, 0, r * 0.5, r * 0.16, c * Math.PI / 6, 0, TWO_PI ); ctx.stroke(); }
+			ctx.restore();
+			$.coreEye( ctx, 0, 0, r * 0.16, h, 100, tick );
+			cracks( ctx, r * 0.5, h, phase, tick, 21 );
+			rim( ctx, r * 0.5, h, 0.6 );
+		},
+
+		/*--- SCRAP COLOSSUS (Wreck Field): a hulk welded from wrecks -----------*/
+		'SCRAP COLOSSUS': function( ctx, r, e, tick, phase ) {
+			var h = 32;
+			// the core hull: a dented plate block
+			ctx.save(); ctx.rotate( -0.12 );
+			var hull = ctx.createLinearGradient( -r, -r, r, r );
+			hull.addColorStop( 0, hsla( h, 14, 52, 1 ) ); hull.addColorStop( 1, hsla( h, 18, 18, 1 ) );
+			ctx.fillStyle = hull;
+			ctx.fillRect( -r * 0.62, -r * 0.48, r * 1.24, r * 0.96 );
+			ctx.strokeStyle = hsla( h, 30, 70, 0.5 ); ctx.lineWidth = 2;
+			ctx.strokeRect( -r * 0.62, -r * 0.48, r * 1.24, r * 0.96 );
+			ctx.restore();
+			// welded-on plates; each phase tears more of them away
+			var plates = [ [ -0.7, -0.6, 0.6, 0.35, 0.3 ], [ 0.25, -0.75, 0.55, 0.3, -0.2 ], [ 0.55, 0.15, 0.45, 0.5, 0.15 ], [ -0.85, 0.2, 0.5, 0.45, -0.25 ], [ -0.2, 0.55, 0.65, 0.3, 0.1 ], [ 0.1, -0.15, 0.4, 0.3, 0.4 ] ];
+			for( var i = 0; i < plates.length; i++ ) {
+				if( i % 3 < phase ) { continue; }
+				var pl = plates[ i ];
+				ctx.save();
+				ctx.translate( pl[ 0 ] * r, pl[ 1 ] * r ); ctx.rotate( pl[ 4 ] );
+				ctx.fillStyle = i % 2 ? hsla( h, 22, 40, 1 ) : hsla( 18, 40, 34, 1 );
+				ctx.fillRect( 0, 0, pl[ 2 ] * r, pl[ 3 ] * r );
+				ctx.fillStyle = hsla( h, 30, 75, 0.35 );
+				ctx.fillRect( 0, 0, pl[ 2 ] * r, 3 );
+				// rivets
+				ctx.fillStyle = hsla( h, 10, 75, 0.7 );
+				ctx.fillRect( 4, 6, 3, 3 ); ctx.fillRect( pl[ 2 ] * r - 8, 6, 3, 3 );
+				ctx.restore();
+			}
+			// the glowing furnace slit
+			var heat = 0.6 + Math.sin( tick / 6 ) * 0.25;
+			ctx.fillStyle = hsla( 30, 100, 60, heat );
+			ctx.fillRect( r * 0.18, -r * 0.08, r * 0.42, r * 0.16 );
+			cracks( ctx, r * 0.6, 30, phase, tick, 27 );
+		},
+
+		/*--- PULSAR LORD (Pulsar): a spun-up star with two emitters ------------*/
+		'PULSAR LORD': function( ctx, r, e, tick, phase ) {
+			var h = 210, spin = tick / 20;
+			var cor = ctx.createRadialGradient( 0, 0, r * 0.2, 0, 0, r * 1.3 );
+			cor.addColorStop( 0, hsla( h, 100, 85, 0.5 ) ); cor.addColorStop( 1, hsla( h, 100, 60, 0 ) );
+			ctx.fillStyle = cor; ctx.beginPath(); ctx.arc( 0, 0, r * 1.3, 0, TWO_PI ); ctx.fill();
+			// the ring goes first, then one emitter, then the other
+			if( phase < 1 ) {
+				ctx.save(); ctx.scale( 1, 0.35 ); ctx.rotate( spin * 0.3 );
+				ctx.strokeStyle = hsla( h, 100, 75, 0.7 ); ctx.lineWidth = 4;
+				ctx.beginPath(); ctx.arc( 0, 0, r * 1.05, 0, TWO_PI ); ctx.stroke();
+				ctx.restore();
+			}
+			for( var k = 0; k < 2; k++ ) {
+				if( ( k === 0 && phase >= 2 ) || ( k === 1 && phase >= 3 ) ) { continue; }
+				ctx.save(); ctx.rotate( spin + k * Math.PI );
+				ridge( ctx, r * 0.95, r * 0.16, hsla( h, 70, 78, 1 ), hsla( h, 60, 38, 1 ) );
+				ctx.restore();
+			}
+			ctx.beginPath(); ctx.arc( 0, 0, r * 0.45, 0, TWO_PI );
+			sphere( ctx, r * 0.45, h, 40, 92, 55, 1 ); ctx.fill();
+			specular( ctx, r * 0.45, 0.5 );
+			cracks( ctx, r * 0.45, h, phase, tick, 33 );
+		},
+
+		/*--- MINE LAYER (Minefield): a broad hull with mine racks -----------------*/
+		'MINE LAYER': function( ctx, r, e, tick, phase ) {
+			var h = 0;
+			// octagonal deck
+			ctx.beginPath();
+			for( var i = 0; i < 8; i++ ) { var a = i * TWO_PI / 8 + Math.PI / 8; ctx[ i ? 'lineTo' : 'moveTo' ]( Math.cos( a ) * r * 0.95, Math.sin( a ) * r * 0.72 ); }
+			ctx.closePath();
+			var deck = ctx.createLinearGradient( -r, -r, r, r );
+			deck.addColorStop( 0, 'hsla(215, 8%, 46%, 1)' ); deck.addColorStop( 1, 'hsla(215, 12%, 16%, 1)' );
+			ctx.fillStyle = deck; ctx.fill();
+			ctx.strokeStyle = 'hsla(0, 70%, 55%, 0.55)'; ctx.lineWidth = 2; ctx.stroke();
+			// two racks of mines; the racks empty out phase by phase
+			for( var m = 0; m < 6; m++ ) {
+				if( m % 3 < phase ) { continue; }
+				var mx = ( -0.55 + ( m % 3 ) * 0.32 ) * r, my = ( m < 3 ? -0.36 : 0.36 ) * r;
+				ctx.beginPath(); ctx.arc( mx, my, r * 0.12, 0, TWO_PI );
+				sphere( ctx, r * 0.12, 210, 8, 60, 22, 1 ); ctx.fill();
+				var blink = Math.floor( ( tick + m * 9 ) / 12 ) % 2;
+				$.util.fillCircle( ctx, mx, my, r * 0.04, blink ? 'hsla(0, 100%, 62%, 1)' : 'hsla(0, 60%, 30%, 1)' );
+			}
+			// the bridge and its red lamp
+			ctx.fillStyle = 'hsla(215, 10%, 52%, 1)';
+			ctx.fillRect( r * 0.2, -r * 0.16, r * 0.42, r * 0.32 );
+			$.util.fillCircle( ctx, r * 0.52, 0, r * 0.06, Math.floor( tick / 8 ) % 2 ? 'hsla(0, 100%, 65%, 1)' : 'hsla(0, 80%, 35%, 1)' );
+			cracks( ctx, r * 0.7, h, phase, tick, 39 );
+			rim( ctx, r * 0.9, h, 0.4 );
+		},
+
+		/*--- COMET HERALD (Meteor Shower): an ice head and a burning tail ---------*/
+		'COMET HERALD': function( ctx, r, e, tick, phase ) {
+			// the tail points away from where it is heading, and shortens as it
+			// loses mass phase by phase
+			var travel = ( e.vx || e.vy ) ? Math.atan2( e.vy, e.vx ) : 0;
+			ctx.save(); ctx.rotate( travel + Math.PI );
+			var len = r * ( 2.6 - phase * 0.5 );
+			var tail = ctx.createLinearGradient( 0, 0, len, 0 );
+			tail.addColorStop( 0, 'hsla(30, 100%, 65%, 0.75)' ); tail.addColorStop( 1, 'hsla(15, 100%, 50%, 0)' );
+			ctx.fillStyle = tail;
+			ctx.beginPath(); ctx.moveTo( 0, -r * 0.55 ); ctx.quadraticCurveTo( len * 0.6, -r * 0.3, len, 0 ); ctx.quadraticCurveTo( len * 0.6, r * 0.3, 0, r * 0.55 ); ctx.fill();
+			ctx.restore();
+			// orbiting debris
+			for( var i = 0; i < 5; i++ ) {
+				var a = i * TWO_PI / 5 + tick / 30;
+				ctx.beginPath(); ctx.arc( Math.cos( a ) * r * 0.9, Math.sin( a ) * r * 0.9, r * 0.08, 0, TWO_PI );
+				sphere( ctx, r * 0.08, 25, 30, 55, 20, 1 ); ctx.fill();
+			}
+			// the icy head
+			ctx.beginPath(); ctx.arc( 0, 0, r * 0.58, 0, TWO_PI );
+			sphere( ctx, r * 0.58, 205, 60, 90, 45, 1 ); ctx.fill();
+			specular( ctx, r * 0.58, 0.6 );
+			cracks( ctx, r * 0.58, 25, phase, tick, 45 );
+			rim( ctx, r * 0.58, 25, 0.6 );
+		},
+
+		/*--- PRISM GIANT (Crystal Field): a cluster of growing crystals -----------*/
+		'PRISM GIANT': function( ctx, r, e, tick, phase ) {
+			var h = 285;
+			function gem( x, y, w, hgt, rot, light ) {
+				ctx.save(); ctx.translate( x, y ); ctx.rotate( rot );
+				ctx.beginPath(); ctx.moveTo( 0, -hgt ); ctx.lineTo( w, 0 ); ctx.lineTo( 0, hgt ); ctx.lineTo( -w, 0 ); ctx.closePath();
+				ctx.fillStyle = hsla( h, 80, light, 0.92 ); ctx.fill();
+				ctx.beginPath(); ctx.moveTo( 0, -hgt ); ctx.lineTo( -w, 0 ); ctx.lineTo( 0, hgt ); ctx.closePath();
+				ctx.fillStyle = hsla( h, 90, light + 18, 0.6 ); ctx.fill();
+				ctx.strokeStyle = hsla( h, 100, 85, 0.8 ); ctx.lineWidth = 1.5;
+				ctx.beginPath(); ctx.moveTo( 0, -hgt ); ctx.lineTo( w, 0 ); ctx.lineTo( 0, hgt ); ctx.lineTo( -w, 0 ); ctx.closePath(); ctx.stroke();
+				ctx.restore();
+			}
+			var glow = ctx.createRadialGradient( 0, 0, r * 0.2, 0, 0, r * 1.25 );
+			glow.addColorStop( 0, hsla( h, 100, 70, 0.35 ) ); glow.addColorStop( 1, hsla( h, 100, 50, 0 ) );
+			ctx.fillStyle = glow; ctx.beginPath(); ctx.arc( 0, 0, r * 1.25, 0, TWO_PI ); ctx.fill();
+			// the outer crystals shatter phase by phase
+			for( var i = 0; i < 6; i++ ) {
+				if( i % 3 < phase ) { continue; }
+				var a = i * TWO_PI / 6 + 0.3;
+				gem( Math.cos( a ) * r * 0.62, Math.sin( a ) * r * 0.62, r * 0.16, r * 0.38, a + Math.PI / 2, 46 );
+			}
+			gem( 0, 0, r * 0.36, r * 0.7, Math.sin( tick / 60 ) * 0.1, 52 );
+			$.coreEye( ctx, 0, 0, r * 0.12, h, 100, tick );
+			cracks( ctx, r * 0.5, h, phase, tick, 51 );
 		}
 	};
 
