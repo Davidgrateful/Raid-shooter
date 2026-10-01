@@ -2031,14 +2031,15 @@ changes the colour of the room, not the layout of it.
   display: block;
   width: 100%;
   height: 100%;
+  /* the scene is transparent and its floor fades out on its own; this only
+     feathers the canvas edge so a bolt or a landing pilot never cuts off at a
+     hard line */
   -webkit-mask-image:
-    radial-gradient(96% 92% at 50% 46%, #000 24%, transparent 84%),
-    linear-gradient(180deg, transparent 0%, #000 22%, #000 88%, transparent 100%),
-    linear-gradient(90deg, transparent 0%, #000 11%, #000 89%, transparent 100%);
+    linear-gradient(180deg, transparent 0%, #000 6%, #000 90%, transparent 100%),
+    linear-gradient(90deg, transparent 0%, #000 7%, #000 93%, transparent 100%);
   mask-image:
-    radial-gradient(96% 92% at 50% 46%, #000 24%, transparent 84%),
-    linear-gradient(180deg, transparent 0%, #000 22%, #000 88%, transparent 100%),
-    linear-gradient(90deg, transparent 0%, #000 11%, #000 89%, transparent 100%);
+    linear-gradient(180deg, transparent 0%, #000 6%, #000 90%, transparent 100%),
+    linear-gradient(90deg, transparent 0%, #000 7%, #000 93%, transparent 100%);
   -webkit-mask-composite: source-in;
   mask-composite: intersect;
 }
@@ -3122,7 +3123,8 @@ ARMORY — RESPONSIVE
 @media (max-height: 560px) and (min-width: 640px) {
   .rs-am-main { padding: 0 10px 8px; }
   .rs-am-stage { max-width: none; flex-direction: row; align-items: flex-start; gap: 14px; }
-  .rs-am-inspect { width: 42%; flex: none; }
+  /* the cradle stays put while the wall beside it scrolls */
+  .rs-am-inspect { width: 42%; flex: none; position: sticky; top: 0; align-self: flex-start; }
   .rs-am-bayframe, .rs-am-plate { width: min(40vh, 210px); }
   .rs-am-plate { min-height: 130px; padding: 14px; }
   .rs-am-wall { margin-top: 0; flex: 1; min-width: 0; }
@@ -3138,6 +3140,50 @@ ARMORY — RESPONSIVE
   .rs-am-sys { padding-left: 12px; padding-right: 12px; }
   .rs-am-bayframe, .rs-am-plate { width: min(80vw, 320px); }
   .rs-am-slots { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+}
+
+/* The cradle carries its own < > so the next item is one tap away. */
+.rs-am-cradle { position: relative; width: fit-content; max-width: 100%; }
+.rs-am-cradle > .rs-hg-arrow { top: 42%; }
+
+/* Phone portrait: the cradle used to be a 300px block at the top of the
+   scroll, so picking anything further down the wall meant scrolling back up
+   to see it - and back down to pick the next one. The cradle now pins to the
+   top as a compact card (model left, name and action right) and the wall
+   scrolls beneath it. */
+@media (max-width: 640px) and (min-height: 561px) {
+  .rs-am-inspect {
+    position: sticky;
+    /* under the header, which is itself pinned on this layout */
+    top: calc(var(--safe-top) + 47px);
+    z-index: 2;
+    display: grid;
+    grid-template-columns: minmax(0, 46%) minmax(0, 1fr);
+    grid-template-areas: "bay id" "bay act";
+    column-gap: 12px;
+    align-items: center;
+    margin: 0 -12px;
+    padding: 6px 12px 12px;
+    background: linear-gradient(180deg, rgba(4, 6, 11, 0.98) 0%, rgba(4, 6, 11, 0.95) 86%, rgba(4, 6, 11, 0) 100%);
+  }
+  .rs-am-cradle { grid-area: bay; width: 100%; }
+  .rs-am-cradle .rs-am-bayframe, .rs-am-cradle .rs-am-plate { width: 100%; }
+  .rs-am-cradle > .rs-hg-arrow { width: 32px; height: 32px; font-size: 18px; }
+  .rs-am-inspect-id { grid-area: id; align-self: end; margin-top: 0; text-align: left; }
+  .rs-am-inspect-line { justify-content: flex-start; }
+  .rs-am-name { font-size: 20px; }
+  .rs-am-effect {
+    display: -webkit-box;
+    overflow: hidden;
+    font-size: 10px;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+  .rs-am-act { grid-area: act; align-self: start; margin-top: 8px; }
+  .rs-am-act .rs-am-cta-face { padding: 9px 10px; font-size: 12px; letter-spacing: 0.12em; }
+  .rs-am-guest-note { display: none; }
+  .rs-am-token-bal { font-size: 10px; }
+  .rs-am-wall { margin-top: 4px; }
 }
 
 @media (max-width: 400px) {
@@ -3999,6 +4045,18 @@ would imply a relationship the data does not have.
 Colour follows the established meanings: cyan is you and your position, gold is
 the target you are chasing, and the tier chip keeps its own scale.
 ==============================================================================*/
+/*==============================================================================
+SHOOTERBOARD (in-game overlay) - 3D podium and a footer that fits short screens
+==============================================================================*/
+@media (max-height: 560px) {
+  /* a 390px-tall phone has no room for a stage above the cards */
+  .rs-sb-podium3d { display: none; }
+  /* the footer used to take a third of a landscape phone and sat on the
+     champion's card; it is a slim bar there now */
+  .rs-sb-foot { padding-top: 22px; padding-bottom: 8px; }
+  .rs-sb-foot .rs-btn { padding-top: 8px; padding-bottom: 8px; font-size: 11px; }
+}
+
 .rs-sb-standing { padding-top: 10px; padding-bottom: 4px; }
 
 .rs-sb-stand {
@@ -4868,7 +4926,14 @@ focus programmatically mid-run.
 .rs-poll-fine { margin: 8px 0 0; font-size: 10.5px; line-height: 1.4; color: rgba(233, 241, 255, 0.45); }
 
 /*--- game over: the plane back on its pad (wide screens only) -------------*/
-.rs-go-pad { min-height: 420px; background: #03050a; }
+/* the pad is an open stage like the hangar's: a soft pool of light, not a
+   black panel behind a transparent scene */
+.rs-go-pad {
+  min-height: 420px;
+  background:
+    radial-gradient(70% 55% at 50% 62%, rgba(53, 232, 255, 0.08), transparent 70%),
+    linear-gradient(180deg, rgba(3, 5, 10, 0.35), rgba(3, 5, 10, 0.7));
+}
 .rs-go-pad-cap {
   position: absolute;
   left: 16px;
@@ -4877,3 +4942,4 @@ focus programmatically mid-run.
   gap: 2px;
   pointer-events: none;
 }
+

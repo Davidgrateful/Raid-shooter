@@ -143,7 +143,12 @@ spend) with derank/ban moderation, plus player lookup and item grant tools.
   `scenery.js` (sector hazards and far landmarks, incl. ION NEBULA, WRECK
   FIELD, PULSAR, MINEFIELD, METEOR SHOWER, CRYSTAL FIELD - ten sectors in
   `sectors.js`). The 3D models are `src/components/three/planeSpecs.ts` -
-  keep a pilot's 2D airframe and 3D spec describing the same plane.
+  keep a pilot's 2D airframe and 3D spec describing the same plane. How each
+  pilot lands on the bay pad, idles and test-fires is
+  `src/components/three/pilotMotion.ts` (one entry per pilot - a new pilot
+  needs one; `tests/bay-and-board.spec.ts` checks every landing ends at
+  rest). The bay is an open stage on a transparent canvas: do not give it
+  walls or an opaque background again, that is what read as a pasted black box.
 - The arena's objects (`public/game/objects.js`: rock, crate, fuel,
   satellite, ice, mine, crystal) are gameplay, not decor: solid to the plane,
   enemies and fire both ways, they pay score when the player breaks them, and

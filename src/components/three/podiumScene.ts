@@ -17,9 +17,9 @@ export interface PodiumController {
 }
 
 const COLS = [
-  { place: 2, x: -3.4, h: 1.5, trim: '#c9d1e8' },
+  { place: 2, x: -3.7, h: 1.5, trim: '#c9d1e8' },
   { place: 1, x: 0, h: 2.3, trim: '#ffd75e' },
-  { place: 3, x: 3.4, h: 1.0, trim: '#d08a4a' },
+  { place: 3, x: 3.7, h: 1.0, trim: '#d08a4a' },
 ];
 
 export function createPodiumScene(T: Three, canvas: HTMLCanvasElement): PodiumController {
@@ -50,8 +50,8 @@ export function createPodiumScene(T: Three, canvas: HTMLCanvasElement): PodiumCo
     scene.add(s, s.target);
   };
   spot('#fff4d6', 0, 12, 4, 0, 2, 2.6);
-  spot('#bfe9ff', -6, 9, 6, -3.4, 1.5, 1.2);
-  spot('#ffd9bf', 6, 9, 6, 3.4, 1, 1.0);
+  spot('#bfe9ff', -6, 9, 6, -3.7, 1.5, 1.2);
+  spot('#ffd9bf', 6, 9, 6, 3.7, 1, 1.0);
   const rim = new T.PointLight('#35e8ff', 1.4 * PI, 16, 1);
   rim.position.set(0, 4, -4);
   scene.add(rim);
@@ -161,7 +161,7 @@ export function createPodiumScene(T: Three, canvas: HTMLCanvasElement): PodiumCo
       planes = order.map((p) => {
         if (!p) return null;
         const b = buildPlane(T, glowTex, p.pilotId, p.color);
-        b.group.scale.setScalar(0.92);
+        b.group.scale.setScalar(0.74);
         scene.add(b.group);
         return b;
       });

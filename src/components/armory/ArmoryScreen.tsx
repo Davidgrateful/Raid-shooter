@@ -194,6 +194,22 @@ export function ArmoryScreen() {
     [rackItems],
   );
 
+  // step through the open wall from the cradle itself, so the next item is one
+  // tap away wherever the wall is scrolled to
+  const browse = useCallback(
+    (dir: number) => {
+      if (!rackItems.length) return;
+      const at = rackItems.findIndex((i) => i.id === selected?.id);
+      const next = rackItems[(Math.max(0, at) + dir + rackItems.length) % rackItems.length];
+      if (!next) return;
+      setSelectedId(next.id);
+      setSwap((s) => ({ key: s.key + 1, dir }));
+      setStatus(null);
+      setEquipped(null);
+    },
+    [rackItems, selected],
+  );
+
   // the confirmation is a beat, not a banner - it clears itself
   useEffect(() => {
     if (!equipped) return;
@@ -385,6 +401,7 @@ export function ArmoryScreen() {
       <main className="rs-cc-main rs-am-main rs-scroll">
         <div className="rs-am-stage">
           <div className="rs-am-inspect">
+            <div className="rs-am-cradle">
             {bay ? (
               <div className="rs-hg-bayframe rs-am-bayframe">{bay}</div>
             ) : (
@@ -406,6 +423,17 @@ export function ArmoryScreen() {
                 )}
               </div>
             )}
+            {rackItems.length > 1 && (
+              <>
+                <button type="button" className="rs-hg-arrow rs-hg-arrow-l" onClick={() => browse(-1)} aria-label="Previous item">
+                  <span aria-hidden>‹</span>
+                </button>
+                <button type="button" className="rs-hg-arrow rs-hg-arrow-r" onClick={() => browse(1)} aria-label="Next item">
+                  <span aria-hidden>›</span>
+                </button>
+              </>
+            )}
+            </div>
 
             {selected && (
               <div className="rs-am-inspect-id">

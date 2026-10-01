@@ -5,6 +5,7 @@ import { Recover } from '@/components/command/Recover';
 import { TIER_COLORS, tierFromScore, displayName } from '@/lib/tiers';
 import { BoardBackdrop } from '@/components/BoardBackdrop';
 import { PilotIcon, type Cosmetics } from '@/components/PilotIcon';
+import { Podium3D } from '@/components/three/Podium3D';
 
 // The DEFAULT in-game leaderboard. When the player opens SHOOTERBOARD the
 // engine hands the screen to this overlay (window.__htmlBoard flags the canvas
@@ -390,6 +391,15 @@ export function BoardOverlay() {
           )
         ) : (
           <>
+            {/* the top three standing in their own planes - the same podium
+                as /leaderboard, so the board players actually open is the
+                redesigned one too. Skipped on short landscape screens, where
+                it would push every ranked row off the first screen. */}
+            {podium.length === 3 && (
+              <div className="rs-sb-podium3d -mb-2">
+                <Podium3D top={podium} />
+              </div>
+            )}
             {podium.length === 3 && (
               /* On a phone the old stack cost three full screens of scrolling
                  before a single ranked row appeared. The champion keeps the
@@ -527,7 +537,7 @@ export function BoardOverlay() {
 
       {/* footer actions */}
       <div
-        className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex justify-center gap-2 px-4 pb-5 pt-14"
+        className="rs-sb-foot pointer-events-none absolute inset-x-0 bottom-0 z-20 flex justify-center gap-2 px-4 pb-5 pt-14"
         style={{ background: 'linear-gradient(to top, rgba(4,6,11,0.97) 34%, rgba(4,6,11,0.75) 62%, transparent)' }}
       >
         {myIndex >= 0 && (
