@@ -510,13 +510,75 @@ and never $.fxRandom, which differs between two pilots on the same seed.
 		}
 	};
 
+	/*--------------------------------------------------------------------------
+	3D-rendered objects. With 3D graphics on, src/components/three/
+	ArenaObjects3D.tsx renders each kind from a lit 3D model into a sprite
+	sheet after boot and puts a drawer at $.objectSprites. The body comes from
+	the sheet; what changes during a run (cracks, a mine's light, an armed
+	canister, the hit flash) is still drawn here on top. A kind without a
+	sheet yet, or 3D switched off, draws its 2D shape below. Drawing only.
+	--------------------------------------------------------------------------*/
+	var OVER = {
+		rock: function( ctx, o ) { cracks( ctx, o ); },
+		ice: function( ctx, o ) { cracks( ctx, o ); },
+		crystal: function( ctx, o ) {
+			var r = o.radius, glow = ctx.createRadialGradient( 0, 0, 0, 0, 0, r * 1.6 );
+			glow.addColorStop( 0, 'hsla(285, 100%, 70%, ' + ( 0.14 + Math.sin( $.tick / 15 + o.id ) * 0.05 ) + ')' ); glow.addColorStop( 1, 'hsla(285, 100%, 60%, 0)' );
+			ctx.globalCompositeOperation = 'lighter';
+			ctx.fillStyle = glow; ctx.beginPath(); ctx.arc( 0, 0, r * 1.6, 0, TWO_PI ); ctx.fill();
+			ctx.globalCompositeOperation = 'source-over';
+			cracks( ctx, o );
+		},
+		crate: function( ctx, o ) { cracks( ctx, o ); },
+		satellite: function( ctx, o ) { cracks( ctx, o ); },
+		fuel: function( ctx, o, sprites ) {
+			if( !o.armed ) { return; }
+			// the canister flashes white-hot while it is about to go
+			if( Math.floor( $.tick / 4 ) % 2 ) {
+				ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.6;
+				sprites.draw( ctx, o );
+				ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+			}
+			$.util.strokeCircle( ctx, 0, 0, KINDS.fuel.blast * ( 0.2 + ( Math.sin( $.tick / 3 ) + 1 ) * 0.05 ), 'hsla(15, 100%, 60%, 0.35)', 2 );
+		},
+		mine: function( ctx, o ) {
+			var r = o.radius, armed = o.armed, blink = armed ? Math.floor( $.tick / ( o.fuse < 20 ? 2 : 4 ) ) % 2 : Math.floor( $.tick / 30 + o.id ) % 4 === 0;
+			if( blink ) {
+				var g = ctx.createRadialGradient( 0, 0, 0, 0, 0, r * 0.75 );
+				g.addColorStop( 0, 'hsla(0, 100%, 75%, 1)' ); g.addColorStop( 0.45, 'hsla(0, 100%, 55%, 0.9)' ); g.addColorStop( 1, 'hsla(0, 100%, 50%, 0)' );
+				ctx.fillStyle = g; ctx.beginPath(); ctx.arc( 0, 0, r * 0.75, 0, TWO_PI ); ctx.fill();
+			}
+			if( armed ) {
+				$.util.strokeCircle( ctx, 0, 0, KINDS.mine.blast * ( 1 - Math.max( 0, o.fuse ) / KINDS.mine.fuse ), 'hsla(0, 100%, 60%, 0.45)', 2 );
+			} else {
+				ctx.setLineDash( [ 3, 7 ] );
+				$.util.strokeCircle( ctx, 0, 0, KINDS.mine.sense, 'hsla(0, 100%, 60%, 0.12)', 1 );
+				ctx.setLineDash( [] );
+			}
+		}
+	};
+
 	$.renderObjects = function() {
-		var ctx = $.ctxmg, list = $.objects;
+		var ctx = $.ctxmg, list = $.objects,
+			sprites = $.objectSprites && $.storage[ 'gfx3d' ] !== 0 ? $.objectSprites : null;
 		for( var i = 0; i < list.length; i++ ) {
 			var o = list[ i ];
 			if( !$.util.arcInRect( o.x, o.y, o.radius * 2 + 10, -$.screen.x, -$.screen.y, $.cw, $.ch ) ) { continue; }
 			ctx.save();
 			ctx.translate( o.x, o.y );
+			if( sprites && sprites.draw( ctx, o ) ) {
+				// the hit flash lights the object itself, not a disc around it
+				if( o.hit > 0 ) {
+					ctx.globalCompositeOperation = 'lighter';
+					ctx.globalAlpha = Math.min( 1, o.hit / 16 ) * 0.7;
+					sprites.draw( ctx, o );
+					ctx.globalCompositeOperation = 'source-over';
+					ctx.globalAlpha = 1;
+				}
+				OVER[ o.kind ]( ctx, o, sprites );
+				ctx.restore();
+				continue;
+			}
 			// mines and fuel stay upright so their warnings read; the rest tumble
 			if( o.kind !== 'mine' && o.kind !== 'fuel' ) { ctx.rotate( o.rotation ); }
 			DRAW[ o.kind ]( ctx, o );

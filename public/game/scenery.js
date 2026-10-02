@@ -43,6 +43,16 @@ run is not disturbed by drawing.
 	--------------------------------------------------------------------------*/
 	$.drawRock = function( ctx, rock ) {
 		var pts = rock.points, n = pts.length, R = rock.radius, rot = rock.rotation || 0;
+		// with 3D graphics on, the rock rendered from a 3D model (objects.js);
+		// its variant follows the rock's own shape numbers, never a dice roll
+		if( $.objectSprites && $.storage[ 'gfx3d' ] !== 0 && rock.x !== undefined ) {
+			if( rock.sid === undefined ) { rock.sid = Math.floor( ( pts[ 0 ] || 0.5 ) * 1e6 ); }
+			ctx.save();
+			ctx.translate( rock.x, rock.y );
+			var drawn = $.objectSprites.draw( ctx, { kind: 'rock', id: rock.sid, rotation: rot, radius: R } );
+			ctx.restore();
+			if( drawn ) { return; }
+		}
 		ctx.save();
 		ctx.translate( rock.x, rock.y );
 		ctx.rotate( rot );
@@ -755,9 +765,26 @@ run is not disturbed by drawing.
 			g.addColorStop( 0, 'hsla(40, 100%, 75%, 0.9)' ); g.addColorStop( 0.3, 'hsla(18, 100%, 55%, 0.5)' ); g.addColorStop( 1, 'hsla(10, 100%, 45%, 0)' );
 			ctx.strokeStyle = g; ctx.lineCap = 'round'; ctx.lineWidth = l.r * 1.4;
 			ctx.beginPath(); ctx.moveTo( l.mx, l.my ); ctx.lineTo( l.mx + tx * tail, l.my + ty * tail ); ctx.stroke();
-			var rg = ctx.createRadialGradient( l.mx - l.r * 0.3, l.my - l.r * 0.3, 1, l.mx, l.my, l.r );
-			rg.addColorStop( 0, 'hsl(35, 60%, 70%)' ); rg.addColorStop( 1, 'hsl(18, 40%, 22%)' );
-			ctx.beginPath(); ctx.arc( l.mx, l.my, l.r, 0, TWO_PI ); ctx.fillStyle = rg; ctx.fill();
+			var sprites = $.objectSprites && $.storage[ 'gfx3d' ] !== 0 ? $.objectSprites : null, drawn = false;
+			if( sprites ) {
+				// a real rock, glowing hot on the side it is flying into
+				ctx.save();
+				ctx.translate( l.mx, l.my );
+				drawn = sprites.draw( ctx, { kind: 'rock', id: i * 7919 + 13, rotation: l.ang, radius: l.r * 1.15 } );
+				if( drawn ) {
+					var hot = ctx.createRadialGradient( -tx * l.r * 0.5, -ty * l.r * 0.5, 0, 0, 0, l.r * 1.4 );
+					hot.addColorStop( 0, 'hsla(38, 100%, 70%, 0.75)' ); hot.addColorStop( 0.5, 'hsla(18, 100%, 50%, 0.35)' ); hot.addColorStop( 1, 'hsla(10, 100%, 40%, 0)' );
+					ctx.globalCompositeOperation = 'lighter';
+					ctx.fillStyle = hot; ctx.beginPath(); ctx.arc( 0, 0, l.r * 1.4, 0, TWO_PI ); ctx.fill();
+					ctx.globalCompositeOperation = 'source-over';
+				}
+				ctx.restore();
+			}
+			if( !drawn ) {
+				var rg = ctx.createRadialGradient( l.mx - l.r * 0.3, l.my - l.r * 0.3, 1, l.mx, l.my, l.r );
+				rg.addColorStop( 0, 'hsl(35, 60%, 70%)' ); rg.addColorStop( 1, 'hsl(18, 40%, 22%)' );
+				ctx.beginPath(); ctx.arc( l.mx, l.my, l.r, 0, TWO_PI ); ctx.fillStyle = rg; ctx.fill();
+			}
 			ctx.lineCap = 'butt';
 		}
 	};

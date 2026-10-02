@@ -627,6 +627,28 @@ Game container
   opacity: 0.9;
   width: 220px;
 }
+/* public/boot/onyix-turn.webp: 36 frames of 220x140 in one strip, shown at
+   3/4 size; steps() plays it frame by frame (scripts/boot-ship/bake.mjs) */
+#boot-splash .boot-ship {
+  --bs-w: 165px;
+  --bs-h: 105px;
+  width: var(--bs-w);
+  height: var(--bs-h);
+  margin: -6px 0 -4px;
+  background: url(/boot/onyix-turn.webp) 0 0 / calc(var(--bs-w) * 36) var(--bs-h) no-repeat;
+  animation: bootShip 3.6s steps(36) infinite;
+  filter: drop-shadow(0 10px 18px rgba(53, 232, 255, 0.18));
+}
+@keyframes bootShip {
+  from { background-position: 0 0; }
+  to { background-position: calc(var(--bs-w) * -36) 0; }
+}
+@media (max-height: 520px) {
+  #boot-splash .boot-ship { --bs-w: 121px; --bs-h: 77px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #boot-splash .boot-ship { animation: none; background-position: calc(var(--bs-w) * -9) 0; }
+}
 #boot-splash .boot-bar {
   background: rgba(255, 255, 255, 0.08);
   border-radius: 2px;

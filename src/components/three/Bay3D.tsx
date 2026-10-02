@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { ShipDef } from '@/components/command/engine';
 import type { BayController, BayMode } from './bayScene';
 import { whenIdle } from '@/lib/idle';
+import { loadThree } from './loadThree';
 
 /*==============================================================================
 Bay3D - the 3D bay, with the flat bay as its floor
@@ -68,7 +69,7 @@ export function Bay3D(props: Bay3DProps) {
     if (!want3D()) { setState('off'); return; }
     let cancelled = false;
     const start = () => {
-      Promise.all([import('three'), import('./bayScene')])
+      loadThree(() => import('./bayScene'))
         .then(([T, mod]) => {
           if (cancelled || !canvasRef.current) return;
           try {

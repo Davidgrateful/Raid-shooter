@@ -15,6 +15,7 @@ import { StreakBoard } from '@/components/StreakBoard';
 import { GameChatWidget } from '@/components/GameChatWidget';
 import { SettingsOverlay } from '@/components/SettingsOverlay';
 import { DuelInvite } from '@/components/duels/DuelInvite';
+import { ArenaObjects3D } from '@/components/three/ArenaObjects3D';
 
 export default function Home() {
   return (
@@ -35,6 +36,7 @@ export default function Home() {
       <StreakBoard />
       <GameChatWidget />
       <SettingsOverlay />
+      <ArenaObjects3D />
       <DuelInvite />
     </main>
   );

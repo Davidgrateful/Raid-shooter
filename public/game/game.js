@@ -38,6 +38,9 @@ $.init = function() {
 
 	// brand logo, cache-busted per deploy like the engine scripts
 	$.loadImage( 'logo', '/logo.png?v=' + ( window.__BUILD || 'dev' ) );
+	// the loading screen's ship: 36 frames of the 3D ONYIX turning, one strip
+	// (public/boot/onyix-turn.webp, made by scripts/boot-ship/bake.mjs)
+	$.loadImage( 'bootship', '/boot/onyix-turn.webp?v=' + ( window.__BUILD || 'dev' ) );
 	$.wrap = document.getElementById( 'wrap' );
 	$.wrapInner = document.getElementById( 'wrap-inner' );
 	$.cbg1 = document.getElementById( 'cbg1' );
@@ -3795,18 +3798,27 @@ $.setupStates = function() {
 		}
 		$.ctxmg.globalAlpha = 1;
 
-		// a pilot ship streaks across, leaving a short trail
-		var shipDef = $.definitions.characters[ $.storage['character'] || 0 ] || $.definitions.characters[ 0 ],
-			shipY = cy + ( loadCompact ? 16 : 24 ),
-			travel = -120 + p * ( $.cw + 240 ),
-			shipX = travel;
-		for( var t = 0; t < 6; t++ ) {
-			$.util.fillCircle( $.ctxmg, shipX - 14 - t * 13, shipY, 3 - t * 0.4, 'hsla(190, 100%, 70%, ' + ( 0.28 - t * 0.04 ) + ')' );
+		// ONYIX turning under the lamp, the same strip the HTML splash plays
+		// before the engine is up, on the same clock so the hand-over does not
+		// jump. Until the strip has loaded: the flat ship streaks across.
+		var shipStrip = $.images[ 'bootship' ];
+		if( shipStrip && shipStrip.complete && shipStrip.naturalWidth > 0 ) {
+			var fw = shipStrip.naturalWidth / 36, fh = shipStrip.naturalHeight,
+				frame = $.reduceMotion ? 9 : Math.floor( Date.now() / 100 ) % 36,
+				dw = loadCompact ? 121 : 165, dh = dw * fh / fw;
+			$.ctxmg.drawImage( shipStrip, frame * fw, 0, fw, fh, cx - dw / 2, cy + ( loadCompact ? 22 : 34 ) - dh / 2, dw, dh );
+		} else {
+			var shipDef = $.definitions.characters[ $.storage['character'] || 0 ] || $.definitions.characters[ 0 ],
+				shipY = cy + ( loadCompact ? 16 : 24 ),
+				shipX = -120 + p * ( $.cw + 240 );
+			for( var t = 0; t < 6; t++ ) {
+				$.util.fillCircle( $.ctxmg, shipX - 14 - t * 13, shipY, 3 - t * 0.4, 'hsla(190, 100%, 70%, ' + ( 0.28 - t * 0.04 ) + ')' );
+			}
+			$.ctxmg.save();
+			$.ctxmg.translate( shipX, shipY );
+			shipDef.draw( $.ctxmg, loadCompact ? 13 : 17, 'hsla(0, 0%, 96%, 1)', $.tick );
+			$.ctxmg.restore();
 		}
-		$.ctxmg.save();
-		$.ctxmg.translate( shipX, shipY );
-		shipDef.draw( $.ctxmg, loadCompact ? 13 : 17, 'hsla(0, 0%, 96%, 1)', $.tick );
-		$.ctxmg.restore();
 
 		// progress bar
 		var barW = Math.min( $.cw - 80, loadCompact ? 300 : 440 ),

@@ -181,8 +181,15 @@ spend) with derank/ban moderation, plus player lookup and item grant tools.
 - Achievements (`public/game/achievements.js`) are cosmetic and roll no dice;
   they show on the pilot screen's Record pane (`ServiceRecord.tsx`). Add a goal
   there with a title in the bitmap font's charset.
-- The in-run fight stays 2D. A 3D arena was prototyped and dropped by the
-  owner; do not bring it back unasked.
+- The in-run fight stays 2D. A live 3D arena was prototyped and dropped by
+  the owner; do not bring it back unasked. What IS 3D in a raid: the arena
+  objects (and the hazard asteroids and meteors) are rendered from lit 3D
+  models into sprite sheets once after boot
+  (`src/components/three/objectSprites.ts`, mounted by `ArenaObjects3D.tsx`)
+  and the 2D engine draws those (`$.objectSprites`). Spin is baked as views
+  with the light held still. Off with System -> 3D graphics, or without
+  WebGL: the flat shapes in `objects.js`. The bake fences `Math.random`
+  (three's UUIDs) - `tests/objects-3d.spec.ts` holds that and the off switch.
 - Verify game changes with Playwright (`/opt/pw-browsers/chromium`) against
   `next start`; check TS with `npx tsc --noEmit` and `node --check` for the
   vanilla JS engine files.

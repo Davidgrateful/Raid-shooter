@@ -102,6 +102,10 @@ export function GameCanvas() {
       <div id="boot-splash" aria-hidden>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/logo.png" alt="" width={220} height={88} />
+        {/* ONYIX turning under the bay lamp: frames rendered from the
+            hangar's own 3D model (scripts/boot-ship/bake.mjs), played as a
+            sprite strip - the look of 3D with no 3D code at boot */}
+        <div className="boot-ship" />
         <div className="boot-bar"><span /></div>
         <div className="boot-label">INITIALIZING</div>
       </div>

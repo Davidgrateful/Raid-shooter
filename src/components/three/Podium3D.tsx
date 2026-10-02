@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { want3D } from './Bay3D';
 import type { PodiumController, PodiumPilot } from './podiumScene';
+import { loadThree } from './loadThree';
 
 /*==============================================================================
 Podium3D - the board's top three standing in their own planes
@@ -39,7 +40,7 @@ export function Podium3D({ top }: { top: PodiumEntry[] }) {
   useEffect(() => {
     if (!want3D()) { setOff(true); return; }
     let cancelled = false;
-    Promise.all([import('three'), import('./podiumScene')])
+    loadThree(() => import('./podiumScene'))
       .then(([T, mod]) => {
         if (cancelled || !canvasRef.current) return;
         try {

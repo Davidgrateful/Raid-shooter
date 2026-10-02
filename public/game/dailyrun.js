@@ -55,6 +55,9 @@ $.endSeededRng = function() {
 // start today's daily run (guarded by the hub button; no-op if already played)
 $.startDailyRun = function() {
 	if( $.dailyRunPlayedToday() ) { return; }
+	// three.js calls Math.random while it loads; let a load in flight land
+	// before the raid's seeded stream takes Math.random over (loadThree.ts)
+	if( $.threeBusy && $.threeBusy() ) { $.whenThreeIdle( $.startDailyRun ); return; }
 	$.dailyRunActive = 1;
 	$.dailyRunResult = null;
 	$.beginSeededRng();
@@ -143,6 +146,8 @@ $.duelResult = null;
 
 $.startDuelRun = function( duel ) {
 	if( !duel || typeof duel.seed !== 'number' || !duel.id ) { return; }
+	// as startDailyRun: never seed while three.js is still loading
+	if( $.threeBusy && $.threeBusy() ) { $.whenThreeIdle( function() { $.startDuelRun( duel ); } ); return; }
 	$.duelActive = 1;
 	$.duel = { id: duel.id, seed: duel.seed >>> 0 };
 	$.duelResult = null;

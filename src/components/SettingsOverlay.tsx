@@ -229,7 +229,7 @@ export function SettingsOverlay() {
 
             <section id="rs-set-display" className="rs-set-sec" aria-labelledby="rs-set-h-display">
               <h2 id="rs-set-h-display" className="rs-set-sec-title">Display</h2>
-              <Setting label="3D graphics" help="The hangar, the deck ship, the debrief pad and the podium. Off: flat bays, and the 3D code is never downloaded">
+              <Setting label="3D graphics" help="The hangar, the deck ship, the podium, and the rocks, crates and other objects in a raid. Off: flat art, and the 3D code is never downloaded">
                 {/* read when a bay opens, so it applies from the next screen on */}
                 <Segmented label="3D graphics" value={gfx3dOn ? 1 : 0} onPick={(v) => put('gfx3d', v)} options={onOff} />
               </Setting>
