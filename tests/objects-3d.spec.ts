@@ -8,14 +8,14 @@ With 3D graphics on, every object kind is rendered once from a lit 3D model
 into a sprite sheet after boot (src/components/three/objectSprites.ts) and the
 engine draws those instead of its flat shapes. The fight is still 2D:
 
-  - all seven kinds bake, and a raid draws its objects from them
+  - all seven kinds (and the six drones, tests/drones.spec.ts) bake, and a raid draws its objects from them
   - 3D off: flat shapes, and three.js is never downloaded
   - a bake that lands mid-raid never moves a seeded raid's dice
 
 Desktop project only (it sets up its own runs).
 ==============================================================================*/
 
-const allBaked = () => { const s = (window as any).$.objectSprites; return !!s && s.kinds.length === 7; };
+const allBaked = () => { const s = (window as any).$.objectSprites; return !!s && ['rock', 'ice', 'crystal', 'crate', 'satellite', 'fuel', 'mine'].every((k) => s.kinds.includes(k)); };
 
 test('every kind bakes, and a raid draws its objects from the sheets', async ({ page }) => {
   const errors: string[] = [];
@@ -73,10 +73,10 @@ test("3D that is asked for mid-raid waits for the raid, and never draws from its
     $.endSeededRng();
     // the raid is over: now it loads and bakes
     const t0 = Date.now();
-    while (!($.objectSprites && $.objectSprites.kinds.length === 7) && Date.now() - t0 < 90000) await sleep(200);
+    while (!($.objectSprites && $.objectSprites.kinds.length === 13) && Date.now() - t0 < 90000) await sleep(200);
     return { during, baked: $.objectSprites ? $.objectSprites.kinds.length : 0 };
   });
-  expect(r).toEqual({ during: { draws: 0, loaded: false, still: true }, baked: 7 });
+  expect(r).toEqual({ during: { draws: 0, loaded: false, still: true }, baked: 13 });
 });
 
 test('a Daily Run asked for while three.js is loading waits for it to land', async ({ page }) => {

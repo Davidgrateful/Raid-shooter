@@ -326,6 +326,7 @@ $.Enemy.prototype.receiveDamage = function( i, val ) {
 		}
 		this.death();
 		$.spawnPowerup( this.x, this.y );
+		if( $.droneEvent ) { $.droneEvent( 'kill', this.x, this.y ); }
 		$.registerKill( this.value, this.radius );
 		$.level.kills++;
 		$.kills++;

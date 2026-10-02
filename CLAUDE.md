@@ -178,6 +178,18 @@ spend) with derank/ban moderation, plus player lookup and item grant tools.
   canvas screens (how to play, stats, credits, daily run) lay out narrow via
   `$.narrowScreen()`. `tests/upright.spec.ts` and the upright rows in
   `tests/hud-matrix.spec.ts` hold it.
+- Drones are 3D models (`src/components/three/droneModels.ts`): live in the
+  hangar/Armory bay, and baked into the raid's sprite sheets with the arena
+  objects (equipped drone first). In a raid each flies its own way, shows its
+  effect (hex flash, chain arc, pierce streak, pull rings, heal motes, gold
+  glint) and plays a combo move every 5th kill (BULWARK, STORM CROWN, STRAFE,
+  COLLAPSE, BLOOM, CROWNED) - `public/game/drones.js`, fed by `$.droneEvent`
+  hooks in hero/bullet/enemy/game.js. All of that is DRAWING: the effects'
+  numbers live where they always did, a combo move never touches an enemy or
+  the score, and every roll is `$.fxRandom`. Getting a drone plays an arrival
+  (crate on the Armory pad after a purchase; drop-in beside the hull when
+  equipped). Keep a drone's 2D drawing (3D off) and its model the same drone.
+  `tests/drones.spec.ts` holds it.
 - Achievements (`public/game/achievements.js`) are cosmetic and roll no dice;
   they show on the pilot screen's Record pane (`ServiceRecord.tsx`). Add a goal
   there with a title in the bitmap font's charset.

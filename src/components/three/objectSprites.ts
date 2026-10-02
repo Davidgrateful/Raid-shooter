@@ -2,6 +2,7 @@ import type * as THREE_NS from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { buildDrone, DRONE_IDS, DRONE_TINTS } from './droneModels';
 
 /*==============================================================================
 The arena's objects, rendered from real 3D models
@@ -37,7 +38,7 @@ export interface SpriteSheet {
   css: number;
 }
 
-interface KindSpec { variants: number; frames: number; ref: number; ext: number }
+interface KindSpec { variants: number; frames: number; ref: number; ext: number; drone?: boolean }
 
 /** ref = the kind's largest radius; ext = the cell's half-side over the radius
  * (room for satellite panels, mine spikes and the soft shadow) */
@@ -49,6 +50,9 @@ export const KIND_SPECS: Record<string, KindSpec> = {
   satellite: { variants: 1, frames: 16, ref: 24, ext: 2.3 },
   fuel: { variants: 1, frames: 1, ref: 15, ext: 1.95 },
   mine: { variants: 1, frames: 1, ref: 12, ext: 1.95 },
+  // the equipped drone, flying beside the ship ($.droneFlightRadius = 11);
+  // the Needle Finch's beak reaches 1.33 radii, hence the room
+  ...Object.fromEntries(DRONE_IDS.map((id) => [id, { variants: 1, frames: 16, ref: 11, ext: 1.6, drone: true }])),
 };
 
 /*--- deterministic noise ----------------------------------------------------*/
@@ -123,6 +127,14 @@ function lumpy(T: Three, seed: number, detail: number, o: { amp: number; freq: n
 }
 
 function buildModel(T: Three, kind: string, variant: number, keep: <X extends { dispose(): void }>(x: X) => X): THREE_NS.Object3D {
+  const tint = DRONE_TINTS[kind];
+  if (tint) {
+    // a drone: its own model (droneModels.ts), posed mid-motion so the motes
+    // and the coil arc are in place
+    const d = keep(buildDrone(T, kind, tint));
+    d.anim(0.4);
+    return d.group;
+  }
   const g = new T.Group();
   const seed = 1000 + variant * 7919 + kind.length * 31;
   const add = (geo: THREE_NS.BufferGeometry, mat: THREE_NS.Material) => { const m = new T.Mesh(keep(geo), keep(mat)); g.add(m); return m; };
@@ -341,6 +353,10 @@ export function createObjectBaker(T: Three, scale: number) {
         camera.left = -half; camera.right = half; camera.top = half; camera.bottom = -half;
         camera.updateProjectionMatrix();
         const v = Math.floor(i / spec.frames), f = i % spec.frames;
+        // a drone is small and bright-edged; lit from higher up so its top
+        // reads instead of one flank, as in the hangar
+        if (spec.drone) { key.position.set(-0.75, 0.9, -0.85); key.intensity = 4.5; scene.environmentIntensity = 0.45; }
+        else { key.position.set(-0.8, 0.55, -0.9); key.intensity = 5.2; scene.environmentIntensity = 0.32; }
         if (f === 0) { model = buildModel(T, kind, v, keep); spinner.add(model); }
         scene.add(spinner);
         // canvas rotate(theta) turns the picture clockwise on screen; seen

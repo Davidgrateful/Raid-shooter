@@ -2,6 +2,7 @@ import type * as THREE_NS from 'three';
 import { buildPlane, glowTexture, type BuiltPlane } from './buildPlane';
 import type { ShipDef } from '@/components/command/engine';
 import { motionFor, type PilotMotion } from './pilotMotion';
+import { buildDrone, isDroneId, DRONE_TINTS, type DroneModel } from './droneModels';
 
 /*==============================================================================
 The 3D bay - one scene, three framings
@@ -19,9 +20,11 @@ The 3D bay - one scene, three framings
         results.
 
 The subject is the pilot's real airframe (planeSpecs) in the player's own hull
-colour. A drone has no 3D model, so it is shown as its 2D art on a billboard
-that always faces the camera - orbiting the hull when equipped, or alone on the
-cradle when the armory inspects one. A trail tints the engine glow and lights a
+colour. A drone is its own 3D model (droneModels.ts) - orbiting the hull when
+equipped, or alone over the pad when the armory inspects one. Getting a drone
+plays its arrival: bought in the Armory, a cargo crate drops onto the pad,
+its walls fall away and the drone powers up out of it; equipped in the
+hangar, it drops in beside the hull in a burst of light. A trail tints the engine glow and lights a
 plume behind the plane. A locked hull sits unpowered behind a containment
 field, desaturated, exactly as the 2D bay showed it.
 
@@ -50,6 +53,8 @@ export interface BaySubject {
 
 export interface BayController {
   setSubject(s: BaySubject, swapDir?: number): void;
+  /** the drone in view arrives (crate in the Armory, drop-in beside the hull) */
+  playArrival(): void;
   dispose(): void;
 }
 
@@ -339,6 +344,9 @@ export function createBayScene(T: Three, canvas: HTMLCanvasElement, mode: BayMod
   let plane: BuiltPlane | null = null;
   let object: ReturnType<typeof artSprite> | null = null;
   let escort: ReturnType<typeof artSprite> | null = null;
+  let droneObj: DroneModel | null = null;
+  let escortDrone: DroneModel | null = null;
+  let escortId = '';
   let builtKey = '';
   let escortKey = '';
   // holder carries the yaw (turntable + drag) and the landing's position;
@@ -362,6 +370,7 @@ export function createBayScene(T: Three, canvas: HTMLCanvasElement, mode: BayMod
   function clearSubject() {
     if (plane) { poser.remove(plane.group); plane.dispose(); plane = null; }
     if (object) { holder.remove(object.sprite); object.dispose(); object = null; }
+    if (droneObj) { holder.remove(droneObj.group); droneObj.dispose(); droneObj = null; }
     poser.remove(plume);
   }
 
@@ -394,6 +403,12 @@ export function createBayScene(T: Three, canvas: HTMLCanvasElement, mode: BayMod
         motion = motionFor(s.ship.id);
         const bb = new T.Box3().setFromObject(plane.group);
         noseX = Number.isFinite(bb.max.x) ? bb.max.x : 2;
+      } else if (s.ship && s.kind === 'object' && isDroneId(s.ship.id)) {
+        droneObj = buildDrone(T, s.ship.id, DRONE_TINTS[s.ship.id]);
+        droneObj.group.scale.setScalar(DRONE_SCALE);
+        droneObj.group.position.y = DRONE_Y;
+        droneObj.group.traverse((o) => { if ((o as THREE_NS.Mesh).isMesh) o.castShadow = true; });
+        holder.add(droneObj.group);
       } else if (s.ship && s.kind === 'object') {
         object = artSprite(T, s.ship, s.color, 256);
         object.sprite.scale.set(3.4, 3.4, 1);
@@ -416,13 +431,114 @@ export function createBayScene(T: Three, canvas: HTMLCanvasElement, mode: BayMod
     if (ek !== escortKey) {
       escortKey = ek;
       if (escort) { scene.remove(escort.sprite); escort.dispose(); escort = null; }
-      if (ek && s.drone) {
+      if (escortDrone) { scene.remove(escortDrone.group); escortDrone.dispose(); escortDrone = null; }
+      escortId = ek && s.drone ? s.drone.id : '';
+      if (ek && s.drone && isDroneId(s.drone.id)) {
+        escortDrone = buildDrone(T, s.drone.id, DRONE_TINTS[s.drone.id]);
+        escortDrone.group.scale.setScalar(ESCORT_SCALE);
+        escortDrone.group.traverse((o) => { if ((o as THREE_NS.Mesh).isMesh) o.castShadow = true; });
+        scene.add(escortDrone.group);
+      } else if (ek && s.drone) {
         escort = artSprite(T, s.drone, s.drone.color || 'hsl(190, 100%, 70%)', 128);
         escort.sprite.scale.set(0.9, 0.9, 1);
         escort.redraw();
         scene.add(escort.sprite);
       }
     }
+  }
+
+  /*--- a drone's arrival -----------------------------------------------
+     crate: bought in the Armory. 0-0.55s a cargo crate drops onto the pad,
+            0.7-1.15s its walls fall outward and the lid lifts away,
+            0.95-2.0s the drone powers up rising and spinning out of it, and
+            the touchdown ring runs out across the pad.
+     escort: equipped in the hangar. The drone drops in beside the hull,
+            growing and spinning, in a burst of sparks.            */
+  const ESCORT_SCALE = 0.55;
+  // the Armory shows a drone alone, so it fills the pad the way a hull does
+  const DRONE_SCALE = 1.75;
+  const DRONE_Y = 0.75;
+  let arrival: { kind: 'crate' | 'escort'; t: number; tint: THREE_NS.Color } | null = null;
+  let crate: { group: THREE_NS.Group; walls: THREE_NS.Group[]; lid: THREE_NS.Mesh; stripe: THREE_NS.MeshStandardMaterial } | null = null;
+  const sparkMat = keep(new T.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0, depthWrite: false, blending: T.AdditiveBlending }));
+  const sparkGeo = keep(new T.SphereGeometry(0.05, 6, 6));
+  const sparks: Array<{ m: THREE_NS.Mesh; a: number; v: number }> = [];
+  for (let si = 0; si < 18; si++) {
+    const m = new T.Mesh(sparkGeo, sparkMat);
+    m.visible = false;
+    scene.add(m);
+    sparks.push({ m, a: (si / 18) * PI * 2, v: 0.6 + (si % 5) * 0.18 });
+  }
+  function buildCrate() {
+    const group = new T.Group();
+    const mat = keep(new T.MeshStandardMaterial({ color: '#2a3442', metalness: 0.75, roughness: 0.35 }));
+    const stripe = keep(new T.MeshStandardMaterial({ color: '#35e8ff', emissive: new T.Color('#35e8ff'), emissiveIntensity: 0.6 }));
+    const wallGeo = keep(new T.BoxGeometry(2.0, 1.7, 0.1));
+    const stripeGeo = keep(new T.BoxGeometry(1.5, 0.1, 0.12));
+    const walls: THREE_NS.Group[] = [];
+    for (const yaw of [0, PI / 2, PI, -PI / 2]) {
+      const hinge = new T.Group(); hinge.rotation.y = yaw; group.add(hinge);
+      const inner = new T.Group(); inner.position.z = 1.0; hinge.add(inner);
+      const wall = new T.Mesh(wallGeo, mat); wall.position.y = 0.85; wall.castShadow = true; inner.add(wall);
+      const st = new T.Mesh(stripeGeo, stripe); st.position.y = 1.25; inner.add(st);
+      walls.push(inner);
+    }
+    const lid = new T.Mesh(keep(new T.BoxGeometry(2.1, 0.12, 2.1)), mat);
+    lid.position.y = 1.74; lid.castShadow = true;
+    group.add(lid);
+    group.position.y = 0.4;
+    group.visible = false;
+    scene.add(group);
+    return { group, walls, lid, stripe };
+  }
+  const ease = (x: number) => 1 - Math.pow(1 - Math.min(1, Math.max(0, x)), 3);
+  function startArrival(kind: 'crate' | 'escort', id: string) {
+    if (reduced) return;
+    if (kind === 'crate' && !crate) crate = buildCrate();
+    arrival = { kind, t: 0, tint: new T.Color(DRONE_TINTS[id] || '#35e8ff') };
+    sparkMat.color.copy(arrival.tint);
+    if (crate) { crate.stripe.color.copy(arrival.tint); crate.stripe.emissive.copy(arrival.tint); }
+    canvas.dataset.arrival = kind;
+    loop();
+  }
+  // returns the drone's scale and lift for this frame
+  function stepArrival(dt: number): { s: number; lift: number; spin: number } | null {
+    if (!arrival) return null;
+    arrival.t += dt;
+    const a = arrival.t;
+    let out = { s: 1, lift: 0, spin: 0 };
+    let burstU = -1;
+    let burstAt = new T.Vector3();
+    if (arrival.kind === 'crate' && crate) {
+      crate.group.visible = a < 2.2;
+      crate.group.position.y = 0.4 + (a < 0.55 ? 5 * (1 - ease(a / 0.55)) : 0);
+      const open = ease((a - 0.7) / 0.45);
+      crate.walls.forEach((w) => { w.rotation.x = open * 1.45; });
+      crate.lid.position.y = 1.74 + open * 3;
+      crate.lid.visible = open < 0.98;
+      const rise = ease((a - 0.95) / 1.05);
+      out = { s: 0.3 + 0.7 * rise, lift: -1.2 * (1 - rise), spin: (1 - rise) * 9 * dt };
+      if (a >= 1.0 && a - dt < 1.0) shockT = 1;
+      burstU = (a - 1.0) / 0.8;
+      burstAt.set(0, 1.0, 0);
+      if (a > 2.3) { arrival = null; crate.group.visible = false; }
+    } else {
+      const u = ease(a / 0.9);
+      out = { s: Math.max(0.01, u), lift: 1.4 * (1 - u), spin: (1 - u) * 14 * dt };
+      burstU = (a - 0.55) / 0.7;
+      if (escortDrone) burstAt = escortDrone.group.position.clone();
+      if (a > 1.3) arrival = null;
+    }
+    sparks.forEach((p) => {
+      const on = burstU > 0 && burstU < 1;
+      p.m.visible = on;
+      if (!on) return;
+      const k = burstU;
+      p.m.position.set(burstAt.x + Math.cos(p.a) * k * 1.6 * p.v, burstAt.y - 0.2 + k * p.v * 1.1, burstAt.z + Math.sin(p.a) * k * 1.6 * p.v);
+    });
+    sparkMat.opacity = burstU > 0 && burstU < 1 ? 1 - burstU : 0;
+    if (!arrival) delete canvas.dataset.arrival;
+    return out;
   }
 
   /*--- drag to spin ---------------------------------------------------*/
@@ -577,6 +693,26 @@ export function createBayScene(T: Three, canvas: HTMLCanvasElement, mode: BayMod
       plume.scale.set(1, 0.9 + Math.sin(t * 17) * 0.1, 1);
     }
     if (object && frameNo % 3 === 0) object.redraw();
+    const arr = stepArrival(dt);
+    if (droneObj) {
+      droneObj.anim(t);
+      const crateArr = arr && arrival?.kind !== 'escort' ? arr : null;
+      droneObj.group.scale.setScalar(DRONE_SCALE * (crateArr ? crateArr.s : 1));
+      droneObj.group.position.y = DRONE_Y + (crateArr ? crateArr.lift : 0);
+      if (crateArr) yaw += crateArr.spin;
+    }
+    if (escortDrone) {
+      const a = t * 0.9;
+      const g = escortDrone.group;
+      const escArr = arr && arrival?.kind === 'escort' ? arr : null;
+      g.position.set(Math.cos(a) * 3.0, 1.7 + Math.sin(t * 1.3) * 0.15 + (escArr ? escArr.lift : 0), Math.sin(a) * 1.6);
+      g.scale.setScalar(ESCORT_SCALE * (escArr ? escArr.s : 1));
+      // nose along its orbit (front is -z); the crest stays facing the camera
+      const vx = -Math.sin(a) * 3.0, vz = Math.cos(a) * 1.6;
+      g.rotation.y = escortId === 'drone_champion' ? PI + Math.sin(t * 0.8) * 0.4 : Math.atan2(-vx, -vz);
+      if (escArr) g.rotation.y += arrival ? arrival.t * 14 * (1 - Math.min(1, arrival.t / 0.9)) : 0;
+      escortDrone.anim(t);
+    }
     if (escort) {
       const a = t * 0.9;
       escort.sprite.position.set(Math.cos(a) * 3.0, 1.7 + Math.sin(t * 1.3) * 0.15, Math.sin(a) * 1.6);
@@ -588,14 +724,24 @@ export function createBayScene(T: Three, canvas: HTMLCanvasElement, mode: BayMod
     loop();
   }
 
+  // a drone bought while the Armory shows it is delivered by crate
+  const onPurchase = (e: Event) => {
+    const d = (e as CustomEvent).detail || {};
+    if (d.status === 'done' && droneObj && subject?.ship?.id === d.itemId) startArrival('crate', d.itemId);
+  };
+  window.addEventListener('raidshooter:purchase', onPurchase);
+
   resize();
   loop();
 
   return {
     setSubject(s, dir) {
       const changed = !subject || subject.ship?.id !== s.ship?.id || subject.kind !== s.kind;
+      const prevDrone = subject ? subject.drone?.id || '' : null;
       subject = s;
       apply(s);
+      // a drone just equipped in the hangar drops in beside the hull
+      if (prevDrone !== null && s.drone && s.drone.id !== prevDrone && escortDrone && s.kind === 'hull') startArrival('escort', s.drone.id);
       // a new pilot lands - from the side it was paged in from, if it was
       if (changed && s.kind === 'hull' && s.ship) {
         landU = reduced ? 1 : 0;
@@ -605,7 +751,12 @@ export function createBayScene(T: Three, canvas: HTMLCanvasElement, mode: BayMod
       }
       loop();
     },
+    playArrival() {
+      if (droneObj && subject?.ship) startArrival('crate', subject.ship.id);
+      else if (escortDrone && subject?.drone) startArrival('escort', subject.drone.id);
+    },
     dispose() {
+      window.removeEventListener('raidshooter:purchase', onPurchase);
       cancelAnimationFrame(raf);
       raf = 0;
       io?.disconnect();
@@ -617,6 +768,7 @@ export function createBayScene(T: Three, canvas: HTMLCanvasElement, mode: BayMod
       canvas.removeEventListener('pointercancel', onUp);
       clearSubject();
       if (escort) escort.dispose();
+      if (escortDrone) escortDrone.dispose();
       disposables.forEach((d) => d.dispose());
       renderer.dispose();
     },

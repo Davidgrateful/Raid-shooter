@@ -119,7 +119,9 @@ $.Bullet.prototype.update = function( i ) {
 						}
 					}
 					if( nearest ) {
+						var linkX = nearest.x, linkY = nearest.y;
 						nearest.receiveDamage( nearestIndex, this.damage * 0.4 );
+						if( $.droneEvent ) { $.droneEvent( 'chain', chainX, chainY, linkX, linkY ); }
 					}
 				}
 
@@ -127,6 +129,7 @@ $.Bullet.prototype.update = function( i ) {
 					$.bullets.splice( i, 1 );
 					return;
 				}
+				if( this.piercing && $.droneEvent ) { $.droneEvent( 'pierce', chainX, chainY, this.direction ); }
 			}
 			if( !this.piercing ) {
 				$.bullets.splice( i, 1 );

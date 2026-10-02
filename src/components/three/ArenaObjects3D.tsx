@@ -6,7 +6,8 @@ import { whenIdle } from '@/lib/idle';
 import { loadThree } from './loadThree';
 
 /*==============================================================================
-The arena's objects from real 3D models (objectSprites.ts)
+The arena's objects - and the equipped drone - from real 3D models
+(objectSprites.ts, droneModels.ts)
 
 Renders nothing itself. Once the game has booted and the browser is idle, it
 fetches three.js, renders every object kind into a sprite sheet one kind per
@@ -22,6 +23,7 @@ itself is fenced, because three stamps every object it makes with a UUID.
 interface Engine {
   state?: string;
   dpr?: number;
+  storage?: Record<string, unknown>;
   __realRandom?: () => number;
   objectSprites?: { draw: (ctx: CanvasRenderingContext2D, o: { kind: string; id: number; rotation: number; radius: number }) => boolean; kinds: string[] } | null;
 }
@@ -68,7 +70,11 @@ export function ArenaObjects3D() {
           const sheets: Record<string, import('./objectSprites').SpriteSheet> = {};
           const draw = mod.spriteDrawer(sheets);
           $.objectSprites = { draw, kinds: [] };
-          const queue = [...baker.kinds];
+          // the equipped drone first (it is on screen the whole raid), then
+          // the objects, then the other drones
+          const equipped = String($.storage?.drone || '');
+          const queue = [...baker.kinds].sort((a, b) => rank(a) - rank(b));
+          function rank(k: string) { return k === equipped ? 0 : k.startsWith('drone_') ? 2 : 1; }
           let job: ReturnType<typeof baker.begin> = null;
           let kind = '';
           // one cell at a time, only while the browser is idle and never past

@@ -2076,6 +2076,8 @@ $.registerKill = function( value, radius ) {
 	$.score += value * $.comboMultiplier;
 	$.combo++;
 	if( $.achieve && $.combo % 5 === 0 ) { $.achieve( 'bestCombo', $.combo, true ); }
+	// the drone's combo move: drawing only, never score (drones.js)
+	if( $.droneEvent && $.combo % 5 === 0 ) { $.droneEvent( 'combo', $.combo ); }
 	$.comboTimer = $.comboTimerMax;
 	// kills only restore hull for pilots whose skill heals on kills (VAMPIRE);
 	// everyone else recovers by clearing levels, not by passive trickle

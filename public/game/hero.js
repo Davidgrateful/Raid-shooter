@@ -314,6 +314,7 @@ $.Hero.prototype.update = function() {
 				this.takingDamage = 1;
 				var resist = ( this.character.ability && this.character.ability.lowHpResist && this.life < 0.35 ) ? this.character.ability.lowHpResist : 1;
 				var droneResist = ( $.equippedDrone() && $.equippedDrone().id === 'drone_aegis' ) ? 0.85 : 1;
+				if( droneResist < 1 && $.droneEvent ) { $.droneEvent( 'hit', Math.atan2( enemy.y - this.y, enemy.x - this.x ) ); }
 				var levelResist = $.pilotLevelDamageMult( this.character.id );
 				// scaled by $.dt like every other damage path - without it,
 				// contact damage ticked per rendered FRAME, so 120hz players
@@ -334,6 +335,8 @@ $.Hero.prototype.update = function() {
 
 	// roll into turns and sideways slips (cosmetic - the hitbox never tilts)
 	$.heroBank( this );
+	// the drone's own flight (drawing only - drones.js)
+	if( $.updateDrone ) { $.updateDrone( this ); }
 };
 
 /*==============================================================================
@@ -370,6 +373,9 @@ $.Hero.prototype.render = function() {
 			var fillStyle = this.fillStyle;
 		}
 
+		// the drone's pull field and combo moves sit under the hull
+		if( $.renderDroneUnder ) { $.renderDroneUnder( this ); }
+
 		// the launch: drawn large with the afterburner lit, settling to size
 		var launch = $.launchScale();
 		$.renderLaunchBurn( $.ctxmg, this.x, this.y, this.direction, this.radius * launch );
@@ -395,17 +401,7 @@ $.Hero.prototype.render = function() {
 			$.util.strokeCircle( $.ctxmg, this.x, this.y, this.radius + 8 + Math.cos( $.tick / 5 ) * 2, 'hsla(190, 100%, 65%, 0.8)', 2 );
 		}
 
-		// equipped drone orbits the hull, drawn in its own market shape
-		var drone = $.equippedDrone();
-		if( drone && drone.draw ) {
-			var orbitR = this.radius + 22,
-				orbitAngle = $.tick / 40,
-				dx = this.x + Math.cos( orbitAngle ) * orbitR,
-				dy = this.y + Math.sin( orbitAngle ) * orbitR;
-			$.ctxmg.save();
-			$.ctxmg.translate( dx, dy );
-			drone.draw( $.ctxmg, 7, drone.color || 'hsla(190, 100%, 70%, 0.95)', $.tick );
-			$.ctxmg.restore();
-		}
+		// the equipped drone, flying its own way (drones.js)
+		if( $.renderDrone ) { $.renderDrone( this ); }
 	}
 };
