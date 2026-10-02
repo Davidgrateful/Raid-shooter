@@ -373,14 +373,12 @@ $.Hero.prototype.render = function() {
 		// the launch: drawn large with the afterburner lit, settling to size
 		var launch = $.launchScale();
 		$.renderLaunchBurn( $.ctxmg, this.x, this.y, this.direction, this.radius * launch );
-		if( !( $.arena3d && $.arena3d.active ) ) {
-			$.ctxmg.save();
-			$.ctxmg.translate( this.x, this.y );
-			$.ctxmg.rotate( this.direction );
-			if( launch !== 1 ) { $.ctxmg.scale( launch, launch ); }
-			$.drawBanked( $.ctxmg, this.character.draw, this.radius, fillStyle, $.tick, this.bank || 0 );
-			$.ctxmg.restore();
-		}
+		$.ctxmg.save();
+		$.ctxmg.translate( this.x, this.y );
+		$.ctxmg.rotate( this.direction );
+		if( launch !== 1 ) { $.ctxmg.scale( launch, launch ); }
+		$.drawBanked( $.ctxmg, this.character.draw, this.radius, fillStyle, $.tick, this.bank || 0 );
+		$.ctxmg.restore();
 
 		// MUZZLE FLASH - short, small, and in the projectile's own colour, so
 		// "I fired" is legible without the hull having to shout it.

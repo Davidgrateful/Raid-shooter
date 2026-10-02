@@ -586,48 +586,6 @@ SCROLL - thin, tinted, part of the interface
 .rs-scroll::-webkit-scrollbar-thumb:hover { background: rgba(53, 232, 255, 0.5); }
 
 /*==============================================================================
-Landscape prompt for touch devices held in portrait.
-
-Only gameplay needs landscape. The command centre is designed for portrait, so
-the prompt appears when the player actually DEPLOYS - not the moment they open
-the game on a phone, which used to wall off the entire menu behind a rotate
-request.
-==============================================================================*/
-#rotate-overlay {
-  display: none;
-  position: fixed;
-  inset: 0;
-  z-index: 100;
-  background: var(--game-bg);
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 24px;
-  text-align: center;
-  letter-spacing: 0.25em;
-}
-
-@media (orientation: portrait) and (pointer: coarse) {
-  html[data-rs-portrait-ok="0"] #rotate-overlay {
-    display: flex;
-  }
-}
-
-#rotate-overlay .phone {
-  width: 44px;
-  height: 76px;
-  border: 3px solid var(--rs-cyan);
-  border-radius: 8px;
-  box-shadow: 0 0 30px -6px var(--rs-cyan);
-  animation: rotate-hint 1.8s ease-in-out infinite;
-}
-
-@keyframes rotate-hint {
-  0%, 25% { transform: rotate(0deg); }
-  60%, 100% { transform: rotate(90deg); }
-}
-
-/*==============================================================================
 Game container
 ==============================================================================*/
 #game-mount #wrap {
@@ -2311,7 +2269,9 @@ SYSTEMS COLUMN
 /* the two panes are a phone affordance; on a wide screen both are simply on */
 .rs-hg-tabs {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  /* one equal column per tab: the hangar has three, the armory two */
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
   gap: 0;
   margin-bottom: 4px;
   border-bottom: 1px solid var(--rs-line);
@@ -2386,6 +2346,38 @@ SYSTEMS COLUMN
   line-height: 1.5;
   color: var(--rs-text-faint);
 }
+
+/*--- service record: achievements --------------------------------------------*/
+.rs-ach { display: flex; flex-direction: column; gap: 9px; margin: 0; padding: 0; list-style: none; }
+.rs-ach-row { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; align-items: center; gap: 10px; }
+.rs-ach-badge {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--rs-text-faint);
+  font-family: var(--rs-font-ui);
+  font-size: 11px;
+  font-weight: 800;
+}
+.rs-ach-row[data-done="1"] .rs-ach-badge { background: var(--rs-gold); color: #1a1205; }
+.rs-ach-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.rs-ach-title {
+  font-family: var(--rs-font-ui);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--rs-text-dim);
+}
+.rs-ach-row[data-done="1"] .rs-ach-title { color: var(--rs-gold); }
+.rs-ach-desc { font-size: 11px; line-height: 1.4; color: var(--rs-text-faint); }
+.rs-ach-when { font-family: var(--rs-font-mono); font-size: 9px; letter-spacing: 0.08em; color: var(--rs-text-faint); }
+.rs-ach-bar { display: block; height: 3px; margin-top: 3px; background: rgba(255, 255, 255, 0.08); }
+.rs-ach-bar > span { display: block; height: 100%; background: var(--rs-gold); opacity: 0.75; }
+.rs-ach-count { font-family: var(--rs-font-mono); font-size: 10px; color: var(--rs-text-faint); }
 
 /*--- performance gauges -----------------------------------------------------*/
 /* Segmented, not smooth: a segmented bar reads as a measurement and a smooth
@@ -4942,3 +4934,112 @@ focus programmatically mid-run.
   pointer-events: none;
 }
 
+
+/*==============================================================================
+SYSTEM (SettingsOverlay.tsx)
+
+One list on a phone; on a wide screen the sections run down the left like the
+hangar's and armory's, with the rows beside them.
+==============================================================================*/
+.rs-set-frame {
+  width: 100%;
+  max-width: 30rem;
+  margin: 0 auto;
+  padding: calc(var(--safe-top, 0px) + 28px) 16px calc(var(--safe-bottom, 0px) + 32px);
+  display: grid;
+  gap: 22px;
+}
+.rs-set-head { text-align: center; }
+.rs-set-nav { display: none; }
+.rs-set-body { display: grid; gap: 18px; min-width: 0; }
+.rs-set-sec { display: grid; gap: 8px; }
+.rs-set-sec-title {
+  margin: 0;
+  font-family: var(--rs-font-ui);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--rs-cyan);
+}
+.rs-set-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--rs-line);
+  background: rgba(10, 14, 22, 0.72);
+}
+.rs-set-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1 1 12rem; }
+.rs-set-label { font-family: var(--rs-font-ui); font-size: 13px; font-weight: 700; color: var(--rs-text); }
+.rs-set-help { font-size: 11px; line-height: 1.45; color: var(--rs-text-dim); }
+.rs-set-ctl { flex: none; }
+.rs-set-seg { display: inline-flex; border: 1px solid var(--rs-line-strong); }
+.rs-set-seg button {
+  min-width: 52px;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 0;
+  background: none;
+  color: var(--rs-text-dim);
+  font-family: var(--rs-font-ui);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+.rs-set-seg button + button { border-left: 1px solid var(--rs-line-strong); }
+.rs-set-seg button[data-on="1"] { background: var(--rs-cyan); color: #031015; }
+.rs-set-seg button:focus-visible { outline: 2px solid var(--rs-cyan); outline-offset: 2px; }
+.rs-set-value {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 10px;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--rs-line-strong);
+  background: none;
+  color: var(--rs-cyan);
+  font-size: 14px;
+  cursor: pointer;
+}
+.rs-set-edit { font-family: var(--rs-font-ui); font-size: 9px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--rs-text-faint); }
+.rs-set-note { margin: 0; font-size: 11px; color: var(--rs-text-faint); }
+.rs-set-links { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+
+@media (min-width: 900px) {
+  .rs-set-frame {
+    max-width: 58rem;
+    grid-template-columns: 13rem minmax(0, 1fr);
+    column-gap: 40px;
+    padding-top: 48px;
+  }
+  .rs-set-head { grid-column: 1 / -1; text-align: left; }
+  .rs-set-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    position: sticky;
+    top: 24px;
+    align-self: start;
+  }
+  .rs-set-nav button {
+    padding: 10px 12px;
+    border: 0;
+    border-left: 2px solid var(--rs-line);
+    background: none;
+    color: var(--rs-text-dim);
+    font-family: var(--rs-font-ui);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    text-align: left;
+    cursor: pointer;
+  }
+  .rs-set-nav button:hover { color: var(--rs-text); border-left-color: var(--rs-cyan); }
+  .rs-set-nav .rs-set-back { margin-top: 14px; letter-spacing: 0.12em; color: var(--rs-cyan); border-left-color: transparent; }
+  .rs-set-done { display: none; }
+}

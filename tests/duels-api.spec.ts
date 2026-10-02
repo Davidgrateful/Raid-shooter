@@ -12,6 +12,8 @@ DUELS - the server's rules
     ticket could not have lived through is refused
   - the seed is only shown to someone who may still fly it, and the other
     pilot hears about the result in their inbox
+  - each run may carry its path (a ghost); the challenger gets the first
+    pilot's, a bad one is dropped without touching the run
 
 Runs in the `api` project only: its limiters are keyed on the shared test IP.
 ==============================================================================*/
@@ -136,6 +138,42 @@ test.describe('a duel, start to finish', () => {
     await expect(page.getByRole('heading', { level: 1 })).toContainText('ACE RAID challenges you to beat 21,300');
     await expect(page.getByRole('link', { name: /Fly this raid/ })).toHaveAttribute('href', `/?duel=${duel.id}`);
     expect(await page.title()).toContain('beat 21,300');
+  });
+});
+
+test.describe('ghosts', () => {
+  test.afterEach(async ({ request }) => { await setAccess(request, 'holders'); });
+
+  test("the first pilot's path goes to the challenger only, and a junk ghost never costs a run", async ({ request }) => {
+    await setAccess(request, 'all');
+    const host = guest('gh-host');
+    const rival = guest('gh-rival');
+    const stranger = guest('gh-other');
+    const made = await request.post('/api/duels', { data: { guestToken: host, name: 'GHOST HOST' } });
+    test.skip(made.status() === 429, 'duel creation rate limited');
+    const { duel } = await made.json();
+
+    // nobody has flown: there is no ghost yet
+    expect((await (await request.get(`/api/duels/${duel.id}/ghost?g=${rival}`)).json()).ghost).toBeNull();
+
+    // the host's run carries its path, as ghost.js records it
+    const path = { v: 1, every: 10, pilot: 'onyix', color: 'hsla(190, 100%, 70%, 1)', s: [100, 200, 0, 140, 210, 31, 180, 230, 62] };
+    const hostRun = await request.post(`/api/duels/${duel.id}`, { data: { ...run(host, 'GHOST HOST', 12_000, await ticket(request, host)), ghost: path } });
+    expect(hostRun.status(), await hostRun.text()).toBe(200);
+
+    // the challenger gets it; the host does not get their own back
+    expect((await (await request.get(`/api/duels/${duel.id}/ghost?g=${rival}`)).json()).ghost).toEqual(path);
+    expect((await (await request.get(`/api/duels/${duel.id}/ghost?g=${host}`)).json()).ghost).toBeNull();
+
+    // a rival whose ghost is junk still has their run counted
+    const junk = { v: 1, every: 10, pilot: '<script>', color: 'red; x', s: [1, 2] };
+    const rivalRun = await request.post(`/api/duels/${duel.id}`, { data: { ...run(rival, 'GHOST RIVAL', 9_000, await ticket(request, rival)), ghost: junk } });
+    expect(rivalRun.status(), await rivalRun.text()).toBe(200);
+    expect((await rivalRun.json()).settled).toBe(true);
+    // ...and the host, having flown, sees no ghost of it (it was dropped)
+    expect((await (await request.get(`/api/duels/${duel.id}/ghost?g=${host}`)).json()).ghost).toBeNull();
+    // someone with no seat and no run is shown nothing
+    expect((await (await request.get(`/api/duels/${duel.id}/ghost?g=${stranger}`)).json()).ghost).toBeNull();
   });
 });
 

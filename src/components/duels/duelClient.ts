@@ -20,6 +20,8 @@ export interface DuelView {
 
 interface DuelEngine {
   startDuelRun?: (d: { id: string; seed: number }) => void;
+  ghostPlay?: (g: unknown) => void;
+  duel?: { id: string } | null;
   ensurePilotName?: () => string;
   session?: { authenticated?: boolean };
   storage?: Record<string, unknown>;
@@ -80,11 +82,34 @@ export async function createDuel(): Promise<{ duel?: DuelView; error?: string }>
   }
 }
 
-/** Starts the duel's seeded raid in the engine. Needs the seed (canFly). */
+/** The other pilot's ghost for this duel, if they flew first (lib/duelGhost.ts). */
+export async function fetchRivalGhost(id: string): Promise<unknown | null> {
+  try {
+    const r = await fetch(`/api/duels/${encodeURIComponent(id)}/ghost${q()}`, { cache: 'no-store' });
+    if (!r.ok) return null;
+    const d = await r.json().catch(() => null);
+    return d?.ghost ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Starts the duel's seeded raid in the engine. Needs the seed (canFly). The
+ * launch never waits on the network: the rival's ghost is fetched alongside
+ * and joins the run when it lands - the engine keeps it on the run clock, so a
+ * late ghost still flies in step (public/game/ghost.js).
+ */
 export function flyDuel(view: DuelView): boolean {
   const e = eng();
   if (!e?.startDuelRun || typeof view.seed !== 'number' || !view.canFly) return false;
   e.startDuelRun({ id: view.id, seed: view.seed });
+  if (view.entries.some((x) => !x.mine)) {
+    void fetchRivalGhost(view.id).then((g) => {
+      const now = eng();
+      if (g && now?.ghostPlay && now.duel && now.duel.id === view.id) now.ghostPlay(g);
+    });
+  }
   return true;
 }
 

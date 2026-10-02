@@ -389,6 +389,40 @@ test.describe('DUELS on the deck', () => {
     await expect(panel.getByRole('button', { name: 'New duel' })).toHaveCount(0);
   });
 
+  test("a challenger races the first pilot's ghost, and their own path goes up with their score", async ({ page }) => {
+    const rival = { name: 'ACE', verified: false, score: 9000, pilot: 'ONYIX', level: 3, kills: 40, time: 60, mine: false, creator: true };
+    const deck = { access: 'all', signedIn: false, canCreate: true, reason: null, minHold: 0, mine: [view({ role: null, entries: [rival] })] };
+    await page.route('**/api/duels?*', json(deck));
+    await page.route('**/api/duels', json(deck));
+    // the first pilot's path: drifting right, 60 samples (10 seconds)
+    const s: number[] = [];
+    for (let i = 0; i < 60; i++) s.push(900 + i * 6, 700, 0);
+    await page.route('**/api/duels/K7Q2MX/ghost*', json({ ghost: { v: 1, every: 10, pilot: 'onyix', color: '#ffcc66', s } }));
+    let sent: any = null;
+    await page.route('**/api/duels/K7Q2MX', (r) => {
+      if (r.request().method() === 'POST') sent = r.request().postDataJSON();
+      return json({ ok: true, settled: true, duel: view({ state: 'settled', canFly: false, seed: undefined }) })(r);
+    });
+    await boot(page, { profile: VETERAN });
+    const panel = page.locator('.rs-panel', { has: page.locator('h2', { hasText: /^Duels$/ }) });
+    await panel.scrollIntoViewIfNeeded();
+    await panel.getByRole('button', { name: 'Fly it' }).click();
+    await page.waitForFunction(() => (window as any).$.state === 'play' && !!(window as any).$.ghostPose(), null, { timeout: 15000 });
+    const pose = await page.evaluate(() => (window as any).$.ghostPose());
+    expect(pose.x).toBeGreaterThanOrEqual(900);
+    expect(pose.y).toBe(700);
+
+    await page.waitForTimeout(1500);
+    await page.evaluate(() => { const $ = (window as any).$; $.score = 9500; $.hero.life = 0; });
+    await page.waitForFunction(() => (window as any).$.state === 'gameover', null, { timeout: 20000 });
+    await expect.poll(() => sent && sent.ghost && sent.ghost.s.length, { timeout: 10000 }).toBeGreaterThanOrEqual(6);
+    expect(sent.ghost).toMatchObject({ v: 1, every: 10 });
+    expect(sent.ghost.s.length % 3).toBe(0);
+    // the ghost ends with the duel: a plain run after it shows no rival
+    await page.evaluate(() => { const $ = (window as any).$; $.reset(); $.setState('play'); });
+    expect(await page.evaluate(() => (window as any).$.ghostPose())).toBeNull();
+  });
+
   test('a duel run posts to its duel only, and the debrief says so', async ({ page }) => {
     const posts: string[] = [];
     await page.route('**/api/duels/K7Q2MX', (r) => {

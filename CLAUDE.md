@@ -40,7 +40,7 @@ already built and gated — usually just an env var + redeploy.
   even when the ID is correct.**
 
 - **"Sign in with email / Google doesn't appear"** → embedded email/social
-  wallets are requested in `WalletProvider.tsx`, but `basic: false` means the
+  wallets are requested in `src/components/wallet/WalletRuntime.tsx`, but `basic: false` means the
   Reown Cloud project config WINS. Email and Socials must also be toggled on
   for the project at cloud.reown.com. Same project ID, same domain allowlist as
   wallet connect - so if plain wallet connect is broken, email login is broken
@@ -110,6 +110,22 @@ already built and gated — usually just an env var + redeploy.
   One vote each; guests can repeat by clearing storage, so steer by the
   separate **holder** count. Close it to freeze, Remove to take it off the deck.
 
+- **"The game is slow to open" / "wallet takes a second to appear"** → the
+  wallet SDK (wagmi + AppKit, ~2.8 MB) loads on demand: when a player taps
+  Connect Wallet / Sign In, a purchase starts, or - in the background after
+  boot - for a returning signed-in or connected player. First load is ~1.3 MB
+  of JS instead of ~4.5 MB. Nothing outside `src/components/wallet/` may
+  import wagmi or `@reown/*`: read the wallet through `src/lib/walletStore.ts`
+  (`useWallet()`, `wallet.connect()` / `ask()` / `signIn()`), or the SDK
+  creeps back into every player's first load. `tests/wallet-lazy.spec.ts`
+  holds this. `/admin` renders inside its own runtime (it needs wagmi hooks).
+
+- **"Duel ghost isn't showing" / "can I race my rival"** → built. Each duel
+  run uploads its path (`public/game/ghost.js`); the challenger gets the first
+  pilot's ghost from `/api/duels/<id>/ghost` and races it as a RIVAL plane.
+  Drawing only - a missing or bad ghost never affects the run or its score.
+  Ghosts are kept as long as the duel (`src/lib/duelGhost.ts`).
+
 ## Admin / team dashboard
 
 `/admin` (gated by `ADMIN_STATS_TOKEN`): player stats, revenue, loadout usage,
@@ -157,6 +173,16 @@ spend) with derank/ban moderation, plus player lookup and item grant tools.
   `Math.random` (shifts a seeded raid's waves) and never `$.fxRandom` (differs
   between two duel pilots on one seed). Placement always rolls the same
   number of candidates so the stream stays in step wherever the plane is.
+- Phones may hold a raid upright: there is no rotate prompt any more. The HUD
+  drops its side columns under the touch buttons when upright, and the old
+  canvas screens (how to play, stats, credits, daily run) lay out narrow via
+  `$.narrowScreen()`. `tests/upright.spec.ts` and the upright rows in
+  `tests/hud-matrix.spec.ts` hold it.
+- Achievements (`public/game/achievements.js`) are cosmetic and roll no dice;
+  they show on the pilot screen's Record pane (`ServiceRecord.tsx`). Add a goal
+  there with a title in the bitmap font's charset.
+- The in-run fight stays 2D. A 3D arena was prototyped and dropped by the
+  owner; do not bring it back unasked.
 - Verify game changes with Playwright (`/opt/pw-browsers/chromium`) against
   `next start`; check TS with `npx tsc --noEmit` and `node --check` for the
   vanilla JS engine files.

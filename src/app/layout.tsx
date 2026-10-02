@@ -73,7 +73,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${display.variable} ${ui.variable} ${mono.variable}`} data-rs-portrait-ok="1">
+    <html lang="en" className={`${display.variable} ${ui.variable} ${mono.variable}`}>
       <body>
         <WalletProvider>
           {children}

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { BoardBackdrop } from '@/components/BoardBackdrop';
 
 // The HTML SETTINGS screen. Same treatment as BoardOverlay: the engine
@@ -8,8 +8,13 @@ import { BoardBackdrop } from '@/components/BoardBackdrop';
 // the screen to this overlay, so it gets the same dark-card, glow-border,
 // scanline look as the leaderboard instead of the plain canvas button list.
 // Every action still calls straight into the existing engine functions
-// (promptPilotName, cycleSoundLevel, etc.) - this is a skin, not a rewrite
+// (promptPilotName, setSoundLevel, etc.) - this is a skin, not a rewrite
 // of settings logic.
+//
+// Laid out like the hangar and the armory: on a wide screen the sections run
+// down the left and the settings sit beside them as readable rows (what it
+// is, what it does, its control); on a phone it is one list. Every option is
+// on screen and one tap away - the old screen cycled values blind.
 
 type Controls = 'hybrid' | 'keyboard' | 'mouse';
 
@@ -19,7 +24,7 @@ interface EngineBridge {
   promptPilotName: () => void;
   soundLevel: number;
   soundLevelLabels: Record<number, string>;
-  cycleSoundLevel: () => void;
+  setSoundLevel: (level: number) => void;
   music: { start: () => void };
   setState: (s: string) => void;
   howtoIndex?: number;
@@ -33,19 +38,56 @@ function engine(): EngineBridge | null {
 }
 
 const CONTROL_ORDER: Controls[] = ['hybrid', 'keyboard', 'mouse'];
-const CONTROL_LABELS: Record<Controls, string> = { hybrid: 'HYBRID', keyboard: 'KEYBOARD', mouse: 'MOUSE' };
+const CONTROL_LABELS: Record<Controls, string> = { hybrid: 'Hybrid', keyboard: 'Keyboard', mouse: 'Mouse' };
+const CONTROL_HELP: Record<Controls, string> = {
+  hybrid: 'Keys move, the mouse aims and fires',
+  keyboard: 'Keys move and aim, hold F to fire',
+  mouse: 'The ship follows the cursor, hold the left button to fire',
+};
+const SOUND_LEVELS = [1, 0.5, 0];
 
-function Row({ label, value, onClick }: { label: string; value: string; onClick: () => void }) {
+/*------------------------------------------------------------------------------
+One setting: what it is, a line on what it does, and its control - every
+option is on screen and one tap away, instead of a value you cycle through
+blind.
+------------------------------------------------------------------------------*/
+function Segmented<T extends string | number>({ label, options, value, onPick }: {
+  label: string; options: Array<{ v: T; text: string }>; value: T; onPick: (v: T) => void;
+}) {
   return (
-    <button
-      onClick={onClick}
-      className="rs-panel rs-cut-sm flex w-full items-center justify-between px-4 py-3 text-left transition-colors hover:border-[color:var(--rs-cyan)]"
-    >
-      <span className="rs-label text-white/50">{label}</span>
-      <span className="rs-num text-sm text-[color:var(--rs-cyan)]">{value}</span>
-    </button>
+    <div className="rs-set-seg" role="radiogroup" aria-label={label}>
+      {options.map((o) => (
+        <button key={String(o.v)} type="button" role="radio" aria-checked={o.v === value}
+          data-on={o.v === value ? '1' : '0'} onClick={() => onPick(o.v)}>
+          {o.text}
+        </button>
+      ))}
+    </div>
   );
 }
+
+function Setting({ label, help, children }: { label: string; help?: string; children: ReactNode }) {
+  return (
+    <div className="rs-set-row">
+      <div className="rs-set-text">
+        <span className="rs-set-label">{label}</span>
+        {help && <span className="rs-set-help">{help}</span>}
+      </div>
+      <div className="rs-set-ctl">{children}</div>
+    </div>
+  );
+}
+
+const onOff = [{ v: 1, text: 'On' }, { v: 0, text: 'Off' }];
+
+type SectionId = 'pilot' | 'controls' | 'sound' | 'display' | 'help';
+const SECTIONS: Array<{ id: SectionId; title: string }> = [
+  { id: 'pilot', title: 'Pilot' },
+  { id: 'controls', title: 'Controls' },
+  { id: 'sound', title: 'Sound' },
+  { id: 'display', title: 'Display' },
+  { id: 'help', title: 'Help' },
+];
 
 export function SettingsOverlay() {
   const [open, setOpen] = useState(false);
@@ -72,64 +114,40 @@ export function SettingsOverlay() {
   if (!open) return null;
 
   const $ = engine();
-  const pilotName = ($?.storage['pilotname'] as string) || 'SET NAME';
+  const pilotName = ($?.storage['pilotname'] as string) || '';
   const controls = (($?.storage['controls'] as Controls) || 'hybrid');
   const musicOn = $ ? $.storage['music'] !== 0 : true;
   const numbersOn = $ ? $.storage['dmgnums'] !== 0 : true;
   const gfx3dOn = $ ? $.storage['gfx3d'] !== 0 : true;
-  const soundLabel = $ ? $.soundLevelLabels[$.soundLevel] : 'FULL';
+  const soundLevel = $ ? $.soundLevel : 1;
   const canFullscreen = typeof document !== 'undefined' && !!document.documentElement.requestFullscreen;
   const isFullscreen = typeof document !== 'undefined' && !!document.fullscreenElement;
+
+  function put(key: string, v: unknown) {
+    if (!$) return;
+    $.storage[key] = v;
+    $.updateStorage();
+    refresh();
+  }
 
   function setCallSign() {
     $?.promptPilotName();
     refresh();
   }
 
-  function cycleControls() {
-    if (!$) return;
-    const next = CONTROL_ORDER[(CONTROL_ORDER.indexOf(controls) + 1) % CONTROL_ORDER.length];
-    $.storage['controls'] = next;
-    $.updateStorage();
+  function setMusic(on: number) {
+    put('music', on);
+    if (on && $) $.music.start();
+  }
+
+  function setSound(level: number) {
+    $?.setSoundLevel(level);
     refresh();
   }
 
-  function toggleMusic() {
-    if (!$) return;
-    $.storage['music'] = musicOn ? 0 : 1;
-    $.updateStorage();
-    if ($.storage['music'] !== 0) $.music.start();
-    refresh();
-  }
-
-  function toggleNumbers() {
-    if (!$) return;
-    $.storage['dmgnums'] = numbersOn ? 0 : 1;
-    $.updateStorage();
-    refresh();
-  }
-
-  // the 3D hangar, deck ship, game-over pad and podium; off = the flat bays.
-  // Read when a bay opens, so it applies from the next screen on.
-  function toggle3d() {
-    if (!$) return;
-    $.storage['gfx3d'] = gfx3dOn ? 0 : 1;
-    $.updateStorage();
-    refresh();
-  }
-
-  function cycleSound() {
-    $?.cycleSoundLevel();
-    refresh();
-  }
-
-  function toggleFullscreen() {
-    if (document.fullscreenElement) {
-      document.exitFullscreen();
-    } else {
-      document.documentElement.requestFullscreen();
-    }
-    refresh();
+  function setFullscreen(on: number) {
+    if (!on && document.fullscreenElement) document.exitFullscreen().finally(refresh);
+    else if (on && !document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {}).finally(refresh);
   }
 
   function goHowTo() {
@@ -139,14 +157,14 @@ export function SettingsOverlay() {
     $.setState('howto');
   }
 
-  function toMenu() {
-    $?.setState('menu');
+  function jump(id: SectionId) {
+    document.getElementById(`rs-set-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   return (
     <div
       data-game-ui=""
-      className="fixed inset-0 z-40 flex flex-col text-white"
+      className="rs-set fixed inset-0 z-40 flex flex-col text-white"
       style={{
         background:
           'radial-gradient(900px 450px at 80% -10%, rgba(51,230,255,0.07), transparent 60%),' +
@@ -158,41 +176,87 @@ export function SettingsOverlay() {
           full-strength scanline field made every label look smudged */}
       <div aria-hidden className="pointer-events-none absolute inset-0 opacity-25" style={{ background: 'repeating-linear-gradient(to bottom, rgba(255,255,255,0.012) 0 1px, transparent 1px 4px)' }} />
 
-      <div className="relative z-10 mx-auto w-full max-w-md flex-1 overflow-y-auto px-4 py-8 sm:py-12">
-        <div className="text-center">
-          <div className="rs-label text-[color:var(--rs-cyan)]" style={{ letterSpacing: '0.4em' }}>Raid Shooter</div>
-          {/* named to match the nav rail's SYSTEM slot - one destination, one
-              name, wherever the player reaches it from */}
-          <h1 className="rs-display mt-1.5 text-4xl sm:text-5xl" style={{ textShadow: '0 0 30px rgba(53,232,255,0.25)' }}>
-            SYSTEM
-          </h1>
+      <div className="rs-set-scroll rs-scroll relative z-10 flex-1 overflow-y-auto">
+        <div className="rs-set-frame">
+          <header className="rs-set-head">
+            <div className="rs-label text-[color:var(--rs-cyan)]" style={{ letterSpacing: '0.4em' }}>Raid Shooter</div>
+            {/* named to match the nav rail's SYSTEM slot - one destination, one
+                name, wherever the player reaches it from */}
+            <h1 className="rs-display mt-1.5 text-4xl sm:text-5xl" style={{ textShadow: '0 0 30px rgba(53,232,255,0.25)' }}>
+              SYSTEM
+            </h1>
+          </header>
+
+          {/* desktop: the sections down the left, the same way the hangar and
+              armory lay out; on a phone they are simply the list below */}
+          <nav className="rs-set-nav" aria-label="System sections">
+            {SECTIONS.map((sec) => (
+              <button key={sec.id} type="button" onClick={() => jump(sec.id)}>{sec.title}</button>
+            ))}
+            <button type="button" className="rs-set-back" onClick={() => $?.setState('menu')}>‹ Back to command</button>
+          </nav>
+
+          <div className="rs-set-body">
+            <section id="rs-set-pilot" className="rs-set-sec" aria-labelledby="rs-set-h-pilot">
+              <h2 id="rs-set-h-pilot" className="rs-set-sec-title">Pilot</h2>
+              <Setting label="Call sign" help="The name on the boards and in duels">
+                <button type="button" className="rs-set-value" onClick={setCallSign}>
+                  <span className="rs-num">{pilotName || 'Set name'}</span>
+                  <span className="rs-set-edit">Change</span>
+                </button>
+              </Setting>
+            </section>
+
+            <section id="rs-set-controls" className="rs-set-sec" aria-labelledby="rs-set-h-controls">
+              <h2 id="rs-set-h-controls" className="rs-set-sec-title">Controls</h2>
+              <Setting label="Scheme" help={CONTROL_HELP[controls]}>
+                <Segmented label="Control scheme" value={controls} onPick={(v) => put('controls', v)}
+                  options={CONTROL_ORDER.map((c) => ({ v: c, text: CONTROL_LABELS[c] }))} />
+              </Setting>
+              <p className="rs-set-note">On a phone: drag to move, tap to fire, double-tap to dash.</p>
+            </section>
+
+            <section id="rs-set-sound" className="rs-set-sec" aria-labelledby="rs-set-h-sound">
+              <h2 id="rs-set-h-sound" className="rs-set-sec-title">Sound</h2>
+              <Setting label="Sound" help="Effects and music together">
+                <Segmented label="Sound level" value={soundLevel} onPick={setSound}
+                  options={SOUND_LEVELS.map((l) => ({ v: l, text: ($?.soundLevelLabels[l] || String(l)).charAt(0) + ($?.soundLevelLabels[l] || '').slice(1).toLowerCase() }))} />
+              </Setting>
+              <Setting label="Music" help="Each sector's own track">
+                <Segmented label="Music" value={musicOn ? 1 : 0} onPick={setMusic} options={onOff} />
+              </Setting>
+            </section>
+
+            <section id="rs-set-display" className="rs-set-sec" aria-labelledby="rs-set-h-display">
+              <h2 id="rs-set-h-display" className="rs-set-sec-title">Display</h2>
+              <Setting label="3D graphics" help="The hangar, the deck ship, the debrief pad and the podium. Off: flat bays, and the 3D code is never downloaded">
+                {/* read when a bay opens, so it applies from the next screen on */}
+                <Segmented label="3D graphics" value={gfx3dOn ? 1 : 0} onPick={(v) => put('gfx3d', v)} options={onOff} />
+              </Setting>
+              <Setting label="Damage numbers" help="A number over every hit">
+                <Segmented label="Damage numbers" value={numbersOn ? 1 : 0} onPick={(v) => put('dmgnums', v)} options={onOff} />
+              </Setting>
+              {canFullscreen && (
+                <Setting label="Fullscreen" help="Fill the whole screen">
+                  <Segmented label="Fullscreen" value={isFullscreen ? 1 : 0} onPick={setFullscreen} options={onOff} />
+                </Setting>
+              )}
+            </section>
+
+            <section id="rs-set-help" className="rs-set-sec" aria-labelledby="rs-set-h-help">
+              <h2 id="rs-set-h-help" className="rs-set-sec-title">Help</h2>
+              <div className="rs-set-links">
+                <button type="button" onClick={goHowTo} className="rs-btn rs-btn-ghost">How to play</button>
+                <button type="button" onClick={() => $?.setState('stats')} className="rs-btn rs-btn-ghost">Stats</button>
+                <button type="button" onClick={() => $?.setState('credits')} className="rs-btn rs-btn-ghost">Credits</button>
+              </div>
+            </section>
+
+            <button type="button" onClick={() => $?.setState('menu')} className="rs-btn rs-btn-solid rs-set-done w-full py-3">
+              Back to command
+            </button>
+          </div>
         </div>
-
-        <div className="mt-8 space-y-2.5">
-          <Row label="Call sign" value={pilotName} onClick={setCallSign} />
-          <Row label="Controls" value={CONTROL_LABELS[controls]} onClick={cycleControls} />
-          <Row label="Music" value={musicOn ? 'ON' : 'OFF'} onClick={toggleMusic} />
-          <Row label="Sound" value={soundLabel} onClick={cycleSound} />
-          <Row label="Damage numbers" value={numbersOn ? 'ON' : 'OFF'} onClick={toggleNumbers} />
-          <Row label="3D graphics" value={gfx3dOn ? 'ON' : 'OFF'} onClick={toggle3d} />
-          {canFullscreen && (
-            <Row label="Fullscreen" value={isFullscreen ? 'ON' : 'OFF'} onClick={toggleFullscreen} />
-          )}
-        </div>
-
-        <p className="mt-4 text-center text-[10px] leading-relaxed text-white/55">
-          HYBRID: keys move, mouse aims and fires · KEYBOARD: keys move and aim, hold F to fire · MOUSE: ship follows cursor, hold LMB to fire
-        </p>
-
-        <div className="mt-6 grid grid-cols-3 gap-2">
-          <button onClick={goHowTo} className="rs-btn rs-btn-ghost">How to play</button>
-          <button onClick={() => $?.setState('stats')} className="rs-btn rs-btn-ghost">Stats</button>
-          <button onClick={() => $?.setState('credits')} className="rs-btn rs-btn-ghost">Credits</button>
-        </div>
-
-        <button onClick={toMenu} className="rs-btn rs-btn-solid mt-6 w-full py-3">
-          Back to command
-        </button>
       </div>
     </div>
   );

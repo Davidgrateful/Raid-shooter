@@ -9,6 +9,7 @@ import { engine, useEngineRevision, useEngineState, withEngine } from '@/compone
 import { BayView } from './BayView';
 import { Rack, SpecRow, StatBank, SystemSection, TuningBlock } from './systems';
 import { equipColor, equipDrone, equipHull, equipTrail, readHangar, type HangarView, type HullView, type SlotItem } from './data';
+import { ServiceRecord } from './ServiceRecord';
 
 /*==============================================================================
 PILOT / HANGAR
@@ -42,7 +43,7 @@ export function HangarScreen() {
   const [moreOpen, setMoreOpen] = useState(false);
   const [short, setShort] = useState(false);
   const [swap, setSwap] = useState({ key: 0, dir: 1 });
-  const [tab, setTab] = useState<'systems' | 'loadout'>('systems');
+  const [tab, setTab] = useState<'systems' | 'loadout' | 'record'>('systems');
   const enteredRef = useRef(false);
 
   /* --- take the screen off the canvas, once ---------------------------- */
@@ -336,6 +337,9 @@ export function HangarScreen() {
           <button role="tab" aria-selected={tab === 'loadout'} data-on={tab === 'loadout' ? '1' : '0'} onClick={() => setTab('loadout')}>
             Loadout
           </button>
+          <button role="tab" aria-selected={tab === 'record'} data-on={tab === 'record' ? '1' : '0'} onClick={() => setTab('record')}>
+            Record
+          </button>
         </div>
 
         {hull && (
@@ -425,6 +429,10 @@ export function HangarScreen() {
               </SystemSection>
             </>
           )}
+        </div>
+
+        <div className="rs-hg-pane" data-pane="record" data-on={tab === 'record' ? '1' : '0'}>
+          <ServiceRecord />
         </div>
       </aside>
 

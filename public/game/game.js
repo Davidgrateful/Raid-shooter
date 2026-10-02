@@ -227,6 +227,8 @@ Reset
 ==============================================================================*/
 $.reset = function() {
 	$.indexGlobal = 0;
+	// a duel's ghost belongs to that duel's run only
+	if( $.ghostStop ) { $.ghostStop(); }
 	// sector bosses already met this run, and live boss attack lanes
 	$.homeBossMet = {};
 	$.bossLanes = [];
@@ -797,7 +799,11 @@ $.renderInterface = function() {
 		hudScale = hudCompact ? 1 : 2,
 		hudLeft = 20 + $.safeAreaLeft,
 		hudRight = $.cw - 20 - $.safeAreaRight,
-		hudTop = 58 + $.safeAreaTop,
+		// A phone held upright is too narrow for the touch buttons to sit
+		// between the side columns (they overlapped the hull bar and the
+		// feed), so there the side columns start under the button rows.
+		upright = $.isTouchDevice && $.cw < 560 && $.ch > $.cw,
+		hudTop = upright && $.touchHudBottom > 0 ? $.touchHudBottom + 22 : 58 + $.safeAreaTop,
 		barW = hudCompact ? 96 : 150,
 		barH = hudCompact ? 7 : 9;
 
@@ -1097,6 +1103,13 @@ $.renderInterface = function() {
 	if( $.autofire ) {
 		hudLabel( 'AUTOFIRE', hudRight, chipY + 2, 'right', 1, 'hsla(0, 0%, 100%, 0.3)' );
 	}
+
+	// where the two side columns ended up, for the HUD overlap tests: no touch
+	// button may land on either of them (on an upright phone they used to)
+	$.hudColumns = {
+		left: { sx: hudLeft, sy: hullY - 2, ex: Math.max( hudLeft + barW, kitX || 0 ), ey: ( healthKits > 0 || shieldKits > 0 ) ? kitY + 14 : dashY + 3 },
+		right: { sx: hudRight - barW, sy: rightY - ( hudCompact ? 8 : 10 ), ex: hudRight, ey: chipY + 12 }
+	};
 
 	/*==========================================================================
 	Slow-enemies screen tint - the one full-screen effect, and it stays faint
@@ -3203,9 +3216,10 @@ $.setState = function( state ) {
 		$.mouse.down = 0;
 		if( !$.storage['dailyrunever'] ) { $.storage['dailyrunever'] = 1; $.updateStorage(); }
 		$.fetchDailyBoard();
-		var playedToday = $.dailyRunPlayedToday();
+		var playedToday = $.dailyRunPlayedToday(),
+			drNarrow = $.narrowScreen(), drGap = drNarrow ? 88 : 106, drW = drNarrow ? 168 : 199;
 		$.buttons.push( new $.Button( {
-			x: $.cw / 2 - 106, y: $.ch - 52, lockedWidth: 199, lockedHeight: 45, scale: 2,
+			x: $.cw / 2 - drGap, y: $.ch - 52, lockedWidth: drW, lockedHeight: 45, scale: 2,
 			title: playedToday ? 'PLAYED TODAY' : 'START RUN',
 			action: function() {
 				$.mouse.down = 0;
@@ -3214,7 +3228,7 @@ $.setState = function( state ) {
 			}
 		} ) );
 		$.buttons.push( new $.Button( {
-			x: $.cw / 2 + 106, y: $.ch - 52, lockedWidth: 199, lockedHeight: 45, scale: 2,
+			x: $.cw / 2 + drGap, y: $.ch - 52, lockedWidth: drW, lockedHeight: 45, scale: 2,
 			title: 'MENU',
 			action: function() { $.mouse.down = 0; $.setState( 'menu' ); }
 		} ) );
@@ -3223,11 +3237,12 @@ $.setState = function( state ) {
 	if( state == 'stats' ) {
 		$.mouse.down = 0;
 
-		var statsCompact = ( $.ch < 640 );
+		var statsCompact = ( $.ch < 640 ) && !$.narrowScreen(),
+			statsNarrow = $.narrowScreen();
 
 		var clearButton = new $.Button( {
 			x: statsCompact ? $.cw / 2 - 104 : $.cw / 2 + 1,
-			y: statsCompact ? $.ch - 34 : 426,
+			y: statsCompact ? $.ch - 34 : statsNarrow ? $.ch - 120 : 426,
 			lockedWidth: statsCompact ? 199 : 299,
 			lockedHeight: statsCompact ? 45 : 49,
 			scale: statsCompact ? 2 : 3,
@@ -3263,7 +3278,7 @@ $.setState = function( state ) {
 
 		var menuButton = new $.Button( {
 			x: $.cw / 2 + 1,
-			y: creditsCompact ? $.ch - 34 : 501,
+			y: creditsCompact ? $.ch - 34 : $.narrowScreen() ? $.ch - 60 : 501,
 			lockedWidth: 299,
 			lockedHeight: creditsCompact ? 45 : 49,
 			scale: creditsCompact ? 2 : 3,
@@ -3285,7 +3300,7 @@ $.setState = function( state ) {
 		};
 		if( typeof $.howtoIndex !== 'number' ) { $.howtoIndex = 0; }
 
-		var htCompact = ( $.ch < 640 ),
+		var htCompact = ( $.ch < 640 || $.narrowScreen() ),
 			htCount = $.howtoSlideCount(),
 			htBtnY = htCompact ? $.ch - 34 : $.ch - 60,
 			htLast = ( $.howtoIndex >= htCount - 1 );
@@ -3293,7 +3308,7 @@ $.setState = function( state ) {
 		// PREV (only past the first slide)
 		if( $.howtoIndex > 0 ) {
 			$.buttons.push( new $.Button( {
-				x: $.cw / 2 - ( htCompact ? 150 : 220 ),
+				x: $.cw / 2 - ( $.narrowScreen() ? 128 : htCompact ? 150 : 220 ),
 				y: htBtnY,
 				lockedWidth: htCompact ? 96 : 150,
 				lockedHeight: htCompact ? 40 : 49,
@@ -3309,7 +3324,7 @@ $.setState = function( state ) {
 
 		// NEXT, or DONE on the last slide -> back to menu
 		$.buttons.push( new $.Button( {
-			x: $.cw / 2 + ( htCompact ? 150 : 220 ),
+			x: $.cw / 2 + ( $.narrowScreen() ? 128 : htCompact ? 150 : 220 ),
 			y: htBtnY,
 			lockedWidth: htCompact ? 96 : 150,
 			lockedHeight: htCompact ? 40 : 49,
@@ -4940,18 +4955,40 @@ $.setupStates = function() {
 			i = $.buttons.length; while( i-- ){ if( $.buttons[ i ] ) { $.buttons[ i ].render( i ) } }
 	};
 
+	// a phone held upright: the canvas screens built for landscape lay out
+	// narrower (stacked rows, smaller titles) instead of running off the edges
+	$.narrowScreen = function() { return $.cw < 560; };
+
+	// key/value screens when narrow: each label over its value, centred,
+	// instead of two columns that would run off both edges
+	$.renderStackedPairs = function( pairs, y ) {
+		for( var k = 0; k < pairs.length; k++ ) {
+			$.ctxmg.beginPath();
+			var key = $.text( { ctx: $.ctxmg, x: $.cw / 2, y: y, text: pairs[ k ][ 0 ], hspacing: 2, vspacing: 1, halign: 'center', valign: 'top', scale: 1, snap: 1, render: 1 } );
+			$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 0.5)';
+			$.ctxmg.fill();
+			$.ctxmg.beginPath();
+			var val = $.text( { ctx: $.ctxmg, x: $.cw / 2, y: key.ey + 6, text: pairs[ k ][ 1 ], hspacing: 1, vspacing: 6, halign: 'center', valign: 'top', scale: 2, snap: 1, render: 1 } );
+			$.ctxmg.fillStyle = '#fff';
+			$.ctxmg.fill();
+			y = val.ey + 16;
+		}
+		return y;
+	};
+
 	$.states['dailyrun'] = function() {
 		$.clearScreen();
-		var drCompact = ( $.ch < 640 );
+		var drNarrow = $.narrowScreen(),
+			drCompact = ( $.ch < 640 || drNarrow );
 		$.ctxmg.beginPath();
 		var drTitle = $.text( { ctx: $.ctxmg, x: $.cw / 2, y: drCompact ? 50 : 96, text: 'DAILY RUN', hspacing: 2, vspacing: 1, halign: 'center', valign: 'bottom', scale: drCompact ? 4 : 7, snap: 1, render: 1 } );
 		var drGrad = $.ctxmg.createLinearGradient( drTitle.sx, drTitle.sy, drTitle.sx, drTitle.ey );
 		drGrad.addColorStop( 0, '#fff' ); drGrad.addColorStop( 1, '#8ad' );
 		$.ctxmg.fillStyle = drGrad; $.ctxmg.fill();
 		$.ctxmg.beginPath();
-		$.text( { ctx: $.ctxmg, x: $.cw / 2, y: drTitle.ey + ( drCompact ? 8 : 14 ), text: 'SAME WAVES FOR EVERYONE TODAY  /  ONE ATTEMPT  /  RESETS DAILY', hspacing: 1, vspacing: 1, halign: 'center', valign: 'top', scale: 1, snap: 1, render: 1 } );
+		$.text( { ctx: $.ctxmg, x: $.cw / 2, y: drTitle.ey + ( drCompact ? 8 : 14 ), text: drNarrow ? 'SAME WAVES FOR EVERYONE TODAY\nONE ATTEMPT  /  RESETS DAILY' : 'SAME WAVES FOR EVERYONE TODAY  /  ONE ATTEMPT  /  RESETS DAILY', hspacing: 1, vspacing: 6, halign: 'center', valign: 'top', scale: 1, snap: 1, render: 1 } );
 		$.ctxmg.fillStyle = 'hsla(190, 100%, 75%, 0.7)'; $.ctxmg.fill();
-		var infoY = drTitle.ey + ( drCompact ? 24 : 40 );
+		var infoY = drTitle.ey + ( drNarrow ? 40 : drCompact ? 24 : 40 );
 		if( $.dailyRunResult ) {
 			var rr = $.dailyRunResult,
 				rtxt = rr.state === 'sending' ? 'SUBMITTING YOUR RUN' : rr.state === 'error' ? 'SUBMISSION FAILED' : ( 'YOUR RUN  ' + $.util.commas( rr.score ) + ( rr.rank ? '  RANK ' + rr.rank : '' ) );
@@ -4961,7 +4998,7 @@ $.setupStates = function() {
 			infoY += drCompact ? 16 : 26;
 		} else if( $.dailyRunPlayedToday() ) {
 			$.ctxmg.beginPath();
-			$.text( { ctx: $.ctxmg, x: $.cw / 2, y: infoY, text: 'YOU HAVE PLAYED TODAY  /  COME BACK TOMORROW', hspacing: 1, vspacing: 1, halign: 'center', valign: 'top', scale: 1, snap: 1, render: 1 } );
+			$.text( { ctx: $.ctxmg, x: $.cw / 2, y: infoY, text: drNarrow ? 'YOU HAVE PLAYED TODAY\nCOME BACK TOMORROW' : 'YOU HAVE PLAYED TODAY  /  COME BACK TOMORROW', hspacing: 1, vspacing: 6, halign: 'center', valign: 'top', scale: 1, snap: 1, render: 1 } );
 			$.ctxmg.fillStyle = 'hsla(0, 0%, 100%, 0.55)'; $.ctxmg.fill();
 			infoY += drCompact ? 14 : 22;
 		}
@@ -4986,10 +5023,10 @@ $.setupStates = function() {
 					nm = ( e.name || ( e.identity && e.identity.indexOf( '0x' ) === 0 ? ( e.identity.slice( 0, 6 ) + '..' + e.identity.slice( -4 ) ) : 'GUEST' ) ).toUpperCase(),
 					medal = ( r === 0 ? '01 ' : r === 1 ? '02 ' : r === 2 ? '03 ' : ( ( r + 1 ) + ' ' ) );
 				$.ctxmg.beginPath();
-				$.text( { ctx: $.ctxmg, x: $.cw / 2 - ( drCompact ? 150 : 230 ), y: y, text: medal + nm, hspacing: 1, vspacing: 1, halign: 'left', valign: 'top', scale: 1, snap: 1, render: 1 } );
+				$.text( { ctx: $.ctxmg, x: $.cw / 2 - ( drNarrow ? Math.min( 150, $.cw / 2 - 24 ) : drCompact ? 150 : 230 ), y: y, text: medal + nm, hspacing: 1, vspacing: 1, halign: 'left', valign: 'top', scale: 1, snap: 1, render: 1 } );
 				$.ctxmg.fillStyle = ( r < 3 ) ? 'hsla(45, 100%, 65%, 0.95)' : 'hsla(0, 0%, 100%, 0.7)'; $.ctxmg.fill();
 				$.ctxmg.beginPath();
-				$.text( { ctx: $.ctxmg, x: $.cw / 2 + ( drCompact ? 150 : 230 ), y: y, text: $.util.commas( e.score ), hspacing: 1, vspacing: 1, halign: 'right', valign: 'top', scale: 1, snap: 1, render: 1 } );
+				$.text( { ctx: $.ctxmg, x: $.cw / 2 + ( drNarrow ? Math.min( 150, $.cw / 2 - 24 ) : drCompact ? 150 : 230 ), y: y, text: $.util.commas( e.score ), hspacing: 1, vspacing: 1, halign: 'right', valign: 'top', scale: 1, snap: 1, render: 1 } );
 				$.ctxmg.fillStyle = ( r < 3 ) ? 'hsla(45, 100%, 65%, 0.95)' : 'hsla(0, 0%, 100%, 0.7)'; $.ctxmg.fill();
 			}
 		}
@@ -5002,7 +5039,8 @@ $.setupStates = function() {
 
 		$.clearScreen();
 
-		var statsCompact = ( $.ch < 640 );
+		var statsNarrow = $.narrowScreen(),
+			statsCompact = ( $.ch < 640 ) && !statsNarrow;
 		$.ctxmg.beginPath();
 		var statsTitle = $.text( {
 			ctx: $.ctxmg,
@@ -5023,12 +5061,25 @@ $.setupStates = function() {
 		$.ctxmg.fillStyle = gradient;
 		$.ctxmg.fill();
 
+		var statPairs = [
+			[ 'BEST SCORE', $.util.commas( $.storage['score'] ) ],
+			[ 'BEST LEVEL', String( $.storage['level'] + 1 ) ],
+			[ 'BEST COMBO', String( $.storage['combo'] || 0 ) ],
+			[ 'ROUNDS PLAYED', $.util.commas( $.storage['rounds'] ) ],
+			[ 'ENEMIES KILLED', $.util.commas( $.storage['kills'] ) ],
+			[ 'BULLETS FIRED', $.util.commas( $.storage['bullets'] ) ],
+			[ 'POWERUPS COLLECTED', $.util.commas( $.storage['powerups'] ) ],
+			[ 'TIME ELAPSED', $.util.convertTime( ( $.storage['time'] * ( 1000 / 60 ) ) / 1000 ) ]
+		];
+		if( statsNarrow ) {
+			$.renderStackedPairs( statPairs, statsTitle.ey + 30 );
+		} else {
 		$.ctxmg.beginPath();
 		var statKeys = $.text( {
 			ctx: $.ctxmg,
 			x: $.cw / 2 - 10,
 			y: statsTitle.ey + ( statsCompact ? 12 : 39 ),
-			text: 'BEST SCORE\nBEST LEVEL\nBEST COMBO\nROUNDS PLAYED\nENEMIES KILLED\nBULLETS FIRED\nPOWERUPS COLLECTED\nTIME ELAPSED',
+			text: statPairs.map( function( p ) { return p[ 0 ]; } ).join( '\n' ),
 			hspacing: 1,
 			vspacing: statsCompact ? 8 : 17,
 			halign: 'right',
@@ -5045,16 +5096,7 @@ $.setupStates = function() {
 			ctx: $.ctxmg,
 			x: $.cw / 2 + 10,
 			y: statsTitle.ey + ( statsCompact ? 12 : 39 ),
-			text:
-				$.util.commas( $.storage['score'] ) + '\n' +
-				( $.storage['level'] + 1 ) + '\n' +
-				( $.storage['combo'] || 0 ) + '\n' +
-				$.util.commas( $.storage['rounds'] ) + '\n' +
-				$.util.commas( $.storage['kills'] ) + '\n' +
-				$.util.commas( $.storage['bullets'] ) + '\n' +
-				$.util.commas( $.storage['powerups'] ) + '\n' +
-				$.util.convertTime( ( $.storage['time'] * ( 1000 / 60 ) ) / 1000 )
-			,
+			text: statPairs.map( function( p ) { return p[ 1 ]; } ).join( '\n' ),
 			hspacing: 1,
 			vspacing: statsCompact ? 8 : 17,
 			halign: 'left',
@@ -5065,6 +5107,7 @@ $.setupStates = function() {
 		} );
 		$.ctxmg.fillStyle = '#fff';
 		$.ctxmg.fill();
+		}
 
 		var i = $.buttons.length; while( i-- ){ if( $.buttons[ i ] ) { $.buttons[ i ].render( i ) } }
 			i = $.buttons.length; while( i-- ){ if( $.buttons[ i ] ) { $.buttons[ i ].update( i ) } }
@@ -5198,7 +5241,7 @@ $.setupStates = function() {
 	$.states['howto'] = function() {
 		$.clearScreen();
 
-		var htCompact = ( $.ch < 640 ),
+		var htCompact = ( $.ch < 640 || $.narrowScreen() ),
 			slides = $.howtoSlideData(),
 			idx = Math.max( 0, Math.min( slides.length - 1, $.howtoIndex || 0 ) ),
 			slide = slides[ idx ];
@@ -5255,7 +5298,8 @@ $.setupStates = function() {
 		$.clearScreen();
 
 		$.ctxmg.beginPath();
-		var creditsCompact = ( $.ch < 640 );
+		var creditsCompact = ( $.ch < 640 ),
+			creditsNarrow = $.narrowScreen();
 		var creditsTitle = $.text( {
 			ctx: $.ctxmg,
 			x: $.cw / 2,
@@ -5265,7 +5309,7 @@ $.setupStates = function() {
 			vspacing: 1,
 			halign: 'center',
 			valign: 'bottom',
-			scale: creditsCompact ? 5 : 10,
+			scale: creditsNarrow ? 6 : creditsCompact ? 5 : 10,
 			snap: 1,
 			render: 1
 		} );
@@ -5275,6 +5319,14 @@ $.setupStates = function() {
 		$.ctxmg.fillStyle = gradient;
 		$.ctxmg.fill();
 
+		if( creditsNarrow ) {
+			$.renderStackedPairs( [
+				[ 'CREATED BY', 'DAVID GRATEFUL' ],
+				[ 'SUPPORT', 'DEV DERVEL AND ISRA' ],
+				[ 'SPECIAL THANKS', 'AND THE MANY MORE WHO\nHELPED COOK THIS' ],
+				[ 'ENGINE', 'RADIUS RAID BY JACK RUGILE' ]
+			], creditsTitle.ey + 36 );
+		} else {
 		$.ctxmg.beginPath();
 		var creditKeys = $.text( {
 			ctx: $.ctxmg,
@@ -5308,6 +5360,7 @@ $.setupStates = function() {
 		} );
 		$.ctxmg.fillStyle = '#fff';
 		$.ctxmg.fill();
+		}
 
 		var i = $.buttons.length; while( i-- ){ if( $.buttons[ i ] ) { $.buttons[ i ].render( i ) } }
 			i = $.buttons.length; while( i-- ){ if( $.buttons[ i ] ) { $.buttons[ i ].update( i ) } }
@@ -5398,9 +5451,6 @@ $.setupStates = function() {
 		$.hero.render();
 		if( $.storage[ 'dmgnums' ] !== 0 ) { $.renderDamageNumbers( $.ctxmg ); }
 		$.ctxmg.restore();
-		// the 3D arena draws its models in the same frame, on its own canvas
-		// under this one. Drawing only: nothing it does feeds back into a rule.
-		if( $.arena3d && $.arena3d.active ) { $.arena3d.frame(); }
 		i = $.levelPops.length; while( i-- ){ $.levelPops[ i ].render( i ) }
 
 		// render virtual joystick left (movement)

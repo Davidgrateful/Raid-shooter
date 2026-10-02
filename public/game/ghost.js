@@ -9,8 +9,12 @@ played back as a translucent plane flying alongside.
   record   $.ghostStartRecording() at launch; $.ghostRecording() returns the
            compact form { v, every, pilot, color, s: [x, y, dir*100, ...] }
            (10 minutes of flight is ~3,600 numbers)
-  play     $.ghostPlay(data) before launch; drawn every frame until the
-           recording ends, which is where the rival's run ended
+  play     $.ghostPlay(data) at launch or any time after - both sides keep
+           time by the run clock ($.elapsed), so a ghost that arrives a
+           moment late still flies in step; drawn until the recording ends,
+           which is where the rival's run ended
+  duels    the run is recorded at launch and sent with the duel score; the
+           challenger is handed the first pilot's ghost (src/lib/duelGhost.ts)
 
 Drawing only. The ghost has no body: it cannot be hit, block anything or
 touch a single dice roll.
@@ -22,35 +26,33 @@ touch a single dice roll.
 
 	$.ghostStartRecording = function() {
 		var ch = $.currentCharacter ? $.currentCharacter() : null;
-		rec = { v: 1, every: EVERY, pilot: ch ? ch.id : 'onyix', color: $.hero ? String( $.hero.fillStyle || '' ) : '', s: [], f: EVERY };
+		rec = { v: 1, every: EVERY, pilot: ch ? ch.id : 'onyix', color: $.hero ? String( $.hero.fillStyle || '' ) : '', s: [], n: 0 };
 	};
 	$.ghostRecording = function() {
 		if( !rec ) { return null; }
 		return { v: rec.v, every: rec.every, pilot: rec.pilot, color: rec.color, s: rec.s.slice() };
 	};
 	$.ghostPlay = function( data ) {
-		play = data && data.s && data.s.length >= 6 ? { d: data, t: 0, gone: 0 } : null;
+		play = data && data.s && data.s.length >= 6 ? { d: data } : null;
 	};
-	$.ghostStop = function() { rec = null; play = null; if( $.arena3d && $.arena3d.setGhost ) { $.arena3d.setGhost( null ); } };
+	$.ghostStop = function() { rec = null; play = null; };
 
-	// the play loop calls this once per frame, before drawing
+	// the play loop calls this once per frame: one sample per EVERY frames of
+	// run clock (a long frame fills the slots it skipped with where it landed)
 	$.ghostTick = function() {
-		var dt = $.dt;
-		if( rec && $.hero && $.hero.life > 0 && rec.s.length < MAX ) {
-			rec.f += dt;
-			if( rec.f >= EVERY ) {
-				rec.f -= EVERY;
-				rec.s.push( Math.round( $.hero.x ), Math.round( $.hero.y ), Math.round( ( $.hero.direction || 0 ) * 100 ) );
-			}
+		if( !rec || !$.hero || $.hero.life <= 0 ) { return; }
+		var slot = Math.floor( ( $.elapsed || 0 ) / EVERY );
+		while( rec.n <= slot && rec.s.length < MAX ) {
+			rec.s.push( Math.round( $.hero.x ), Math.round( $.hero.y ), Math.round( ( $.hero.direction || 0 ) * 100 ) );
+			rec.n++;
 		}
-		if( play ) { play.t += dt; }
 	};
 
 	// where the ghost is now, or null once its run has ended
 	$.ghostPose = function() {
 		if( !play ) { return null; }
 		var s = play.d.s, every = play.d.every || EVERY, n = s.length / 3,
-			fi = play.t / every, i = Math.floor( fi ), f = fi - i;
+			fi = ( $.elapsed || 0 ) / every, i = Math.floor( fi ), f = fi - i;
 		if( i >= n - 1 ) { return null; }
 		var a = i * 3, b = a + 3,
 			d0 = s[ a + 2 ] / 100, d1 = s[ b + 2 ] / 100, dd = Math.atan2( Math.sin( d1 - d0 ), Math.cos( d1 - d0 ) );
@@ -60,21 +62,16 @@ touch a single dice roll.
 	// drawn in world space: a translucent plane and a RIVAL tag
 	$.renderGhost = function() {
 		var g = $.ghostPose();
-		var three = $.arena3d && $.arena3d.active && $.arena3d.setGhost;
-		if( three ) { $.arena3d.setGhost( g ? { x: g.x, y: g.y, direction: g.direction, pilotId: g.pilot, color: g.color } : null ); }
 		if( !g ) { return; }
-		var ctx = $.ctxmg;
-		if( !three ) {
-			var ch = null, list = $.definitions.characters || [];
-			for( var i = 0; i < list.length; i++ ) { if( list[ i ].id === g.pilot ) { ch = list[ i ]; } }
-			if( ch && ch.draw ) {
-				ctx.save();
-				ctx.globalAlpha = 0.35;
-				ctx.translate( g.x, g.y );
-				ctx.rotate( g.direction );
-				ch.draw( ctx, 12, g.color, $.tick );
-				ctx.restore();
-			}
+		var ctx = $.ctxmg, ch = null, list = $.definitions.characters || [];
+		for( var i = 0; i < list.length; i++ ) { if( list[ i ].id === g.pilot ) { ch = list[ i ]; } }
+		if( ch && ch.draw ) {
+			ctx.save();
+			ctx.globalAlpha = 0.35;
+			ctx.translate( g.x, g.y );
+			ctx.rotate( g.direction );
+			ch.draw( ctx, 12, g.color, $.tick );
+			ctx.restore();
 		}
 		ctx.save();
 		ctx.globalAlpha = 0.7;

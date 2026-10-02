@@ -2,8 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { PilotIcon } from '@/components/PilotIcon';
-import { useAppKit } from '@reown/appkit/react';
-import { useSIWE } from '@/hooks/useSIWE';
+import { useWallet, wallet } from '@/lib/walletStore';
 
 // A steeply discounted first-purchase bundle - the proven "cheap first
 // purchase" pattern nearly every F2P economy runs (Clash of Clans' starter
@@ -99,8 +98,7 @@ export function StarterBundleModal() {
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [done, setDone] = useState(false);
-  const { authenticated } = useSIWE();
-  const { open: openWallet } = useAppKit();
+  const { authenticated } = useWallet();
   const busyRef = useRef(false);
 
   useEffect(() => {
@@ -191,7 +189,7 @@ export function StarterBundleModal() {
   function shopThePack() {
     if (busyRef.current) return;
     if (!authenticated) {
-      try { openWallet(); } catch { /* modal best-effort */ }
+      void wallet.ask();
       return;
     }
     const $ = engine();

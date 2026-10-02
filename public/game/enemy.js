@@ -350,14 +350,6 @@ Render
 ==============================================================================*/
 $.Enemy.prototype.render = function( i ) {
 	if( this.inView ) {
-		// the 3D arena (src/components/three/arena) draws every drone and
-		// boss as a model; enemy fire stays a flat bolt on the floor
-		if( $.arena3d && $.arena3d.active && !this.isBolt ) {
-			if( this.hitFlag > 0 ) { this.hitFlag -= $.dt; }
-			if( this.renderExtra ) { this.renderExtra(); }
-			this.renderHealth();
-			return;
-		}
 		var facing = ( this.vx || this.vy ) ? Math.atan2( this.vy, this.vx ) : ( this.direction || 0 ),
 			shapeFn = $.enemyShapes[ this.shape ] || $.enemyShapes.orb;
 

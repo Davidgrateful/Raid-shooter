@@ -6,6 +6,7 @@ import { sendToInbox } from '@/lib/inbox';
 import { recordPlay } from '@/lib/streak';
 import { getDuel, isDuelId, submitDuelRun, viewOf } from '@/lib/duels';
 import { duelCaller, guestFromQuery, nameFor } from '@/lib/duelapi';
+import { cleanGhost, saveGhost } from '@/lib/duelGhost';
 
 export const dynamic = 'force-dynamic';
 
@@ -68,6 +69,14 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   if (!result.ok) {
     const status = result.error === 'not_found' ? 404 : result.error === 'busy' ? 503 : 409;
     return NextResponse.json({ error: result.error }, { status });
+  }
+
+  // the run's path, for the other pilot to race (lib/duelGhost.ts). Drawing
+  // only: a ghost that fails to clean or save never touches the result.
+  const ghost = cleanGhost(body.ghost);
+  if (ghost) {
+    const n = result.duel.entries.findIndex((e) => e.key === caller.key);
+    if (n >= 0) await saveGhost(result.duel, n, ghost).catch(() => {});
   }
 
   // a ticketed duel run is a real play for the daily streak, like any run

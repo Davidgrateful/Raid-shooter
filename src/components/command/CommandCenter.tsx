@@ -33,9 +33,6 @@ sits to the side, and every one of those cards answers one of "what can I do /
 what can I earn / where do I rank". Nothing is here to fill space.
 ==============================================================================*/
 
-/** Screens where a phone in portrait is a first-class layout, not an error. */
-const PORTRAIT_OK = new Set(['menu', 'loading', 'board', 'hangar', 'market', 'playmode', '']);
-
 export const NAV: NavEntry[] = [
   { id: 'deploy', label: 'Deploy', hint: 'Launch a raid', short: 'Deploy', Icon: IconDeploy, state: 'playmode' },
   { id: 'pilot', label: 'Pilot', hint: 'Hull & loadout', short: 'Pilot', Icon: IconPilot, state: 'hangar' },
@@ -94,11 +91,6 @@ export function CommandCenter() {
     window.addEventListener('resize', f);
     return () => window.removeEventListener('resize', f);
   }, []);
-
-  /* --- portrait is a real layout here, but not during a raid ------------ */
-  useEffect(() => {
-    document.documentElement.dataset.rsPortraitOk = PORTRAIT_OK.has(state) ? '1' : '0';
-  }, [state]);
 
   /* --- read the engine's truth on every menu revision ------------------- */
   useEffect(() => {

@@ -1,9 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { useAccount, useDisconnect } from 'wagmi';
-import { useAppKit } from '@reown/appkit/react';
-import { useSIWE } from '@/hooks/useSIWE';
+import { useWallet, wallet } from '@/lib/walletStore';
 
 function shortenAddress(addr: string) {
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
@@ -55,44 +53,26 @@ function forceForgetWallet() {
 //   - connected, no SIWE  -> Sign In  (+ the address chip opens the account modal)
 //   - signed in           -> a single verified address chip; tapping it opens
 //                            the AppKit account view, which holds Disconnect
+//
+// It reads the wallet store, not wagmi, so it draws before the wallet SDK has
+// loaded; a tap loads the SDK first if it is not here yet (src/lib/walletStore).
+// Other screens ask for a connect or sign-in with a raidshooter:wallet event,
+// which the shell (WalletProvider) answers - one place, not one per button.
 export function WalletButton() {
-  const { address, isConnected, status } = useAccount();
-  const { disconnectAsync } = useDisconnect();
-  const { open } = useAppKit();
-  const { authenticated, address: siweAddress, signIn, signOut, loading } = useSIWE();
+  const { phase, address, isConnected, status, authenticated, siweAddress, siweLoading: loading } = useWallet();
   const [disconnecting, setDisconnecting] = useState(false);
   const [attempted, setAttempted] = useState(false);
+  // tapped Connect while the SDK is still downloading: say so
+  const [asked, setAsked] = useState(false);
+  const openAccount = () => void wallet.openAccount();
+  const signIn = () => void wallet.signIn();
 
-  const openAccount = () => {
-    try { open({ view: 'Account' }); } catch (e) { console.error('[wallet] open failed', e); }
-  };
-
-  // Other screens need to start a connect or a sign-in without owning a second
-  // copy of this logic - the armory's requisition CTA is one. They ask here, so
-  // this component stays the single place wallet auth actually happens, and
-  // there is never a competing connect path to keep in sync.
-  useEffect(() => {
-    const onAsk = () => {
-      try {
-        if (!isConnected) { open(); } else if (!authenticated) { signIn(); }
-      } catch (e) {
-        console.error('[wallet] connect request failed', e);
-      }
-    };
-    window.addEventListener('raidshooter:wallet', onAsk);
-    return () => window.removeEventListener('raidshooter:wallet', onAsk);
-  }, [isConnected, authenticated, open, signIn]);
-
-  // Run both teardown steps as real, independently-caught promises so a
-  // failure in one (e.g. the session DELETE) never blocks the other (the
-  // wallet disconnect itself).
+  // both teardown steps run independently caught (see walletStore), so a
+  // failure in one (e.g. the session DELETE) never blocks the other
   const signOutAndDisconnect = async () => {
     if (disconnecting) return;
     setDisconnecting(true);
-    const results = await Promise.allSettled([signOut(), disconnectAsync()]);
-    if (results[1].status === 'rejected') {
-      console.error('[wallet] disconnect failed', results[1].reason);
-    }
+    await wallet.signOutAndDisconnect();
     setDisconnecting(false);
     setAttempted(true);
   };
@@ -169,14 +149,29 @@ export function WalletButton() {
     );
   }
 
+  // signed in on the server but the SDK is still on its way (it loads in the
+  // background for a returning player): show who they are, not a Connect
+  // button that would flicker away a second later
+  if (!isConnected && authenticated && siweAddress && phase !== 'ready' && phase !== 'failed') {
+    return (
+      <div className="flex items-center">
+        <button onClick={openAccount} className="flex items-center gap-1.5 rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1.5 text-xs text-emerald-300 hover:bg-white/5 max-sm:px-2 max-sm:py-1 max-sm:text-[10px]">
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+          <span className="font-mono">{shortenAddress(siweAddress)}</span>
+        </button>
+      </div>
+    );
+  }
+
   if (!isConnected) {
     return (
       <div className="flex items-center">
         <button
-          onClick={() => { try { open(); } catch (e) { console.error('[wallet] open failed', e); } }}
-          className="rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-sm text-white transition-colors hover:bg-white/20 max-sm:px-2 max-sm:py-1 max-sm:text-xs"
+          onClick={() => { setAsked(true); void wallet.connect().finally(() => setAsked(false)); }}
+          disabled={asked && phase !== 'ready'}
+          className="rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-sm text-white transition-colors hover:bg-white/20 disabled:opacity-60 max-sm:px-2 max-sm:py-1 max-sm:text-xs"
         >
-          Connect Wallet
+          {asked && phase !== 'ready' ? 'Loading wallet…' : 'Connect Wallet'}
         </button>
         {stuckBanner}
       </div>

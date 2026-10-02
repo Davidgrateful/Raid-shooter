@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useSIWE } from '@/hooks/useSIWE';
+import { checkSession, useWallet } from '@/lib/walletStore';
 import { ChatMessageLine, type ChatMessageData } from '@/components/ChatMessageLine';
 
 export interface TopChatEntry {
@@ -38,7 +38,8 @@ const ERROR_LABELS: Record<string, string> = {
 };
 
 export function TopChat({ topEntries }: { topEntries: TopChatEntry[] }) {
-  const { address, authenticated } = useSIWE();
+  const { siweAddress: address, authenticated } = useWallet();
+  useEffect(() => { void checkSession(); }, []);
   const [messages, setMessages] = useState<ChatMessageData[]>([]);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);

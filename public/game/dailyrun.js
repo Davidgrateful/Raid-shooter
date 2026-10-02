@@ -150,6 +150,9 @@ $.startDuelRun = function( duel ) {
 	$.reset();
 	$.firstRun = 0;
 	$.instructionTick = $.instructionTickMax; // skip the tutorial overlay
+	// record this run's path for the other pilot to race (ghost.js); the
+	// rival's ghost, if there is one, is handed in separately once fetched
+	if( $.ghostStartRecording ) { $.ghostStartRecording(); }
 	$.trackRun( 'run_start' );
 	$.audio.play( 'levelup' );
 	$.music.start();
@@ -162,6 +165,8 @@ $.finishDuelRun = function() {
 	var duel = $.duel;
 	$.duel = null;
 	if( !duel ) { return; }
+	var ghost = $.ghostRecording ? $.ghostRecording() : null;
+	if( $.ghostStop ) { $.ghostStop(); }
 	$.duelResult = { state: 'sending', id: duel.id, duel: null };
 	// the debrief's status line rides the same slot the boards use
 	$.boardSubmit = { state: 'duelpending', rank: 0, improved: false, verified: false };
@@ -178,7 +183,8 @@ $.finishDuelRun = function() {
 			name: authed ? ( $.storage['pilotname'] || undefined ) : $.ensurePilotName(),
 			turnstileToken: ( !authed && typeof window !== 'undefined' ) ? window.__turnstileToken : undefined,
 			runTicket: $.runTicket || undefined,
-			guestToken: authed ? undefined : ( $.guestToken ? $.guestToken() : undefined )
+			guestToken: authed ? undefined : ( $.guestToken ? $.guestToken() : undefined ),
+			ghost: ghost || undefined
 		} )
 	} )
 		.then( function( r ) { return r.json().then( function( d ) { return { ok: r.ok, d: d }; } ); } )

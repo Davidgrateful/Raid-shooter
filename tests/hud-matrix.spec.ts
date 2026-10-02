@@ -36,13 +36,17 @@ interface Config {
   kits: Record<string, number>;
 }
 
-/** The five configurations the original audit swept, viewport AND loadout. */
+/** The configurations the original audit swept, viewport AND loadout, plus upright phones. */
 const CONFIGS: Config[] = [
   { name: 'phone-land-nokit', width: 844, height: 390, touch: true, kits: {} },
   { name: 'phone-land-kits', width: 844, height: 390, touch: true, kits: { consumable_health: 2, consumable_shield: 1 } },
   { name: 'narrow-land-kits', width: 667, height: 375, touch: true, kits: { consumable_health: 2, consumable_shield: 1 } },
   { name: 'tablet-land-kits', width: 1024, height: 768, touch: true, kits: { consumable_health: 3, consumable_shield: 2 } },
   { name: 'desktop-nokit', width: 1512, height: 900, touch: false, kits: {} },
+  // a phone held upright: raids run there now, and it is the layout where the
+  // touch buttons first landed on the hull bar and the feed
+  { name: 'phone-upright-nokit', width: 390, height: 844, touch: true, kits: {} },
+  { name: 'phone-upright-kits', width: 390, height: 844, touch: true, kits: { consumable_health: 2, consumable_shield: 1 } },
 ];
 
 /*
@@ -107,6 +111,7 @@ async function measure(page: Page) {
       cw: $.cw, ch: $.ch,
       touch: !!$.isTouchDevice,
       touchHudBottom: $.touchHudBottom || 0,
+      columns: $.hudColumns,
       hudCentreBottom: $.hudCentreBottom || 0,
       buttons: ($.buttons || [])
         .map((b: any) => ({ title: String(b.title ?? ''), sx: b.sx, sy: b.sy, ex: b.ex, ey: b.ey }))
@@ -171,7 +176,12 @@ for (const c of CONFIGS) {
         `${c.name}: daily banner at y=${Math.round(m.bannerY)} does not clear hudCentreBottom=${Math.round(m.hudCentreBottom)}`,
       ).toBeGreaterThan(m.hudCentreBottom);
 
-      // 4. And the centre column must stay on screen, below the touch bar.
+      // 4. No HUD button may sit on the side columns (hull/dash/kits on the
+      //    left, level/effects on the right).
+      const onColumns = buttons.filter((b) => hits(b, m.columns.left) || hits(b, m.columns.right));
+      expect(onColumns.map((b) => b.title), `${c.name}: button(s) overlap a side column`).toEqual([]);
+
+      // 5. And the centre column must stay on screen, below the touch bar.
       if (m.touchHudBottom > 0) {
         expect(m.hudCentreBottom, `${c.name}: centre column starts on the touch controls`).toBeGreaterThan(m.touchHudBottom);
       }

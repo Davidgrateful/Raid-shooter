@@ -3,12 +3,15 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useAccount, useSignMessage } from 'wagmi';
 import { SiweMessage } from 'siwe';
+import { checkSession, setWallet, useWallet } from '@/lib/walletStore';
 
-interface SIWEState {
-  authenticated: boolean;
-  address: string | null;
-  loading: boolean;
-}
+/*
+ * Sign-In With Ethereum. Part of the wallet runtime, so it runs ONCE (in the
+ * runtime's bridge), and keeps its state in the wallet store where the rest
+ * of the app reads it without loading any wallet code. The session check
+ * itself is the store's, so a signed-in player shows as signed in before the
+ * SDK has even loaded.
+ */
 
 // The game engine's own storage blob (public/game/storage.js) - the same
 // durable guest token every score submission sends (see $.guestToken() in
@@ -31,25 +34,11 @@ function myGuestToken(): string | null {
 export function useSIWE() {
   const { address, chainId, isConnected } = useAccount();
   const { signMessageAsync } = useSignMessage();
-  const [state, setState] = useState<SIWEState>({
-    authenticated: false,
-    address: null,
-    loading: true,
-  });
+  const w = useWallet();
+  const state = { authenticated: w.authenticated, address: w.siweAddress, loading: w.siweLoading };
 
-  // Check existing session on mount
-  useEffect(() => {
-    fetch('/api/siwe/session')
-      .then((res) => res.json())
-      .then((data) => {
-        setState({
-          authenticated: data.authenticated,
-          address: data.address || null,
-          loading: false,
-        });
-      })
-      .catch(() => setState((s) => ({ ...s, loading: false })));
-  }, []);
+  // the store checks the existing session once, wallet code or not
+  useEffect(() => { void checkSession(); }, []);
 
   const signingRef = useRef(false);
   // Set when the player actively REJECTS the signature prompt. Gates only
@@ -63,7 +52,7 @@ export function useSIWE() {
     if (!address || !chainId || signingRef.current) return;
     signingRef.current = true;
 
-    setState((s) => ({ ...s, loading: true }));
+    setWallet({ siweLoading: true });
     try {
       // 1. Get nonce
       const nonceRes = await fetch('/api/siwe/nonce');
@@ -93,9 +82,9 @@ export function useSIWE() {
       const result = await verifyRes.json();
 
       if (result.ok) {
-        setState({ authenticated: true, address: result.address, loading: false });
+        setWallet({ authenticated: true, siweAddress: result.address, siweLoading: false });
       } else {
-        setState((s) => ({ ...s, loading: false }));
+        setWallet({ siweLoading: false });
       }
     } catch (err) {
       // a deliberate rejection stops the automatic re-prompts; any other
@@ -108,7 +97,7 @@ export function useSIWE() {
       ) {
         declinedRef.current = true;
       }
-      setState((s) => ({ ...s, loading: false }));
+      setWallet({ siweLoading: false });
     } finally {
       signingRef.current = false;
     }
@@ -119,7 +108,7 @@ export function useSIWE() {
     // once they've asked to sign out, even if the network request below
     // fails. The DELETE is best-effort cleanup of the server-side cookie;
     // its failure must never leave the UI stuck showing the old session.
-    setState({ authenticated: false, address: null, loading: false });
+    setWallet({ authenticated: false, siweAddress: null, siweLoading: false });
     try {
       const res = await fetch('/api/siwe/session', { method: 'DELETE' });
       return res.ok;

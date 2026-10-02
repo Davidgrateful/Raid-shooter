@@ -511,7 +511,6 @@ and never $.fxRandom, which differs between two pilots on the same seed.
 	};
 
 	$.renderObjects = function() {
-		if( $.arena3d && $.arena3d.active ) { return; }
 		var ctx = $.ctxmg, list = $.objects;
 		for( var i = 0; i < list.length; i++ ) {
 			var o = list[ i ];
