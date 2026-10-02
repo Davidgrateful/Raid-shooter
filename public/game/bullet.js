@@ -105,6 +105,8 @@ $.Bullet.prototype.update = function( i ) {
 				// comparing by object reference stays correct either way
 				var chainX = enemy.x, chainY = enemy.y;
 				enemy.receiveDamage( ei, dmg );
+				// Frost Sprite chill / Ember Moth burn
+				if( $.droneOnHit ) { $.droneOnHit( enemy, dmg ); }
 
 				// Volt Mite drone: zap one nearby enemy for partial damage
 				if( this.chain ) {

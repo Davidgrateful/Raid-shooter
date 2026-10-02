@@ -73,10 +73,10 @@ test("3D that is asked for mid-raid waits for the raid, and never draws from its
     $.endSeededRng();
     // the raid is over: now it loads and bakes
     const t0 = Date.now();
-    while (!($.objectSprites && $.objectSprites.kinds.length === 13) && Date.now() - t0 < 90000) await sleep(200);
+    while (!($.objectSprites && $.objectSprites.kinds.length === 19) && Date.now() - t0 < 90000) await sleep(200);
     return { during, baked: $.objectSprites ? $.objectSprites.kinds.length : 0 };
   });
-  expect(r).toEqual({ during: { draws: 0, loaded: false, still: true }, baked: 13 });
+  expect(r).toEqual({ during: { draws: 0, loaded: false, still: true }, baked: 19 });
 });
 
 test('a Daily Run asked for while three.js is loading waits for it to land', async ({ page }) => {

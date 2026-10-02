@@ -124,6 +124,30 @@ export const CATALOG: MarketItem[] = [
     id: 'drone_medicwisp', title: 'MEDIC WISP DRONE', kind: 'drone', priceUsd: 0.9, priceEth: '0.0003',
     ability: 'PASSIVE: SLOWLY REGENERATES HULL',
   },
+  {
+    id: 'drone_frostsprite', title: 'FROST SPRITE DRONE', kind: 'drone', priceUsd: 0.9, priceEth: '0.0003',
+    ability: 'PASSIVE: HITS CHILL AND SLOW ENEMIES',
+  },
+  {
+    id: 'drone_salvagecrab', title: 'SALVAGE CRAB DRONE', kind: 'drone', priceUsd: 0.9, priceEth: '0.0003',
+    ability: 'PASSIVE: PULLS POWERUPS IN FROM RANGE',
+  },
+  {
+    id: 'drone_embermoth', title: 'EMBER MOTH DRONE', kind: 'drone', priceUsd: 0.9, priceEth: '0.0003',
+    ability: 'PASSIVE: HITS SET A SHORT BURN',
+  },
+  {
+    id: 'drone_mirrorbat', title: 'MIRROR BAT DRONE', kind: 'drone', priceUsd: 0.9, priceEth: '0.0003',
+    ability: 'PASSIVE: BLOCKS ONE ENEMY BOLT EVERY 8S',
+  },
+  {
+    id: 'drone_decoygecko', title: 'DECOY GECKO DRONE', kind: 'drone', priceUsd: 0.9, priceEth: '0.0003',
+    ability: 'PASSIVE: THROWS A DECOY EVERY 12S',
+  },
+  {
+    id: 'drone_scoutowl', title: 'SCOUT OWL DRONE', kind: 'drone', priceUsd: 0.9, priceEth: '0.0003',
+    ability: 'PASSIVE: MARKS ENEMIES OFF SCREEN',
+  },
   // ---- reward-only, never for sale (granted to tournament winners) ----
   {
     id: 'trail_champion', title: 'CHAMPION TRAIL', kind: 'trail', priceUsd: 0, priceEth: '0', reward: true,

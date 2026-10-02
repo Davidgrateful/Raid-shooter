@@ -4,13 +4,15 @@ import { boot, startRun, VETERAN } from './support/harness';
 /*==============================================================================
 THE DRONES IN FLIGHT
 
-Each of the six drones is a 3D model (src/components/three/droneModels.ts):
+Each of the twelve drones is a 3D model (src/components/three/droneModels.ts):
 live in the hangar and Armory, baked into a sprite sheet for the raid. In a
 raid each one flies its own way, shows its effect working, and answers every
 5th kill of a combo with its own move (public/game/drones.js).
 
   - every drone bakes, and a raid draws the equipped one from its sheet
-  - the six fly six different ways
+  - each flies its own way
+  - the newer six's abilities (chill, magnet, burn, block, decoy) do what
+    the Armory says, on frame counters - no dice
   - the effects and combo moves are drawing only: no Math.random, no score,
     no hull, no enemy touched
   - 3D off: the flat drawing, and three.js is never downloaded
@@ -19,7 +21,10 @@ raid each one flies its own way, shows its effect working, and answers every
 Desktop project only (it sets up its own runs).
 ==============================================================================*/
 
-const DRONES = ['drone_aegis', 'drone_voltmite', 'drone_needlefinch', 'drone_gravbeetle', 'drone_medicwisp', 'drone_champion'];
+const DRONES = [
+  'drone_aegis', 'drone_voltmite', 'drone_needlefinch', 'drone_gravbeetle', 'drone_medicwisp', 'drone_champion',
+  'drone_frostsprite', 'drone_salvagecrab', 'drone_embermoth', 'drone_mirrorbat', 'drone_decoygecko', 'drone_scoutowl',
+];
 
 // a pilot who owns all six (the Crest is a cup prize, granted the same way)
 const OWNS_ALL = { items: DRONES, consumables: {} };
@@ -56,7 +61,7 @@ test('every drone bakes, and a raid draws the equipped one from its sheet', asyn
   expect(errors).toEqual([]);
 });
 
-test('six drones, six ways of flying', async ({ page }) => {
+test('every drone flies its own way', async ({ page }) => {
   await boot(page, { profile: { ...VETERAN, gfx3d: 0 }, serverProfile: OWNS_ALL });
   await startRun(page, 500);
   const paths = await page.evaluate((ids) => {
@@ -96,6 +101,117 @@ test('six drones, six ways of flying', async ({ page }) => {
   expect(paths.drone_medicwisp.right).toBeLessThan(-15);
   expect(paths.drone_medicwisp.ahead).toBeLessThan(-10);
   expect(paths.drone_champion.ahead).toBeGreaterThan(15);
+  // Frost drifts over the canopy; the Crab and Moth stay behind; the Bat
+  // hangs back off the left wing; the Gecko clings close to it; the Owl
+  // rides well ahead
+  expect(paths.drone_frostsprite.right).toBeLessThan(-15);
+  expect(paths.drone_salvagecrab.ahead).toBeLessThan(-8);
+  expect(paths.drone_embermoth.ahead).toBeLessThan(-15);
+  expect(paths.drone_mirrorbat.ahead).toBeLessThan(-8);
+  expect(paths.drone_mirrorbat.right).toBeLessThan(-10);
+  expect(paths.drone_decoygecko.mean).toBeLessThan(20);
+  expect(paths.drone_decoygecko.right).toBeLessThan(-10);
+  expect(paths.drone_scoutowl.ahead).toBeGreaterThan(30);
+});
+
+test('the newer six do what the Armory says, and roll no dice', async ({ page }) => {
+  await boot(page, { profile: { ...VETERAN, gfx3d: 0 }, serverProfile: OWNS_ALL });
+  await startRun(page, 500);
+  const r = await page.evaluate(() => {
+    const $ = (window as any).$;
+    const h = $.hero;
+    $.dt = 1;
+    // a Daily Run's dice: nothing below may draw on them
+    $.beginSeededRng(777);
+    const seeded = Math.random;
+    let draws = 0;
+    Math.random = () => { draws++; return seeded(); };
+    const out: Record<string, unknown> = {};
+    try {
+      // FROST SPRITE: a hit chills for 1s: 15 PCT slower, bosses 5 PCT
+      $.storage.drone = 'drone_frostsprite';
+      const e: any = { x: 0, y: 0 }, boss: any = { isBoss: 1 };
+      $.droneOnHit(e, 1); $.droneOnHit(boss, 1);
+      const slow = [$.droneChill(e), $.droneChill(boss)];
+      for (let f = 0; f < 70; f++) $.droneChill(e);
+      out.frost = { slow, after: $.droneChill(e) };
+
+      // EMBER MOTH: 20 PCT of the hit again, over 1.5s, then it is out
+      $.storage.drone = 'drone_embermoth';
+      let burnt = 0;
+      const b: any = { receiveDamage: (_i: number, a: number) => { burnt += a; } };
+      $.droneOnHit(b, 10);
+      let frames = 0;
+      while (b.burn && frames < 200) { $.droneBurnTick(b, -1); frames++; }
+      out.ember = { burnt: Math.round(burnt * 1000) / 1000, frames };
+
+      // SALVAGE CRAB: a power-up within 120px drifts in; one beyond it does not
+      $.storage.drone = 'drone_salvagecrab';
+      const near: any = { x: h.x + 80, y: h.y - 6, width: 20, height: 12 };
+      const far: any = { x: h.x + 200, y: h.y - 6, width: 20, height: 12 };
+      const d0 = near.x;
+      for (let f = 0; f < 5; f++) { $.droneMagnet(near); $.droneMagnet(far); }
+      out.crab = { pulledIn: d0 - near.x, farMoved: far.x !== h.x + 200 };
+
+      // MIRROR BAT: one bolt, then nothing for 8s, then one again
+      $.storage.drone = 'drone_mirrorbat';
+      $.droneAbilityState = null;
+      const bolt = { x: h.x, y: h.y };
+      const first = $.droneBlock(h, bolt), second = $.droneBlock(h, bolt);
+      for (let f = 0; f < 479; f++) $.updateDroneAbilities(h);
+      const early = $.droneBlock(h, bolt);
+      $.updateDroneAbilities(h);
+      out.bat = { first, second, early, recharged: $.droneBlock(h, bolt) };
+
+      // DECOY GECKO: 6s in, a 2s hologram; nearby enemies chase it, bosses never
+      $.storage.drone = 'drone_decoygecko';
+      $.droneAbilityState = null;
+      for (let f = 0; f < 359; f++) $.updateDroneAbilities(h);
+      const before = !!$.droneAbilityState.decoy;
+      $.updateDroneAbilities(h);
+      const dc = $.droneAbilityState.decoy;
+      const lured = !!$.droneLure({ x: dc.x + 50, y: dc.y });
+      const bossLured = !!$.droneLure({ x: dc.x + 50, y: dc.y, isBoss: 1 });
+      const farLured = !!$.droneLure({ x: dc.x + 400, y: dc.y });
+      for (let f = 0; f < 121; f++) $.updateDroneAbilities(h);
+      out.gecko = { before, after: !!dc, lured, bossLured, farLured, gone: !$.droneAbilityState.decoy };
+    } finally {
+      Math.random = seeded;
+      $.endSeededRng();
+    }
+    out.draws = draws;
+    return out;
+  });
+  expect(r.frost).toEqual({ slow: [0.85, 0.95], after: 1 });
+  expect(r.ember).toEqual({ burnt: 2, frames: 90 });
+  expect((r.crab as any).pulledIn).toBeGreaterThan(20);
+  expect((r.crab as any).farMoved).toBe(false);
+  expect(r.bat).toEqual({ first: true, second: false, early: false, recharged: true });
+  expect(r.gecko).toEqual({ before: false, after: true, lured: true, bossLured: false, farLured: false, gone: true });
+  expect(r.draws).toBe(0);
+});
+
+test('a Mirror Bat really stops a bolt in a raid, then the next one lands', async ({ page }) => {
+  await boot(page, { profile: { ...VETERAN, gfx3d: 0, drone: 'drone_mirrorbat' }, serverProfile: OWNS_ALL });
+  await startRun(page, 800);
+  const r = await page.evaluate(() => {
+    const $ = (window as any).$;
+    const h = $.hero;
+    $.enemies.length = 0;
+    $.droneAbilityState = null;
+    const bolt = () => new $.Enemy({ shape: 'shard', isBolt: 1, value: 5, speed: 0, life: 1, radius: 5, hue: 320, x: h.x, y: h.y, type: 0, direction: 0, behavior() {} });
+    $.enemies.push(bolt());
+    $.enemies[0].inView = 1;
+    h.dashTick = 0; $.powerupTimers[5] = 0;
+    const life0 = h.life;
+    h.update();
+    const blocked = { gone: $.enemies.length === 0, life: h.life === life0 };
+    $.enemies.push(bolt());
+    $.enemies[0].inView = 1;
+    h.update();
+    return { blocked, landed: h.life < life0 };
+  });
+  expect(r).toEqual({ blocked: { gone: true, life: true }, landed: true });
 });
 
 test('effects and combo moves are drawing only: no dice, no score, no hull', async ({ page }) => {

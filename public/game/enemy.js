@@ -165,7 +165,16 @@ $.Enemy.prototype.update = function( i ) {
 	/*==============================================================================
 	Apply Behavior
 	==============================================================================*/
-	this.behavior();
+	// Decoy Gecko: an enemy near the hologram steers (and aims) at it instead
+	// of the ship, for the length of its behaviour this frame
+	var lure = $.droneLure ? $.droneLure( this ) : null;
+	if( lure ) {
+		var realHeroX = $.hero.x, realHeroY = $.hero.y;
+		$.hero.x = lure.x; $.hero.y = lure.y;
+		try { this.behavior(); } finally { $.hero.x = realHeroX; $.hero.y = realHeroY; }
+	} else {
+		this.behavior();
+	}
 
 	/*==============================================================================
 	Detonation (set by kamikaze-style behaviors)
@@ -218,8 +227,8 @@ $.Enemy.prototype.update = function( i ) {
 	so nothing drifts harmlessly past - the arena always closes in
 	==============================================================================*/
 	if( !this.isBolt && !this.isBoss && $.hero.life > 0 ) {
-		var hsx = $.hero.x - this.x,
-			hsy = $.hero.y - this.y,
+		var hsx = ( lure ? lure.x : $.hero.x ) - this.x,
+			hsy = ( lure ? lure.y : $.hero.y ) - this.y,
 			hsd = Math.max( 1, Math.sqrt( hsx * hsx + hsy * hsy ) ),
 			spd = Math.sqrt( this.vx * this.vx + this.vy * this.vy ) || this.speed || 1,
 			turn = 0.08 * ( $.diff ? $.diff.hunt : 1 ) * $.introMult() * ( ( $.enemyIntel && $.enemyIntel.huntBoost ) || 1 );
@@ -243,10 +252,16 @@ $.Enemy.prototype.update = function( i ) {
 	}
 
 	/*==============================================================================
-	Apply Forces
+	Ember Moth burn (may finish the enemy off)
 	==============================================================================*/
-	this.x += this.vx * $.dt;
-	this.y += this.vy * $.dt;
+	if( this.burn && $.droneBurnTick && $.droneBurnTick( this, i ) ) { return; }
+
+	/*==============================================================================
+	Apply Forces (a Frost Sprite chill slows it)
+	==============================================================================*/
+	var chill = $.droneChill ? $.droneChill( this ) : 1;
+	this.x += this.vx * $.dt * chill;
+	this.y += this.vy * $.dt * chill;
 
 	/*==============================================================================
 	Lock Bounds

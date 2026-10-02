@@ -189,7 +189,16 @@ spend) with derank/ban moderation, plus player lookup and item grant tools.
   the score, and every roll is `$.fxRandom`. Getting a drone plays an arrival
   (crate on the Armory pad after a purchase; drop-in beside the hull when
   equipped). Keep a drone's 2D drawing (3D off) and its model the same drone.
-  `tests/drones.spec.ts` holds it.
+  Twelve drones: the first six, plus FROST SPRITE (hits chill 15 PCT for 1s),
+  SALVAGE CRAB (power-ups drift in from 120px), EMBER MOTH (20 PCT burn over
+  1.5s), MIRROR BAT (one enemy bolt per 8s glances off), DECOY GECKO (a 2s
+  hologram every 12s that non-boss enemies chase) and SCOUT OWL (off-screen
+  markers, drawing only). Their abilities ARE gameplay (`$.droneOnHit`,
+  `$.droneChill`, `$.droneBurnTick`, `$.droneBlock`, `$.droneLure`,
+  `$.droneMagnet` in drones.js) and run on frame counters - never dice, so a
+  seeded raid stays the same raid. A new drone needs: a def in drones.js, a
+  catalog entry in `src/lib/market.ts`, the leaderboard DRONE_IDS allowlist,
+  and a model + tint in droneModels.ts. `tests/drones.spec.ts` holds it.
 - Achievements (`public/game/achievements.js`) are cosmetic and roll no dice;
   they show on the pilot screen's Record pane (`ServiceRecord.tsx`). Add a goal
   there with a title in the bitmap font's charset.

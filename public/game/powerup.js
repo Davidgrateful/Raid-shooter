@@ -45,6 +45,9 @@ $.Powerup.prototype.update = function( i ) {
 		$.powerups.splice( i, 1 );
 	}
 
+	// Salvage Crab: in range, it drifts in to the ship
+	if( $.droneMagnet ) { $.droneMagnet( this ); }
+
 	/*==============================================================================
 	Check Collection Collision
 	==============================================================================*/

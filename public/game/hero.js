@@ -57,6 +57,8 @@ $.Hero.prototype.update = function() {
 		if( $.equippedDrone() && $.equippedDrone().id === 'drone_medicwisp' ) {
 			this.life = Math.min( 1, this.life + 0.0004 * $.dt );
 		}
+		// the newer drones' timers: Mirror Bat recharge, Decoy Gecko hologram
+		if( $.updateDroneAbilities ) { $.updateDroneAbilities( this ); }
 
 		/*==============================================================================
 		Dash
@@ -298,6 +300,11 @@ $.Hero.prototype.update = function() {
 		while( ei-- ) {
 			var enemy = $.enemies[ ei ];
 			if( enemy.inView && $.util.distance( this.x, this.y, enemy.x, enemy.y ) <= this.radius + enemy.radius ) {
+				// Mirror Bat: one enemy bolt every 8s glances off harmlessly
+				if( enemy.isBolt && $.droneBlock && $.droneBlock( this, enemy ) ) {
+					$.enemies.splice( ei, 1 );
+					continue;
+				}
 				$.particleEmitters.push( new $.ParticleEmitter( {
 					x: this.x,
 					y: this.y,

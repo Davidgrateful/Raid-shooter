@@ -1,7 +1,7 @@
 import type * as THREE_NS from 'three';
 
 /*==============================================================================
-The six combat drones as 3D models
+The combat drones as 3D models
 
 Unit radius, nose/front toward -z (screen up when seen from above), top toward
 +y. Each returns its group plus `anim(t)` for the parts that move (spinning
@@ -22,7 +22,10 @@ export interface DroneModel {
   dispose(): void;
 }
 
-export const DRONE_IDS = ['drone_aegis', 'drone_voltmite', 'drone_needlefinch', 'drone_gravbeetle', 'drone_medicwisp', 'drone_champion'] as const;
+export const DRONE_IDS = [
+  'drone_aegis', 'drone_voltmite', 'drone_needlefinch', 'drone_gravbeetle', 'drone_medicwisp', 'drone_champion',
+  'drone_frostsprite', 'drone_salvagecrab', 'drone_embermoth', 'drone_mirrorbat', 'drone_decoygecko', 'drone_scoutowl',
+] as const;
 
 /** each drone's tint, as in drones.js */
 export const DRONE_TINTS: Record<string, string> = {
@@ -32,6 +35,12 @@ export const DRONE_TINTS: Record<string, string> = {
   drone_gravbeetle: 'hsl(280, 58%, 62%)',
   drone_medicwisp: 'hsl(145, 60%, 52%)',
   drone_champion: 'hsl(45, 100%, 58%)',
+  drone_frostsprite: 'hsl(198, 90%, 72%)',
+  drone_salvagecrab: 'hsl(28, 72%, 56%)',
+  drone_embermoth: 'hsl(14, 95%, 58%)',
+  drone_mirrorbat: 'hsl(215, 22%, 78%)',
+  drone_decoygecko: 'hsl(165, 75%, 52%)',
+  drone_scoutowl: 'hsl(38, 48%, 60%)',
 };
 
 export const isDroneId = (id: string) => (DRONE_IDS as readonly string[]).includes(id);
@@ -206,6 +215,184 @@ export function buildDrone(T: Three, id: string, tint: string): DroneModel {
       }
     }
     anim = (t) => { ruby.rotation.y = t * 1.5; };
+  } else if (id === 'drone_frostsprite') {
+    // FROST SPRITE: a six-armed ice crystal round a cold glowing core
+    const ice = keep(new T.MeshPhysicalMaterial({ color: shade(0.12, -0.1), roughness: 0.08, metalness: 0.05, clearcoat: 1, transparent: true, opacity: 0.9 }));
+    const core = mesh(new T.OctahedronGeometry(0.26), glow(shade(0.1, 0.1), 2.6));
+    core.scale.set(1, 1.3, 1);
+    const star = new T.Group(); g.add(star);
+    for (let k = 0; k < 6; k++) {
+      const arm = new T.Group(); arm.rotation.y = (k / 6) * Math.PI * 2; star.add(arm);
+      const shaft = mesh(new T.OctahedronGeometry(0.5), ice, arm);
+      shaft.scale.set(0.16, 0.12, 1); shaft.position.z = -0.52;
+      for (const s of [-1, 1]) {
+        const barb = mesh(new T.OctahedronGeometry(0.18), ice, arm);
+        barb.scale.set(0.12, 0.1, 1); barb.position.set(s * 0.11, 0, -0.62); barb.rotation.y = s * 0.8;
+      }
+      const tip = mesh(new T.SphereGeometry(0.05, 8, 6), glow(shade(0.2), 2.5), arm);
+      tip.position.z = -0.98;
+    }
+    const halo = mesh(new T.TorusGeometry(0.4, 0.02, 6, 40), glow(shade(0.15), 1.6));
+    halo.rotation.x = Math.PI / 2;
+    anim = (t) => { star.rotation.y = t * 0.5; core.rotation.y = -t * 1.2; halo.scale.setScalar(1 + Math.sin(t * 2.2) * 0.08); };
+  } else if (id === 'drone_salvagecrab') {
+    // SALVAGE CRAB: a squat armoured crab with grabbing claws and a magnet on its back
+    const shell = metal(shade(-0.02), 0.6, 0.38);
+    const body = mesh(new T.SphereGeometry(0.5, 24, 14), shell);
+    body.scale.set(1.15, 0.45, 0.85);
+    const belly = mesh(new T.SphereGeometry(0.45, 18, 10), dark);
+    belly.scale.set(1.15, 0.32, 0.8); belly.position.y = -0.06;
+    const claws: THREE_NS.Group[] = [];
+    for (const s of [-1, 1]) {
+      const arm = mesh(new T.CylinderGeometry(0.06, 0.07, 0.42, 8), shell);
+      arm.position.set(s * 0.42, 0, -0.42); arm.rotation.x = Math.PI / 2; arm.rotation.z = s * 0.5;
+      const claw = new T.Group(); claw.position.set(s * 0.52, 0.02, -0.66); g.add(claw);
+      const top = mesh(new T.BoxGeometry(0.1, 0.07, 0.34), shell, claw); top.position.set(s * 0.05, 0, -0.12);
+      const bot = mesh(new T.BoxGeometry(0.1, 0.07, 0.3), metal(shade(-0.12), 0.6, 0.4), claw); bot.position.set(-s * 0.05, 0, -0.1);
+      claws.push(claw);
+      for (let k = 0; k < 3; k++) {
+        const leg = mesh(new T.CylinderGeometry(0.03, 0.02, 0.46, 6), dark);
+        leg.position.set(s * 0.6, -0.08, -0.1 + k * 0.22); leg.rotation.z = s * 1.15; leg.rotation.y = s * (0.15 - k * 0.2);
+      }
+      const stalk = mesh(new T.CylinderGeometry(0.02, 0.02, 0.18, 6), dark);
+      stalk.position.set(s * 0.13, 0.24, -0.34);
+      const eye = mesh(new T.SphereGeometry(0.055, 10, 8), glow('#d9fff4', 2.4));
+      eye.position.set(s * 0.13, 0.34, -0.34);
+    }
+    // the magnet: a red U with steel poles, on a short mast
+    const magnet = new T.Group(); magnet.position.set(0, 0.3, 0.05); g.add(magnet);
+    const u = mesh(new T.TorusGeometry(0.2, 0.07, 10, 24, Math.PI), metal('#c8313a', 0.5, 0.35), magnet);
+    u.rotation.z = Math.PI;
+    for (const s of [-1, 1]) { const pole = mesh(new T.CylinderGeometry(0.075, 0.075, 0.1, 12), steel, magnet); pole.position.set(s * 0.2, 0.04, 0); }
+    anim = (t) => {
+      const pinch = (Math.sin(t * 3) + 1) * 0.25;
+      claws.forEach((c, i) => { c.rotation.y = (i ? -1 : 1) * pinch; });
+      magnet.rotation.y = Math.sin(t * 0.9) * 0.6;
+    };
+  } else if (id === 'drone_embermoth') {
+    // EMBER MOTH: a moth with smouldering wings and a glowing ember abdomen
+    const fur = metal(shade(-0.25, -0.3), 0.2, 0.7);
+    const thorax = mesh(new T.SphereGeometry(0.18, 16, 12), fur);
+    thorax.scale.set(1, 0.9, 1.3); thorax.position.z = -0.1;
+    const head = mesh(new T.SphereGeometry(0.12, 14, 10), fur);
+    head.position.z = -0.34;
+    for (let k = 0; k < 3; k++) {
+      const seg = mesh(new T.SphereGeometry(0.15 - k * 0.03, 14, 10), glow(new T.Color().setHSL(hsl.h + k * 0.02, 1, 0.5 - k * 0.04), 2.2 - k * 0.4));
+      seg.position.z = 0.14 + k * 0.17;
+      seg.scale.set(1, 0.85, 1.1);
+    }
+    for (const s of [-1, 1]) {
+      const ant = mesh(new T.CylinderGeometry(0.012, 0.012, 0.36, 5), fur);
+      ant.position.set(s * 0.1, 0.06, -0.55); ant.rotation.x = -Math.PI / 2 + 0.35; ant.rotation.z = s * 0.45;
+    }
+    const wingMat = keep(new T.MeshStandardMaterial({ color: shade(-0.08), emissive: shade(-0.2, 0.2), emissiveIntensity: 0.35, roughness: 0.6, metalness: 0.1, side: T.DoubleSide }));
+    const edgeMat = glow(shade(0.05, 0.1), 2);
+    const wings: Array<{ grp: THREE_NS.Group; s: number }> = [];
+    const fore = new T.Shape(); fore.moveTo(0, 0); fore.bezierCurveTo(0.35, -0.55, 0.95, -0.5, 1.0, -0.2); fore.bezierCurveTo(0.9, 0.05, 0.4, 0.1, 0, 0.05);
+    const hind = new T.Shape(); hind.moveTo(0, 0); hind.bezierCurveTo(0.3, 0.1, 0.75, 0.25, 0.7, 0.55); hind.bezierCurveTo(0.45, 0.65, 0.15, 0.4, 0, 0.12);
+    for (const s of [-1, 1]) {
+      const grp = new T.Group(); grp.position.set(s * 0.1, 0.05, -0.08); g.add(grp);
+      for (const [shape, z] of [[fore, 0], [hind, 0.06]] as const) {
+        const w = mesh(new T.ShapeGeometry(shape, 16), wingMat, grp);
+        w.rotation.x = -Math.PI / 2; w.scale.x = s; w.position.z = z;
+        // a hot rim along each wing
+        const pts = shape.getPoints(24).map((p) => new T.Vector3(p.x * s, 0.01, -p.y + z));
+        const line = new T.Line(keep(new T.BufferGeometry().setFromPoints(pts)), keep(new T.LineBasicMaterial({ color: shade(0.15, 0.1) })));
+        grp.add(line);
+      }
+      const spot = mesh(new T.CircleGeometry(0.1, 16), edgeMat, grp);
+      spot.rotation.x = -Math.PI / 2; spot.position.set(s * 0.55, 0.015, 0.3);
+      wings.push({ grp, s });
+    }
+    anim = (t) => { const f = Math.sin(t * 9) * 0.45; wings.forEach((w) => { w.grp.rotation.z = w.s * f; }); };
+  } else if (id === 'drone_mirrorbat') {
+    // MIRROR BAT: a small dark bat whose wings are polished mirror
+    const fur = metal('#1c1f27', 0.4, 0.6);
+    const body = mesh(new T.SphereGeometry(0.22, 16, 12), fur);
+    body.scale.set(0.9, 0.8, 1.3);
+    const head = mesh(new T.SphereGeometry(0.15, 14, 10), fur);
+    head.position.z = -0.3;
+    for (const s of [-1, 1]) {
+      const ear = mesh(new T.ConeGeometry(0.06, 0.2, 8), fur);
+      ear.position.set(s * 0.08, 0.14, -0.33); ear.rotation.z = -s * 0.3;
+      const eye = mesh(new T.SphereGeometry(0.035, 8, 6), glow('#7ff4ff', 2.6));
+      eye.position.set(s * 0.06, 0.05, -0.43);
+    }
+    // chrome that still reads under a plain lamp (the bay has no
+    // reflections to show, and a perfect mirror there renders black)
+    const mirror = keep(new T.MeshStandardMaterial({ color: shade(0.2, -0.2), metalness: 0.6, roughness: 0.14, emissive: shade(-0.35), emissiveIntensity: 0.35, side: T.DoubleSide }));
+    const wings: Array<{ grp: THREE_NS.Group; s: number }> = [];
+    const wing = new T.Shape();
+    wing.moveTo(0, -0.15); wing.lineTo(0.55, -0.42); wing.lineTo(1.0, -0.3); wing.quadraticCurveTo(0.85, -0.12, 0.92, 0.05);
+    wing.quadraticCurveTo(0.72, -0.02, 0.62, 0.18); wing.quadraticCurveTo(0.45, 0.05, 0.3, 0.22); wing.quadraticCurveTo(0.2, 0.05, 0, 0.12); wing.closePath();
+    for (const s of [-1, 1]) {
+      const grp = new T.Group(); grp.position.set(s * 0.12, 0.02, 0); g.add(grp);
+      const w = mesh(new T.ExtrudeGeometry(wing, { depth: 0.02, bevelEnabled: false }), mirror, grp);
+      w.rotation.x = -Math.PI / 2; w.scale.x = s;
+      for (const [x, y] of [[0.55, -0.42], [1.0, -0.3], [0.92, 0.05]]) {
+        const finger = mesh(new T.CylinderGeometry(0.014, 0.014, Math.hypot(x, y + 0.1), 5), fur, grp);
+        finger.position.set(s * x / 2, 0.02, -(y - 0.1) / 2 - 0.05);
+        finger.rotation.z = Math.PI / 2; finger.rotation.y = s * Math.atan2(-(y - 0.1), x) * -1;
+      }
+      wings.push({ grp, s });
+    }
+    anim = (t) => { const f = Math.sin(t * 2.4) * 0.22; wings.forEach((w) => { w.grp.rotation.z = w.s * f; }); };
+  } else if (id === 'drone_decoygecko') {
+    // DECOY GECKO: a gecko with a holo-projector tail and a flickering double
+    const skin = metal(shade(-0.02), 0.35, 0.45);
+    const body = mesh(new T.SphereGeometry(0.3, 18, 12), skin);
+    body.scale.set(0.75, 0.42, 1.25);
+    const head = mesh(new T.SphereGeometry(0.2, 16, 12), skin);
+    head.scale.set(1.05, 0.6, 1.2); head.position.z = -0.45;
+    for (const s of [-1, 1]) {
+      const eye = mesh(new T.SphereGeometry(0.065, 10, 8), glow('#f7ff9a', 2));
+      eye.position.set(s * 0.13, 0.06, -0.5);
+      for (const z of [-0.2, 0.22]) {
+        const leg = mesh(new T.CylinderGeometry(0.035, 0.03, 0.32, 6), skin);
+        leg.position.set(s * 0.3, -0.02, z); leg.rotation.z = s * 1.3; leg.rotation.y = z < 0 ? s * 0.5 : -s * 0.5;
+        const pad = mesh(new T.SphereGeometry(0.06, 8, 6), metal(shade(0.12), 0.3, 0.5));
+        pad.scale.set(1, 0.4, 1); pad.position.set(s * 0.45, -0.04, z + (z < 0 ? -0.08 : 0.08));
+      }
+    }
+    // the tail curls round to the projector
+    const curve = new T.CatmullRomCurve3([new T.Vector3(0, 0, 0.35), new T.Vector3(0.05, 0, 0.62), new T.Vector3(0.3, 0, 0.78), new T.Vector3(0.48, 0, 0.6), new T.Vector3(0.36, 0, 0.45)]);
+    mesh(new T.TubeGeometry(curve, 24, 0.06, 8), skin);
+    const lens = mesh(new T.SphereGeometry(0.08, 12, 10), glow(shade(0.12, 0.15), 3));
+    lens.position.set(0.36, 0.05, 0.45);
+    // the decoy it throws: a ghost gecko outline, offset and flickering
+    const ghostMat = keep(new T.MeshBasicMaterial({ color: shade(0.2, 0.1), wireframe: true, transparent: true, opacity: 0.35, depthWrite: false }));
+    const ghost = new T.Group(); ghost.position.set(-0.55, 0.05, 0.1); g.add(ghost);
+    const gb = mesh(new T.SphereGeometry(0.3, 10, 6), ghostMat, ghost); gb.scale.set(0.75, 0.42, 1.25);
+    const gh = mesh(new T.SphereGeometry(0.2, 8, 6), ghostMat, ghost); gh.scale.set(1.05, 0.6, 1.2); gh.position.z = -0.45;
+    ghost.scale.setScalar(0.7);
+    anim = (t) => { ghostMat.opacity = 0.2 + Math.max(0, Math.sin(t * 13) * Math.sin(t * 3.1)) * 0.4; lens.scale.setScalar(1 + Math.sin(t * 6) * 0.15); };
+  } else if (id === 'drone_scoutowl') {
+    // SCOUT OWL: a compact owl with two big lens eyes and a radar dish on its back
+    const plume = metal(shade(-0.24, -0.1), 0.5, 0.45);
+    const body = mesh(new T.SphereGeometry(0.42, 22, 16), plume);
+    body.scale.set(0.9, 0.7, 1.05);
+    const face = mesh(new T.SphereGeometry(0.3, 20, 14), metal(shade(0.12, -0.15), 0.4, 0.5));
+    face.scale.set(1.3, 0.8, 0.6); face.position.set(0, 0.16, -0.26);
+    for (const s of [-1, 1]) {
+      const rim = mesh(new T.TorusGeometry(0.15, 0.04, 8, 24), steel);
+      rim.position.set(s * 0.17, 0.33, -0.34); rim.rotation.x = -1.95;
+      const lensE = mesh(new T.CircleGeometry(0.13, 24), glow('#ffcf6a', 2.4));
+      lensE.position.set(s * 0.17, 0.335, -0.345); lensE.rotation.x = -1.95;
+      const pupil = mesh(new T.CircleGeometry(0.05, 16), keep(new T.MeshBasicMaterial({ color: '#120b02' })));
+      pupil.position.set(s * 0.17, 0.34, -0.348); pupil.rotation.x = -1.95;
+      const tuft = mesh(new T.ConeGeometry(0.06, 0.24, 8), plume);
+      tuft.position.set(s * 0.26, 0.32, -0.2); tuft.rotation.z = -s * 0.5;
+      const wingF = mesh(new T.SphereGeometry(0.3, 16, 10, 0, Math.PI), metal(shade(-0.15), 0.5, 0.45));
+      wingF.scale.set(0.35, 0.55, 1.1); wingF.position.set(s * 0.33, 0.02, 0.08); wingF.rotation.y = s > 0 ? -Math.PI / 2 : Math.PI / 2;
+    }
+    const beak = mesh(new T.ConeGeometry(0.05, 0.14, 6), metal('#e3b04a', 0.8, 0.3));
+    beak.position.set(0, 0.22, -0.44); beak.rotation.x = -Math.PI / 2 - 0.5;
+    const dish = new T.Group(); dish.position.set(0, 0.3, 0.25); g.add(dish);
+    const bowl = mesh(new T.SphereGeometry(0.17, 18, 8, 0, Math.PI * 2, 0, Math.PI * 0.35), keep(new T.MeshStandardMaterial({ color: '#dfe6ee', metalness: 0.6, roughness: 0.3, side: T.DoubleSide })), dish);
+    bowl.rotation.x = Math.PI * 0.6;
+    const feed = mesh(new T.SphereGeometry(0.035, 8, 6), glow(shade(0.1, 0.2), 3), dish);
+    feed.position.set(0, 0.06, -0.12);
+    anim = (t) => { dish.rotation.y = t * 2.2; };
   }
   return { group: g, anim, dispose() { trash.forEach((d) => d.dispose()); } };
 }

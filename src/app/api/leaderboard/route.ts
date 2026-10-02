@@ -49,6 +49,7 @@ const PILOT_IDS = new Set([
 ]);
 const DRONE_IDS = new Set([
   'drone_aegis', 'drone_voltmite', 'drone_needlefinch', 'drone_gravbeetle', 'drone_medicwisp', 'drone_champion',
+  'drone_frostsprite', 'drone_salvagecrab', 'drone_embermoth', 'drone_mirrorbat', 'drone_decoygecko', 'drone_scoutowl',
 ]);
 // ship colors are '#fff' or 'hsl(190, 100%, 60%)' style strings (see
 // $.definitions.shipColors / premiumColors) - never free text
