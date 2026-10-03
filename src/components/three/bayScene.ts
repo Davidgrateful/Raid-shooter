@@ -432,6 +432,7 @@ export function createBayScene(T: Three, canvas: HTMLCanvasElement, mode: BayMod
       escortKey = ek;
       if (escort) { scene.remove(escort.sprite); escort.dispose(); escort = null; }
       if (escortDrone) { scene.remove(escortDrone.group); escortDrone.dispose(); escortDrone = null; }
+      link = -1; beam.visible = false; delete canvas.dataset.link;
       escortId = ek && s.drone ? s.drone.id : '';
       if (ek && s.drone && isDroneId(s.drone.id)) {
         escortDrone = buildDrone(T, s.drone.id, DRONE_TINTS[s.drone.id]);
@@ -492,6 +493,27 @@ export function createBayScene(T: Three, canvas: HTMLCanvasElement, mode: BayMod
     return { group, walls, lid, stripe };
   }
   const ease = (x: number) => 1 - Math.pow(1 - Math.min(1, Math.max(0, x)), 3);
+
+  /* the link-up: a pilot and its drone, together. The drone leaves its
+     orbit for formation off the nose, a beam joins them in the pilot's
+     colour (its test-fire hue), the plane fires a burst, and the drone
+     goes back to its orbit. Plays when a drone is equipped and when a
+     pilot lands with one already riding along. */
+  let link = -1;
+  const beamMat = keep(new T.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0, depthWrite: false, blending: T.AdditiveBlending }));
+  const beam = new T.Mesh(keep(new T.CylinderGeometry(0.035, 0.035, 1, 10, 1, true)), beamMat);
+  beam.visible = false;
+  scene.add(beam);
+  const linkFrom = new T.Vector3();
+  const linkTo = new T.Vector3();
+  const beamUp = new T.Vector3(0, 1, 0);
+  function startLink() {
+    if (reduced || !escortDrone || !plane) return;
+    link = 0;
+    beamMat.color.set(`hsl(${motion.fire.hue}, 100%, 66%)`);
+    canvas.dataset.link = '1';
+    loop();
+  }
   function startArrival(kind: 'crate' | 'escort', id: string) {
     if (reduced) return;
     if (kind === 'crate' && !crate) crate = buildCrate();
@@ -527,7 +549,7 @@ export function createBayScene(T: Three, canvas: HTMLCanvasElement, mode: BayMod
       out = { s: Math.max(0.01, u), lift: 1.4 * (1 - u), spin: (1 - u) * 14 * dt };
       burstU = (a - 0.55) / 0.7;
       if (escortDrone) burstAt = escortDrone.group.position.clone();
-      if (a > 1.3) arrival = null;
+      if (a > 1.3) { arrival = null; startLink(); }
     }
     sparks.forEach((p) => {
       const on = burstU > 0 && burstU < 1;
@@ -634,6 +656,8 @@ export function createBayScene(T: Three, canvas: HTMLCanvasElement, mode: BayMod
         shockT = 1;
         shake = motion.impact >= 0.9 ? 1 : 0;
         fireAt = t + 0.7;
+        // a pilot that lands with a drone riding along links up with it
+        if (escortDrone && !arrival) startLink();
       }
     }
     const lp = isHull && !reduced ? motion.land(landU, landDir) : null;
@@ -706,6 +730,29 @@ export function createBayScene(T: Three, canvas: HTMLCanvasElement, mode: BayMod
       const g = escortDrone.group;
       const escArr = arr && arrival?.kind === 'escort' ? arr : null;
       g.position.set(Math.cos(a) * 3.0, 1.7 + Math.sin(t * 1.3) * 0.15 + (escArr ? escArr.lift : 0), Math.sin(a) * 1.6);
+      if (link >= 0 && plane) {
+        link += dt;
+        const L = link;
+        // 0-0.5s into formation, hold, 1.3-1.9s back to the orbit
+        const w = L < 0.5 ? ease(L / 0.5) : L < 1.3 ? 1 : 1 - ease((L - 1.3) / 0.6);
+        linkTo.set(noseX * 0.35, 1.0, 1.1);
+        plane.group.localToWorld(linkTo);
+        g.position.lerp(linkTo, w);
+        // the beam, drone to hull, while they are together
+        const on = L > 0.35 && L < 1.45;
+        beam.visible = on;
+        if (on) {
+          plane.group.getWorldPosition(linkFrom);
+          const len = linkFrom.distanceTo(g.position);
+          beam.position.copy(linkFrom).add(g.position).multiplyScalar(0.5);
+          beam.quaternion.setFromUnitVectors(beamUp, linkTo.copy(g.position).sub(linkFrom).normalize());
+          beam.scale.set(1 + Math.sin(L * 30) * 0.3, len, 1 + Math.sin(L * 30) * 0.3);
+          beamMat.opacity = Math.sin(((L - 0.35) / 1.1) * Math.PI) * 0.9;
+        }
+        // the plane answers with a burst in its own pattern
+        if (L >= 0.55 && L - dt < 0.55 && mode !== 'pad') { shotsLeft = motion.fire.burst; nextShot = t; }
+        if (L > 1.9) { link = -1; beam.visible = false; delete canvas.dataset.link; }
+      }
       g.scale.setScalar(ESCORT_SCALE * (escArr ? escArr.s : 1));
       // nose along its orbit (front is -z); the crest stays facing the camera
       const vx = -Math.sin(a) * 3.0, vz = Math.cos(a) * 1.6;

@@ -50,9 +50,11 @@ test('every drone bakes, and a raid draws the equipped one from its sheet', asyn
     const seen: string[] = [];
     const real = $.objectSprites.draw;
     $.objectSprites.draw = (ctx: unknown, o: { kind: string }) => { const ok = real(ctx, o); if (ok && o.kind.startsWith('drone_')) seen.push(o.kind); return ok; };
+    // each one until it has been drawn (a slow box can go a while between frames)
     for (const id of ids) {
       $.storage.drone = id;
-      await new Promise((r) => setTimeout(r, 250));
+      const t0 = Date.now();
+      while (!seen.includes(id) && Date.now() - t0 < 5000) await new Promise((r) => setTimeout(r, 50));
     }
     $.objectSprites.draw = real;
     return [...new Set(seen)].sort();
@@ -228,6 +230,8 @@ test('effects and combo moves are drawing only: no dice, no score, no hull', asy
     Math.random = () => { draws++; return seeded(); };
     const before = { score: $.score, life: h.life, enemies: $.enemies.length, combo: $.combo };
     const fx: Record<string, { fx: number; surge: boolean; label: string }> = {};
+    // a fixed 60fps step, whatever this machine's frame rate
+    $.dt = 1;
     try {
       for (const id of ids) {
         $.storage.drone = id;
@@ -338,7 +342,66 @@ test('a drone equipped in the hangar drops in beside the hull', async ({ page })
     const c = document.querySelector('[data-bay3d="ready"] canvas') as HTMLCanvasElement;
     const t0 = Date.now();
     while (!c.dataset.arrival && Date.now() - t0 < 5000) await new Promise((r) => setTimeout(r, 50));
-    return c.dataset.arrival || '';
+    const arrival = c.dataset.arrival || '';
+    // then pilot and drone link up: formation, a beam, a burst
+    // (a software-rendered browser runs the bay at a few frames a second)
+    while (!c.dataset.link && Date.now() - t0 < 40000) await new Promise((r) => setTimeout(r, 50));
+    return { arrival, linked: c.dataset.link === '1' };
   });
-  expect(seen).toBe('escort');
+  expect(seen).toEqual({ arrival: 'escort', linked: true });
+});
+
+test('every pilot + drone pair has its own combo move, and rolls no raid dice', async ({ page }) => {
+  await boot(page, { profile: { ...VETERAN, gfx3d: 0 }, serverProfile: OWNS_ALL });
+  await startRun(page, 500);
+  const r = await page.evaluate((ids) => {
+    const $ = (window as any).$;
+    const h = $.hero;
+    const keep = { ctx: $.ctxmg, x: h.x, y: h.y, dir: h.direction, ch: h.character, drone: $.storage.drone, reduce: $.reduceMotion };
+    const c = document.createElement('canvas');
+    c.width = c.height = 300;
+    const ctx = c.getContext('2d')!;
+    $.ctxmg = ctx;
+    $.reduceMotion = false;
+    h.x = 150; h.y = 150; h.direction = 0;
+    $.beginSeededRng(31337);
+    const seeded = Math.random;
+    let draws = 0;
+    Math.random = () => { draws++; return seeded(); };
+    const hashes = new Set<string>();
+    const missing: string[] = [];
+    let pairs = 0;
+    try {
+      for (const pilot of $.definitions.characters) {
+        if (!$.pilotSync[pilot.id]) missing.push(pilot.id);
+        h.character = pilot;
+        for (const id of ids) {
+          $.storage.drone = id;
+          $.droneRig = null;
+          $.updateDrone(h);
+          $.droneRig.surge = { t: 0.55, life: 1.5 };
+          $.droneRig.label = { t: 0.2, life: 1.4 };
+          ctx.clearRect(0, 0, 300, 300);
+          $.renderDroneUnder(h);
+          $.renderDrone(h);
+          const px = ctx.getImageData(0, 0, 300, 300).data;
+          let a = 0, b = 0;
+          for (let i = 0; i < px.length; i += 4) { a = (a * 31 + px[i] + px[i + 1] * 3 + px[i + 2] * 7) >>> 0; b += px[i + 3]; }
+          hashes.add(a + ':' + b);
+          pairs++;
+        }
+      }
+    } finally {
+      Math.random = seeded;
+      $.endSeededRng();
+      $.ctxmg = keep.ctx; h.x = keep.x; h.y = keep.y; h.direction = keep.dir; h.character = keep.ch;
+      $.storage.drone = keep.drone; $.reduceMotion = keep.reduce; $.droneRig = null;
+    }
+    return { pairs, distinct: hashes.size, missing, draws };
+  }, DRONES);
+  // 13 pilots x 12 drones, every combo frame different
+  expect(r.missing).toEqual([]);
+  expect(r.pairs).toBe(156);
+  expect(r.distinct).toBe(156);
+  expect(r.draws).toBe(0);
 });

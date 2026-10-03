@@ -199,6 +199,14 @@ spend) with derank/ban moderation, plus player lookup and item grant tools.
   seeded raid stays the same raid. A new drone needs: a def in drones.js, a
   catalog entry in `src/lib/market.ts`, the leaderboard DRONE_IDS allowlist,
   and a model + tint in droneModels.ts. `tests/drones.spec.ts` holds it.
+- Pilot + drone sync: a combo move is the drone's shape, glowing in the
+  pilot's colour, with the pilot's own flourish on top (`$.pilotSync` and
+  `droneFlourish` in drones.js: CHEVRONS, AFTERIMAGES, QUAKE, ... one per
+  pilot; the hue is the pilot's bay test-fire hue in pilotMotion.ts). All 13 x
+  12 pairs render differently - a test checks every pair. A new pilot needs a
+  `$.pilotSync` entry and a flourish. In the hangar, equipping a drone (or a
+  pilot landing with one) plays the link-up: formation, a beam in the pilot's
+  colour, a burst (`startLink` in bayScene.ts). Drawing only, like the moves.
 - Achievements (`public/game/achievements.js`) are cosmetic and roll no dice;
   they show on the pilot screen's Record pane (`ServiceRecord.tsx`). Add a goal
   there with a title in the bitmap font's charset.

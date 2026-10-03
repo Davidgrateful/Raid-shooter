@@ -841,6 +841,165 @@ function droneScoutMarks( ctx ) {
 	for( var j = 0; j < objs.length; j++ ) { mark( objs[ j ].x, objs[ j ].y, 'hsla(200, 30%, 78%, 1)' ); }
 }
 
+/*==============================================================================
+Pilot + drone sync
+
+A combo move is the drone's (its shape: BLIZZARD's snowflakes, ECHO's rings)
+painted in the pilot's colour, with the pilot's own flourish on top - so all
+13 x 12 pairs look different. The hue is the pilot's test-fire colour in the
+hangar bay (pilotMotion.ts), so a pilot reads the same in both places.
+Drawing only, like the move itself; rolls only $.fxRandom.
+==============================================================================*/
+$.pilotSync = {
+	onyix: { hue: 190, name: 'CHEVRONS' },
+	nova: { hue: 200, name: 'AFTERIMAGES' },
+	tankrex: { hue: 30, name: 'QUAKE' },
+	astravane: { hue: 160, name: 'TAILWIND' },
+	ironhalo: { hue: 210, name: 'HALO GEAR' },
+	runepilot: { hue: 280, name: 'RUNE RING' },
+	nebulafox: { hue: 300, name: 'TWIN TAILS' },
+	javelin9: { hue: 55, name: 'LANCES' },
+	atlasbeam: { hue: 45, name: 'CANNON' },
+	glitchprince: { hue: 320, name: 'GLITCH' },
+	solstice: { hue: 40, name: 'CORONA' },
+	crimsonwisp: { hue: 8, name: 'WISPS' },
+	voltrider: { hue: 270, name: 'NEON' }
+};
+
+function droneSyncFor( hero ) {
+	return ( hero && hero.character && $.pilotSync[ hero.character.id ] ) || { hue: 190, name: '' };
+}
+function droneSyncColour( hero, l, a ) {
+	return 'hsla(' + droneSyncFor( hero ).hue + ', 100%, ' + ( l || 64 ) + '%, ' + ( a == null ? 1 : a ) + ')';
+}
+
+// the pilot's flourish over a combo move, u = 0..1 through the move
+function droneFlourish( ctx, hero, u ) {
+	var id = hero.character && hero.character.id, x = hero.x, y = hero.y,
+		dir = hero.direction, fx = Math.cos( dir ), fy = Math.sin( dir ),
+		c = droneSyncColour( hero ), hot = droneSyncColour( hero, 86 ), k, a, r;
+	ctx.save();
+	ctx.globalCompositeOperation = 'lighter';
+	ctx.strokeStyle = c; ctx.fillStyle = c; ctx.lineWidth = 2;
+	if( id === 'onyix' ) {
+		// three chevrons sweep forward off the nose
+		for( k = 0; k < 3; k++ ) {
+			var cu = Math.max( 0, Math.min( 1, u * 1.6 - k * 0.18 ) ), d = 20 + cu * 70;
+			ctx.globalAlpha = Math.sin( cu * Math.PI ) * 0.9;
+			ctx.save(); ctx.translate( x + fx * d, y + fy * d ); ctx.rotate( dir );
+			ctx.beginPath(); ctx.moveTo( -6, -10 ); ctx.lineTo( 4, 0 ); ctx.lineTo( -6, 10 ); ctx.stroke();
+			ctx.restore();
+		}
+	} else if( id === 'nova' ) {
+		// four afterimages strung out behind, then a starburst
+		for( k = 1; k <= 4; k++ ) {
+			ctx.globalAlpha = ( 1 - u ) * ( 0.5 - k * 0.1 );
+			ctx.save(); ctx.translate( x - fx * k * 14 * ( 0.4 + u ), y - fy * k * 14 * ( 0.4 + u ) ); ctx.rotate( dir );
+			if( hero.character.draw ) { hero.character.draw( ctx, hero.radius, c, $.tick ); }
+			ctx.restore();
+		}
+		ctx.globalAlpha = Math.max( 0, 1 - u * 2 ); ctx.strokeStyle = hot;
+		ctx.beginPath();
+		for( k = 0; k < 8; k++ ) { a = k / 8 * $.twopi; ctx.moveTo( x + Math.cos( a ) * 8, y + Math.sin( a ) * 8 ); ctx.lineTo( x + Math.cos( a ) * ( 14 + u * 30 ), y + Math.sin( a ) * ( 14 + u * 30 ) ); }
+		ctx.stroke();
+	} else if( id === 'tankrex' ) {
+		// a heavy quake: one thick ring and cracks running out
+		ctx.globalAlpha = ( 1 - u ) * 0.8; ctx.lineWidth = 5;
+		ctx.beginPath(); ctx.arc( x, y, 16 + u * 60, 0, $.twopi ); ctx.stroke();
+		ctx.lineWidth = 1.5; ctx.strokeStyle = hot;
+		ctx.beginPath();
+		for( k = 0; k < 7; k++ ) {
+			a = k / 7 * $.twopi + 0.3; r = 14;
+			ctx.moveTo( x + Math.cos( a ) * r, y + Math.sin( a ) * r );
+			for( var seg = 1; seg <= 3; seg++ ) { r = 14 + seg * u * 18; a += ( seg % 2 ? 0.18 : -0.18 ); ctx.lineTo( x + Math.cos( a ) * r, y + Math.sin( a ) * r ); }
+		}
+		ctx.stroke();
+	} else if( id === 'astravane' ) {
+		// ribbons of wind spiralling round the hull
+		ctx.globalAlpha = Math.sin( u * Math.PI ) * 0.85; ctx.lineWidth = 2.5;
+		for( k = 0; k < 3; k++ ) {
+			var base = k / 3 * $.twopi + u * 4;
+			ctx.beginPath(); ctx.arc( x, y, 22 + k * 7 + u * 14, base, base + 1.4 ); ctx.stroke();
+		}
+	} else if( id === 'ironhalo' ) {
+		// a heavy toothed ring turning over the hull
+		ctx.globalAlpha = Math.sin( u * Math.PI ) * 0.9; ctx.lineWidth = 3;
+		ctx.beginPath(); ctx.arc( x, y, 26, 0, $.twopi ); ctx.stroke();
+		for( k = 0; k < 12; k++ ) {
+			a = k / 12 * $.twopi + u * 2.2;
+			ctx.fillRect( x + Math.cos( a ) * 26 - 2.5, y + Math.sin( a ) * 26 - 2.5, 5, 5 );
+		}
+	} else if( id === 'runepilot' ) {
+		// a ring of runes, each a small glyph
+		ctx.globalAlpha = Math.sin( u * Math.PI ); ctx.lineWidth = 1.5;
+		for( k = 0; k < 8; k++ ) {
+			a = k / 8 * $.twopi - u * 1.5; r = 30 + u * 10;
+			ctx.save(); ctx.translate( x + Math.cos( a ) * r, y + Math.sin( a ) * r ); ctx.rotate( a );
+			ctx.beginPath();
+			if( k % 3 === 0 ) { ctx.moveTo( 0, -4 ); ctx.lineTo( 0, 4 ); ctx.moveTo( -3, -1 ); ctx.lineTo( 3, -4 ); }
+			else if( k % 3 === 1 ) { ctx.moveTo( -3, 4 ); ctx.lineTo( 0, -4 ); ctx.lineTo( 3, 4 ); }
+			else { ctx.moveTo( -3, -4 ); ctx.lineTo( 3, 0 ); ctx.lineTo( -3, 4 ); }
+			ctx.stroke(); ctx.restore();
+		}
+	} else if( id === 'nebulafox' ) {
+		// two fox tails sweep round behind the ship
+		ctx.globalAlpha = Math.sin( u * Math.PI ) * 0.8; ctx.lineWidth = 6; ctx.lineCap = 'round';
+		for( k = -1; k <= 1; k += 2 ) {
+			var t0 = dir + Math.PI + k * ( 0.3 + u * 1.2 );
+			ctx.beginPath(); ctx.arc( x, y, 26, t0 - k * 0.9, t0, k < 0 ); ctx.stroke();
+		}
+		ctx.lineCap = 'butt';
+		for( k = 0; k < 6; k++ ) { ctx.fillStyle = hot; ctx.fillRect( x + $.fxRand( -34, 34 ), y + $.fxRand( -34, 34 ), 2, 2 ); }
+	} else if( id === 'javelin9' ) {
+		// lances thrown out along the heading
+		ctx.lineWidth = 1.6; ctx.strokeStyle = hot;
+		for( k = -2; k <= 2; k++ ) {
+			var la = dir + k * 0.22, l0 = 14 + u * 120, l1 = l0 + 30;
+			ctx.globalAlpha = 1 - u;
+			ctx.beginPath(); ctx.moveTo( x + Math.cos( la ) * l0, y + Math.sin( la ) * l0 ); ctx.lineTo( x + Math.cos( la ) * l1, y + Math.sin( la ) * l1 ); ctx.stroke();
+		}
+	} else if( id === 'atlasbeam' ) {
+		// a cannon beam fired straight off the nose
+		ctx.globalAlpha = Math.max( 0, 1 - u * 1.4 ) * 0.6;
+		ctx.save(); ctx.translate( x, y ); ctx.rotate( dir );
+		ctx.fillRect( 12, -6 * ( 1 - u ), 200, 12 * ( 1 - u ) );
+		ctx.fillStyle = hot; ctx.fillRect( 12, -2 * ( 1 - u ), 200, 4 * ( 1 - u ) );
+		ctx.restore();
+	} else if( id === 'glitchprince' ) {
+		// glitch slices: offset bars flicker round the hull
+		ctx.globalAlpha = ( 1 - u ) * 0.7;
+		for( k = 0; k < 7; k++ ) {
+			ctx.fillStyle = k % 2 ? c : 'hsla(185, 100%, 64%, 1)';
+			ctx.fillRect( x + $.fxRand( -40, 20 ), y - 30 + k * 9, $.fxRand( 14, 40 ), 3 );
+		}
+	} else if( id === 'solstice' ) {
+		// a corona: a sun disc with rays
+		ctx.globalAlpha = Math.sin( u * Math.PI ) * 0.25;
+		ctx.beginPath(); ctx.arc( x, y, 20 + u * 6, 0, $.twopi ); ctx.fill();
+		ctx.globalAlpha = Math.sin( u * Math.PI ) * 0.9; ctx.strokeStyle = hot; ctx.lineWidth = 1.5;
+		ctx.beginPath();
+		for( k = 0; k < 16; k++ ) { a = k / 16 * $.twopi + u; r = k % 2 ? 34 : 44; ctx.moveTo( x + Math.cos( a ) * 26, y + Math.sin( a ) * 26 ); ctx.lineTo( x + Math.cos( a ) * ( r + u * 10 ), y + Math.sin( a ) * ( r + u * 10 ) ); }
+		ctx.stroke();
+	} else if( id === 'crimsonwisp' ) {
+		// red wisps drift up off the hull
+		for( k = 0; k < 6; k++ ) {
+			a = k / 6 * $.twopi; var wy = y - u * 40 - ( k % 3 ) * 6, wx = x + Math.cos( a ) * ( 14 + u * 10 ) + Math.sin( u * 8 + k ) * 4;
+			ctx.globalAlpha = ( 1 - u ) * 0.8;
+			ctx.beginPath(); ctx.ellipse( wx, wy + Math.sin( a ) * 10, 3, 7, 0, 0, $.twopi ); ctx.fill();
+		}
+	} else if( id === 'voltrider' ) {
+		// neon: two rings and speed lines streaking back
+		ctx.globalAlpha = ( 1 - u ) * 0.9; ctx.lineWidth = 1.5;
+		ctx.beginPath(); ctx.arc( x, y, 20 + u * 26, 0, $.twopi ); ctx.stroke();
+		ctx.beginPath(); ctx.arc( x, y, 26 + u * 40, 0, $.twopi ); ctx.stroke();
+		ctx.strokeStyle = hot;
+		ctx.beginPath();
+		for( k = -2; k <= 2; k++ ) { var ox = -fy * k * 7, oy = fx * k * 7; ctx.moveTo( x + ox - fx * 16, y + oy - fy * 16 ); ctx.lineTo( x + ox - fx * ( 30 + u * 50 ), y + oy - fy * ( 30 + u * 50 ) ); }
+		ctx.stroke();
+	}
+	ctx.restore();
+}
+
 // under the hull: Grav Beetle's pull field, and the combo moves
 $.renderDroneUnder = function( hero ) {
 	var d = $.equippedDrone && $.equippedDrone(), rig = $.droneRig;
@@ -922,14 +1081,16 @@ $.renderDroneUnder = function( hero ) {
 	}
 	var sg = rig.surge;
 	if( sg ) {
-		var u = Math.min( 1, sg.t / sg.life ), x = hero.x, y = hero.y;
+		var u = Math.min( 1, sg.t / sg.life ), x = hero.x, y = hero.y,
+			// the pilot's colour glows round the drone's move
+			sync = droneSyncColour( hero );
 		if( id === 'drone_aegis' ) {
 			// BULWARK: a hex bubble closes round the ship, then fades
 			ctx.globalAlpha = Math.sin( u * Math.PI ) * 0.85;
 			for( var ring = 0; ring < 2; ring++ ) {
 				for( var hk = 0; hk < 12; hk++ ) {
 					var ha = hk / 12 * $.twopi + ring * 0.26 + u, hr = 30 + ring * 11;
-					droneGlowStroke( ctx, droneHex.bind( null, ctx, x + Math.cos( ha ) * hr, y + Math.sin( ha ) * hr, 6 ), col, null, 1.2 );
+					droneGlowStroke( ctx, droneHex.bind( null, ctx, x + Math.cos( ha ) * hr, y + Math.sin( ha ) * hr, 6 ), sync, col, 1.2 );
 				}
 			}
 		} else if( id === 'drone_voltmite' ) {
@@ -937,19 +1098,19 @@ $.renderDroneUnder = function( hero ) {
 			ctx.globalAlpha = 1 - u;
 			for( var sv = 0; sv < 6; sv++ ) {
 				var b = sv / 6 * $.twopi + u * 2, r1 = 18, r2 = 40 + u * 26;
-				droneGlowStroke( ctx, droneZig( ctx, x + Math.cos( b ) * r1, y + Math.sin( b ) * r1, x + Math.cos( b ) * r2, y + Math.sin( b ) * r2, 5, 4 ), col, '#fffbe0', 1.6 );
+				droneGlowStroke( ctx, droneZig( ctx, x + Math.cos( b ) * r1, y + Math.sin( b ) * r1, x + Math.cos( b ) * r2, y + Math.sin( b ) * r2, 5, 4 ), sync, '#fffbe0', 1.6 );
 			}
 		} else if( id === 'drone_needlefinch' ) {
 			// STRAFE: the loop leaves a ring of streak behind the finch
 			ctx.globalAlpha = ( 1 - u ) * 0.8;
-			droneGlowStroke( ctx, function() { ctx.beginPath(); ctx.arc( x, y, 46, 0, Math.min( 1, u / 0.6 ) * $.twopi ); ctx.stroke(); }, col, null, 2.2 );
+			droneGlowStroke( ctx, function() { ctx.beginPath(); ctx.arc( x, y, 46, 0, Math.min( 1, u / 0.6 ) * $.twopi ); ctx.stroke(); }, sync, col, 2.2 );
 		} else if( id === 'drone_gravbeetle' ) {
 			// COLLAPSE: rings rush inward, then a violet bloom
 			if( u < 0.55 ) {
 				for( var gr = 0; gr < 4; gr++ ) {
 					var cu = ( u / 0.55 + gr / 4 ) % 1;
 					ctx.globalAlpha = cu * 0.7;
-					droneGlowStroke( ctx, function( rr ) { return function() { ctx.beginPath(); ctx.arc( x, y, rr, 0, $.twopi ); ctx.stroke(); }; }( 180 * ( 1 - cu ) + 10 ), col, null, 1.6 );
+					droneGlowStroke( ctx, function( rr ) { return function() { ctx.beginPath(); ctx.arc( x, y, rr, 0, $.twopi ); ctx.stroke(); }; }( 180 * ( 1 - cu ) + 10 ), sync, col, 1.6 );
 				}
 			} else {
 				var bu = ( u - 0.55 ) / 0.45;
@@ -983,7 +1144,7 @@ $.renderDroneUnder = function( hero ) {
 			for( var hr = 0; hr < 3; hr++ ) {
 				var hu = ( u * 1.6 + hr / 3 ) % 1;
 				ctx.globalAlpha = ( 1 - hu ) * ( 1 - u );
-				droneGlowStroke( ctx, function( rr ) { return function() { ctx.beginPath(); ctx.arc( x, y, rr, 0, $.twopi ); ctx.stroke(); }; }( 18 + hu * 100 ), col, null, 1.6 );
+				droneGlowStroke( ctx, function( rr ) { return function() { ctx.beginPath(); ctx.arc( x, y, rr, 0, $.twopi ); ctx.stroke(); }; }( 18 + hu * 100 ), sync, col, 1.6 );
 			}
 			ctx.setLineDash( [] );
 		} else if( id === 'drone_embermoth' ) {
@@ -1041,6 +1202,8 @@ $.renderDroneUnder = function( hero ) {
 				droneGlowStroke( ctx, function( c, sn ) { return function() { ctx.beginPath(); ctx.moveTo( x + c * ( 18 + u * 16 ), y + sn * ( 18 + u * 16 ) ); ctx.lineTo( x + c * ( 34 + u * 56 ), y + sn * ( 34 + u * 56 ) ); ctx.stroke(); }; }( c1, s1 ), 'hsla(42, 100%, 60%, 1)', 'hsla(48, 100%, 80%, 1)', 2 );
 			}
 		}
+		// ...and the pilot adds its own flourish: every pilot + drone pair differs
+		droneFlourish( ctx, hero, u );
 	}
 	ctx.restore();
 };
@@ -1147,6 +1310,14 @@ $.renderDrone = function( hero ) {
 		ctx.beginPath();
 		$.text( { ctx: ctx, x: hero.x, y: hero.y - hero.radius - 22 - lu * 10, text: $.droneMoves[ id ], hspacing: 1, vspacing: 0, halign: 'center', valign: 'center', scale: 2, snap: 0, render: 1 } );
 		ctx.fill();
+		// and which pilot flew it with: the pair's own name, in the pilot's colour
+		var syncName = droneSyncFor( hero ).name;
+		if( syncName ) {
+			ctx.fillStyle = droneSyncColour( hero, 72 );
+			ctx.beginPath();
+			$.text( { ctx: ctx, x: hero.x, y: hero.y - hero.radius - 10 - lu * 10, text: '+ ' + syncName, hspacing: 1, vspacing: 0, halign: 'center', valign: 'center', scale: 1, snap: 0, render: 1 } );
+			ctx.fill();
+		}
 	}
 	ctx.restore();
 };

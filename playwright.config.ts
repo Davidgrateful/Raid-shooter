@@ -25,7 +25,16 @@ const PORT = Number(process.env.PORT ?? 3222);
  * `playwright install --with-deps`, leaves this unset and uses the default.
  */
 const PROVIDED_CHROME = process.env.RS_CHROME_PATH || '/opt/pw-browsers/chromium';
-const launchOptions = existsSync(PROVIDED_CHROME) ? { executablePath: PROVIDED_CHROME } : {};
+/*
+ * WebGL on SwiftShader, always. Left to itself a headless Chromium picks
+ * whichever software GL path the machine offers, and on some sandboxes that
+ * path renders the 3D sprite bake (objectSprites.ts) ~30x slower - the same
+ * build then passes or times out depending on the box it lands on. The 2D
+ * canvas (the game itself) stays on the CPU rasteriser: on SwiftShader it
+ * drops a raid to a few frames a second.
+ */
+const GL_ARGS = ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--disable-accelerated-2d-canvas'];
+const launchOptions = existsSync(PROVIDED_CHROME) ? { executablePath: PROVIDED_CHROME, args: GL_ARGS } : { args: GL_ARGS };
 
 export default defineConfig({
   testDir: './tests',
