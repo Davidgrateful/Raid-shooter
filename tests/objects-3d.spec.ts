@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
-import { boot, startRun, VETERAN } from './support/harness';
+import { boot, startRun, VETERAN, WEBGL } from './support/harness';
+
 
 /*==============================================================================
 THE ARENA'S OBJECTS, FROM 3D MODELS
@@ -14,6 +15,8 @@ engine draws those instead of its flat shapes. The fight is still 2D:
 
 Desktop project only (it sets up its own runs).
 ==============================================================================*/
+
+test.use({ launchOptions: WEBGL });
 
 const allBaked = () => { const s = (window as any).$.objectSprites; return !!s && ['rock', 'ice', 'crystal', 'crate', 'satellite', 'fuel', 'mine'].every((k) => s.kinds.includes(k)); };
 

@@ -45,6 +45,10 @@ test('a new run never inherits the previous run\'s ticket', async ({ page }) => 
 
 test.describe('consumable spends are durable', () => {
   const OWNED = { items: [], consumables: { consumable_health: 3 } };
+  // 3D off: these time a retry within seconds, and on a software-GL box the
+  // 3D sprite bake's one-off setup can hold the page for 2s+ mid-test - a
+  // stall that has nothing to do with spends (objects-3d.spec.ts covers it)
+  const PILOT = { ...VETERAN, gfx3d: 0 };
 
   test('a spend the server did not confirm is retried until it is', async ({ page }) => {
     let calls = 0;
@@ -54,7 +58,7 @@ test.describe('consumable spends are durable', () => {
         ? { status: 503, contentType: 'application/json', body: '{"error":"down"}' }
         : { status: 200, contentType: 'application/json', body: '{"ok":true}' });
     });
-    await boot(page, { profile: VETERAN, serverProfile: OWNED });
+    await boot(page, { profile: PILOT, serverProfile: OWNED });
     await page.waitForFunction(() => ((window as any).$.consumableCount?.('consumable_health') || 0) > 0, null, { timeout: 10_000 });
 
     const used = await page.evaluate(() => (window as any).$.useConsumable('consumable_health', () => {}));
@@ -75,7 +79,7 @@ test.describe('consumable spends are durable', () => {
       delivered++;
       return r.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true}' });
     });
-    await boot(page, { profile: VETERAN, serverProfile: OWNED });
+    await boot(page, { profile: PILOT, serverProfile: OWNED });
     await page.waitForFunction(() => ((window as any).$.consumableCount?.('consumable_health') || 0) > 0, null, { timeout: 10_000 });
     await page.evaluate(() => (window as any).$.useConsumable('consumable_health', () => {}));
     await page.waitForTimeout(500);

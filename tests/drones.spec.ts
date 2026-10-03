@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
-import { boot, startRun, VETERAN } from './support/harness';
+import { boot, startRun, VETERAN, WEBGL } from './support/harness';
+
 import { SHOW_DRONES, SHOW_PILOTS } from '../src/components/three/syncShow';
 
 /*==============================================================================
@@ -21,6 +22,8 @@ raid each one flies its own way, shows its effect working, and answers every
 
 Desktop project only (it sets up its own runs).
 ==============================================================================*/
+
+test.use({ launchOptions: WEBGL });
 
 const DRONES = [
   'drone_aegis', 'drone_voltmite', 'drone_needlefinch', 'drone_gravbeetle', 'drone_medicwisp', 'drone_champion',

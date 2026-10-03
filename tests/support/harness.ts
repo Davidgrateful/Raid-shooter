@@ -1,4 +1,5 @@
 import type { Page, Route } from '@playwright/test';
+import { existsSync } from 'fs';
 
 /*==============================================================================
 SHARED HARNESS
@@ -13,6 +14,20 @@ up passing against a broken build.
 Nothing here stubs the game. The engine is real; only the network is faked, and
 only where a test needs a specific server answer.
 ==============================================================================*/
+
+/**
+ * Browser flags for the tests that bake the 3D sprites (objects, drones):
+ * WebGL on SwiftShader, the 2D canvas on the CPU. Left to itself a headless
+ * Chromium picks whatever software GL the box offers, and on some sandboxes
+ * that renders the bake ~30x slower, so the same build passes or times out
+ * by machine. Only those files use it (`test.use({ launchOptions: WEBGL })`):
+ * everywhere else these flags slow the page down.
+ */
+const PROVIDED_CHROME = process.env.RS_CHROME_PATH || '/opt/pw-browsers/chromium';
+export const WEBGL = {
+  ...(existsSync(PROVIDED_CHROME) ? { executablePath: PROVIDED_CHROME } : {}),
+  args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--disable-accelerated-2d-canvas'],
+};
 
 /** A returning player with a history, so screens have real values to show. */
 export const VETERAN = {
