@@ -205,8 +205,13 @@ spend) with derank/ban moderation, plus player lookup and item grant tools.
   pilot; the hue is the pilot's bay test-fire hue in pilotMotion.ts). All 13 x
   12 pairs render differently - a test checks every pair. A new pilot needs a
   `$.pilotSync` entry and a flourish. In the hangar, equipping a drone (or a
-  pilot landing with one) plays the link-up: formation, a beam in the pilot's
-  colour, a burst (`startLink` in bayScene.ts). Drawing only, like the moves.
+  pilot being equipped with one riding along) plays the link-up: formation, a
+  beam in the pilot's colour, then the pair's own 3D show - a 3D take on the
+  drone's move plus the pilot's flourish (`src/components/three/syncShow.ts`,
+  DRONE_MOVES x PILOT_TOUCH, pooled sprites/bars/rings, no allocation while
+  it plays) - and a burst (`startLink` in bayScene.ts). A drone only rides
+  with the EQUIPPED pilot, so browsing hulls plays nothing. A new pilot or
+  drone needs an entry in both tables; tests/drones.spec.ts checks coverage.
 - Achievements (`public/game/achievements.js`) are cosmetic and roll no dice;
   they show on the pilot screen's Record pane (`ServiceRecord.tsx`). Add a goal
   there with a title in the bitmap font's charset.

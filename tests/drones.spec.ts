@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { boot, startRun, VETERAN } from './support/harness';
+import { SHOW_DRONES, SHOW_PILOTS } from '../src/components/three/syncShow';
 
 /*==============================================================================
 THE DRONES IN FLIGHT
@@ -346,9 +347,22 @@ test('a drone equipped in the hangar drops in beside the hull', async ({ page })
     // then pilot and drone link up: formation, a beam, a burst
     // (a software-rendered browser runs the bay at a few frames a second)
     while (!c.dataset.link && Date.now() - t0 < 40000) await new Promise((r) => setTimeout(r, 50));
-    return { arrival, linked: c.dataset.link === '1' };
+    const linked = c.dataset.link === '1';
+    // and the pair's own show: this pilot's flourish with this drone's move
+    while (!c.dataset.sync && Date.now() - t0 < 60000) await new Promise((r) => setTimeout(r, 50));
+    return { arrival, linked, show: c.dataset.sync || '' };
   });
-  expect(seen).toEqual({ arrival: 'escort', linked: true });
+  expect(seen).toEqual({ arrival: 'escort', linked: true, show: 'onyix:drone_gravbeetle' });
+});
+
+test('the hangar show has a move for every drone and a flourish for every pilot', async ({ page }) => {
+  await boot(page, { profile: { ...VETERAN, gfx3d: 0 } });
+  const ids = await page.evaluate(() => {
+    const $ = (window as any).$;
+    return { pilots: $.definitions.characters.map((c: any) => c.id).sort(), drones: $.definitions.drones.map((d: any) => d.id).sort() };
+  });
+  expect([...SHOW_PILOTS].sort()).toEqual(ids.pilots);
+  expect([...SHOW_DRONES].sort()).toEqual(ids.drones);
 });
 
 test('every pilot + drone pair has its own combo move, and rolls no raid dice', async ({ page }) => {

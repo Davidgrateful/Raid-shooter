@@ -3,6 +3,7 @@ import { buildPlane, glowTexture, type BuiltPlane } from './buildPlane';
 import type { ShipDef } from '@/components/command/engine';
 import { motionFor, type PilotMotion } from './pilotMotion';
 import { buildDrone, isDroneId, DRONE_TINTS, type DroneModel } from './droneModels';
+import { createSyncShow, SHOW_TIME } from './syncShow';
 
 /*==============================================================================
 The 3D bay - one scene, three framings
@@ -432,7 +433,7 @@ export function createBayScene(T: Three, canvas: HTMLCanvasElement, mode: BayMod
       escortKey = ek;
       if (escort) { scene.remove(escort.sprite); escort.dispose(); escort = null; }
       if (escortDrone) { scene.remove(escortDrone.group); escortDrone.dispose(); escortDrone = null; }
-      link = -1; beam.visible = false; delete canvas.dataset.link;
+      link = -1; beam.visible = false; sync.stop(); poser.position.set(0, 0, 0); delete canvas.dataset.link; delete canvas.dataset.sync;
       escortId = ek && s.drone ? s.drone.id : '';
       if (ek && s.drone && isDroneId(s.drone.id)) {
         escortDrone = buildDrone(T, s.drone.id, DRONE_TINTS[s.drone.id]);
@@ -496,10 +497,14 @@ export function createBayScene(T: Three, canvas: HTMLCanvasElement, mode: BayMod
 
   /* the link-up: a pilot and its drone, together. The drone leaves its
      orbit for formation off the nose, a beam joins them in the pilot's
-     colour (its test-fire hue), the plane fires a burst, and the drone
-     goes back to its orbit. Plays when a drone is equipped and when a
-     pilot lands with one already riding along. */
+     colour (its test-fire hue), then the pair's own show plays - the
+     drone's move and the pilot's flourish (syncShow.ts), different for
+     every pair - the plane fires a burst, and the drone goes back to its
+     orbit. Plays when a drone is equipped and when a pilot lands with one
+     already riding along. */
   let link = -1;
+  let showStarted = false;
+  const sync = createSyncShow(T, scene, glowTex);
   const beamMat = keep(new T.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0, depthWrite: false, blending: T.AdditiveBlending }));
   const beam = new T.Mesh(keep(new T.CylinderGeometry(0.035, 0.035, 1, 10, 1, true)), beamMat);
   beam.visible = false;
@@ -510,6 +515,7 @@ export function createBayScene(T: Three, canvas: HTMLCanvasElement, mode: BayMod
   function startLink() {
     if (reduced || !escortDrone || !plane) return;
     link = 0;
+    showStarted = false;
     beamMat.color.set(`hsl(${motion.fire.hue}, 100%, 66%)`);
     canvas.dataset.link = '1';
     loop();
@@ -733,13 +739,14 @@ export function createBayScene(T: Three, canvas: HTMLCanvasElement, mode: BayMod
       if (link >= 0 && plane) {
         link += dt;
         const L = link;
-        // 0-0.5s into formation, hold, 1.3-1.9s back to the orbit
-        const w = L < 0.5 ? ease(L / 0.5) : L < 1.3 ? 1 : 1 - ease((L - 1.3) / 0.6);
+        const HOLD = 0.5 + SHOW_TIME;
+        // 0-0.5s into formation, hold through the show, then back to the orbit
+        const w = L < 0.5 ? ease(L / 0.5) : L < HOLD ? 1 : 1 - ease((L - HOLD) / 0.6);
         linkTo.set(noseX * 0.35, 1.0, 1.1);
         plane.group.localToWorld(linkTo);
         g.position.lerp(linkTo, w);
-        // the beam, drone to hull, while they are together
-        const on = L > 0.35 && L < 1.45;
+        // the beam: the moment they link
+        const on = L > 0.35 && L < 0.95;
         beam.visible = on;
         if (on) {
           plane.group.getWorldPosition(linkFrom);
@@ -747,11 +754,23 @@ export function createBayScene(T: Three, canvas: HTMLCanvasElement, mode: BayMod
           beam.position.copy(linkFrom).add(g.position).multiplyScalar(0.5);
           beam.quaternion.setFromUnitVectors(beamUp, linkTo.copy(g.position).sub(linkFrom).normalize());
           beam.scale.set(1 + Math.sin(L * 30) * 0.3, len, 1 + Math.sin(L * 30) * 0.3);
-          beamMat.opacity = Math.sin(((L - 0.35) / 1.1) * Math.PI) * 0.9;
+          beamMat.opacity = Math.sin(((L - 0.35) / 0.6) * Math.PI) * 0.9;
         }
+        // then the pair's own show
+        if (L >= 0.5 && !showStarted && subject?.ship && subject.drone) {
+          showStarted = true;
+          if (sync.play(subject.ship.id, subject.drone.id, motion.fire.hue)) canvas.dataset.sync = `${subject.ship.id}:${subject.drone.id}`;
+        }
+        const out = sync.update(dt, plane.group, noseX);
+        if (out?.drone) g.position.copy(out.drone);
+        poser.position.set(out?.jitter ? (Math.random() - 0.5) * out.jitter : 0, 0, out?.jitter ? (Math.random() - 0.5) * out.jitter : 0);
+        if (out?.shake) shake = Math.max(shake, out.shake);
         // the plane answers with a burst in its own pattern
         if (L >= 0.55 && L - dt < 0.55 && mode !== 'pad') { shotsLeft = motion.fire.burst; nextShot = t; }
-        if (L > 1.9) { link = -1; beam.visible = false; delete canvas.dataset.link; }
+        if (L > HOLD + 0.6) {
+          link = -1; beam.visible = false; sync.stop(); poser.position.set(0, 0, 0);
+          delete canvas.dataset.link; delete canvas.dataset.sync;
+        }
       }
       g.scale.setScalar(ESCORT_SCALE * (escArr ? escArr.s : 1));
       // nose along its orbit (front is -z); the crest stays facing the camera
@@ -816,6 +835,7 @@ export function createBayScene(T: Three, canvas: HTMLCanvasElement, mode: BayMod
       clearSubject();
       if (escort) escort.dispose();
       if (escortDrone) escortDrone.dispose();
+      sync.dispose();
       disposables.forEach((d) => d.dispose());
       renderer.dispose();
     },
