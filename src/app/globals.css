@@ -100,6 +100,17 @@ body {
   overscroll-behavior: none;
 }
 
+/* The game locks the body (overflow: hidden) so a raid never scrolls the
+   page. Reading pages - about, terms, privacy, cup - scroll inside their own
+   <main> instead, or nothing past the first screen can be reached. */
+.rs-doc-page {
+  height: 100vh;
+  height: 100dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
 /* gameplay owns touch gestures on the canvas only - HTML overlays like
    the wallet modal keep native scrolling and taps */
 #game-mount {
@@ -5029,7 +5040,8 @@ hangar's and armory's, with the rows beside them.
 }
 .rs-set-edit { font-family: var(--rs-font-ui); font-size: 9px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--rs-text-faint); }
 .rs-set-note { margin: 0; font-size: 11px; color: var(--rs-text-faint); }
-.rs-set-links { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.rs-set-links { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.rs-set-links a { text-decoration: none; display: inline-flex; align-items: center; justify-content: center; }
 
 @media (min-width: 900px) {
   .rs-set-frame {

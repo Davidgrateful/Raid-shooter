@@ -47,7 +47,8 @@ export default async function DuelPage({ params }: { params: Promise<{ id: strin
   const [a, b] = v ? [...v.entries].sort((x, y) => y.score - x.score) : [];
 
   return (
-    <main className="relative min-h-screen overflow-x-hidden text-white" style={{ background: 'radial-gradient(900px 450px at 80% -10%, rgba(51,230,255,0.08), transparent 60%), #06070c' }}>
+    <main className="rs-doc-page">
+      <div className="relative min-h-screen overflow-x-hidden text-white" style={{ background: 'radial-gradient(900px 450px at 80% -10%, rgba(51,230,255,0.08), transparent 60%), #06070c' }}>
       <div className="mx-auto flex max-w-xl flex-col gap-6 px-4 py-12">
         <div className="text-[10px] font-black uppercase tracking-[0.4em] text-cyan-300">Raid Shooter · Duel {v?.id || ''}</div>
 
@@ -98,6 +99,7 @@ export default async function DuelPage({ params }: { params: Promise<{ id: strin
 
         <Link href="/" className="text-xs text-white/40 underline hover:text-white/70">raidshooter.xyz</Link>
       </div>
+    </div>
     </main>
   );
 }

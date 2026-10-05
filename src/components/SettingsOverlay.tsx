@@ -249,6 +249,7 @@ export function SettingsOverlay() {
                 <button type="button" onClick={goHowTo} className="rs-btn rs-btn-ghost">How to play</button>
                 <button type="button" onClick={() => $?.setState('stats')} className="rs-btn rs-btn-ghost">Stats</button>
                 <button type="button" onClick={() => $?.setState('credits')} className="rs-btn rs-btn-ghost">Credits</button>
+                <a href="/about" target="_blank" rel="noopener" className="rs-btn rs-btn-ghost">About the game</a>
               </div>
             </section>
 

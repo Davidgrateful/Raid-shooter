@@ -1,0 +1,548 @@
+/* The About page: a flight manual for the game, in the game's own palette.
+   Orbitron for names and headings, Chakra Petch to read, mono for the
+   numbered labels and stats. Single dark look on purpose - it is the game. */
+
+.page {
+  background:
+    radial-gradient(1200px 600px at 85% -10%, rgba(53, 232, 255, 0.07), transparent 60%),
+    radial-gradient(900px 500px at -10% 30%, rgba(185, 140, 255, 0.05), transparent 60%),
+    var(--rs-bg);
+  color: var(--rs-text);
+  font-family: var(--rs-font-ui);
+}
+
+.wrap {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding-inline: 20px;
+}
+
+/* ---- top bar ---- */
+.bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-block: 16px;
+}
+.brand {
+  font-family: var(--rs-font-display);
+  font-weight: 900;
+  font-size: 14px;
+  letter-spacing: 0.22em;
+  color: var(--rs-text);
+  text-decoration: none;
+}
+.barLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.barLinks a {
+  color: var(--rs-text-dim);
+  text-decoration: none;
+}
+.barLinks a:hover { color: var(--rs-cyan); }
+
+/* ---- hero ---- */
+.hero {
+  position: relative;
+  border: 1px solid var(--rs-line);
+  border-radius: 14px;
+  overflow: hidden;
+  min-height: 420px;
+  display: flex;
+  align-items: flex-end;
+  background: var(--rs-void);
+}
+.heroImg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 70% 40%;
+  opacity: 0.85;
+}
+.heroShade {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgba(4, 6, 11, 0.94) 0%, rgba(4, 6, 11, 0.78) 42%, rgba(4, 6, 11, 0.1) 75%),
+    linear-gradient(0deg, rgba(4, 6, 11, 0.9) 0%, transparent 45%);
+}
+.heroBody {
+  position: relative;
+  padding: 40px 32px 32px;
+  max-width: 560px;
+  display: grid;
+  gap: 16px;
+}
+.kicker {
+  font-family: var(--rs-font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--rs-cyan);
+}
+.title {
+  font-family: var(--rs-font-display);
+  font-weight: 900;
+  font-size: clamp(34px, 6vw, 56px);
+  line-height: 1;
+  letter-spacing: 0.04em;
+  margin: 0;
+  text-wrap: balance;
+}
+.lede {
+  font-size: 17px;
+  line-height: 1.6;
+  color: rgba(233, 241, 255, 0.82);
+  margin: 0;
+}
+.ctaRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding-top: 4px;
+}
+.cta, .ctaGhost {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 8px;
+  padding: 11px 18px;
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-decoration: none;
+}
+.cta { background: var(--rs-cyan); color: #031016; }
+.cta:hover { background: #7ff1ff; }
+.ctaGhost { border: 1px solid var(--rs-line-strong); color: var(--rs-text); }
+.ctaGhost:hover { border-color: var(--rs-cyan); color: var(--rs-cyan); }
+
+/* ---- facts strip ---- */
+.facts {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  border: 1px solid var(--rs-line);
+  border-radius: 12px;
+  margin-top: 14px;
+  background: var(--rs-surface-solid);
+}
+.fact {
+  padding: 16px 18px;
+  display: grid;
+  gap: 2px;
+}
+.fact + .fact { border-left: 1px solid var(--rs-line); }
+.factNum {
+  font-family: var(--rs-font-display);
+  font-weight: 900;
+  font-size: 28px;
+  color: var(--rs-text);
+  font-variant-numeric: tabular-nums;
+}
+.factLabel {
+  font-family: var(--rs-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--rs-text-dim);
+}
+
+/* ---- sections ---- */
+.section {
+  padding-block: 64px 0;
+  display: grid;
+  gap: 22px;
+}
+.secHead {
+  display: grid;
+  gap: 10px;
+  max-width: 680px;
+}
+.secNo {
+  font-family: var(--rs-font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  color: var(--rs-gold);
+}
+.h2 {
+  font-family: var(--rs-font-display);
+  font-weight: 900;
+  font-size: clamp(22px, 3.4vw, 30px);
+  letter-spacing: 0.05em;
+  margin: 0;
+  text-wrap: balance;
+}
+.p {
+  font-size: 16px;
+  line-height: 1.65;
+  color: rgba(233, 241, 255, 0.78);
+  margin: 0;
+}
+.p strong { color: var(--rs-text); font-weight: 700; }
+
+/* the raid loop: four numbered beats */
+.loop {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+.beat {
+  border-top: 2px solid var(--rs-cyan);
+  padding-top: 12px;
+  display: grid;
+  gap: 6px;
+  align-content: start;
+}
+.beatTitle {
+  font-family: var(--rs-font-display);
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.08em;
+}
+.beatText {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--rs-text-dim);
+}
+
+/* pilots */
+.pilots {
+  display: grid;
+  gap: 12px;
+}
+/* ten standard pilots fill two rows of five; the three premium a row of three */
+.pilotsStd { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.pilotsPrem { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.subhead {
+  font-family: var(--rs-font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  color: var(--rs-gold);
+  padding-top: 6px;
+}
+.card {
+  border: 1px solid var(--rs-line);
+  border-radius: 12px;
+  background: var(--rs-surface-solid);
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: auto 1fr;
+}
+.cardImg {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  background: var(--rs-void);
+  max-width: 100%;
+}
+.cardBody {
+  padding: 14px 16px 16px;
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  min-width: 0;
+}
+.cardName {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-family: var(--rs-font-display);
+  font-weight: 900;
+  font-size: 16px;
+  letter-spacing: 0.06em;
+}
+.tag {
+  font-family: var(--rs-font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--rs-gold);
+  border: 1px solid rgba(255, 207, 77, 0.35);
+  border-radius: 4px;
+  padding: 2px 6px;
+  white-space: nowrap;
+}
+.spec {
+  display: grid;
+  gap: 2px;
+}
+.specLabel {
+  font-family: var(--rs-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  color: var(--rs-text-faint);
+}
+.specVal {
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+}
+.specText {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--rs-text-dim);
+}
+.ability { color: var(--rs-purple); }
+.shot { color: var(--rs-cyan); }
+.combo { color: var(--rs-gold); }
+
+/* drones */
+.drones {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+.droneImg {
+  display: block;
+  width: 100%;
+  aspect-ratio: 48 / 34;
+  object-fit: cover;
+  max-width: 100%;
+}
+
+/* sectors + bosses */
+.split {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+  gap: 28px;
+  align-items: start;
+}
+.sectorList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--rs-line);
+}
+.sectorRow {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 170px) minmax(0, 1fr);
+  gap: 12px;
+  align-items: baseline;
+  padding-block: 11px;
+  border-bottom: 1px solid var(--rs-line);
+}
+.sectorNo {
+  font-family: var(--rs-font-mono);
+  font-size: 12px;
+  color: var(--rs-text-faint);
+  font-variant-numeric: tabular-nums;
+}
+.sectorName {
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+}
+.sectorHazard {
+  font-size: 14px;
+  color: var(--rs-text-dim);
+}
+.bossBox {
+  border: 1px solid rgba(255, 77, 99, 0.28);
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(255, 77, 99, 0.07), transparent 70%), var(--rs-surface-solid);
+  padding: 18px;
+  display: grid;
+  gap: 12px;
+}
+.bossLabel {
+  font-family: var(--rs-font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  color: var(--rs-red);
+}
+.bossGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 14px;
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+}
+.bossNote {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--rs-text-dim);
+  margin: 0;
+}
+
+/* modes */
+.modes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.mode {
+  border: 1px solid var(--rs-line);
+  border-radius: 12px;
+  padding: 18px;
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  background: var(--rs-surface-solid);
+}
+.modeName {
+  font-family: var(--rs-font-display);
+  font-weight: 900;
+  font-size: 16px;
+  letter-spacing: 0.06em;
+}
+.modeText {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--rs-text-dim);
+  margin: 0;
+}
+.modeLink {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--rs-cyan);
+  text-decoration: none;
+}
+.modeLink:hover { text-decoration: underline; }
+
+/* hangar + armory */
+.hangar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  gap: 28px;
+  align-items: center;
+}
+.hangarImg {
+  width: 100%;
+  max-width: 100%;
+  border-radius: 12px;
+  border: 1px solid var(--rs-line);
+  display: block;
+}
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 12px;
+}
+.list li {
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr);
+  gap: 10px;
+  font-size: 15px;
+  line-height: 1.55;
+  color: rgba(233, 241, 255, 0.78);
+}
+.list li::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  margin-top: 8px;
+  border: 1.5px solid var(--rs-cyan);
+  transform: rotate(45deg);
+}
+.list strong { color: var(--rs-text); }
+
+/* fair play: a two-column table of the split */
+.ledger {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border: 1px solid var(--rs-line);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.ledgerCol {
+  padding: 18px;
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+.ledgerCol + .ledgerCol { border-left: 1px solid var(--rs-line); }
+.ledgerHead {
+  font-family: var(--rs-font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+}
+.ledgerItem {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--rs-text-dim);
+}
+.ledgerItem strong { color: var(--rs-text); font-weight: 700; }
+
+/* closing */
+.closer {
+  margin-block: 72px 0;
+  border: 1px solid rgba(53, 232, 255, 0.28);
+  border-radius: 14px;
+  padding: 32px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  background: linear-gradient(90deg, rgba(53, 232, 255, 0.08), transparent 70%), var(--rs-surface-solid);
+}
+.closerTitle {
+  font-family: var(--rs-font-display);
+  font-weight: 900;
+  font-size: clamp(20px, 3vw, 26px);
+  letter-spacing: 0.05em;
+  margin: 0;
+}
+.foot {
+  padding-block: 36px 48px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 10px 20px;
+  font-size: 13px;
+  color: var(--rs-text-faint);
+}
+.foot a { color: var(--rs-text-dim); text-decoration: none; }
+.foot a:hover { color: var(--rs-cyan); }
+.footLinks { display: flex; flex-wrap: wrap; gap: 6px 18px; }
+
+@media (max-width: 860px) {
+  .facts { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .fact:nth-child(4) { border-left: 0; }
+  .fact:nth-child(n + 4) { border-top: 1px solid var(--rs-line); }
+  .loop { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 12px; }
+  .split, .hangar { grid-template-columns: minmax(0, 1fr); }
+  .pilotsStd { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .drones { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 560px) {
+  .wrap { padding-inline: 16px; }
+  .hero { min-height: 0; }
+  .heroBody { padding: 140px 20px 24px; }
+  .heroShade { background: linear-gradient(0deg, rgba(4, 6, 11, 0.96) 0%, rgba(4, 6, 11, 0.86) 55%, rgba(4, 6, 11, 0.25) 100%); }
+  .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .fact + .fact { border-left: 0; }
+  .fact:nth-child(even) { border-left: 1px solid var(--rs-line); }
+  .fact:nth-child(n + 3) { border-top: 1px solid var(--rs-line); }
+  .fact:last-child { grid-column: 1 / -1; border-left: 0; }
+  .loop, .modes, .ledger { grid-template-columns: minmax(0, 1fr); }
+  .ledgerCol + .ledgerCol { border-left: 0; border-top: 1px solid var(--rs-line); }
+  .sectorRow { grid-template-columns: 28px minmax(0, 1fr); }
+  .sectorHazard { grid-column: 2; }
+  .closer { padding: 22px; }
+  .pilotsStd, .pilotsPrem { grid-template-columns: minmax(0, 1fr); }
+  .pilots .card { grid-template-columns: 136px minmax(0, 1fr); grid-template-rows: none; align-items: center; }
+  .pilots .cardImg { align-self: center; height: auto; aspect-ratio: 4 / 3; border-radius: 0 8px 8px 0; }
+  .pilots .cardBody { padding: 12px 12px 12px 14px; gap: 7px; }
+  .drones { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .drones .cardBody { padding: 10px 12px 12px; gap: 6px; }
+  .drones .cardName { font-size: 13px; }
+  .barLinks { gap: 4px 12px; }
+}

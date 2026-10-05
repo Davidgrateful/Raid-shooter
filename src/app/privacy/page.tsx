@@ -10,7 +10,8 @@ const UPDATED = 'June 2026';
 
 export default function PrivacyPage() {
   return (
-    <main className="mx-auto max-w-3xl px-6 py-12 text-sm leading-relaxed text-white/80">
+    <main className="rs-doc-page">
+      <div className="mx-auto max-w-3xl px-6 py-12 text-sm leading-relaxed text-white/80">
       <h1 className="mb-1 text-2xl font-bold text-white">Privacy Policy</h1>
       <p className="mb-8 text-white/40">
         Last updated: {UPDATED} · See also our{' '}
@@ -87,6 +88,7 @@ export default function PrivacyPage() {
         Note for the operator: this is a starting template that reflects how the app currently
         works. Fill in the contact email and legal entity, and have it reviewed before launch.
       </p>
+    </div>
     </main>
   );
 }

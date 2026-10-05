@@ -56,14 +56,16 @@ export default async function CupPage() {
 
   if (!season) {
     return (
-      <main className="mx-auto flex min-h-screen max-w-2xl flex-col items-center justify-center px-4 text-center text-white">
+      <main className="rs-doc-page">
+      <div className="mx-auto flex min-h-screen max-w-2xl flex-col items-center justify-center px-4 text-center text-white">
         <h1 className="text-2xl font-black">No tournament running right now</h1>
         <p className="mt-2 text-white/50">Follow the community to hear when the next cup drops.</p>
         <div className="mt-6 flex gap-3">
           <Link href="/" className="rounded-lg bg-cyan-500/90 px-4 py-2 text-sm font-semibold text-black hover:bg-cyan-400">Play free →</Link>
           <Link href="/leaderboard" className="rounded-lg bg-white/10 px-4 py-2 text-sm hover:bg-white/20">Leaderboard</Link>
         </div>
-      </main>
+      </div>
+    </main>
     );
   }
 
@@ -72,7 +74,8 @@ export default async function CupPage() {
   const standings: Entry[] = (boardRes?.entries || []).slice(0, Math.max(10, maxRank));
 
   return (
-    <main className="mx-auto min-h-screen max-w-3xl px-4 py-10 text-white">
+    <main className="rs-doc-page">
+      <div className="mx-auto min-h-screen max-w-3xl px-4 py-10 text-white">
       <div className="rounded-2xl border border-amber-400/25 bg-gradient-to-b from-amber-400/[0.08] to-transparent p-6 text-center">
         <div className="text-[11px] font-bold uppercase tracking-[0.3em] text-amber-300">Tournament live</div>
         <h1 className="mt-1 text-3xl font-black sm:text-4xl">{season.name}</h1>
@@ -138,6 +141,7 @@ export default async function CupPage() {
         A connected wallet is required to receive prizes. No purchase necessary — cosmetics never affect score.{' '}
         <Link href="/terms" className="underline">Full rules</Link>
       </p>
+    </div>
     </main>
   );
 }

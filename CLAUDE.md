@@ -235,6 +235,13 @@ spend) with derank/ban moderation, plus player lookup and item grant tools.
   with the light held still. Off with System -> 3D graphics, or without
   WebGL: the flat shapes in `objects.js`. The bake fences `Math.random`
   (three's UUIDs) - `tests/objects-3d.spec.ts` holds that and the off switch.
+- `/about` is the public "about the game" page (not how-to-play; that is in
+  the game). Its pilot/drone/sector/boss names live in
+  `src/app/about/content.ts` and `tests/about.spec.ts` checks them against the
+  engine sources - a new pilot, drone or boss needs a line there and an image
+  in `public/about/`. Reading pages (about, terms, privacy, cup, duel) scroll
+  inside `<main className="rs-doc-page">`: the game locks the body, so a
+  plain page past one screen cannot be scrolled.
 - Verify game changes with Playwright (`/opt/pw-browsers/chromium`) against
   `next start`; check TS with `npx tsc --noEmit` and `node --check` for the
   vanilla JS engine files.

@@ -86,7 +86,7 @@ export default async function LeaderboardPage() {
         <LiveBoard initialEntries={entries} initialTotal={total} season={season} persistent={persistent} />
 
         <p className="mt-8 text-center text-xs text-white/30">
-          Cosmetics never affect score. <Link href="/terms" className="underline hover:text-white/60">Tournament rules</Link>
+          Cosmetics never affect score. <Link href="/terms" className="underline hover:text-white/60">Tournament rules</Link> · <Link href="/about" className="underline hover:text-white/60">About the game</Link>
         </p>
       </div>
     </main>

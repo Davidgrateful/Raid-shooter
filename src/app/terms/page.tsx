@@ -11,7 +11,8 @@ const UPDATED = 'July 2026';
 
 export default function TermsPage() {
   return (
-    <main className="mx-auto max-w-3xl px-6 py-12 text-sm leading-relaxed text-white/80">
+    <main className="rs-doc-page">
+      <div className="mx-auto max-w-3xl px-6 py-12 text-sm leading-relaxed text-white/80">
       <h1 className="mb-1 text-2xl font-bold text-white">Terms of Service &amp; Tournament Rules</h1>
       <p className="mb-8 text-white/40">Last updated: {UPDATED}</p>
 
@@ -97,6 +98,7 @@ export default function TermsPage() {
           <a href="/privacy" className="text-cyan-300 underline">Privacy Policy</a>.
         </p>
       </Section>
+    </div>
     </main>
   );
 }
