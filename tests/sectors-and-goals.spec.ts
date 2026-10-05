@@ -125,7 +125,9 @@ test('the System screen: every option one tap away, in sections', async ({ page 
   await boot(page, { profile: VETERAN });
   await page.evaluate(() => (window as any).$.setState('settings'));
   const sys = page.locator('.rs-set');
-  await expect(sys.getByRole('heading', { level: 2 })).toHaveText(['Pilot', 'Controls', 'Sound', 'Display', 'Help'], { ignoreCase: true });
+  await expect(sys.getByRole('heading', { level: 2 })).toHaveText(['Pilot', 'Account', 'Controls', 'Sound', 'Display', 'Help'], { ignoreCase: true });
+  // Account: linking a wallet and a Google / email login to one account
+  await expect(sys.locator('#rs-set-account')).toContainText('Linked sign-ins');
   // desktop: the sections run down the left
   await expect(sys.getByRole('navigation', { name: 'System sections' })).toBeVisible();
 
