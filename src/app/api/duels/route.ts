@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { clientIp, rateLimit } from '@/lib/ratelimit';
-import { getHolderStatus, holderTiers } from '@/lib/holder';
+import { getAccountHolder, holderTiers } from '@/lib/holder';
 import { verifyTurnstile } from '@/lib/turnstile';
 import { createDuel, getDuelConfig, myDuels, viewOf, type DuelAccess } from '@/lib/duels';
 import { duelCaller, guestFromQuery, nameFor, type DuelCaller } from '@/lib/duelapi';
@@ -19,7 +19,7 @@ async function canCreate(access: DuelAccess, caller: DuelCaller, fresh = false):
   if (access === 'all') return caller.key ? { ok: true } : { ok: false, reason: 'sign_in' };
   // holders first: a signed-in wallet the server has read a tier for on-chain
   if (!caller.address) return { ok: false, reason: 'sign_in' };
-  const status = await getHolderStatus(caller.address, fresh);
+  const status = await getAccountHolder(caller.address, fresh);
   if (!status) return { ok: false, reason: 'chain_unavailable' };
   return status.tier ? { ok: true } : { ok: false, reason: 'not_a_holder' };
 }

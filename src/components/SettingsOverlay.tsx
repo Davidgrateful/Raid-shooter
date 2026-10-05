@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { BoardBackdrop } from '@/components/BoardBackdrop';
+import { AccountLinks } from '@/components/AccountLinks';
 
 // The HTML SETTINGS screen. Same treatment as BoardOverlay: the engine
 // flags the canvas settings screen off (window.__htmlSettings) and hands
@@ -80,9 +81,10 @@ function Setting({ label, help, children }: { label: string; help?: string; chil
 
 const onOff = [{ v: 1, text: 'On' }, { v: 0, text: 'Off' }];
 
-type SectionId = 'pilot' | 'controls' | 'sound' | 'display' | 'help';
+type SectionId = 'pilot' | 'account' | 'controls' | 'sound' | 'display' | 'help';
 const SECTIONS: Array<{ id: SectionId; title: string }> = [
   { id: 'pilot', title: 'Pilot' },
+  { id: 'account', title: 'Account' },
   { id: 'controls', title: 'Controls' },
   { id: 'sound', title: 'Sound' },
   { id: 'display', title: 'Display' },
@@ -205,6 +207,11 @@ export function SettingsOverlay() {
                   <span className="rs-set-edit">Change</span>
                 </button>
               </Setting>
+            </section>
+
+            <section id="rs-set-account" className="rs-set-sec" aria-labelledby="rs-set-h-account">
+              <h2 id="rs-set-h-account" className="rs-set-sec-title">Account</h2>
+              <AccountLinks />
             </section>
 
             <section id="rs-set-controls" className="rs-set-sec" aria-labelledby="rs-set-h-controls">

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/session';
+import { accountAddresses } from '@/lib/accounts';
 import { getItem, marketEnabled, treasury, baseRpcUrl, liveTokenPay } from '@/lib/market';
 import { receiptPaysToken, minAcceptable, toRaw, type ReceiptLike } from '@/lib/tokenpay';
 import { claimTx, grantItem } from '@/lib/profile';
@@ -23,7 +24,7 @@ async function rpc(method: string, params: unknown[]): Promise<unknown> {
 }
 
 // Verifies a Base payment transaction and grants the purchased item:
-// the tx must be confirmed, sent by the signed-in wallet, paid to the
+// the tx must be confirmed, sent by the account or one of its linked sign-ins, paid to the
 // treasury, meet the item price, and never have been claimed before.
 export async function POST(req: NextRequest) {
   if (!marketEnabled) {
@@ -49,6 +50,9 @@ export async function POST(req: NextRequest) {
   }
 
   const address = session.siwe.address.toLowerCase();
+  // who may pay for this account: its own wallet, or any sign-in linked to
+  // it (a player signed in through their Google wallet buys from that one)
+  const payers = await accountAddresses(address);
   const currency = body?.currency === 'token' ? 'token' : 'eth';
   let tokenPaid: { currency: 'token'; tokens: number; discountPct: number } | null = null;
 
@@ -63,7 +67,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'token_pay_disabled' }, { status: 400 });
       }
       const receipt = (await rpc('eth_getTransactionReceipt', [txHash])) as ReceiptLike | null;
-      if (!receiptPaysToken(receipt, { from: address, to: treasury, minRaw: toRaw(priceToken) })) {
+      if (!payers.some((from) => receiptPaysToken(receipt, { from, to: treasury, minRaw: toRaw(priceToken) }))) {
         return NextResponse.json({ error: 'payment_not_verified' }, { status: 400 });
       }
       tokenPaid = { currency: 'token', tokens: priceToken, discountPct: tokenPay!.discountPct };
@@ -81,7 +85,7 @@ export async function POST(req: NextRequest) {
         !tx ||
         !receipt ||
         receipt.status !== '0x1' ||
-        tx.from?.toLowerCase() !== address ||
+        !payers.includes(tx.from?.toLowerCase() || '') ||
         tx.to?.toLowerCase() !== treasury ||
         BigInt(tx.value || '0x0') < priceWei
       ) {

@@ -5315,6 +5315,59 @@ hangar's and armory's, with the rows beside them.
 .rs-set-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1 1 12rem; }
 .rs-set-label { font-family: var(--rs-font-ui); font-size: 13px; font-weight: 700; color: var(--rs-text); }
 .rs-set-help { font-size: 11px; line-height: 1.45; color: var(--rs-text-dim); }
+/*--- Account: linked sign-ins (src/components/AccountLinks.tsx) ------------*/
+.rs-acct { display: grid; gap: 8px; }
+.rs-acct-list { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.rs-acct-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  padding: 6px 12px;
+  border: 1px solid var(--rs-line);
+  background: rgba(10, 14, 22, 0.72);
+}
+.rs-acct-item[data-main="1"] { border-left: 2px solid var(--rs-cyan); }
+.rs-acct-addr { font-size: 13px; color: var(--rs-text); }
+.rs-acct-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-right: auto; }
+.rs-acct-tag {
+  padding: 3px 6px;
+  border: 1px solid var(--rs-line-strong);
+  font-family: var(--rs-font-ui);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--rs-text-dim);
+}
+.rs-acct-tag-on { border-color: rgba(62, 233, 164, 0.5); color: var(--rs-green); }
+.rs-acct-remove {
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--rs-line-strong);
+  background: none;
+  color: var(--rs-text-dim);
+  font-family: var(--rs-font-ui);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.rs-acct-remove:hover { border-color: var(--rs-red); color: var(--rs-red); }
+.rs-acct-remove:disabled { opacity: 0.5; cursor: default; }
+.rs-acct-add { width: 100%; }
+.rs-acct-wait {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid rgba(53, 232, 255, 0.35);
+  background: rgba(53, 232, 255, 0.06);
+}
+.rs-acct-wait-text { font-size: 12px; line-height: 1.5; color: var(--rs-text); }
+.rs-acct-wait-acts { display: flex; flex-wrap: wrap; gap: 8px; }
+.rs-acct-note { margin: 0; font-size: 12px; line-height: 1.45; color: var(--rs-red); }
+.rs-acct-note[data-ok="1"] { color: var(--rs-green); }
 .rs-set-ctl { flex: none; }
 .rs-set-seg { display: inline-flex; border: 1px solid var(--rs-line-strong); }
 .rs-set-seg button {

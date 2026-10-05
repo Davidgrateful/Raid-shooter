@@ -110,6 +110,34 @@ export async function mergeGuestProfileIntoWallet(guestKey: string, walletKey: s
   await saveProfile(guestKey, emptyProfile());
 }
 
+/*
+ * Linking a second sign-in to an account (src/lib/accounts.ts) whose own
+ * address already played: everything it holds moves to the account. Same
+ * rules as the guest merge - items union, consumables sum - plus pilot XP,
+ * which takes the higher value per pilot (XP only ever rises, so max never
+ * loses a real total). The source is left empty, so a later unlink starts it
+ * fresh rather than handing the same items to two accounts.
+ */
+export async function mergeProfileInto(fromKey: string, toKey: string): Promise<void> {
+  if (fromKey === toKey) return;
+  const from = await getProfile(fromKey);
+  const fromXp = from.pilotxp || {};
+  if (from.items.length === 0 && Object.keys(from.consumables).length === 0 && Object.keys(fromXp).length === 0) {
+    return;
+  }
+  const to = await getProfile(toKey);
+  for (const id of from.items) if (!to.items.includes(id)) to.items.push(id);
+  for (const [id, count] of Object.entries(from.consumables)) to.consumables[id] = (to.consumables[id] || 0) + count;
+  const xp = { ...(to.pilotxp || {}) };
+  for (const [id, v] of Object.entries(fromXp)) {
+    const n = Math.min(Math.max(0, Math.floor(Number(v) || 0)), MAX_PILOT_XP);
+    if (n > (xp[id] || 0)) xp[id] = n;
+  }
+  to.pilotxp = xp;
+  await saveProfile(toKey, to);
+  await saveProfile(fromKey, emptyProfile());
+}
+
 // each payment transaction may only ever grant one item
 export async function claimTx(txHash: string): Promise<boolean> {
   if (isKvConfigured()) {

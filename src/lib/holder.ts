@@ -24,6 +24,7 @@ acceptable for a cosmetic, and the reason nothing of value hangs on it.
 ==============================================================================*/
 
 import { isKvConfigured, redisCommand } from '@/lib/kv';
+import { accountAddresses } from '@/lib/accounts';
 import { OFFICIAL_TOKEN_ADDRESS } from '@/lib/token';
 
 export type HolderTierId = 'holder' | 'commander' | 'admiral';
@@ -181,6 +182,24 @@ export async function getHolderStatus(rawAddress: string, force = false): Promis
   } catch {
     return cached;
   }
+}
+
+/**
+ * An account's tier when it has linked sign-ins (src/lib/accounts.ts): the
+ * best of its wallets. Each was proven by a signature when it was linked, so
+ * tokens held in any of them are the player's own. Best-of rather than a sum,
+ * so the per-wallet cache below stays the single source of every figure.
+ */
+export async function getAccountHolderStatus(addresses: string[], force = false): Promise<HolderStatus | null> {
+  const all = await Promise.all(addresses.map((a) => getHolderStatus(a, force).catch(() => null)));
+  let best: HolderStatus | null = null;
+  for (const s of all) if (s && (!best || s.balance > best.balance)) best = s;
+  return best;
+}
+
+/** The holder status for a signed-in ACCOUNT: its best wallet. */
+export async function getAccountHolder(account: string, force = false): Promise<HolderStatus | null> {
+  return getAccountHolderStatus(await accountAddresses(account), force);
 }
 
 /** Cached tiers for many board rows at once - never touches the chain. */

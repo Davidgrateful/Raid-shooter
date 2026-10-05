@@ -410,6 +410,13 @@ $.buyItem = function( item, currency ) {
 	} ) );
 };
 
+// a second sign-in was just linked to this account (System -> Account): any
+// items it held have merged in, so read the hold again
+window.addEventListener( 'raidshooter:linked', function() {
+	$.profile.loading = 0;
+	$.fetchProfile();
+} );
+
 window.addEventListener( 'raidshooter:purchase', function( e ) {
 	$.purchase = { status: e.detail.status, itemId: e.detail.itemId };
 	if( e.detail.message ) {

@@ -38,6 +38,15 @@ export interface WalletSnapshot {
   siweAddress: string | null;
   /** a session check or a signature is in flight */
   siweLoading: boolean;
+  /** the address that actually signed in, when it is a linked sign-in of the
+   *  account in siweAddress (src/lib/accounts.ts); else the same address */
+  siweSigner: string | null;
+  /** Link another sign-in: waiting for a different wallet to connect and sign
+   *  (ms timestamp it started, or 0). Expires, so an abandoned attempt never
+   *  turns a later, unrelated connection into a link prompt. */
+  linkingSince: number;
+  /** the last link attempt's outcome, for the Account section to show */
+  linkNote: { ok: boolean; text: string } | null;
 }
 
 /** What the runtime can do once it is mounted. */
@@ -56,7 +65,13 @@ let snap: WalletSnapshot = {
   authenticated: false,
   siweAddress: null,
   siweLoading: true,
+  siweSigner: null,
+  linkingSince: 0,
+  linkNote: null,
 };
+
+/** How long a "Link another sign-in" attempt waits for the new wallet. */
+export const LINK_WINDOW_MS = 3 * 60_000;
 let actions: WalletActions | null = null;
 let wanted = false;
 const listeners = new Set<() => void>();
@@ -118,8 +133,8 @@ export function checkSession(): Promise<void> {
   sessionChecked = true;
   return fetch('/api/siwe/session')
     .then((r) => r.json())
-    .then((d: { authenticated?: boolean; address?: string }) => {
-      setWallet({ authenticated: !!d.authenticated, siweAddress: d.address || null, siweLoading: false });
+    .then((d: { authenticated?: boolean; address?: string; signer?: string }) => {
+      setWallet({ authenticated: !!d.authenticated, siweAddress: d.address || null, siweSigner: d.signer || null, siweLoading: false });
     })
     .catch(() => setWallet({ siweLoading: false }));
 }
@@ -153,11 +168,26 @@ export const wallet = {
   signIn: () => run((a) => a.signIn()),
   /** Sign out of the server session and disconnect the wallet, both best-effort. */
   signOutAndDisconnect: async () => {
-    setWallet({ authenticated: false, siweAddress: null });
+    setWallet({ authenticated: false, siweAddress: null, siweSigner: null, linkingSince: 0 });
     const a = actions;
     const signOut = a ? a.signOut() : fetch('/api/siwe/session', { method: 'DELETE' }).then((r) => r.ok).catch(() => false);
     await Promise.allSettled([signOut, a ? a.disconnect() : Promise.resolve()]);
   },
+  /**
+   * Link another sign-in to the account this session is for: let go of the
+   * wallet connected now and open the connect window, so the player can pick
+   * the other wallet, or Google / email. When a DIFFERENT wallet connects,
+   * the runtime asks it to sign the link (useSIWE.ts) - never silently.
+   */
+  startLink: () => {
+    if (!snap.authenticated) return Promise.resolve();
+    setWallet({ linkingSince: Date.now(), linkNote: null });
+    return run(async (a) => {
+      if (snap.isConnected) await a.disconnect();
+      a.open();
+    });
+  },
+  cancelLink: () => setWallet({ linkingSince: 0 }),
   /** "Connect or sign in, whichever is next" - what other screens ask for. */
   ask: () => run((a) => {
     if (!snap.isConnected) a.open();

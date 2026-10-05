@@ -49,7 +49,9 @@ export async function adminAuth(req: NextRequest, scope?: Scope): Promise<AuthRe
 
   // 2) wallet session => roster role
   const session = await getSession();
-  const address = session.siwe?.address;
+  // the wallet that actually signed in: an admin must sign in with the admin
+  // wallet itself, never through a linked email/social login
+  const address = session.siwe?.signer || session.siwe?.address;
   if (address) {
     const admin = await getAdmin(address);
     if (admin) {

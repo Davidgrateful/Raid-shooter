@@ -7,7 +7,8 @@ import { getSession } from '@/lib/session';
 export async function GET() {
   const session = await getSession();
   if (session.siwe) {
-    return NextResponse.json({ authenticated: true, address: session.siwe.address, chainId: session.siwe.chainId, guestId: session.guestId || null });
+    const signer = (session.siwe.signer || session.siwe.address).toLowerCase();
+    return NextResponse.json({ authenticated: true, address: session.siwe.address, signer, linked: signer !== session.siwe.address.toLowerCase(), chainId: session.siwe.chainId, guestId: session.guestId || null });
   }
   // Guests carry an anonymous identity (once they've posted a score) so the
   // board can highlight their own row.

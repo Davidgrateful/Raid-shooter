@@ -4,14 +4,18 @@ import { getProfile, mergePilotXp } from '@/lib/profile';
 import { getOrCreateGuestId } from '@/lib/session';
 import { rateLimit, clientIp } from '@/lib/ratelimit';
 import { hasAcceptedRunSince } from '@/lib/runs';
-import { getHolderStatus } from '@/lib/holder';
+import { getAccountHolderStatus } from '@/lib/holder';
+import { accountAddresses } from '@/lib/accounts';
 
 export async function GET(req: NextRequest) {
   const session = await getSession();
   if (session.siwe) {
     try {
       const address = session.siwe.address.toLowerCase();
-      const [profile, holder] = await Promise.all([getProfile(address), getHolderStatus(address).catch(() => null)]);
+      const [profile, holder] = await Promise.all([
+        getProfile(address),
+        accountAddresses(address).then((all) => getAccountHolderStatus(all)).catch(() => null),
+      ]);
       // holder tier unlocks the holder trail in the game (cosmetic only)
       return NextResponse.json({ authenticated: true, ...profile, holder: holder?.tier ?? null });
     } catch {

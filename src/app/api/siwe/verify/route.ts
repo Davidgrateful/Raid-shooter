@@ -4,6 +4,7 @@ import { getSession } from '@/lib/session';
 import { mergeGuestIntoWallet } from '@/lib/leaderboard';
 import { mergeGuestProfileIntoWallet } from '@/lib/profile';
 import { tryLock, unlock } from '@/lib/lock';
+import { resolveAccount } from '@/lib/accounts';
 import { rateLimit, clientIp } from '@/lib/ratelimit';
 
 export async function POST(req: NextRequest) {
@@ -57,13 +58,18 @@ export async function POST(req: NextRequest) {
     const clientGuestKey =
       rawGuestToken && /^[a-z0-9-]{8,40}$/i.test(rawGuestToken) ? `guest:${rawGuestToken.toLowerCase()}` : null;
     const guestId = clientGuestKey || session.guestId;
-    const walletKey = fields.address.toLowerCase();
+    const signer = fields.address.toLowerCase();
+    // A linked sign-in (an email/social wallet attached to an existing
+    // account, or the reverse) opens the account it is linked to - the same
+    // profile, board row, streak and duels - see src/lib/accounts.ts.
+    const walletKey = await resolveAccount(signer);
 
     // Store auth in session; clear the nonce so this signed message can
     // never be replayed to re-run verification a second time.
     session.siwe = {
-      address: fields.address,
+      address: walletKey === signer ? fields.address : walletKey,
       chainId: fields.chainId,
+      signer,
     };
     session.nonce = undefined;
     await session.save();
@@ -95,7 +101,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({ ok: true, address: fields.address });
+    return NextResponse.json({ ok: true, address: session.siwe.address, signer, linked: walletKey !== signer });
   } catch {
     // generic message to the client; full error details stay server-side
     return NextResponse.json({ ok: false, error: 'verification_failed' }, { status: 400 });

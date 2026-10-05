@@ -126,6 +126,21 @@ already built and gated — usually just an env var + redeploy.
   Drawing only - a missing or bad ghost never affects the run or its score.
   Ghosts are kept as long as the duel (`src/lib/duelGhost.ts`).
 
+- **"Can I link my wallet to my Google / email login?" / "I signed in with
+  Google and my account is empty" / "lost my stuff signing in another way"**
+  → built. Email/social logins are a different (smart-account) address, so
+  without a link they are a separate account. Players sign in with the
+  account that has their progress, then System → **Account → Link another
+  sign-in**, and connect the other wallet or pick Google / email; it signs
+  once to confirm. Either sign-in then opens the same account; anything the
+  new one already had merges in (items, kits, pilot XP, best board row). Up to
+  3 links; Remove works from any other sign-in. Purchases from a linked
+  wallet count; holder tier is the best of the linked wallets; payouts still
+  go to the account's main address. **Admin rights never come through a
+  link** - sign into /admin with the admin wallet itself. Links live in KV
+  (`acct:alias`, `acct:links:*`), so KV must be persistent
+  (`src/lib/accounts.ts`, `/api/account/link`, `tests/account-link.spec.ts`).
+
 ## Admin / team dashboard
 
 `/admin` (gated by `ADMIN_STATS_TOKEN`): player stats, revenue, loadout usage,

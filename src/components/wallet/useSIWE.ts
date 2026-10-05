@@ -3,7 +3,8 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useAccount, useSignMessage } from 'wagmi';
 import { SiweMessage } from 'siwe';
-import { checkSession, setWallet, useWallet } from '@/lib/walletStore';
+import { checkSession, getWallet, LINK_WINDOW_MS, setWallet, useWallet } from '@/lib/walletStore';
+import { linkStatement } from '@/lib/linkMessage';
 
 /*
  * Sign-In With Ethereum. Part of the wallet runtime, so it runs ONCE (in the
@@ -82,7 +83,7 @@ export function useSIWE() {
       const result = await verifyRes.json();
 
       if (result.ok) {
-        setWallet({ authenticated: true, siweAddress: result.address, siweLoading: false });
+        setWallet({ authenticated: true, siweAddress: result.address, siweSigner: result.signer || result.address, siweLoading: false });
       } else {
         setWallet({ siweLoading: false });
       }
@@ -108,7 +109,7 @@ export function useSIWE() {
     // once they've asked to sign out, even if the network request below
     // fails. The DELETE is best-effort cleanup of the server-side cookie;
     // its failure must never leave the UI stuck showing the old session.
-    setWallet({ authenticated: false, siweAddress: null, siweLoading: false });
+    setWallet({ authenticated: false, siweAddress: null, siweSigner: null, siweLoading: false, linkingSince: 0 });
     try {
       const res = await fetch('/api/siwe/session', { method: 'DELETE' });
       return res.ok;
@@ -159,6 +160,65 @@ export function useSIWE() {
     document.addEventListener('visibilitychange', onVisible);
     return () => document.removeEventListener('visibilitychange', onVisible);
   }, [isConnected, state.authenticated, state.loading, address, chainId, signIn]);
+
+  /*
+   * LINK ANOTHER SIGN-IN. The Account section (System) let go of the wallet
+   * that was connected and opened the connect window; when a DIFFERENT wallet
+   * arrives while that window is open, it is asked to sign a message naming
+   * the account it is joining. The server checks the signature, the nonce and
+   * that statement, then links it (src/app/api/account/link). A rejection, an
+   * error or the window expiring ends the attempt.
+   */
+  const linkingRef = useRef(false);
+  const link = useCallback(async () => {
+    const snap = getWallet();
+    if (!address || !chainId || !snap.siweAddress || linkingRef.current) return;
+    linkingRef.current = true;
+    const end = (ok: boolean, text: string, patch: Record<string, unknown> = {}) =>
+      setWallet({ linkingSince: 0, linkNote: { ok, text }, ...patch });
+    try {
+      const { nonce } = await (await fetch('/api/siwe/nonce')).json();
+      const message = new SiweMessage({
+        domain: window.location.host,
+        address,
+        statement: linkStatement(snap.siweAddress),
+        uri: window.location.origin,
+        version: '1',
+        chainId,
+        nonce,
+      }).prepareMessage();
+      const signature = await signMessageAsync({ message });
+      const res = await fetch('/api/account/link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message, signature }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (d.ok) {
+        end(true, 'Linked. Either sign-in now opens this account.', { siweSigner: d.signer || address.toLowerCase() });
+        window.dispatchEvent(new CustomEvent('raidshooter:linked'));
+      } else {
+        end(false, d.message || 'That sign-in could not be linked. Try again.');
+      }
+    } catch (err) {
+      const e = err as { name?: string; code?: number; message?: string };
+      const rejected = e?.name === 'UserRejectedRequestError' || e?.code === 4001 || /rejected|denied/i.test(e?.message || '');
+      end(false, rejected ? 'Link cancelled - nothing was changed.' : 'That sign-in could not be linked. Try again.');
+    } finally {
+      linkingRef.current = false;
+    }
+  }, [address, chainId, signMessageAsync]);
+
+  useEffect(() => {
+    const since = w.linkingSince;
+    if (!since || !isConnected || !address || !chainId || !state.authenticated) return;
+    if (Date.now() - since > LINK_WINDOW_MS) { setWallet({ linkingSince: 0 }); return; }
+    const current = (w.siweSigner || w.siweAddress || '').toLowerCase();
+    if (address.toLowerCase() === current) return; // the same wallet came back; keep waiting
+    // the same beat sign-in gives a mobile wallet to settle after connecting
+    const timer = setTimeout(() => void link(), 1200);
+    return () => clearTimeout(timer);
+  }, [w.linkingSince, w.siweSigner, w.siweAddress, isConnected, address, chainId, state.authenticated, link]);
 
   return {
     ...state,

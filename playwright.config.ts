@@ -51,12 +51,12 @@ export default defineConfig({
      */
     {
       name: 'desktop',
-      testIgnore: /(hud-matrix|layout-fit|rate-limits|anti-abuse|duels-api)\.spec\.ts/,
+      testIgnore: /(hud-matrix|layout-fit|rate-limits|anti-abuse|duels-api|account-link)\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 }, launchOptions },
     },
     {
       name: 'phone-landscape',
-      testIgnore: /(hud-matrix|layout-fit|rate-limits|anti-abuse|duels-api|upright|sectors-and-goals|objects-3d|drones|shots)\.spec\.ts/,
+      testIgnore: /(hud-matrix|layout-fit|rate-limits|anti-abuse|duels-api|account-link|upright|sectors-and-goals|objects-3d|drones|shots)\.spec\.ts/,
       use: {
         ...devices['Desktop Chrome'],
         viewport: { width: 844, height: 390 },
@@ -74,7 +74,7 @@ export default defineConfig({
      */
     {
       name: 'api',
-      testMatch: /(rate-limits|anti-abuse|duels-api)\.spec\.ts/,
+      testMatch: /(rate-limits|anti-abuse|duels-api|account-link)\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], launchOptions },
     },
     {

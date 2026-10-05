@@ -4,8 +4,12 @@ import { cookies } from 'next/headers';
 export interface SessionData {
   nonce?: string;
   siwe?: {
+    /** the ACCOUNT this session is for - a linked sign-in resolves to it */
     address: string;
     chainId: number;
+    /** the address that actually signed in, when it is a linked sign-in
+     *  (src/lib/accounts.ts); absent or equal to `address` otherwise */
+    signer?: string;
   };
   // Anonymous, device-scoped identity for guest leaderboard play. Created
   // lazily the first time a wallet-less player posts a score, then kept in
