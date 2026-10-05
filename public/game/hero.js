@@ -262,6 +262,8 @@ $.Hero.prototype.update = function() {
 				this.weapon.flashX = gunX;
 				this.weapon.flashY = gunY;
 
+				// one trigger pull; some shot traits count them (HEAVY ROUND)
+				this.shotNo = ( this.shotNo || 0 ) + 1;
 				for( var i = 0; i < this.weapon.count; i++ ) {
 					$.bulletsFired++;
 					var color = this.weapon.bullet.strokeStyle;
@@ -273,7 +275,7 @@ $.Hero.prototype.update = function() {
 						color = colors[ Math.floor( $.fxRand( 0, colors.length ) ) ];
 					}
 					if( i === 0 ) { this.weapon.flashColor = color; }
-					$.bullets.push( new $.Bullet( {					
+					var shot = {
 						x: gunX,
 						y: gunY,
 						speed: this.weapon.bullet.speed,
@@ -287,7 +289,10 @@ $.Hero.prototype.update = function() {
 						pierceCap: this.weapon.pierceCap,
 						range: this.weapon.range,
 						chain: !!( $.equippedDrone() && $.equippedDrone().id === 'drone_voltmite' )
-					} ) );
+					};
+					// the pilot's shot trait may reshape it (TWIN FANGS fires two)
+					var shots = $.shotSpec ? $.shotSpec( shot, this ) : [ shot ];
+					for( var si = 0; si < shots.length; si++ ) { $.bullets.push( new $.Bullet( shots[ si ] ) ); }
 				}
 			}
 		}

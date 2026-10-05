@@ -94,6 +94,8 @@ export interface Engine {
   characterUnlocked?: (def: ShipDef) => boolean;
   characterStatus?: (def: ShipDef) => { text: string; color: string };
   pilotTier?: (def: ShipDef, index: number) => { label: string; hue: number };
+  /** what each bullet type does in a fight (bullet.js) */
+  shotTraits?: Record<string, { title: string; text: string }>;
   pilotAccentHue?: (index: number) => number;
   pilotStats?: (def: ShipDef) => { SPD: number; FIRE: number; ARM: number; DASH: number };
   pilotLevelThresholds?: number[];

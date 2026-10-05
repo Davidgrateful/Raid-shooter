@@ -260,6 +260,8 @@ $.Enemy.prototype.update = function( i ) {
 	Apply Forces (a Frost Sprite chill slows it)
 	==============================================================================*/
 	var chill = $.droneChill ? $.droneChill( this ) : 1;
+	// an Iron Halo STAGGER: a hit stalls it for a moment
+	if( this.stagger > 0 ) { this.stagger -= $.dt; chill *= 0.2; }
 	this.x += this.vx * $.dt * chill;
 	this.y += this.vy * $.dt * chill;
 

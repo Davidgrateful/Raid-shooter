@@ -62,6 +62,8 @@ export interface HullView {
   ability: { title: string; text: string } | null;
   /** bulletStyle.kind, the pilot's real weapon profile. */
   ordnance: string | null;
+  /** what that bullet does in a fight: $.shotTraits[kind] */
+  shot: { title: string; text: string } | null;
   hullRadius: number | null;
   stats: StatView[];
   level: number;
@@ -184,6 +186,7 @@ export function readHangar(): HangarView | null {
         equipped: index === equippedIndex,
         ability: def.ability ? { title: def.ability.title, text: def.ability.text } : null,
         ordnance: def.bulletStyle?.kind ? def.bulletStyle.kind.toUpperCase() : null,
+        shot: (def.bulletStyle?.kind && e.shotTraits?.[def.bulletStyle.kind]) || null,
         hullRadius: typeof def.radius === 'number' ? def.radius : null,
         stats,
         level,

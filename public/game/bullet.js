@@ -1,4 +1,135 @@
 /*==============================================================================
+Pilot shot traits
+
+Every pilot fires its own bullet type (characters.js bulletStyle.kind), and
+each type now does one small thing of its own in a fight - kept as modest as
+a drone's effect. Frame counters and geometry only, never dice, so a seeded
+raid stays the same raid whichever pilot flies it.
+==============================================================================*/
+$.shotTraits = {
+	bolt: { title: 'HEAVY ROUND', text: 'EVERY 5TH SHOT HITS 50 PCT HARDER' },
+	tracer: { title: 'LONG TRACER', text: 'SHOTS FLY 15 PCT FASTER AND FARTHER' },
+	slug: { title: 'KNOCKBACK', text: 'HITS SHOVE ENEMIES BACK' },
+	dart: { title: 'SEEKER', text: 'DARTS CURVE TOWARD A NEARBY ENEMY' },
+	pulse: { title: 'STAGGER', text: 'HITS BRIEFLY STALL AN ENEMY' },
+	glyph: { title: 'WEAVE', text: 'GLYPHS WEAVE, SWEEPING A WIDER LANE' },
+	twin: { title: 'TWIN FANGS', text: 'TWO PARALLEL SHOTS, 60 PCT EACH' },
+	lance: { title: 'PIERCE', text: 'LANCES PASS THROUGH ONE MORE ENEMY' },
+	beam: { title: 'WIDE BEAM', text: 'BEAMS HIT ENEMIES FROM FURTHER OUT' },
+	glitch: { title: 'GLITCH HIT', text: 'EVERY 4TH HIT DEALS DOUBLE' },
+	plasma: { title: 'SPLASH', text: 'IMPACTS SPLASH 25 PCT TO NEARBY ENEMIES' },
+	ember: { title: 'EMBER SPARK', text: 'A KILL SPARKS 35 PCT ONTO THE NEXT ENEMY' },
+	neon: { title: 'RICOCHET', text: 'SHOTS BOUNCE ONCE OFF THE ARENA EDGE' }
+};
+
+// the bullets one trigger pull makes, from the shot the weapon would fire
+$.shotSpec = function( o, hero ) {
+	var kind = o.kind;
+	if( kind === 'bolt' && hero && ( hero.shotNo || 0 ) % 5 === 0 ) {
+		o.damage *= 1.5; o.heavy = 1; o.lineWidth *= 1.6;
+	} else if( kind === 'tracer' ) {
+		o.speed *= 1.15; o.range = ( o.range || 460 ) * 1.15;
+	} else if( kind === 'lance' ) {
+		// one more enemy than it would otherwise pass through
+		if( o.piercing ) { o.pierceCap = ( o.pierceCap || 1 ) + 1; } else { o.piercing = 1; o.pierceCap = 1; }
+	} else if( kind === 'twin' ) {
+		var nx = -Math.sin( o.direction ) * 4, ny = Math.cos( o.direction ) * 4, b = {};
+		for( var k in o ) { b[ k ] = o[ k ]; }
+		o.damage *= 0.6; b.damage *= 0.6;
+		o.x += nx; o.y += ny; b.x -= nx; b.y -= ny;
+		return [ o, b ];
+	}
+	return [ o ];
+};
+
+// steering before a bullet moves: SEEKER darts, WEAVE glyphs
+$.shotSteer = function( b ) {
+	if( b.kind === 'dart' ) {
+		var best = null, bd = 150 * 150;
+		for( var i = 0; i < $.enemies.length; i++ ) {
+			var e = $.enemies[ i ];
+			if( e.isBolt ) { continue; }
+			var dx = e.x - b.x, dy = e.y - b.y, d = dx * dx + dy * dy;
+			if( d < bd ) { bd = d; best = e; }
+		}
+		if( best ) {
+			var want = Math.atan2( best.y - b.y, best.x - b.x ),
+				gap = Math.atan2( Math.sin( want - b.direction ), Math.cos( want - b.direction ) ),
+				turn = 0.035 * $.dt;
+			b.direction += Math.max( -turn, Math.min( turn, gap ) );
+		}
+	} else if( b.kind === 'glyph' ) {
+		if( b.baseDir === undefined ) { b.baseDir = b.direction; b.weaveT = 0; }
+		b.weaveT += $.dt;
+		b.direction = b.baseDir + Math.sin( b.weaveT * 0.25 ) * 0.42;
+	}
+};
+
+// RICOCHET: a neon shot leaving the arena bounces back in, once. True if it bounced.
+$.shotBounce = function( b ) {
+	if( b.kind !== 'neon' || b.bounced ) { return false; }
+	var hit = false;
+	if( b.x < 0 || b.x > $.ww ) { b.direction = Math.PI - b.direction; b.x = Math.max( 0, Math.min( $.ww, b.x ) ); hit = true; }
+	if( b.y < 0 || b.y > $.wh ) { b.direction = -b.direction; b.y = Math.max( 0, Math.min( $.wh, b.y ) ); hit = true; }
+	if( !hit ) { return false; }
+	b.bounced = 1;
+	b.ex = b.x; b.ey = b.y;
+	return true;
+};
+
+// extra reach on a hit (WIDE BEAM)
+$.shotReach = function( b ) { return b.kind === 'beam' ? 5 : 0; };
+
+// the damage this hit deals (GLITCH HIT doubles every 4th)
+$.shotDamage = function( b, dmg ) {
+	if( b.kind === 'glitch' && $.hero ) {
+		$.hero.glitchHits = ( $.hero.glitchHits || 0 ) + 1;
+		if( $.hero.glitchHits % 4 === 0 ) { b.crit = 1; return dmg * 2; }
+	}
+	return dmg;
+};
+
+// after a hit lands on `enemy` (which may now be dead) at (x, y)
+$.shotAfterHit = function( b, enemy, x, y, dmg ) {
+	var k = b.kind;
+	if( k === 'slug' && !enemy.isBoss ) {
+		enemy.vx += Math.cos( b.direction ) * 2.2;
+		enemy.vy += Math.sin( b.direction ) * 2.2;
+	} else if( k === 'pulse' && !enemy.isBoss ) {
+		enemy.stagger = 10;
+	} else if( k === 'plasma' ) {
+		for( var i = $.enemies.length - 1; i >= 0; i-- ) {
+			var o = $.enemies[ i ];
+			if( o === enemy || $.util.distance( x, y, o.x, o.y ) > 40 + o.radius ) { continue; }
+			o.receiveDamage( i, dmg * 0.25 );
+		}
+		$.shotFlash( x, y, 28 );
+	} else if( k === 'ember' && $.enemies.indexOf( enemy ) === -1 ) {
+		// the kill throws a spark onto the nearest other enemy
+		var best = -1, bd = 70;
+		for( var j = 0; j < $.enemies.length; j++ ) {
+			var d = $.util.distance( x, y, $.enemies[ j ].x, $.enemies[ j ].y );
+			if( d < bd ) { bd = d; best = j; }
+		}
+		if( best >= 0 ) {
+			var t = $.enemies[ best ];
+			$.shotFlash( t.x, t.y, 10 );
+			t.receiveDamage( best, dmg * 0.35 );
+		}
+	}
+	if( b.crit ) { $.shotFlash( x, y, 16 ); b.crit = 0; }
+};
+
+// a little burst of light where a trait landed (drawing only)
+$.shotFlash = function( x, y, r ) {
+	$.particleEmitters.push( new $.ParticleEmitter( {
+		x: x, y: y, count: 4, spawnRange: r * 0.3, friction: 0.85,
+		minSpeed: 1, maxSpeed: 4 + r * 0.15, minDirection: 0, maxDirection: $.twopi,
+		hue: 40, saturation: 100
+	} ) );
+};
+
+/*==============================================================================
 Init
 ==============================================================================*/
 $.Bullet = function( opt ) {
@@ -27,8 +158,9 @@ Update
 ==============================================================================*/
 $.Bullet.prototype.update = function( i ) {
 	/*==============================================================================
-	Apply Forces
+	Apply Forces (a pilot's shot may steer first: SEEKER, WEAVE)
 	==============================================================================*/
+	if( this.kind === 'dart' || this.kind === 'glyph' ) { $.shotSteer( this ); }
 	this.x += Math.cos( this.direction ) * ( this.speed * $.dt );
 	this.y += Math.sin( this.direction ) * ( this.speed * $.dt );
 	this.ex = this.x - Math.cos( this.direction ) * this.size;
@@ -66,7 +198,7 @@ $.Bullet.prototype.update = function( i ) {
 	var ci0 = candidates.length;
 	while( ci0-- ) {
 		var enemy = candidates[ ci0 ];
-		if( $.util.distance( this.x, this.y, enemy.x, enemy.y ) <= enemy.radius ) {
+		if( $.util.distance( this.x, this.y, enemy.x, enemy.y ) <= enemy.radius + $.shotReach( this ) ) {
 			// resolve the LIVE index only on an actual hit - dead/spliced
 			// enemies from earlier this frame resolve to -1 and are skipped
 			var ei = $.enemies.indexOf( enemy );
@@ -104,7 +236,10 @@ $.Bullet.prototype.update = function( i ) {
 				// would skip a random live enemy instead of the primary -
 				// comparing by object reference stays correct either way
 				var chainX = enemy.x, chainY = enemy.y;
+				dmg = $.shotDamage( this, dmg );
 				enemy.receiveDamage( ei, dmg );
+				// the pilot's own shot trait (knockback, stagger, splash, spark)
+				$.shotAfterHit( this, enemy, chainX, chainY, dmg );
 				// Frost Sprite chill / Ember Moth burn
 				if( $.droneOnHit ) { $.droneOnHit( enemy, dmg ); }
 
@@ -143,8 +278,11 @@ $.Bullet.prototype.update = function( i ) {
 	/*==============================================================================
 	Lock Bounds
 	==============================================================================*/
-	if( !$.util.pointInRect( this.ex, this.ey, 0, 0, $.ww, $.wh ) ) {
+	// a ricochet's tail can trail outside just after it bounces: judge it by its head
+	var bx = this.kind === 'neon' ? this.x : this.ex, by = this.kind === 'neon' ? this.y : this.ey;
+	if( !$.util.pointInRect( bx, by, 0, 0, $.ww, $.wh ) && !$.shotBounce( this ) ) {
 		$.bullets.splice( i, 1 );
+		return;
 	}
 
 	/*==============================================================================
@@ -175,8 +313,8 @@ $.Bullet.prototype.render = function( i ) {
 
 	// each pilot fires its own bullet TYPE (shape). Colour still comes from the
 	// player's ship colour / active power-up (this.strokeStyle) so cosmetics and
-	// power-up feedback are untouched, and every kind deals identical damage -
-	// purely visual, never affects a run or score.
+	// power-up feedback are untouched. What each kind DOES in a fight is its
+	// shot trait ($.shotTraits, top of this file) - this is only how it looks.
 	switch( this.kind ) {
 		case 'tracer': // NOVA - long faint streak + bright core
 			c.strokeStyle = col; c.globalAlpha = 0.3; c.lineWidth = w;

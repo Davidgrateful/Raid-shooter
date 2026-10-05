@@ -56,7 +56,7 @@ export default defineConfig({
     },
     {
       name: 'phone-landscape',
-      testIgnore: /(hud-matrix|layout-fit|rate-limits|anti-abuse|duels-api|upright|sectors-and-goals|objects-3d|drones)\.spec\.ts/,
+      testIgnore: /(hud-matrix|layout-fit|rate-limits|anti-abuse|duels-api|upright|sectors-and-goals|objects-3d|drones|shots)\.spec\.ts/,
       use: {
         ...devices['Desktop Chrome'],
         viewport: { width: 844, height: 390 },

@@ -212,6 +212,17 @@ spend) with derank/ban moderation, plus player lookup and item grant tools.
   it plays) - and a burst (`startLink` in bayScene.ts). A drone only rides
   with the EQUIPPED pilot, so browsing hulls plays nothing. A new pilot or
   drone needs an entry in both tables; tests/drones.spec.ts checks coverage.
+- Pilot shot traits: each pilot's bullet type does one small thing in a fight
+  (`$.shotTraits` at the top of `public/game/bullet.js`): HEAVY ROUND (every
+  5th shot x1.5), LONG TRACER (+15 PCT speed/range), KNOCKBACK, SEEKER (darts
+  curve toward an enemy within 150px), STAGGER (a hit stalls an enemy 10
+  frames), WEAVE, TWIN FANGS (two shots at 60 PCT), PIERCE (+1 enemy), WIDE
+  BEAM (+5px reach), GLITCH HIT (every 4th hit x2), SPLASH (25 PCT within
+  40px), EMBER SPARK (a kill sparks 35 PCT onto the next enemy), RICOCHET
+  (bounce once off the arena edge). Bosses ignore knockback and stagger. These
+  ARE gameplay, kept as modest as drones, frame counters and geometry only -
+  never dice. The hangar's Armament panel shows each pilot's trait. A new
+  pilot needs a bullet kind with an entry there; `tests/shots.spec.ts` holds it.
 - Achievements (`public/game/achievements.js`) are cosmetic and roll no dice;
   they show on the pilot screen's Record pane (`ServiceRecord.tsx`). Add a goal
   there with a title in the bitmap font's charset.

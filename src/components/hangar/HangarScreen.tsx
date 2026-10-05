@@ -354,6 +354,12 @@ export function HangarScreen() {
 
             <SystemSection label="Armament" tone="var(--rs-purple)">
               <SpecRow label="Ordnance" value={hull.ordnance || 'Standard'} />
+              {hull.shot ? (
+                <>
+                  <SpecRow label="Shot" value={hull.shot.title} tone="var(--rs-cyan)" />
+                  <p className="rs-sys-text">{hull.shot.text}</p>
+                </>
+              ) : null}
               {hull.ability ? (
                 <>
                   <SpecRow label="Ability" value={hull.ability.title} tone="var(--rs-purple)" />
