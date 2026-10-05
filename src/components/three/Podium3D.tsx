@@ -29,7 +29,7 @@ export function podiumPilots(top: PodiumEntry[]): PodiumPilot[] {
   }));
 }
 
-export function Podium3D({ top }: { top: PodiumEntry[] }) {
+export function Podium3D({ top, className }: { top: PodiumEntry[]; className?: string }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const ctlRef = useRef<PodiumController | null>(null);
   const [ready, setReady] = useState(false);
@@ -60,7 +60,7 @@ export function Podium3D({ top }: { top: PodiumEntry[] }) {
 
   if (off) return null;
   return (
-    <div className="relative mx-auto h-[220px] w-full max-w-3xl sm:h-[280px]" aria-hidden>
+    <div className={className || 'relative mx-auto h-[220px] w-full max-w-3xl sm:h-[280px]'} aria-hidden>
       <canvas
         ref={canvasRef}
         className="absolute inset-0 h-full w-full"

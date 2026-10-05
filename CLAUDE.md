@@ -235,6 +235,14 @@ spend) with derank/ban moderation, plus player lookup and item grant tools.
   with the light held still. Off with System -> 3D graphics, or without
   WebGL: the flat shapes in `objects.js`. The bake fences `Math.random`
   (three's UUIDs) - `tests/objects-3d.spec.ts` holds that and the off switch.
+- The in-game Shooterboard (`src/components/BoardOverlay.tsx`) lives in the
+  command shell like the Hangar and Armory: header + rail (RANKINGS lit) +
+  phone tab bar. Main lane = title/tabs, ONE podium (3D pedestals with each
+  plate under its own pedestal - the plate row is 76% of a 2.2-aspect stage,
+  see the CSS note), then the pack; ops lane = your standing. No floating
+  footer over the rows, no animated backdrop (it cost a phone >1s a frame
+  under the frosted bars). Your row pins to the list foot when off screen.
+  `tests/board-layout.spec.ts` holds it.
 - `/about` is the public "about the game" page (not how-to-play; that is in
   the game). Its pilot/drone/sector/boss names live in
   `src/app/about/content.ts` and `tests/about.spec.ts` checks them against the

@@ -3,8 +3,12 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { Recover } from '@/components/command/Recover';
 import { TIER_COLORS, tierFromScore, displayName } from '@/lib/tiers';
-import { BoardBackdrop } from '@/components/BoardBackdrop';
 import { PilotIcon, type Cosmetics } from '@/components/PilotIcon';
+import { WalletButton } from '@/components/WalletButton';
+import { NAV } from '@/components/command/CommandCenter';
+import { NavRail, TabBar } from '@/components/command/hud';
+import { IconMail, IconSystem } from '@/components/command/icons';
+import { withEngine } from '@/components/command/engine';
 // the podium is fetched only when the board opens with a top three, so the
 // game's boot bundle does not carry it
 const Podium3D = lazy(() => import('@/components/three/Podium3D').then((m) => ({ default: m.Podium3D })));
@@ -12,7 +16,13 @@ const Podium3D = lazy(() => import('@/components/three/Podium3D').then((m) => ({
 // The DEFAULT in-game leaderboard. When the player opens SHOOTERBOARD the
 // engine hands the screen to this overlay (window.__htmlBoard flags the canvas
 // board off), so the one board everyone sees is the cool one - podium, tier
-// colors, live refresh - identical inside the game and at /leaderboard.
+// colors, live refresh.
+//
+// It lives in the same command shell as the Hangar and the Armory: the header
+// with the way back and the wallet, the rail with RANKINGS lit, the tab bar on
+// a phone. The centre lane is the board itself (one podium, then the pack) and
+// the side lane is YOUR standing, so the two never compete for one column and
+// nothing floats over the rows.
 
 interface Entry {
   address: string;
@@ -87,8 +97,11 @@ export function BoardOverlay() {
   // asserting a competitive position we had no way to know.
   const [boardError, setBoardError] = useState(false);
   const [weekResets, setWeekResets] = useState<number | null>(null);
-  const myRowRef = useRef<HTMLDivElement | null>(null);
-  const listRef = useRef<HTMLDivElement | null>(null);
+  const myRowRef = useRef<HTMLElement | null>(null);
+  const [moreOpen, setMoreOpen] = useState(false);
+  // whether the player's own row is on screen; when it is not, a copy of it
+  // pins to the foot of the list so "where am I" never needs a scroll
+  const [meInView, setMeInView] = useState(true);
 
   // the engine flags the canvas board off and this overlay on
   useEffect(() => {
@@ -180,6 +193,19 @@ export function BoardOverlay() {
     return () => clearInterval(iv);
   }, [openState, tab, fetchBoard]);
 
+  useEffect(() => {
+    const el = myRowRef.current;
+    if (!openState || !el || typeof IntersectionObserver === 'undefined') return;
+    const io = new IntersectionObserver(([e]) => setMeInView(e.isIntersecting), { threshold: 0.6 });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [openState, entries, me, tab]);
+
+  const go = useCallback((target: string) => {
+    setMoreOpen(false);
+    withEngine((e) => e.setState(target));
+  }, []);
+
   if (!openState) return null;
 
   const podium = tab === 'all' ? entries.slice(0, 3) : [];
@@ -189,9 +215,6 @@ export function BoardOverlay() {
 
   const jumpToMe = () => {
     myRowRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
-  };
-  const toMenu = () => {
-    try { (window as unknown as { $: { setState: (s: string) => void } }).$.setState('menu'); } catch { /* engine not ready */ }
   };
 
   /*==========================================================================
@@ -227,332 +250,320 @@ export function BoardOverlay() {
     } catch { return 0; }
   })();
 
-  // The champion is not "one of three". Their card is taller, wider, lit, and
-  // carries a bigger number - a player scanning this board should be able to
-  // tell who is winning from across the room, without reading a rank.
-  const podiumMeta = [
-    { label: 'CHAMPION', ring: '#ffd75e', glow: 'rgba(255,215,94,0.18)' },
-    { label: 'RUNNER UP', ring: '#c9d1e8', glow: 'rgba(201,209,232,0.09)' },
-    { label: 'THIRD', ring: '#d08a4a', glow: 'rgba(208,138,74,0.09)' },
+  // What the number on each board means. All-time and weekly ADD every raid
+  // (ZINCRBY); the cup keeps a pilot's best cup run; the daily run is one
+  // attempt. The standing figure is labelled for what it is on each.
+  const SCORE_LABEL: Record<typeof tab, [string, string]> = {
+    all: ['Banked', 'every raid adds to this'],
+    weekly: ['Banked this week', 'every raid this week adds'],
+    cup: ['Cup best', 'your best cup run counts'],
+    daily: ["Today's run", 'one attempt a day'],
+  };
+  const [scoreCap, scoreNote] = SCORE_LABEL[tab];
+  const showTier = tab === 'all';
+  // how close the next pilot up is, as a share of their score
+  const chase = rival && myEntry && rival.score > 0 ? Math.max(0.04, Math.min(1, myEntry.score / rival.score)) : 0;
+
+  const TABS: { id: typeof tab; label: string; gold?: boolean }[] = [
+    { id: 'all', label: 'All-time' },
+    ...(season ? [{ id: 'cup' as const, label: cupLabel.length > 12 ? 'Cup' : cupLabel, gold: true }] : []),
+    { id: 'weekly', label: 'Weekly' },
+    { id: 'daily', label: 'Daily' },
   ];
 
-  return (
-    <div
-      data-game-ui=""
-      className="fixed inset-0 z-40 flex flex-col text-white"
-      style={{
-        background:
-          'radial-gradient(900px 450px at 80% -10%, rgba(53,232,255,0.07), transparent 60%),' +
-          'radial-gradient(700px 350px at 10% 110%, rgba(255,207,77,0.05), transparent 55%), #06070c',
-      }}
-    >
-      {/* ambient blurred combat behind the rows: ships firing at enemies */}
-      <BoardBackdrop />
-      {/* standing block is rendered below the header - see rs-sb-standing */}
+  const meta =
+    tab === 'cup' && season
+      ? `${season.sponsorName ? `With ${season.sponsorName} · ` : ''}${season.endsAt ? `Ends in ${timeLeft(season.endsAt)} · ` : ''}Only runs during the cup count`
+      : tab === 'weekly'
+        ? `Fresh board every Monday${weekResets ? ` · resets in ${timeLeft(weekResets)}` : ''}`
+        : tab === 'daily'
+          ? 'One seeded attempt per pilot, the same waves for everyone'
+          : 'Every raid adds to your banked total';
 
-      {/* a whisper of scanline texture - a third of what was here, so rows
-          and scores read as clean type rather than through a screen door */}
-      <div aria-hidden className="pointer-events-none absolute inset-0 opacity-25" style={{ background: 'repeating-linear-gradient(to bottom, rgba(255,255,255,0.012) 0 1px, transparent 1px 4px)' }} />
+  // the top three; the podium's 3D pedestals stand 2-1-3, and so do the plates
+  const podiumMeta = [
+    { label: 'CHAMPION', ring: '#ffd75e' },
+    { label: 'RUNNER UP', ring: '#c9d1e8' },
+    { label: 'THIRD', ring: '#d08a4a' },
+  ];
 
-      {/* header: title on its own line, controls beneath it - keeps the
-          top-right corner clear of the site's Connect Wallet button */}
-      <div className="relative z-10 px-4 pb-2 pt-4 sm:px-8">
-        <div className="text-[9px] font-black uppercase tracking-[0.4em] text-[color:var(--rs-cyan)]">Live rankings</div>
-        <h1 className="text-2xl font-black tracking-tight sm:text-3xl" style={{ textShadow: '0 0 24px rgba(53,232,255,0.25)' }}>
-          {tab === 'cup' ? (
-            <span className="text-[color:var(--rs-gold)]">{cupLabel.toUpperCase()}</span>
-          ) : tab === 'daily' ? (
-            <span className="text-[color:var(--rs-cyan)]">DAILY RUN</span>
-          ) : tab === 'weekly' ? (
-            <span className="text-[color:var(--rs-cyan)]">WEEKLY LADDER</span>
-          ) : (
-            <>SHOOTER<span className="text-[color:var(--rs-cyan)]">BOARD</span></>
-          )}
-        </h1>
-        <div className="rs-cut-sm mt-2 inline-flex overflow-hidden border border-white/15 text-[11px] font-black uppercase tracking-wider">
-          <button onClick={() => setTab('all')} className={`px-3 py-1.5 uppercase ${tab === 'all' ? 'bg-[color:var(--rs-cyan)] text-black' : 'bg-white/[0.04] text-white/60 hover:text-white'}`}>All-time</button>
-          {season && (
-            <button onClick={() => setTab('cup')} className={`px-3 py-1.5 uppercase ${tab === 'cup' ? 'bg-[color:var(--rs-gold)] text-black' : 'bg-white/[0.04] text-white/60 hover:text-white'}`}>{cupLabel.length > 12 ? 'Cup' : cupLabel}</button>
-          )}
-          <button onClick={() => setTab('weekly')} className={`px-3 py-1.5 uppercase ${tab === 'weekly' ? 'bg-[color:var(--rs-cyan)] text-black' : 'bg-white/[0.04] text-white/60 hover:text-white'}`}>Weekly</button>
-          <button onClick={() => setTab('daily')} className={`px-3 py-1.5 uppercase ${tab === 'daily' ? 'bg-[color:var(--rs-cyan)] text-black' : 'bg-white/[0.04] text-white/60 hover:text-white'}`}>Daily</button>
-        </div>
+  const name = (e: Entry, isMe: boolean) => (
+    <>
+      <span className="truncate">{displayName(e.name, e.address)}</span>
+      {e.verified && <span className="rs-sb-ok" aria-label="Verified wallet">✓</span>}
+      <HolderChip tier={e.holder} />
+      {isMe && <span className="rs-sb-you">You</span>}
+    </>
+  );
+
+  const row = (e: Entry, rank: number, pinned = false) => {
+    const isMe = !!me && e.address === me;
+    return (
+      <div
+        key={pinned ? 'pinned-me' : e.address}
+        ref={isMe && !pinned ? (el) => { myRowRef.current = el; } : undefined}
+        className="rs-sb-row"
+        role="row"
+        data-me={isMe ? '1' : '0'}
+        data-top={rank <= 10 ? '1' : '0'}
+        data-pinned={pinned ? '1' : undefined}
+      >
+        <span className="rs-sb-row-rank rs-num" role="cell">{String(rank).padStart(2, '0')}</span>
+        <span className="rs-sb-row-pilot" role="cell">
+          <PilotIcon cosmetics={e.cosmetics} size={18} pilotName={e.pilot} />
+          <span className="rs-sb-row-name">{name(e, isMe)}</span>
+        </span>
+        <span className="rs-sb-row-kills rs-num" role="cell">{e.kills.toLocaleString()}</span>
+        {showTier && <span className="rs-sb-row-tier" role="cell"><TierChip score={e.score} /></span>}
+        <span className="rs-sb-row-score rs-num" role="cell" style={{ color: showTier ? TIER_COLORS[tierFromScore(e.score)] : undefined }}>
+          {e.score.toLocaleString()}
+        </span>
       </div>
+    );
+  };
 
-      {/*====================================================================
-      YOUR STANDING — the first thing on a competitive screen
-      ====================================================================*/}
-      <div className="rs-sb-standing relative z-10 px-4 sm:px-8">
-        {loading && !entries.length ? (
-          <div className="rs-sb-stand rs-sb-stand-quiet">
-            <span className="rs-am-wait-bar" aria-hidden />
-            <span className="rs-sb-stand-msg">Reading the board…</span>
+  /*==========================================================================
+  YOUR STANDING - the side lane on wide screens, the first block on a phone
+  ==========================================================================*/
+  const standing = (
+    <section className="rs-sb-standing" aria-label="Your standing">
+      {loading && !entries.length ? (
+        <div className="rs-sb-stand rs-sb-stand-quiet">
+          <span className="rs-am-wait-bar" aria-hidden />
+          <span className="rs-sb-stand-msg">Reading the board…</span>
+        </div>
+      ) : boardError ? (
+        /* Recoverable in place: the same fetchBoard() the refresh interval
+           calls, aimed at the tab the player is already looking at, so
+           retrying never changes what they were reading. */
+        <div className="rs-sb-stand rs-sb-stand-quiet">
+          <Recover
+            message="Board unavailable — your standing cannot be read right now."
+            busy={loading}
+            onRetry={() => fetchBoard(tab)}
+            tone="line"
+          />
+        </div>
+      ) : !me ? (
+        /* no identity yet - never guess at a position */
+        <div className="rs-sb-stand rs-sb-stand-quiet">
+          <span className="rs-sb-stand-msg">Post a run to take a place on the board.</span>
+        </div>
+      ) : myRank === 0 ? (
+        <div className="rs-sb-stand rs-sb-stand-quiet">
+          <span className="rs-sb-stand-msg">
+            Not ranked yet{bestRun > 0 ? ` — your best is ${bestRun.toLocaleString()}` : ''}. Finish a raid to enter the board.
+          </span>
+          <button type="button" className="rs-btn rs-btn-solid rs-sb-cta" onClick={() => go('playmode')}>Launch a raid</button>
+        </div>
+      ) : (
+        <div className="rs-sb-stand">
+          <div className="rs-sb-stand-rank">
+            <span className="rs-sb-cap">Your rank</span>
+            <span className="rs-sb-rank rs-num">#{myRank}</span>
+            <span className="rs-sb-of rs-num">of {total.toLocaleString()}</span>
           </div>
-        ) : boardError ? (
-          /* Recoverable in place: the same fetchBoard() the refresh interval
-             calls, aimed at the tab the player is already looking at, so
-             retrying never changes what they were reading. */
-          <div className="rs-sb-stand rs-sb-stand-quiet">
-            <Recover
-              message="Board unavailable — your standing cannot be read right now."
-              busy={loading}
-              onRetry={() => fetchBoard(tab)}
-              tone="line"
-            />
-          </div>
-        ) : !me ? (
-          /* no identity yet - never guess at a position */
-          <div className="rs-sb-stand rs-sb-stand-quiet">
-            <span className="rs-sb-stand-msg">Post a run to take a place on the board.</span>
-          </div>
-        ) : myRank === 0 ? (
-          <div className="rs-sb-stand rs-sb-stand-quiet">
-            <span className="rs-sb-stand-msg">
-              {/* "raid" is the flavour noun for a run throughout the deck, which
-                  is fine - but this one sentence used BOTH for the same thing
-                  ("your best run ... finish a raid"), which reads like two
-                  different activities. One word per sentence. */}
-              Not ranked yet{bestRun > 0 ? ` — your best is ${bestRun.toLocaleString()}` : ''}. Finish a raid to enter the board.
-            </span>
-          </div>
-        ) : (
-          <div className="rs-sb-stand">
-            <div className="rs-sb-stand-rank">
-              <span className="rs-sb-cap">Your rank</span>
-              <span className="rs-sb-rank rs-num">#{myRank}</span>
-              <span className="rs-sb-of rs-num">of {total.toLocaleString()}</span>
+
+          {/* WHAT AM I CHASING - only when a real rival is really above */}
+          {rival && gapToRival > 0 ? (
+            <div className="rs-sb-target">
+              <span className="rs-sb-cap">Next up · #{myRank - 1}</span>
+              <span className="rs-sb-target-name">{displayName(rival.name, rival.address)}</span>
+              <span className="rs-sb-chase" aria-hidden><span style={{ width: `${Math.round(chase * 100)}%` }} /></span>
+              <span className="rs-sb-target-gap rs-num">+{gapToRival.toLocaleString()} to pass</span>
             </div>
+          ) : myRank === 1 ? (
+            <div className="rs-sb-target rs-sb-target-top">
+              <span className="rs-sb-cap">Standing</span>
+              <span className="rs-sb-target-name">Top of the board — defend it</span>
+            </div>
+          ) : null}
 
-            <div className="rs-sb-stand-figs">
-              {/* BANKED is what ranks you: the board is a cumulative ladder
-                  (ZINCRBY), not a best-run ladder. */}
+          <div className="rs-sb-stand-figs">
+            <span className="rs-sb-fig">
+              <span className="rs-sb-cap">{scoreCap}</span>
+              <span className="rs-sb-val rs-num">{(myEntry?.score ?? 0).toLocaleString()}</span>
+              <span className="rs-sb-note">{scoreNote}</span>
+            </span>
+            {bestRun > 0 && (
               <span className="rs-sb-fig">
-                <span className="rs-sb-cap">Banked</span>
-                <span className="rs-sb-val rs-num">{(myEntry?.score ?? 0).toLocaleString()}</span>
-                <span className="rs-sb-note">every raid adds to this</span>
+                <span className="rs-sb-cap">Best run</span>
+                <span className="rs-sb-val rs-num">{bestRun.toLocaleString()}</span>
+                <span className="rs-sb-note">your record raid</span>
               </span>
-              {bestRun > 0 && (
-                <span className="rs-sb-fig">
-                  <span className="rs-sb-cap">Best run</span>
-                  <span className="rs-sb-val rs-num">{bestRun.toLocaleString()}</span>
-                  <span className="rs-sb-note">your record raid</span>
-                </span>
-              )}
+            )}
+            {showTier && (
               <span className="rs-sb-fig">
                 <span className="rs-sb-cap">Tier</span>
-                <span className="rs-sb-val rs-sb-tier">
-                  <TierChip score={myEntry?.score ?? 0} />
-                </span>
+                <span className="rs-sb-val rs-sb-tier"><TierChip score={myEntry?.score ?? 0} /></span>
               </span>
-            </div>
-
-            {/* WHAT AM I CHASING - only when a real rival is really above */}
-            {rival && gapToRival > 0 ? (
-              <div className="rs-sb-target">
-                <span className="rs-sb-cap">Next up · #{myRank - 1}</span>
-                <span className="rs-sb-target-name">{displayName(rival.name, rival.address)}</span>
-                <span className="rs-sb-target-gap rs-num">+{gapToRival.toLocaleString()} to pass</span>
-              </div>
-            ) : myRank === 1 ? (
-              <div className="rs-sb-target rs-sb-target-top">
-                <span className="rs-sb-cap">Standing</span>
-                <span className="rs-sb-target-name">Top of the board — defend it</span>
-              </div>
-            ) : null}
+            )}
           </div>
-        )}
-      </div>
 
-      {/* cup meta strip */}
-      {tab === 'cup' && season && (
-        <div className="relative z-10 px-4 pb-1 text-[11px] font-mono text-[color:var(--rs-gold)]/80 sm:px-8">
-          {season.sponsorName ? `WITH ${season.sponsorName.toUpperCase()} · ` : ''}
-          {season.endsAt ? `ENDS IN ${timeLeft(season.endsAt)} · ` : ''}ONLY RUNS DURING THE CUP COUNT
-        </div>
-      )}
-
-      {/* weekly meta strip */}
-      {tab === 'weekly' && weekResets && (
-        <div className="relative z-10 px-4 pb-1 font-mono text-[11px] text-[color:var(--rs-cyan)]/80 sm:px-8">
-          FRESH BOARD EVERY MONDAY · RESETS IN {timeLeft(weekResets)}
-        </div>
-      )}
-
-      {/* board body */}
-      <div ref={listRef} className="relative z-10 flex-1 overflow-y-auto px-4 pb-24 pt-3 sm:px-8">
-        {entries.length === 0 ? (
-          /* An empty list and a FAILED list are not the same claim. When the
-             fetch failed we do not know whether anyone is ranked, so asserting
-             "NO PILOTS RANKED YET" underneath a "BOARD UNAVAILABLE" banner told
-             the player two contradictory things at once. The Recover bar above
-             owns the message and the retry; say nothing more here. */
-          boardError ? null : (
-            <div className="rs-board-empty mt-16 text-center text-sm text-white/50">
-              {loading ? 'LOADING…' : tab === 'cup' ? 'NO CUP RUNS YET — PLAY TO ENTER' : tab === 'daily' ? 'NO DAILY RUNS YET — ONE SEEDED ATTEMPT PER DAY' : tab === 'weekly' ? 'NO RUNS THIS WEEK YET — FRESH BOARD, CLAIM IT' : 'NO PILOTS RANKED YET'}
-            </div>
-          )
-        ) : (
-          <>
-            {/* the top three standing in their own planes - the same podium
-                as /leaderboard, so the board players actually open is the
-                redesigned one too. Skipped on short landscape screens, where
-                it would push every ranked row off the first screen. */}
-            {podium.length === 3 && (
-              <div className="rs-sb-podium3d -mb-2">
-                <Suspense fallback={null}>
-                  <Podium3D top={podium} />
-                </Suspense>
-              </div>
-            )}
-            {podium.length === 3 && (
-              /* On a phone the old stack cost three full screens of scrolling
-                 before a single ranked row appeared. The champion keeps the
-                 full width they have earned; second and third pair up beneath
-                 in a compact two-up, and the list starts inside one screen. */
-              <div className="mx-auto mb-5 grid max-w-3xl grid-cols-2 gap-2 sm:flex sm:items-end">
-                {[0, 1, 2].map((pi) => {
-                  const e = podium[pi];
-                  const m = podiumMeta[pi];
-                  const isMe = me && e.address === me;
-                  const champion = pi === 0;
-                  return (
-                    <div
-                      key={e.address}
-                      ref={isMe ? myRowRef : undefined}
-                      className={`rs-cut relative overflow-hidden border p-3 text-center ${
-                        champion
-                          ? 'col-span-2 sm:order-2 sm:-mt-6 sm:flex-[1.45] sm:pb-5 sm:pt-5'
-                          : pi === 1
-                            ? 'sm:order-1 sm:flex-1'
-                            : 'sm:order-3 sm:flex-1'
-                      }`}
-                      style={{
-                        borderColor: isMe ? '#ffd75e' : `${m.ring}${champion ? '99' : '44'}`,
-                        background: `linear-gradient(180deg, ${m.glow}, rgba(8,11,18,0.72))`,
-                        boxShadow: champion ? `0 0 44px -14px ${m.ring}` : undefined,
-                      }}
-                    >
-                      {/* the champion's own light, spilling up out of the card */}
-                      {champion && (
-                        <span
-                          aria-hidden
-                          className="pointer-events-none absolute inset-x-0 -top-16 h-32"
-                          style={{ background: `radial-gradient(closest-side, ${m.ring}33, transparent 70%)` }}
-                        />
-                      )}
-                      <div className="rs-label relative" style={{ color: m.ring, letterSpacing: champion ? '0.4em' : '0.3em' }}>
-                        {m.label}
-                      </div>
-                      {/* the pilot's actual loadout, not just a label - the
-                          champion's cosmetics are the first thing you see */}
-                      <div
-                        className={`relative mx-auto mt-2 flex items-center justify-center rounded-full border-2 bg-black/40 ${
-                          champion ? 'h-16 w-16' : 'h-9 w-9 sm:h-11 sm:w-11'
-                        }`}
-                        style={{
-                          borderColor: isMe ? '#ffd75e' : m.ring,
-                          boxShadow: champion ? `0 0 26px -6px ${m.ring}` : undefined,
-                        }}
-                      >
-                        <PilotIcon cosmetics={e.cosmetics} size={champion ? 38 : 22} />
-                        <span
-                          className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full border bg-[#0b0e16] text-[9px] font-black"
-                          style={{ borderColor: m.ring, color: m.ring }}
-                        >
-                          {pi + 1}
-                        </span>
-                      </div>
-                      <div className="relative mt-2 flex items-center justify-center gap-1.5">
-                        <span className={`truncate font-extrabold tracking-wide ${champion ? 'rs-display text-lg' : 'text-sm sm:text-base'}`}>
-                          {displayName(e.name, e.address)}
-                          {e.verified && <span className="ml-1 text-[color:var(--rs-cyan)]">✓</span>}
-                          <HolderChip tier={e.holder} />
-                          {isMe && <span className="ml-1 text-[color:var(--rs-gold)]">· YOU</span>}
-                        </span>
-                      </div>
-                      <div
-                        className={`rs-num relative ${champion ? 'text-3xl' : 'text-base sm:text-xl'}`}
-                        style={{ color: m.ring, textShadow: champion ? `0 0 24px ${m.ring}66` : undefined }}
-                      >
-                        {e.score.toLocaleString()}
-                      </div>
-                      <div className="relative mt-1.5 flex items-center justify-center gap-2 text-[10px] text-white/40">
-                        <TierChip score={e.score} /><span>{e.kills.toLocaleString()} kills</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* The pack. Three bands the eye can read without counting: the
-                TOP 10 carry a lit edge and a bright rank, everyone below is
-                plain, and the player's own row overrides both in gold so they
-                can find themselves in a thousand-row list at a glance. */}
-            <div className="rs-panel rs-cut mx-auto max-w-3xl overflow-hidden">
-              {rest.map((e, i) => {
-                const rank = (podium.length === 3 ? 4 : 1) + i;
-                const isMe = me && e.address === me;
-                const topTen = rank <= 10;
-                return (
-                  <div
-                    key={e.address}
-                    ref={isMe ? myRowRef : undefined}
-                    className={`relative grid grid-cols-[2.6rem_1fr_auto] items-center gap-2 border-t border-white/[0.04] px-3 py-2 text-sm first:border-t-0 sm:grid-cols-[3rem_1fr_5.5rem_6.5rem] ${
-                      isMe ? 'bg-[rgba(255,207,77,0.12)]' : 'hover:bg-white/[0.03]'
-                    }`}
-                  >
-                    {/* contender edge - lit for the top ten, gold for you */}
-                    {(topTen || isMe) && (
-                      <span
-                        aria-hidden
-                        className="absolute inset-y-1 left-0 w-0.5 rounded-full"
-                        style={{
-                          background: isMe ? 'var(--rs-gold)' : 'var(--rs-cyan)',
-                          boxShadow: `0 0 8px ${isMe ? 'var(--rs-gold)' : 'var(--rs-cyan)'}`,
-                          opacity: isMe ? 1 : 0.75,
-                        }}
-                      />
-                    )}
-                    <span className={`rs-num tabular-nums ${topTen ? 'text-white/75' : 'text-white/35'}`}>
-                      {String(rank).padStart(2, '0')}
-                    </span>
-                    <span className="flex min-w-0 items-center gap-1.5 truncate font-semibold tracking-wide">
-                      <PilotIcon cosmetics={e.cosmetics} size={18} pilotName={e.pilot} />
-                      <span className="truncate">
-                        {displayName(e.name, e.address)}
-                        {e.verified && <span className="ml-1 text-[color:var(--rs-cyan)]">✓</span>}
-                          <HolderChip tier={e.holder} />
-                        {isMe && <span className="ml-1.5 text-[10px] font-black text-[color:var(--rs-gold)]">YOU</span>}
-                      </span>
-                    </span>
-                    <span className="hidden sm:block"><TierChip score={e.score} /></span>
-                    <span className="rs-num text-right" style={{ color: TIER_COLORS[tierFromScore(e.score)] }}>
-                      {e.score.toLocaleString()}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-            <p className="mx-auto mt-2 max-w-3xl text-center text-[11px] text-white/45">{total.toLocaleString()} pilot{total === 1 ? '' : 's'} ranked — every score earned, never bought.</p>
-          </>
-        )}
-      </div>
-
-      {/* footer actions */}
-      <div
-        className="rs-sb-foot pointer-events-none absolute inset-x-0 bottom-0 z-20 flex justify-center gap-2 px-4 pb-5 pt-14"
-        style={{ background: 'linear-gradient(to top, rgba(4,6,11,0.97) 34%, rgba(4,6,11,0.75) 62%, transparent)' }}
-      >
-        {myIndex >= 0 && (
-          <button onClick={jumpToMe} className="rs-btn rs-btn-gold pointer-events-auto">
-            Jump to me · #{myIndex + 1}
+          <button type="button" onClick={jumpToMe} className="rs-btn rs-btn-gold rs-sb-jump">
+            Jump to me · #{myRank}
           </button>
-        )}
-        <button onClick={toMenu} className="rs-btn rs-btn-solid pointer-events-auto">
-          Back to command
-        </button>
-      </div>
+        </div>
+      )}
+    </section>
+  );
+
+  const myPinned = myEntry && myRank > (podium.length === 3 ? 3 : 0) && !meInView;
+
+  return (
+    <div data-game-ui="" className="rs-cc rs-sb">
+      <div aria-hidden className="rs-cc-veil rs-sb-veil" />
+      {/* no animated backdrop of its own: like the Hangar and the Armory the
+          board lets the engine's starfield through the veil. A full-screen
+          blurred combat canvas under the shell's frosted header and tab bar
+          cost a phone over a second a frame. */}
+
+      <header className="rs-cc-top rs-sb-top">
+        <div className="rs-hg-where">
+          <button type="button" className="rs-hg-back" onClick={() => go('menu')} aria-label="Back to command deck">
+            <span aria-hidden>‹</span>
+          </button>
+          <span className="rs-hg-title">Rankings</span>
+          <span className="rs-hg-bay">
+            <span className="rs-hg-bay-cap">Ranked</span>
+            <span className="rs-num">{total.toLocaleString()}</span>
+          </span>
+          <span className="rs-sb-live" data-on={boardError ? '0' : '1'}>
+            <span className="rs-sb-live-dot" aria-hidden />
+            {boardError ? 'Offline' : 'Live'}
+          </span>
+        </div>
+        <div className="rs-hud-wallet"><WalletButton /></div>
+      </header>
+
+      <NavRail
+        nav={NAV}
+        active="rankings"
+        onGo={go}
+        onHome={() => go('menu')}
+        onInvite={() => window.dispatchEvent(new CustomEvent('raidshooter:open', { detail: 'invite' }))}
+        onFeedback={() => window.dispatchEvent(new CustomEvent('raidshooter:open', { detail: 'feedback' }))}
+      />
+
+      <main className="rs-cc-main rs-sb-main rs-scroll">
+        <div className="rs-sb-col">
+          <div className="rs-sb-head">
+            <div className="rs-sb-head-text">
+              <h1 className="rs-sb-title" data-tab={tab}>
+                {tab === 'cup' ? cupLabel : tab === 'daily' ? 'Daily run' : tab === 'weekly' ? 'Weekly ladder' : <>Shooter<span>board</span></>}
+              </h1>
+              <p className="rs-sb-meta">{meta}</p>
+            </div>
+            <div className="rs-sb-tabs" role="tablist" aria-label="Board">
+              {TABS.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={tab === t.id}
+                  data-on={tab === t.id ? '1' : '0'}
+                  data-gold={t.gold ? '1' : undefined}
+                  className="rs-sb-tab"
+                  onClick={() => setTab(t.id)}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {entries.length === 0 ? (
+            /* An empty list and a FAILED list are not the same claim. When the
+               fetch failed we do not know whether anyone is ranked; the Recover
+               bar in the standing block owns the message and the retry. */
+            boardError ? null : (
+              <div className="rs-board-empty">
+                {loading ? 'Loading…' : tab === 'cup' ? 'No cup runs yet — play to enter' : tab === 'daily' ? 'No daily runs yet — one seeded attempt per day' : tab === 'weekly' ? 'No runs this week yet — fresh board, claim it' : 'No pilots ranked yet'}
+              </div>
+            )
+          ) : (
+            <>
+              {podium.length === 3 && (
+                <section className="rs-sb-stage" aria-label="Top three">
+                  {/* the top three standing in their own planes; skipped on
+                      short landscape screens, where it would push every ranked
+                      row off the first screen */}
+                  <div className="rs-sb-podium3d">
+                    <Suspense fallback={null}>
+                      <Podium3D top={podium} className="rs-sb-podium-canvas" />
+                    </Suspense>
+                  </div>
+                  <ol className="rs-sb-plates">
+                    {[1, 0, 2].map((pi) => {
+                      const e = podium[pi];
+                      const m = podiumMeta[pi];
+                      const isMe = !!me && e.address === me;
+                      return (
+                        <li
+                          key={e.address}
+                          ref={isMe ? (el) => { myRowRef.current = el; } : undefined}
+                          className="rs-sb-plate"
+                          data-place={pi + 1}
+                          data-me={isMe ? '1' : '0'}
+                          style={{ ['--ring' as string]: m.ring }}
+                        >
+                          <span className="rs-sb-plate-cap">{m.label}</span>
+                          <span className="rs-sb-plate-name">
+                            <PilotIcon cosmetics={e.cosmetics} size={pi === 0 ? 20 : 16} pilotName={e.pilot} />
+                            {name(e, isMe)}
+                          </span>
+                          <span className="rs-sb-plate-score rs-num">{e.score.toLocaleString()}</span>
+                          <span className="rs-sb-plate-foot">
+                            <TierChip score={e.score} />
+                            <span className="rs-num">{e.kills.toLocaleString()} kills</span>
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                </section>
+              )}
+
+              {rest.length > 0 && (
+                <div className="rs-sb-list" role="table" aria-label="Rankings" data-tier={showTier ? '1' : '0'}>
+                  <div className="rs-sb-row rs-sb-row-head" role="row">
+                    <span role="columnheader">Rank</span>
+                    <span role="columnheader">Pilot</span>
+                    <span role="columnheader" className="rs-sb-row-kills">Kills</span>
+                    {showTier && <span role="columnheader" className="rs-sb-row-tier">Tier</span>}
+                    <span role="columnheader" className="rs-sb-row-score">Score</span>
+                  </div>
+                  {rest.map((e, i) => row(e, (podium.length === 3 ? 4 : 1) + i))}
+                  {myPinned && myEntry && row(myEntry, myRank, true)}
+                </div>
+              )}
+              <p className="rs-sb-fine">{total.toLocaleString()} pilot{total === 1 ? '' : 's'} ranked — every score earned, never bought.</p>
+            </>
+          )}
+        </div>
+      </main>
+
+      <aside className="rs-cc-ops rs-sb-ops">{standing}</aside>
+
+      <TabBar nav={NAV} active="rankings" moreOpen={moreOpen} onGo={go} onMore={() => setMoreOpen((v) => !v)} />
+
+      {moreOpen && (
+        <>
+          <div className="rs-cc-scrim" onClick={() => setMoreOpen(false)} />
+          <div className="rs-cc-sheet rs-rise">
+            <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-white/15" />
+            <button className="rs-nav-item" onClick={() => go('menu')}>
+              <span className="rs-nav-icon">‹</span><span>Command deck</span>
+            </button>
+            <button className="rs-nav-item" onClick={() => go('settings')}>
+              <span className="rs-nav-icon"><IconSystem /></span><span>System</span>
+            </button>
+            <button className="rs-nav-item" onClick={() => { setMoreOpen(false); window.dispatchEvent(new CustomEvent('raidshooter:open', { detail: 'inbox' })); }}>
+              <span className="rs-nav-icon"><IconMail /></span><span>Inbox</span>
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }

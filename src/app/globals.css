@@ -4052,37 +4052,291 @@ each animate in, which would be the SaaS-dashboard version of this.
 }
 
 /*==============================================================================
-SHOOTERBOARD — YOUR STANDING
+SHOOTERBOARD - in the command shell
 
-The board opened onto a list of strangers. This block answers "where am I"
-before the list starts, and it is built from the same instrument language as
-the rest of the facility: hairline rules, technical captions over tabular
-figures, no cards.
+The board used to be a screen of its own laid over everything: its own
+floating title, the wallet button hovering in its corner, a standing strip
+the full width of the screen above a list a third of that width, a 3D podium
+and then the same three pilots again as cards, and a footer of buttons
+parked on top of the rows. On a laptop the first ranked row started 700px
+down; on a phone, a tablet or a landscape phone, never on the first screen.
 
-One wording decision is load-bearing. The board ranks on a CUMULATIVE total
-(submitEntry does a ZINCRBY, so every raid adds to a running sum) - a player's
-best single run has no direct bearing on their position. BANKED and BEST RUN
-are therefore labelled for what they each are, with a one-line note under each,
-because putting two big numbers side by side without saying which one ranks you
-would imply a relationship the data does not have.
+It now sits in the same shell as the Hangar and the Armory - the header with
+the way back and the wallet, the rail with RANKINGS lit, the tab bar on a
+phone - and uses the shell's lanes for what they already mean:
 
-Colour follows the established meanings: cyan is you and your position, gold is
-the target you are chasing, and the tier chip keeps its own scale.
+  rail   where you can go
+  main   the board: title and tabs, ONE podium (the 3D pedestals with each
+         pilot's plate standing under their own pedestal), then the pack
+  ops    you: rank, who you are chasing and by how much, your figures,
+         Jump to me
+
+On one column (phones, tablets held upright) YOUR standing comes first, then
+the board. When your row is off screen a copy of it pins to the foot of the
+list, so "where am I" never needs a scroll.
+
+One wording decision is load-bearing. All-time and weekly ADD every raid
+(ZINCRBY); the cup keeps your best cup run; the daily run is one attempt. The
+standing figure is labelled for what it is on each tab, with a one-line note,
+because two big numbers side by side imply a relationship the data does not
+have. Colour keeps its meanings: cyan is you and your position, gold is what
+you are chasing, the tier chip keeps its own scale.
 ==============================================================================*/
-/*==============================================================================
-SHOOTERBOARD (in-game overlay) - 3D podium and a footer that fits short screens
-==============================================================================*/
-@media (max-height: 560px) {
-  /* a 390px-tall phone has no room for a stage above the cards */
-  .rs-sb-podium3d { display: none; }
-  /* the footer used to take a third of a landscape phone and sat on the
-     champion's card; it is a slim bar there now */
-  .rs-sb-foot { padding-top: 22px; padding-bottom: 8px; }
-  .rs-sb-foot .rs-btn { padding-top: 8px; padding-bottom: 8px; font-size: 11px; }
+.rs-sb .rs-cc-top { order: -2; }
+.rs-sb .rs-sb-ops { order: -1; }
+.rs-sb-main { display: block; }
+.rs-sb-col {
+  width: 100%;
+  max-width: 860px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-bottom: 18px;
 }
 
-.rs-sb-standing { padding-top: 10px; padding-bottom: 4px; }
+/*--- header: a live light beside the count ---------------------------------*/
+.rs-sb-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 2px;
+  font-family: var(--rs-font-ui);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--rs-green);
+}
+.rs-sb-live[data-on="0"] { color: var(--rs-red); }
+.rs-sb-live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 8px currentColor;
+  animation: rs-sb-pulse 2.2s ease-in-out infinite;
+}
+@keyframes rs-sb-pulse { 50% { opacity: 0.35; } }
+@media (prefers-reduced-motion: reduce) { .rs-sb-live-dot { animation: none; } }
 
+/*--- title, meta, tabs -----------------------------------------------------*/
+.rs-sb-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+  padding-top: 8px;
+}
+.rs-sb-head-text { min-width: 0; }
+.rs-sb-title {
+  margin: 0;
+  font-family: var(--rs-font-display);
+  font-weight: 900;
+  font-size: clamp(22px, 2.6vw, 32px);
+  line-height: 1;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--rs-text);
+  text-shadow: 0 0 24px rgba(53, 232, 255, 0.22);
+}
+.rs-sb-title span { color: var(--rs-cyan); }
+.rs-sb-title[data-tab="cup"] { color: var(--rs-gold); text-shadow: 0 0 24px rgba(255, 207, 77, 0.22); }
+.rs-sb-title[data-tab="daily"], .rs-sb-title[data-tab="weekly"] { color: var(--rs-cyan); }
+.rs-sb-meta {
+  margin: 7px 0 0;
+  font-family: var(--rs-font-ui);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  line-height: 1.4;
+  color: var(--rs-text-dim);
+}
+.rs-sb-tabs {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--rs-line-strong);
+  border-radius: 8px;
+  background: rgba(8, 12, 20, 0.72);
+}
+.rs-sb-tab {
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  font-family: var(--rs-font-ui);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--rs-text-dim);
+  cursor: pointer;
+  transition: color 130ms ease, background 130ms ease;
+}
+.rs-sb-tab:hover { color: var(--rs-text); }
+.rs-sb-tab[data-on="1"] { background: var(--rs-cyan); color: #031016; }
+.rs-sb-tab[data-on="1"][data-gold="1"] { background: var(--rs-gold); }
+
+/*--- the podium: pedestals, and each pilot's plate under its own -------------
+   The 3D scene stands its pedestals at x = -3.7, 0, 3.7 with a 34deg camera at
+   z 11, which lands them 0.55 / aspect of the width either side of centre. At
+   a 2.2 aspect that is 25%, so three equal plates across 76% of the stage sit
+   one under each pedestal at any width. */
+.rs-sb-stage { position: relative; width: 100%; max-width: 600px; margin: 0 auto; }
+.rs-sb-podium-canvas { position: relative; width: 100%; aspect-ratio: 2.2 / 1; }
+.rs-sb-plates {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: end;
+  gap: 8px;
+  width: 76%;
+  margin: -12px auto 0;
+  padding: 0;
+  list-style: none;
+}
+/* no WebGL, or 3D switched off: the plates stand alone, full width */
+.rs-sb-podium3d:empty + .rs-sb-plates { width: 100%; margin-top: 0; }
+.rs-sb-plate {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 10px 8px;
+  text-align: center;
+  border: 1px solid color-mix(in srgb, var(--ring) 34%, transparent);
+  border-top: 2px solid var(--ring);
+  border-radius: 8px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--ring) 13%, transparent), rgba(8, 11, 18, 0.86) 70%);
+}
+.rs-sb-plate[data-place="1"] { padding-block: 14px 12px; box-shadow: 0 0 44px -18px var(--ring); }
+.rs-sb-plate[data-me="1"] { outline: 1px solid var(--rs-gold); outline-offset: 2px; }
+.rs-sb-plate-cap {
+  font-family: var(--rs-font-ui);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.3em;
+  line-height: 1;
+  color: var(--ring);
+}
+.rs-sb-plate-name {
+  display: flex;
+  max-width: 100%;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  font-family: var(--rs-font-ui);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--rs-text);
+}
+.rs-sb-plate[data-place="1"] .rs-sb-plate-name { font-family: var(--rs-font-display); font-size: 15px; }
+.rs-sb-plate-score { font-size: 17px; line-height: 1; color: var(--ring); }
+.rs-sb-plate[data-place="1"] .rs-sb-plate-score {
+  font-size: 24px;
+  text-shadow: 0 0 22px color-mix(in srgb, var(--ring) 45%, transparent);
+}
+.rs-sb-plate-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 4px 6px; font-size: 10px; color: var(--rs-text-faint); }
+.rs-sb-plate-foot .rs-num { white-space: nowrap; }
+
+/*--- the pack --------------------------------------------------------------*/
+.rs-sb-list {
+  border: 1px solid var(--rs-line);
+  border-radius: 10px;
+  background: rgba(8, 11, 18, 0.8);
+}
+.rs-sb-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 2.4rem minmax(0, 1fr) 4.5rem 6.5rem;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.045);
+  font-size: 13px;
+}
+.rs-sb-list[data-tier="1"] .rs-sb-row { grid-template-columns: 2.4rem minmax(0, 1fr) 4.5rem 5.5rem 6.5rem; }
+.rs-sb-row:not(.rs-sb-row-head):hover { background: rgba(255, 255, 255, 0.03); }
+.rs-sb-row-head {
+  border-top: 0;
+  padding-block: 9px 7px;
+  font-family: var(--rs-font-ui);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--rs-text-faint);
+}
+.rs-sb-row-head > span { font-size: 8px; color: var(--rs-text-faint); }
+.rs-sb-row-rank { color: var(--rs-text-faint); font-variant-numeric: tabular-nums; }
+.rs-sb-row[data-top="1"] .rs-sb-row-rank { color: rgba(233, 241, 255, 0.78); }
+/* contender edge - lit for the top ten, gold for you */
+.rs-sb-row[data-top="1"]:not(.rs-sb-row-head)::before,
+.rs-sb-row[data-me="1"]::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 5px;
+  bottom: 5px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--rs-cyan);
+  box-shadow: 0 0 8px var(--rs-cyan);
+  opacity: 0.7;
+}
+.rs-sb-row[data-me="1"] { background: rgba(255, 207, 77, 0.12); }
+.rs-sb-row[data-me="1"]::before { background: var(--rs-gold); box-shadow: 0 0 8px var(--rs-gold); opacity: 1; }
+.rs-sb-row-pilot { display: flex; min-width: 0; align-items: center; gap: 8px; font-weight: 600; letter-spacing: 0.04em; }
+.rs-sb-row-name { display: flex; min-width: 0; align-items: center; gap: 5px; }
+.rs-sb-row-kills { text-align: right; font-size: 12px; color: var(--rs-text-faint); }
+.rs-sb-row-tier { display: flex; justify-content: center; }
+.rs-sb-row-score { text-align: right; font-variant-numeric: tabular-nums; color: var(--rs-text); }
+.rs-sb-ok { color: var(--rs-cyan); }
+.rs-sb-you {
+  flex: none;
+  padding: 2px 4px;
+  border-radius: 3px;
+  background: var(--rs-gold);
+  font-family: var(--rs-font-ui);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  line-height: 1;
+  text-transform: uppercase;
+  color: #031016;
+}
+/* your row, pinned to the foot of the list while the real one is off screen */
+.rs-sb-row[data-pinned="1"] {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  border-top: 1px solid rgba(255, 207, 77, 0.5);
+  border-radius: 0 0 10px 10px;
+  background: #1b180c;
+  box-shadow: 0 -12px 24px -10px rgba(0, 0, 0, 0.85);
+}
+.rs-sb-fine { margin: 0; text-align: center; font-size: 11px; color: var(--rs-text-faint); }
+.rs-board-empty {
+  margin-top: 40px;
+  text-align: center;
+  font-family: var(--rs-font-ui);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--rs-text-dim);
+}
+
+/*--- YOUR STANDING ---------------------------------------------------------*/
+.rs-sb-standing { width: 100%; }
 .rs-sb-stand {
   display: flex;
   align-items: center;
@@ -4090,31 +4344,26 @@ SHOOTERBOARD (in-game overlay) - 3D podium and a footer that fits short screens
   gap: 10px 26px;
   padding: 12px 14px;
   border: 1px solid rgba(53, 232, 255, 0.22);
-  border-left-width: 2px;
-  border-left-color: var(--rs-cyan);
-  background: linear-gradient(90deg, rgba(53, 232, 255, 0.07), rgba(53, 232, 255, 0.01));
-  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%);
+  border-left: 2px solid var(--rs-cyan);
+  border-radius: 0 10px 10px 0;
+  background: linear-gradient(90deg, rgba(53, 232, 255, 0.08), rgba(8, 11, 18, 0.82));
 }
-
 /* nothing to state yet: loading, no identity, or genuinely unranked. Quiet,
    and never a fabricated position. */
 .rs-sb-stand-quiet {
   border-color: var(--rs-line);
   border-left-color: var(--rs-line-strong);
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(8, 11, 18, 0.78);
 }
 .rs-sb-stand-msg {
   font-family: var(--rs-font-ui);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.12em;
+  line-height: 1.5;
   text-transform: uppercase;
-  color: var(--rs-text-faint);
+  color: var(--rs-text-dim);
 }
-
-/* the board being down is a different fact from being unranked */
-.rs-sb-stand-err { color: rgba(255, 77, 99, 0.7); }
-
 .rs-sb-cap {
   display: block;
   font-family: var(--rs-font-ui);
@@ -4124,7 +4373,6 @@ SHOOTERBOARD (in-game overlay) - 3D podium and a footer that fits short screens
   text-transform: uppercase;
   color: var(--rs-text-faint);
 }
-
 .rs-sb-stand-rank { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0 8px; }
 .rs-sb-stand-rank .rs-sb-cap { width: 100%; margin-bottom: 2px; }
 .rs-sb-rank {
@@ -4135,26 +4383,24 @@ SHOOTERBOARD (in-game overlay) - 3D podium and a footer that fits short screens
   text-shadow: 0 0 22px rgba(53, 232, 255, 0.4);
 }
 .rs-sb-of { font-family: var(--rs-font-mono); font-size: 11px; color: var(--rs-text-faint); }
-
 .rs-sb-stand-figs { display: flex; align-items: flex-start; flex-wrap: wrap; gap: 10px 22px; }
 .rs-sb-fig { display: flex; flex-direction: column; gap: 2px; }
-.rs-sb-val { font-family: var(--rs-font-mono); font-size: 15px; color: var(--rs-text); line-height: 1.1; }
+.rs-sb-val { font-family: var(--rs-font-mono); font-size: 15px; line-height: 1.1; color: var(--rs-text); }
 .rs-sb-tier { display: block; }
-/* the line that stops BANKED and BEST RUN reading as the same kind of number */
 .rs-sb-note {
   font-family: var(--rs-font-ui);
   font-size: 8px;
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: rgba(233, 241, 255, 0.24);
+  color: rgba(233, 241, 255, 0.3);
 }
-
 /* what you are chasing - gold, because it is the thing being pursued */
 .rs-sb-target {
   display: flex;
+  min-width: 150px;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
   margin-left: auto;
   padding-left: 18px;
   border-left: 1px solid var(--rs-line);
@@ -4169,23 +4415,84 @@ SHOOTERBOARD (in-game overlay) - 3D podium and a footer that fits short screens
 }
 .rs-sb-target-gap { font-family: var(--rs-font-mono); font-size: 12px; color: var(--rs-gold); }
 .rs-sb-target-top .rs-sb-target-name { color: var(--rs-gold); }
+.rs-sb-chase { display: block; height: 4px; margin: 3px 0 1px; overflow: hidden; border-radius: 2px; background: rgba(255, 255, 255, 0.08); }
+.rs-sb-chase span { display: block; height: 100%; border-radius: 2px; background: linear-gradient(90deg, var(--rs-cyan), var(--rs-gold)); }
+.rs-sb-jump, .rs-sb-cta { flex: none; }
 
-/* MOBILE: rank, banked and tier must all be readable before any scrolling,
-   so the block wraps rather than shrinking, and the target moves under the
-   figures instead of being pushed off the right edge. */
+/*--- one column: phones, upright tablets ------------------------------------*/
+/* sticky offsets in a scroller are measured inside its padding, so the pinned
+   row clears the phone tab bar (the shell's 62px bottom padding) by itself */
+.rs-sb .rs-sb-ops { padding-bottom: 0; }
+@media (min-width: 640px) and (min-height: 561px) and (max-width: 1099px) {
+  /* one column on a tablet: the standing spans the board, not a 560px card */
+  .rs-sb .rs-cc-ops { max-width: 884px; grid-template-columns: minmax(0, 1fr); }
+}
 @media (max-width: 720px) {
-  .rs-sb-standing { padding-left: 12px; padding-right: 12px; }
   .rs-sb-stand { gap: 10px 18px; padding: 10px 12px; }
   .rs-sb-rank { font-size: 24px; }
   .rs-sb-val { font-size: 13px; }
   .rs-sb-target {
-    margin-left: 0;
     width: 100%;
-    padding-left: 0;
-    padding-top: 8px;
+    margin-left: 0;
+    padding: 8px 0 0;
     border-left: 0;
     border-top: 1px solid var(--rs-line);
   }
+  .rs-sb-jump, .rs-sb-cta { width: 100%; }
+}
+@media (max-width: 480px) {
+  /* the header holds back, title, count and the wallet; the live light keeps
+     its dot and drops its word */
+  .rs-sb-live { font-size: 0; letter-spacing: 0; gap: 0; }
+}
+@media (max-width: 640px) {
+  .rs-sb-row, .rs-sb-list[data-tier="1"] .rs-sb-row { grid-template-columns: 2.2rem minmax(0, 1fr) 6rem; padding-inline: 12px; }
+  .rs-sb-row-kills, .rs-sb-row-tier { display: none; }
+  .rs-sb-head { align-items: flex-start; }
+  .rs-sb-tabs { width: 100%; }
+  .rs-sb-tab { flex: 1; padding-inline: 6px; }
+}
+@media (max-width: 560px) {
+  /* a 90px plate cannot hold a name and a score: the champion takes the full
+     width under the pedestals, second and third pair up beneath */
+  .rs-sb-plates { width: 100%; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: -4px; }
+  .rs-sb-plate[data-place="1"] { grid-column: 1 / -1; order: -1; }
+}
+
+/*--- lanes: the standing gets the ops lane --------------------------------*/
+@media (min-width: 1100px), (max-height: 560px) and (min-width: 640px) {
+  .rs-sb .rs-cc-ops { align-content: start; padding-top: 14px; }
+  /* the pinned row sits on the lane's real bottom edge */
+  .rs-sb .rs-cc-main { padding-bottom: 0; }
+  .rs-sb-stand { flex-direction: column; align-items: stretch; gap: 14px; padding: 16px; }
+  .rs-sb-target {
+    min-width: 0;
+    margin-left: 0;
+    padding: 12px 0 0;
+    border-left: 0;
+    border-top: 1px solid var(--rs-line);
+  }
+  .rs-sb-stand-figs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .rs-sb-jump, .rs-sb-cta { width: 100%; }
+}
+@media (min-width: 1100px) {
+  .rs-sb-rank { font-size: 40px; }
+  .rs-sb .rs-cc-main { padding-top: 6px; }
+}
+
+/*--- short screens: height is the scarce thing ------------------------------*/
+@media (max-height: 560px) {
+  /* a 390px-tall phone has no room for a stage above the plates */
+  .rs-sb-podium3d { display: none; }
+  .rs-sb-plates { width: 100%; margin-top: 0; }
+  .rs-sb-plate, .rs-sb-plate[data-place="1"] { padding: 7px 6px; gap: 3px; }
+  .rs-sb-plate[data-place="1"] .rs-sb-plate-score { font-size: 18px; }
+  .rs-sb-col { gap: 10px; }
+  .rs-sb-head { padding-top: 4px; }
+  .rs-sb-title { font-size: 20px; }
+  .rs-sb-meta { margin-top: 4px; }
+  .rs-sb-stand { gap: 10px; padding: 12px; }
+  .rs-sb-rank { font-size: 26px; }
 }
 
 /*==============================================================================
